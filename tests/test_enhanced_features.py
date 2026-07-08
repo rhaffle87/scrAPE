@@ -668,9 +668,9 @@ def test_media_downloader_unicode_quoting(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "stream", mock_stream)
 
-    # Pass a url and referer with non-ASCII characters (e.g. from example-unicode.com)
-    unicode_url = "https://example-unicode.com/path/with/unicode/测试.png"
-    unicode_referer = "https://example-unicode.com/referer/测试"
+    # Pass a url and referer with non-ASCII characters (e.g. from buondua.com)
+    unicode_url = "https://buondua.com/path/with/unicode/测试.png"
+    unicode_referer = "https://buondua.com/referer/测试"
 
     # Create a dummy temp directory
     temp_dir = Path("output/test_unicode_dl")

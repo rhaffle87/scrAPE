@@ -18,10 +18,8 @@ RATE_LIMIT_JITTER_SECONDS = 0.4
 # Per-domain rate-limit overrides (requests/second).
 # Domains not listed here fall back to DEFAULT_REQUESTS_PER_SECOND.
 # e.g. {"example.com": 0.5}
-DOMAIN_REQUESTS_PER_SECOND: dict[str, float] = {
-    "example-rate-limited.com": 0.2,
-    "example-throttled.com": 0.1,
-}
+# Note: Custom rate limits are dynamically loaded from seed manifest headers or --domain-delay.
+DOMAIN_REQUESTS_PER_SECOND: dict[str, float] = {}
 
 # 429 circuit-breaker: how many consecutive 429 responses before cooldown triggers.
 DOMAIN_COOLDOWN_THRESHOLD = 3

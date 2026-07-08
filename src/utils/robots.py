@@ -11,10 +11,13 @@ LOGGER = get_logger(__name__)
 
 
 class RobotsChecker:
-    def __init__(self, http_client: HttpClient) -> None:
+    def __init__(self, http_client: HttpClient, ignore_robots: bool = False) -> None:
         self.http_client = http_client
+        self.ignore_robots = ignore_robots
 
     def is_allowed(self, url: str, user_agent: str = "*") -> bool:
+        if self.ignore_robots:
+            return True
         parser = self._get_parser(url)
         if parser is None:
             return True

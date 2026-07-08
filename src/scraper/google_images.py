@@ -6,7 +6,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Tag
 
-from config import DISCOVERY_PATH_HINTS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
+from config import ALWAYS_BLOCK_DOMAINS, DISCOVERY_PATH_HINTS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 from core.filters import is_allowed_domain, is_allowed_path, is_http_url
 from core.models import ImageItem, VideoItem
 from core.parser import parse_html
@@ -20,9 +20,9 @@ LOGGER = get_logger(__name__)
 
 
 class SearchProviderScraper(BaseSearchScraper):
-    def __init__(self, domain_delays: dict[str, float] | None = None) -> None:
+    def __init__(self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False) -> None:
         self.http = HttpClient(domain_delays=domain_delays)
-        self.robots = RobotsChecker(self.http)
+        self.robots = RobotsChecker(self.http, ignore_robots=ignore_robots)
 
 
     def search_pages(
@@ -88,7 +88,7 @@ class SearchProviderScraper(BaseSearchScraper):
 
             soup = parse_html(response.text)
             page_title = self._extract_page_title(soup)
-            images = self._extract_images(soup, url, page_title)
+            images = self._extract_images(soup, url, page_title, allow_domains, block_domains)
             videos = extract_videos_from_html(soup, url, page_title)
             return images, videos, "ok"
         except Exception as exc:
@@ -190,7 +190,14 @@ class SearchProviderScraper(BaseSearchScraper):
             LOGGER.warning("Failed to discover links from %s: %s", url, exc)
             return []
 
-    def _extract_images(self, soup: Tag, page_url: str, page_title: str) -> list[ImageItem]:
+    def _extract_images(
+        self,
+        soup: Tag,
+        page_url: str,
+        page_title: str,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[ImageItem]:
         from core.filters import (
             absolutize_url,
             clean_attr,
@@ -200,14 +207,19 @@ class SearchProviderScraper(BaseSearchScraper):
         )
 
         images: list[ImageItem] = []
+        allow_domains = allow_domains or []
+        block_domains = block_domains or []
 
         for meta in soup.select("meta[property='og:image'], meta[name='og:image']"):
             content = meta.get("content", "").strip()
             if not content:
                 continue
+            absolute_url = normalize_url(absolutize_url(content, page_url))
+            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                continue
             images.append(
                 ImageItem(
-                    url=normalize_url(absolutize_url(content, page_url)),
+                    url=absolute_url,
                     source_page=page_url,
                     alt_text="",
                     page_title=page_title,
@@ -215,6 +227,10 @@ class SearchProviderScraper(BaseSearchScraper):
             )
 
         for image in soup.find_all("img"):
+            in_layout = self._is_in_layout_container(image)
+            if in_layout:
+                continue
+
             srcset_source = self._parse_srcset_highest_res(image.get("srcset", ""))
             source = (
                 srcset_source
@@ -227,6 +243,8 @@ class SearchProviderScraper(BaseSearchScraper):
                 continue
             absolute_url = normalize_url(absolutize_url(source, page_url))
             if not is_http_url(absolute_url):
+                continue
+            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
                 continue
 
             width = None
@@ -241,7 +259,6 @@ class SearchProviderScraper(BaseSearchScraper):
             except Exception:
                 pass
 
-            in_layout = self._is_in_layout_container(image)
             parent_anchor = image.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
@@ -264,14 +281,19 @@ class SearchProviderScraper(BaseSearchScraper):
             )
 
         for element in soup.find_all(style=True):
+            in_layout = self._is_in_layout_container(element)
+            if in_layout:
+                continue
+
             background_image = extract_background_image(element.get("style"))
             if not background_image:
                 continue
             absolute_url = normalize_url(absolutize_url(background_image, page_url))
             if not is_http_url(absolute_url):
                 continue
+            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                continue
 
-            in_layout = self._is_in_layout_container(element)
             parent_anchor = element.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
@@ -300,8 +322,12 @@ class SearchProviderScraper(BaseSearchScraper):
             if not is_http_url(absolute_url):
                 continue
             if is_probable_image(absolute_url):
-                anchor_text = clean_attr(anchor.get_text() or anchor.get("title", ""))
                 in_layout = self._is_in_layout_container(anchor)
+                if in_layout:
+                    continue
+                if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                    continue
+                anchor_text = clean_attr(anchor.get_text() or anchor.get("title", ""))
                 images.append(
                     ImageItem(
                         url=absolute_url,

@@ -29,6 +29,16 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
     videos: list[VideoItem] = []
     seen: set[str] = set()
 
+    # Pre-pass: scan and block any media URLs inside layout containers
+    for el in soup.find_all(lambda tag: tag and _is_in_layout_container(tag)):
+        for child in [el] + el.find_all(True):
+            src = child.get("src") or child.get("href")
+            if src:
+                try:
+                    seen.add(normalize_url(absolutize_url(src, page_url)))
+                except Exception:
+                    pass
+
     def add_video(item: VideoItem) -> None:
         normalized = normalize_url(item.url)
         if normalized not in seen:
@@ -37,6 +47,8 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
 
     for video in soup.find_all("video"):
         in_layout = _is_in_layout_container(video)
+        if in_layout:
+            continue
         parent_anchor = video.find_parent("a")
         parent_anchor_text = ""
         parent_anchor_href = ""
@@ -84,6 +96,8 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
         match_type = detect_video_type(absolute_url)
         if match_type:
             in_layout = _is_in_layout_container(iframe)
+            if in_layout:
+                continue
             parent_anchor = iframe if iframe.name == "a" else iframe.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""

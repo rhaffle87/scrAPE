@@ -77,26 +77,22 @@ python main.py --keyword "example_subject" \
 `monitor_agent.py` is a lightweight watchdog that runs **scrAPE** repeatedly at a fixed interval, useful for long-running scheduled collection jobs.
 
 ```bash
-python monitor_agent.py
+python monitor_agent.py --keyword "example_subject" --seed-file seeds/example_subject.txt --download-media --interval 60 --timeout 1800
 ```
 
 The agent performs an initial scrape immediately, then sleeps and repeats on the configured interval. It tails the child process stdout in real-time and enforces a per-run timeout (default 30 minutes) to prevent runaway sessions. Press `Ctrl+C` to stop gracefully.
 
-**Configure the target before running** — edit the two constants at the top of `monitor_agent.py`:
+**All CLI flags for `monitor_agent.py`:**
 
-```python
-KEYWORD   = "example_subject"            # keyword passed to --keyword
-SEED_FILE = "seeds/example_subject.txt"  # seed manifest passed to --seed-file
-```
+| Flag | Env Variable | Default | Description |
+| --- | --- | --- | --- |
+| `--keyword`, `-k` | `SCRAPE_KEYWORD` | *(required)* | The keyword / subject name to scrape |
+| `--seed-file`, `-s` | `SCRAPE_SEED_FILE` | `None` | Path to the matching seed manifest file |
+| `--interval`, `-i` | `SCRAPE_INTERVAL` | `60` | Seconds between the end of one run and the start of the next |
+| `--timeout`, `-t` | `SCRAPE_TIMEOUT` | `1800` | Max seconds a single scrape run may take before it is killed |
+| `--download-media`, `-d` | — | off | Enable downloading of discovered media |
 
-**All tunable parameters inside `monitor_agent.py`:**
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `KEYWORD` | `"example_subject"` | The keyword / subject name to scrape |
-| `SEED_FILE` | `"seeds/example_subject.txt"` | Path to the matching seed manifest file |
-| `interval_seconds` | `60` | Seconds between the end of one run and the start of the next |
-| `timeout` | `1800` | Max seconds a single scrape run may take before it is killed |
+Any additional unknown arguments provided to `monitor_agent.py` will be automatically passed down to the underlying `main.py` executions.
 
 ---
 

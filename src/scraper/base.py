@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 
 from core.models import ImageItem, VideoItem
 
-
 class BaseSearchScraper(ABC):
     @abstractmethod
     def search_pages(

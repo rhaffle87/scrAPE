@@ -148,6 +148,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Wipe the entire cache directory before starting the crawl.",
     )
+    parser.add_argument(
+        "--ignore-robots",
+        action="store_true",
+        help="Bypass robots.txt rules and fetch all URLs.",
+    )
     return parser
 
 
@@ -323,7 +328,11 @@ def main() -> None:
                     1.0 / profile.rate_limit,
                 )
 
-    engine = ScrapingEngine(domain_delays=domain_delays or None, workers=args.workers)
+    engine = ScrapingEngine(
+        domain_delays=domain_delays or None,
+        workers=args.workers,
+        ignore_robots=args.ignore_robots,
+    )
     engine.downloader.workers = args.dl_workers
 
     log_run_start(

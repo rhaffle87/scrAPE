@@ -147,6 +147,7 @@ class MediaDownloader:
         CDN 403s are resolved by sending a full browser-like Referer + Origin
         header pair derived from the source page URL.
         """
+        directory.mkdir(parents=True, exist_ok=True)
         from urllib.parse import quote
         safe_url = quote(url, safe='/:?=&%#~()[],;')
         safe_referer = quote(referer, safe='/:?=&%#~()[],;') if referer else None

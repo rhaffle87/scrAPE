@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.seed_manifest import DomainProfile, SeedManifest
 
-
 @dataclass(slots=True)
 class ImageItem:
     url: str
@@ -107,6 +106,7 @@ class EngineOptions:
     use_search: bool = True
     strict_domain: bool = False
     site_tree_only: bool = False
+    ignore_robots: bool = False
     # Seed manifest — populated by main.py when a seed file is parsed
     seed_manifest: SeedManifest | None = field(default=None)
     # Flattened {hostname: DomainProfile} lookup — built from seed_manifest

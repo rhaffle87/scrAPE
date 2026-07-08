@@ -6,7 +6,6 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
-
 from tqdm import tqdm
 
 from config import (
@@ -27,6 +26,7 @@ from core.filters import (
     score_image_relevance,
     score_video_relevance,
     looks_like_media,
+    is_archive_or_index_page,
 )
 from core.models import EngineOptions, ImageItem, PageReport, RejectedItem, ScrapeResult, VideoItem
 from scraper.google_images import SearchProviderScraper
@@ -42,9 +42,10 @@ class ScrapingEngine:
         self,
         domain_delays: dict[str, float] | None = None,
         workers: int = CONCURRENT_PAGES_PER_BATCH,
+        ignore_robots: bool = False,
     ) -> None:
         self.workers = max(1, workers)
-        self.search_provider = SearchProviderScraper(domain_delays=domain_delays)
+        self.search_provider = SearchProviderScraper(domain_delays=domain_delays, ignore_robots=ignore_robots)
         self.video_scraper = VideoScraper(domain_delays=domain_delays)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http)
@@ -69,6 +70,7 @@ class ScrapingEngine:
         seed_manifest: object | None = None,
         domain_profiles: dict | None = None,
         run_id: str | None = None,
+        ignore_robots: bool = False,
     ) -> ScrapeResult:
         options = EngineOptions(
             keyword=keyword,
@@ -84,6 +86,7 @@ class ScrapingEngine:
             use_search=use_search,
             strict_domain=strict_domain,
             site_tree_only=site_tree_only,
+            ignore_robots=ignore_robots,
             seed_manifest=seed_manifest,
             domain_profiles=domain_profiles or {},
         )
@@ -175,7 +178,7 @@ class ScrapingEngine:
                         )
                         discovered_links = [
                             lnk for lnk in discovered_links
-                            if self._is_detail_page(lnk, seed_for_host, options.entity_tokens)
+                            if self._is_detail_page(lnk, seed_for_host, options.keyword, options.entity_tokens)
                         ]
                     discovered_links_counts[normalized_page] = len(discovered_links)
 
@@ -368,15 +371,48 @@ class ScrapingEngine:
             image_dir.mkdir(parents=True, exist_ok=True)
             video_dir.mkdir(parents=True, exist_ok=True)
 
-            image_tasks = [
-                (item, image_dir, self.downloader._build_file_stem(idx, item.alt_text or item.page_title or "image"), "image")
-                for idx, item in enumerate(result.images, start=1)
-            ]
-            video_tasks = [
-                (item, video_dir, self.downloader._build_file_stem(idx, item.page_title or item.type), "video")
-                for idx, item in enumerate(result.videos, start=1)
-                if item.type in {"direct", "hls", "dash"}
-            ]
+            def get_domain_slug(url: str) -> str:
+                parsed = urlparse(url)
+                netloc = parsed.netloc.lower()
+                if ":" in netloc:
+                    netloc = netloc.split(":")[0]
+                return netloc
+
+            # Group image items by domain
+            images_by_domain: dict[str, list[ImageItem]] = {}
+            for item in result.images:
+                domain = get_domain_slug(item.source_page)
+                images_by_domain.setdefault(domain, []).append(item)
+
+            # Group video items by domain
+            videos_by_domain: dict[str, list[VideoItem]] = {}
+            for item in result.videos:
+                if item.type in {"direct", "hls", "dash"}:
+                    domain = get_domain_slug(item.source_page)
+                    videos_by_domain.setdefault(domain, []).append(item)
+
+            image_tasks = []
+            for domain, items in images_by_domain.items():
+                domain_dir = image_dir / domain
+                domain_dir.mkdir(parents=True, exist_ok=True)
+                domain_prefix = domain.replace(".", "_")
+                for idx, item in enumerate(items, start=1):
+                    stem_suffix = re.sub(r"[^a-zA-Z0-9]+", "_", (item.alt_text or item.page_title or "image").strip().lower()).strip("_")
+                    stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
+                    stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
+                    image_tasks.append((item, domain_dir, stem, "image"))
+
+            video_tasks = []
+            for domain, items in videos_by_domain.items():
+                domain_dir = video_dir / domain
+                domain_dir.mkdir(parents=True, exist_ok=True)
+                domain_prefix = domain.replace(".", "_")
+                for idx, item in enumerate(items, start=1):
+                    stem_suffix = re.sub(r"[^a-zA-Z0-9]+", "_", (item.page_title or item.type).strip().lower()).strip("_")
+                    stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
+                    stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
+                    video_tasks.append((item, domain_dir, stem, "video"))
+
             all_dl_tasks = image_tasks + video_tasks
             if all_dl_tasks:
                 LOGGER.info("Downloading %d images and %d videos...", len(image_tasks), len(video_tasks))
@@ -442,7 +478,12 @@ class ScrapingEngine:
         return result
 
     @staticmethod
-    def _is_detail_page(link: str, seed_page: str, entity_tokens: list[str] | None = None) -> bool:
+    def _is_detail_page(
+        link: str,
+        seed_page: str,
+        keyword_or_entity: str | list[str] | None = None,
+        entity_tokens: list[str] | None = None,
+    ) -> bool:
         """
         Return True if *link* is a concrete detail page relative to *seed_page*.
 
@@ -469,14 +510,36 @@ class ScrapingEngine:
         if re.search(r"(?:^|&)(?:page|p|pg)=\d", link_query):
             return False
 
-        # If seed path is specific, the link must be a subpath or contain an entity token
-        is_seed_specific = seed_path not in {"", "/", "/index.html", "/index.php"}
-        if is_seed_specific and entity_tokens:
-            normalized_seed_path = seed_path.lower()
+        if isinstance(keyword_or_entity, list):
+            entity_tokens = keyword_or_entity
+            keyword = ""
+        else:
+            keyword = keyword_or_entity or ""
+
+        # Collect all tokens to check relevance
+        all_tokens = [keyword.lower()] if keyword else []
+        if entity_tokens:
+            for token in entity_tokens:
+                t = token.lower().strip()
+                if t and t not in all_tokens:
+                    all_tokens.append(t)
+
+        # If seed path is NOT specific (e.g. root index, query search, or archive list),
+        # enforce that detail page links must contain keyword or entity tokens.
+        is_seed_specific = seed_path not in {"", "/", "/index.html", "/index.php"} and not ("search" in seed_path or "archive" in seed_path or "?" in seed_page)
+
+        if not is_seed_specific:
             normalized_link_path = link_path.lower()
-            if not normalized_link_path.startswith(normalized_seed_path + "/"):
-                if not any(token in normalized_link_path for token in entity_tokens):
-                    return False
+            if all_tokens and not any(token in normalized_link_path for token in all_tokens):
+                return False
+        else:
+            # If seed path is specific, the link must be a subpath or contain an entity token
+            if entity_tokens:
+                normalized_seed_path = seed_path.lower()
+                normalized_link_path = link_path.lower()
+                if not normalized_link_path.startswith(normalized_seed_path + "/"):
+                    if not any(token in normalized_link_path for token in entity_tokens):
+                        return False
 
         # Reject common static nav/info paths
         nav_paths = {
