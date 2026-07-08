@@ -449,7 +449,7 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
     client._stealth_required_hosts.clear()
 
     # Mock self.client.get to raise a 403 error
-    def mock_get(url, headers=None):
+    def mock_get(url, **kwargs):
         response = httpx.Response(status_code=403, request=httpx.Request("GET", url))
         raise httpx.HTTPStatusError("Forbidden", request=httpx.Request("GET", url), response=response)
 
@@ -497,7 +497,7 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
     client._stealth_required_hosts.clear()
     call_count = 0
 
-    def mock_get(url, headers=None):
+    def mock_get(url, **kwargs):
         nonlocal call_count
         call_count += 1
         response = httpx.Response(status_code=403, request=httpx.Request("GET", url))
@@ -651,32 +651,33 @@ def test_media_downloader_unicode_quoting(monkeypatch):
     called_url = None
     called_headers = None
     
-    def mock_get(client_self, url, headers=None):
+    import contextlib
+
+    @contextlib.contextmanager
+    def mock_stream(client_self, method, url, **kwargs):
         nonlocal called_url, called_headers
         called_url = str(url)
-        called_headers = headers
-        # Return a mock response with image/png content type to pass the suffix and size checks
-        # Size needs to be >= 10240 bytes (MIN_IMAGE_DOWNLOAD_BYTES) and width/height >= 600
+        called_headers = kwargs.get("headers")
         resp = httpx.Response(
             status_code=200,
             content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + struct.pack(">II", 800, 800) + b"\x00" * 20000,
-            request=httpx.Request("GET", url)
+            request=httpx.Request(method, url)
         )
         resp.headers["content-type"] = "image/png"
-        return resp
+        yield resp
 
-    monkeypatch.setattr(httpx.Client, "get", mock_get)
+    monkeypatch.setattr(httpx.Client, "stream", mock_stream)
 
-    # Pass a url and referer with non-ASCII characters (e.g. from buondua.com)
-    unicode_url = "https://buondua.com/path/with/unicode/测试.png"
-    unicode_referer = "https://buondua.com/referer/测试"
+    # Pass a url and referer with non-ASCII characters (e.g. from example-unicode.com)
+    unicode_url = "https://example-unicode.com/path/with/unicode/测试.png"
+    unicode_referer = "https://example-unicode.com/referer/测试"
 
     # Create a dummy temp directory
     temp_dir = Path("output/test_unicode_dl")
     temp_dir.mkdir(parents=True, exist_ok=True)
     
     try:
-        success = downloader._download_file(
+        success, reason = downloader._download_file(
             url=unicode_url,
             directory=temp_dir,
             prefix="test_prefix",
@@ -684,6 +685,7 @@ def test_media_downloader_unicode_quoting(monkeypatch):
             referer=unicode_referer
         )
         assert success is True
+        assert reason == "ok"
         # Check that the request URL was quoted (contains %E6%B5%8B%E8%AF%95 instead of raw 测试)
         assert "%E6%B5%8B%E8%AF%95" in called_url
         assert "测试" not in called_url
@@ -710,7 +712,7 @@ def test_http_client_direct_stealth_routing(monkeypatch):
     
     # Mock httpx.Client.get
     get_count = 0
-    def mock_get(url, headers=None):
+    def mock_get(url, **kwargs):
         nonlocal get_count
         get_count += 1
         # First call returns 403 status to trigger Crawl4AI fallback
@@ -845,3 +847,53 @@ def test_trailing_slash_detection_and_parsing():
     assert len(matches) == 1
     assert matches[0] == "https://video-site.example.com/get_file/3/abc/vid_1080p.mp4/?v-acctoken=123"
 
+
+def test_http_client_escalating_timeout_and_adaptive_rate_limit(monkeypatch):
+    import time
+    import httpx
+    import pytest
+    from utils.http_client import HttpClient
+    
+    # 1. Test timeout escalation retry
+    client = HttpClient(timeout=5.0)
+    
+    timeout_calls = 0
+    original_client_get = client.client.get
+    
+    def mock_get(url, **kwargs):
+        nonlocal timeout_calls
+        if "timeout-escalate" in url:
+            timeout_calls += 1
+            if timeout_calls == 1:
+                assert kwargs.get("timeout") == 5.0
+                raise httpx.TimeoutException("Timeout attempt 1")
+            elif timeout_calls == 2:
+                assert kwargs.get("timeout") == 10.0
+                # Succeed on second attempt
+                return httpx.Response(200, content=b"Success after retry", request=httpx.Request("GET", url))
+        return original_client_get(url, **kwargs)
+        
+    monkeypatch.setattr(client.client, "get", mock_get)
+    monkeypatch.setattr(time, "sleep", lambda x: None)  # fast tests
+    
+    res = client.get("https://example-test.com/timeout-escalate")
+    assert res.status_code == 200
+    assert res.text == "Success after retry"
+    assert timeout_calls == 2
+
+    # 2. Test adaptive 429 backoff
+    limiter = client._rate_limiter_for("https://example-test-429.com/path")
+    original_rps = limiter.requests_per_second
+    
+    def mock_get_429(url, **kwargs):
+        resp = httpx.Response(429, request=httpx.Request("GET", url))
+        raise httpx.HTTPStatusError("429 Too Many Requests", request=httpx.Request("GET", url), response=resp)
+        
+    monkeypatch.setattr(client.client, "get", mock_get_429)
+    monkeypatch.setattr(client, "_get_with_crawl4ai", lambda url: "<html>Mocked Crawl4AI Page</html>")
+    
+    resp = client.get("https://example-test-429.com/path")
+    assert resp.status_code == 200
+    assert resp.text == "<html>Mocked Crawl4AI Page</html>"
+    # The requests_per_second should be halved!
+    assert limiter.requests_per_second == original_rps * 0.5

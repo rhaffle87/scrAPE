@@ -26,3 +26,25 @@
 4. Media items hosted on registered CDN allow-lists bypass archive-page score penalties.
 5. The filter rejects low-value assets (final score < 1) before they are stored in the final result set.
 6. The downloader reevaluates the media before writing files to disk and skips tiny or poor-quality assets.
+
+## 1. Thumbnail and Decorative-asset Filters
+
+**scrAPE** implements multiple heuristics to avoid collecting decorative site elements.
+
+### Thumbnail / preview heuristics
+
+- **Directory names**: skips paths containing `thumb`, `thumbnail`, `preview`, `prev`, `thumb_full`, `thumb_hr`, etc.
+- **Filename patterns**: rejects `t_`, `tn_`, `preview-`, `thumbnail-` prefixes
+- **Width/height tokens**: rejects URLs where `w=` or `h=` are set to small values (default thresholds in `IMG_SIZE_THRESHOLDS`, configurable via env vars)
+- **Placeholder names**: rejects `placeholder` or `dummy` in paths or query params
+
+### Logo and icon filtering
+
+- **File extensions**: Skips `.ico`, `.svg`, `.png`, `.gif` assets where `filename` or `path_segment` match common icon patterns.
+- **Filename terms**: Skips paths containing `logo`, `icon`, `badge`, `avatar`, `profile_pic`, etc.
+- **Query params**: Rejects tokens like `format=icon` or `size=small`.
+
+### Decorative asset scoring
+
+- Decorative images get an automatic `decorational_score` penalty (between -0.5 and -1.0).
+- This penalty is subtracted from the final relevance score **before** the `final_score < 1` filter.

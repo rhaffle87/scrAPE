@@ -137,7 +137,7 @@ class MediaDownloader:
             headers["Origin"] = origin
         return headers
 
-    def _download_file(self, url: str, directory: Path, prefix: str, media_kind: str, referer: str | None = None) -> bool:
+    def _download_file(self, url: str, directory: Path, prefix: str, media_kind: str, referer: str | None = None) -> tuple[bool, str]:
         """Fetch a single media binary and persist it to *directory*.
 
         Uses the shared ``self.http.client`` (an ``httpx.Client``) — bypassing
@@ -152,24 +152,69 @@ class MediaDownloader:
         safe_referer = quote(referer, safe='/:?=&%#~()[],;') if referer else None
 
         try:
+            self.http._rate_limiter_for(url).wait()
             req_headers = self._make_download_headers(safe_url, safe_referer)
-            response = self.http.client.get(safe_url, headers=req_headers)
-            response.raise_for_status()
-            content = response.content
-            content_type = response.headers.get("content-type", "")
-            content_length = len(content)
+            
+            content = b""
+            content_type = ""
+            with self.http.client.stream("GET", safe_url, headers=req_headers) as response:
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "")
+                
+                # Check content-length early if available
+                content_length_header = response.headers.get("content-length")
+                if content_length_header and content_length_header.isdigit():
+                    cl = int(content_length_header)
+                    if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
+                        LOGGER.info("Skipping tiny image asset %s (Content-Length=%d)", url, cl)
+                        return False, "low_resolution"
+                    if media_kind == "video" and cl < MIN_VIDEO_DOWNLOAD_BYTES and not self._is_manifest_url(url):
+                        LOGGER.info("Skipping tiny video asset %s (Content-Length=%d)", url, cl)
+                        return False, "low_resolution"
 
+                suffix = self._determine_suffix(url, content_type)
+
+                if media_kind == "image":
+                    chunks = []
+                    bytes_read = 0
+                    dimensions_checked = False
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        chunks.append(chunk)
+                        bytes_read += len(chunk)
+                        
+                        if not dimensions_checked:
+                            # Try parsing dimensions early on the accumulated bytes
+                            current_bytes = b"".join(chunks)
+                            w, h = get_image_dimensions(current_bytes)
+                            if w is not None and h is not None:
+                                if w < MIN_IMAGE_WIDTH or h < MIN_IMAGE_HEIGHT:
+                                    LOGGER.info("Skipping low-resolution image asset %s (%dx%d)", url, w, h)
+                                    return False, "low_resolution"
+                                dimensions_checked = True
+                            elif bytes_read >= 65536:
+                                if suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+                                    LOGGER.info("Skipping image with unparseable dimensions %s", url)
+                                    return False, "unparseable_dimensions"
+                                dimensions_checked = True
+                    content = b"".join(chunks)
+                else:
+                    chunks = []
+                    for chunk in response.iter_bytes(chunk_size=65536):
+                        chunks.append(chunk)
+                    content = b"".join(chunks)
+
+            content_length = len(content)
             if media_kind == "image" and content_length < MIN_IMAGE_DOWNLOAD_BYTES:
                 LOGGER.info("Skipping tiny image asset %s", url)
-                return False
+                return False, "low_resolution"
             if media_kind == "video" and content_length < MIN_VIDEO_DOWNLOAD_BYTES and not self._is_manifest_url(url):
                 LOGGER.info("Skipping tiny video asset %s (size=%d bytes)", url, content_length)
-                return False
+                return False, "low_resolution"
 
             suffix = self._determine_suffix(url, content_type)
             if not self._looks_like_expected_media(content, content_type, suffix, media_kind, url):
                 LOGGER.info("Skipping invalid %s media %s (content-type=%s)", media_kind, url, content_type)
-                return False
+                return False, "invalid_media_type"
 
             import hashlib
             hasher = hashlib.sha256()
@@ -179,7 +224,7 @@ class MediaDownloader:
             with self._hash_lock:
                 if content_hash in self._seen_hashes:
                     LOGGER.info("Skipping duplicate content hash %s for %s", content_hash, url)
-                    return False
+                    return False, "duplicate"
                 self._seen_hashes.add(content_hash)
 
             if media_kind == "image":
@@ -187,21 +232,21 @@ class MediaDownloader:
                 if w is not None and h is not None:
                     if w < MIN_IMAGE_WIDTH or h < MIN_IMAGE_HEIGHT:
                         LOGGER.info("Skipping low-resolution image asset %s (%dx%d)", url, w, h)
-                        return False
+                        return False, "low_resolution"
                 elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
                     LOGGER.info("Skipping image with unparseable dimensions %s", url)
-                    return False
+                    return False, "unparseable_dimensions"
 
             target = directory / f"{prefix}{suffix}"
             target.write_bytes(content)
             LOGGER.info("Downloaded %s", target)
-            return True
+            return True, "ok"
         except httpx.HTTPStatusError as exc:
             LOGGER.warning("HTTP %d downloading %s: %s", exc.response.status_code, url, exc)
-            return False
+            return False, f"http_error:{exc.response.status_code}"
         except Exception as exc:
             LOGGER.warning("Failed to download %s: %s", url, exc)
-            return False
+            return False, f"download_error:{type(exc).__name__}"
 
     @staticmethod
     def _build_file_stem(index: int, label: str) -> str:

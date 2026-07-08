@@ -35,7 +35,7 @@ class DomainProfile:
     """Parsed profile for a single seed domain."""
 
     domain: str
-    """Bare hostname, e.g. 'erothots1.com'."""
+    """Bare hostname, e.g. 'example-domain.com'."""
 
     seed_urls: list[str] = field(default_factory=list)
     """Bare URLs that belong to this domain (in order)."""

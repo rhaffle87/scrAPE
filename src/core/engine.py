@@ -369,30 +369,64 @@ class ScrapingEngine:
             video_dir.mkdir(parents=True, exist_ok=True)
 
             image_tasks = [
-                (item.url, image_dir, self.downloader._build_file_stem(idx, item.alt_text or item.page_title or "image"), "image", item.source_page)
+                (item, image_dir, self.downloader._build_file_stem(idx, item.alt_text or item.page_title or "image"), "image")
                 for idx, item in enumerate(result.images, start=1)
             ]
             video_tasks = [
-                (item.url, video_dir, self.downloader._build_file_stem(idx, item.page_title or item.type), "video", item.source_page)
+                (item, video_dir, self.downloader._build_file_stem(idx, item.page_title or item.type), "video")
                 for idx, item in enumerate(result.videos, start=1)
                 if item.type in {"direct", "hls", "dash"}
             ]
             all_dl_tasks = image_tasks + video_tasks
             if all_dl_tasks:
                 LOGGER.info("Downloading %d images and %d videos...", len(image_tasks), len(video_tasks))
+                
+                downloaded_images = []
+                downloaded_videos = []
+                
                 with _cf.ThreadPoolExecutor(max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl") as dl_executor:
                     dl_futures = {
                         dl_executor.submit(
                             self.downloader._download_file,
-                            url, directory, stem, media_kind, source_page,
-                        ): url
-                        for url, directory, stem, media_kind, source_page in all_dl_tasks
+                            item.url, directory, stem, media_kind, item.source_page,
+                        ): (item, media_kind)
+                        for item, directory, stem, media_kind in all_dl_tasks
                     }
                     for fut in _cf.as_completed(dl_futures):
+                        item, media_kind = dl_futures[fut]
                         try:
-                            fut.result()
+                            success, reason = fut.result()
+                            if success:
+                                if media_kind == "image":
+                                    downloaded_images.append(item)
+                                else:
+                                    downloaded_videos.append(item)
+                            else:
+                                result.rejected_items.append(
+                                    RejectedItem(
+                                        kind=media_kind,
+                                        url=item.url,
+                                        source_page=item.source_page,
+                                        reason=f"download_{reason}",
+                                        score=item.score
+                                    )
+                                )
                         except Exception as exc:
-                            LOGGER.warning("Download error for %s: %s", dl_futures[fut], exc)
+                            LOGGER.warning("Download error for %s: %s", item.url, exc)
+                            result.rejected_items.append(
+                                RejectedItem(
+                                    kind=media_kind,
+                                    url=item.url,
+                                    source_page=item.source_page,
+                                    reason=f"download_failed:{type(exc).__name__}",
+                                    score=item.score
+                                )
+                            )
+                
+                result.images = downloaded_images
+                non_download_videos = [v for v in result.videos if v.type not in {"direct", "hls", "dash"}]
+                result.videos = downloaded_videos + non_download_videos
+                
                 LOGGER.info("Download phase complete.")
 
         # Sort the final lists of kept items by score for output consistency

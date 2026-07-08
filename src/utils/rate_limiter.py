@@ -26,6 +26,17 @@ class RateLimiter:
         self._lock = threading.Lock()
         self._last_request_time: float = 0.0
 
+    @property
+    def requests_per_second(self) -> float:
+        return 1.0 / self.minimum_interval
+
+    @requests_per_second.setter
+    def requests_per_second(self, val: float) -> None:
+        if val <= 0:
+            raise ValueError("requests_per_second must be > 0")
+        with self._lock:
+            self.minimum_interval = 1.0 / val
+
     def wait(self) -> None:
         """Block until the minimum inter-request interval (plus jitter) has elapsed."""
         with self._lock:
