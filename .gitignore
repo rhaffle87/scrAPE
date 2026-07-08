@@ -1,0 +1,43 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local caches and run artifacts
+.cache/
+out/
+har/
+__pycache__/
+output/*
+!output/README.md
+.pytest_cache/
+*.cache
+
+# Seed URL files
+seeds/
+
+# Logs and temporary files
+logs/
+*.log
+*.tmp
+*.bak
+
+# Ad-hoc scratch/debug scripts (may contain private URLs or hardcoded subjects)
+scratch/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+.pycache/
+
+.qodo/
