@@ -6,7 +6,14 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 
 from bs4 import BeautifulSoup
 
-from core.filters import absolutize_url, clean_attr, is_allowed_domain, is_allowed_path, is_http_url, normalize_url
+from core.filters import (
+    absolutize_url,
+    clean_attr,
+    is_allowed_domain,
+    is_allowed_path,
+    is_http_url,
+    normalize_url,
+)
 from core.models import VideoItem
 from utils.http_client import HttpClient
 
@@ -19,13 +26,16 @@ VIMEO_PATTERNS = [
     re.compile(r"https?://(?:www\.)?vimeo\.com/\d+"),
     re.compile(r"https?://player\.vimeo\.com/video/\d+"),
 ]
-DIRECT_VIDEO_PATTERN = re.compile(r"https?://[^\s\"'<>]+\.(?:mp4|webm|mov|m4v|ogv)\/?(?:\?[^\s\"'<>]*)?", re.I)
+DIRECT_VIDEO_PATTERN = re.compile(
+    r"https?://[^\s\"'<>]+\.(?:mp4|webm|mov|m4v|ogv)\/?(?:\?[^\s\"'<>]*)?", re.I
+)
 HLS_PATTERN = re.compile(r"https?://[^\s\"'<>]+\.m3u8\/?(?:\?[^\s\"'<>]*)?", re.I)
 DASH_PATTERN = re.compile(r"https?://[^\s\"'<>]+\.mpd\/?(?:\?[^\s\"'<>]*)?", re.I)
 
 
-
-def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str = "") -> list[VideoItem]:
+def extract_videos_from_html(
+    soup: BeautifulSoup, page_url: str, page_title: str = ""
+) -> list[VideoItem]:
     videos: list[VideoItem] = []
     seen: set[str] = set()
 
@@ -53,8 +63,12 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
         parent_anchor_text = ""
         parent_anchor_href = ""
         if parent_anchor:
-            parent_anchor_href = normalize_url(absolutize_url(parent_anchor.get("href", "").strip(), page_url))
-            parent_anchor_text = clean_attr(parent_anchor.get_text() or parent_anchor.get("title", ""))
+            parent_anchor_href = normalize_url(
+                absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+            )
+            parent_anchor_text = clean_attr(
+                parent_anchor.get_text() or parent_anchor.get("title", "")
+            )
 
         video_src = video.get("src")
         if video_src:
@@ -102,8 +116,12 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
             parent_anchor_text = ""
             parent_anchor_href = ""
             if parent_anchor:
-                parent_anchor_href = normalize_url(absolutize_url(parent_anchor.get("href", "").strip(), page_url))
-                parent_anchor_text = clean_attr(parent_anchor.get_text() or parent_anchor.get("title", ""))
+                parent_anchor_href = normalize_url(
+                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                )
+                parent_anchor_text = clean_attr(
+                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                )
 
             add_video(
                 VideoItem(
@@ -142,6 +160,12 @@ def extract_videos_from_html(soup: BeautifulSoup, page_url: str, page_title: str
                 )
             )
 
+    if not videos:
+        from core.semantic_selectors import extract_semantic_fallback_videos
+        fallback_videos = extract_semantic_fallback_videos(soup, page_url, page_title)
+        for item in fallback_videos:
+            add_video(item)
+
     return videos
 
 
@@ -163,10 +187,16 @@ def _extract_video_objects_from_jsonld(
             if not isinstance(item, dict):
                 continue
             item_type = item.get("@type")
-            type_names = {item_type.lower()} if isinstance(item_type, str) else {
-                value.lower() for value in item_type if isinstance(value, str)
-            } if isinstance(item_type, list) else set()
-            if "videoobject" not in type_names and not any(key in item for key in ("contentUrl", "embedUrl", "url")):
+            type_names = (
+                {item_type.lower()}
+                if isinstance(item_type, str)
+                else {value.lower() for value in item_type if isinstance(value, str)}
+                if isinstance(item_type, list)
+                else set()
+            )
+            if "videoobject" not in type_names and not any(
+                key in item for key in ("contentUrl", "embedUrl", "url")
+            ):
                 continue
             for key in ("contentUrl", "embedUrl", "url"):
                 candidate = item.get(key)
@@ -239,9 +269,14 @@ def detect_video_type(url: str) -> str | None:
     if path.endswith(".mpd"):
         return "dash"
     if is_http_url(url):
-        return "direct" if any(path.endswith(ext) for ext in {".mp4", ".webm", ".mov", ".m4v", ".ogv"}) else None
+        return (
+            "direct"
+            if any(
+                path.endswith(ext) for ext in {".mp4", ".webm", ".mov", ".m4v", ".ogv"}
+            )
+            else None
+        )
     return None
-
 
 
 class VideoScraper:
@@ -304,10 +339,26 @@ def _is_in_layout_container(element: object) -> bool:
     if not hasattr(element, "parents"):
         return False
     excluded_keywords = {
-        "sidebar", "footer", "widget", "related", "popular", "recommend",
-        "header", "menu", "nav", "carousel", "ad", "ads", "advert",
-        "advertisement", "breadcrumb", "pagination", "comment", "share",
-        "sharing", "social"
+        "sidebar",
+        "footer",
+        "widget",
+        "related",
+        "popular",
+        "recommend",
+        "header",
+        "menu",
+        "nav",
+        "carousel",
+        "ad",
+        "ads",
+        "advert",
+        "advertisement",
+        "breadcrumb",
+        "pagination",
+        "comment",
+        "share",
+        "sharing",
+        "social",
     }
     for parent in element.parents:
         if parent.name in ("body", "html"):

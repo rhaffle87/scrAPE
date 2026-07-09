@@ -1,18 +1,26 @@
 # scrAPE
 
 ```text
-                       _____ _____________________
-  ______ ___________  /  _\\______   \_   _____/
- /  ___// ___\_  __ \/  /_\  \|     ___/|    __)_
- \___ \\  \___|  | \/    |    \    |    |        \
-/____  >\___  >__|  \____|__  /____|   /_______  /
-     \/     \/              \/                 \/
+  ██████  ▄████▄   ██▀███   ▄▄▄       ██▓███  ▓█████ 
+▒██    ▒ ▒██▀ ▀█  ▓██ ▒ ██▒▒████▄    ▓██░  ██▒▓█   ▀ 
+░ ▓██▄   ▒▓█    ▄ ▓██ ░▄█ ▒▒██  ▀█▄  ▓██░ ██▓▒▒███   
+  ▒   ██▒▒▓▓▄ ▄██▒▒██▀▀█▄  ░██▄▄▄▄██ ▒██▄█▓▒ ▒▒▓█  ▄ 
+▒██████▒▒▒ ▓███▀ ░░██▓ ▒██▒ ▓█   ▓██▒▒██▒ ░  ░░▒████▒
+▒ ▒▓▒ ▒ ░░ ░▒ ▒  ░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░▒▓▒░ ░  ░░░ ▒░ ░
+░ ░▒  ░ ░  ░  ▒     ░▒ ░ ▒░  ▒   ▒▒ ░░▒ ░      ░ ░  ░
+░  ░  ░  ░          ░░   ░   ░   ▒   ░░          ░   
+      ░  ░ ░         ░           ░  ░            ░  ░
+         ░                                           
 ```
 
 Production-oriented Python scraper that collects public image and video URLs for a keyword query or a user-supplied set of seed pages. Features a __two-tier adaptive fallback system__ that transparently handles WAF-protected and Cloudflare-challenged endpoints using headless browser automation.
 
 ## Features
 
+- __Interactive Terminal GUI Wizard__ (`run.bat` / `run.sh` / `cli_wizard.py`) for automated step-by-step setup of Quick, Deep, Targeted, and Watchdog tasks without typing complex command line flags.
+- __Adaptive Concurrency Control (Auto-Throttling)__: dynamically scales concurrent crawler tasks up or down based on moving response latencies and server load.
+- __Sticky SessionPool__: maintains a persistent cookie jar and consistent User-Agent per target domain to prevent bot detection caused by changing identities.
+- __Self-Healing Semantic Selectors__: scores DOM element properties (nesting, alt text, attributes) as a fallback strategy when layout structures or CSS classes change.
 - Keyword-based media discovery via DuckDuckGo
 - Direct seed URL scraping from CLI or text file with auto-generated seed files from a template
 - Entity-aware relevance scoring with optional `--entity-token` aliases
@@ -45,6 +53,13 @@ crawl4ai-setup   # installs Playwright browsers required for WAF fallback
 > __Note:__ `crawl4ai-setup` must be run at least once to install the Playwright browser engines used by the anti-bot fallback system.
 
 ## Usage
+
+For the easiest way to configure and launch runs without memorising complex command line flags, run the interactive terminal wizard:
+
+- __On Windows__: Run `run.bat` (or double-click it in File Explorer).
+- __On macOS / Linux__: Run `chmod +x run.sh && ./run.sh`.
+
+Alternatively, configure the CLI parameters manually:
 
 ```bash
 # Basic keyword search

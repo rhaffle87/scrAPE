@@ -6,7 +6,12 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Tag
 
-from config import ALWAYS_BLOCK_DOMAINS, DISCOVERY_PATH_HINTS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
+from config import (
+    ALWAYS_BLOCK_DOMAINS,
+    DISCOVERY_PATH_HINTS,
+    IMAGE_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+)
 from core.filters import is_allowed_domain, is_allowed_path, is_http_url
 from core.models import ImageItem, VideoItem
 from core.parser import parse_html
@@ -20,10 +25,11 @@ LOGGER = get_logger(__name__)
 
 
 class SearchProviderScraper(BaseSearchScraper):
-    def __init__(self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False) -> None:
+    def __init__(
+        self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False
+    ) -> None:
         self.http = HttpClient(domain_delays=domain_delays)
         self.robots = RobotsChecker(self.http, ignore_robots=ignore_robots)
-
 
     def search_pages(
         self,
@@ -77,26 +83,54 @@ class SearchProviderScraper(BaseSearchScraper):
         try:
             response = self.http.get(url)
             content_type = response.headers.get("content-type", "").lower()
-            if "application/json" in content_type or url.endswith(".json") or "format=json" in url:
+            if (
+                "application/json" in content_type
+                or url.endswith(".json")
+                or "format=json" in url
+            ):
                 try:
                     data = response.json()
                     images, videos = self._extract_media_from_json(data, url)
                     return images, videos, "ok"
                 except Exception as exc:
-                    LOGGER.warning("Failed to parse JSON response from %s: %s", url, exc)
+                    LOGGER.warning(
+                        "Failed to parse JSON response from %s: %s", url, exc
+                    )
                     return [], [], f"json_error:{type(exc).__name__}"
 
             soup = parse_html(response.text)
             page_title = self._extract_page_title(soup)
-            images = self._extract_images(soup, url, page_title, allow_domains, block_domains)
+            images = self._extract_images(
+                soup, url, page_title, allow_domains, block_domains
+            )
+            if not images:
+                from core.semantic_selectors import extract_semantic_fallback_images
+                images = extract_semantic_fallback_images(
+                    soup, url, page_title, allow_domains, block_domains
+                )
             videos = extract_videos_from_html(soup, url, page_title)
             return images, videos, "ok"
         except Exception as exc:
             LOGGER.warning("Failed to scrape %s: %s", url, exc)
-            return [], [], f"fetch_error:{type(exc).__name__}"
+            status_name = f"fetch_error:{type(exc).__name__}"
+            exc_str = str(exc).lower()
+            if "blacklisted" in exc_str:
+                status_name = "fetch_error:blacklisted"
+            elif "cooldown" in exc_str:
+                status_name = "fetch_error:cooldown"
+            elif "429" in exc_str:
+                status_name = "fetch_error:429"
+            return [], [], status_name
 
     def _extract_page_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
-        from core.filters import absolutize_url, is_cdn_asset_domain, is_http_url, normalize_url, looks_like_media, is_allowed_path
+        from core.filters import (
+            absolutize_url,
+            is_cdn_asset_domain,
+            is_http_url,
+            normalize_url,
+            looks_like_media,
+            is_allowed_path,
+        )
 
         links: list[str] = []
         seen: set[str] = set()
@@ -134,6 +168,7 @@ class SearchProviderScraper(BaseSearchScraper):
         entity_tokens: list[str] | None = None,
     ) -> list[str]:
         from core.filters import looks_like_media
+
         if looks_like_media(url):
             return []
 
@@ -150,33 +185,55 @@ class SearchProviderScraper(BaseSearchScraper):
             response = self.http.get(url)
             if keyword:
                 from core.filters import contains_subject_text
+
                 if not contains_subject_text(response.text, keyword, entity_tokens):
-                    LOGGER.info("Skipping link discovery on %s - no subject relevance", url)
+                    LOGGER.info(
+                        "Skipping link discovery on %s - no subject relevance", url
+                    )
                     return []
             content_type = response.headers.get("content-type", "").lower()
-            if "application/json" in content_type or url.endswith(".json") or "format=json" in url:
+            if (
+                "application/json" in content_type
+                or url.endswith(".json")
+                or "format=json" in url
+            ):
                 try:
                     data = response.json()
                     links = []
 
                     from core.filters import absolutize_url, is_http_url, normalize_url
+
                     for val in self._walk_json(data):
                         if isinstance(val, str):
                             candidate = val.strip()
-                            if is_http_url(candidate) or candidate.startswith("/") or candidate.startswith("./") or candidate.startswith("../"):
+                            if (
+                                is_http_url(candidate)
+                                or candidate.startswith("/")
+                                or candidate.startswith("./")
+                                or candidate.startswith("../")
+                            ):
                                 try:
-                                    absolute = normalize_url(absolutize_url(candidate, url))
-                                    if not absolute.lower().endswith(tuple(IMAGE_EXTENSIONS)) and not absolute.lower().endswith(tuple(VIDEO_EXTENSIONS)):
+                                    absolute = normalize_url(
+                                        absolutize_url(candidate, url)
+                                    )
+                                    if not absolute.lower().endswith(
+                                        tuple(IMAGE_EXTENSIONS)
+                                    ) and not absolute.lower().endswith(
+                                        tuple(VIDEO_EXTENSIONS)
+                                    ):
                                         links.append(absolute)
                                 except Exception:
                                     pass
                     return [
                         link
                         for link in links
-                        if is_allowed_domain(link, allow_domains, block_domains) and is_allowed_path(link)
+                        if is_allowed_domain(link, allow_domains, block_domains)
+                        and is_allowed_path(link)
                     ]
                 except Exception as exc:
-                    LOGGER.warning("Failed to discover links from JSON in %s: %s", url, exc)
+                    LOGGER.warning(
+                        "Failed to discover links from JSON in %s: %s", url, exc
+                    )
                     return []
 
             soup = parse_html(response.text)
@@ -184,7 +241,8 @@ class SearchProviderScraper(BaseSearchScraper):
             return [
                 link
                 for link in links
-                if is_allowed_domain(link, allow_domains, block_domains) and is_allowed_path(link)
+                if is_allowed_domain(link, allow_domains, block_domains)
+                and is_allowed_path(link)
             ]
         except Exception as exc:
             LOGGER.warning("Failed to discover links from %s: %s", url, exc)
@@ -215,7 +273,9 @@ class SearchProviderScraper(BaseSearchScraper):
             if not content:
                 continue
             absolute_url = normalize_url(absolutize_url(content, page_url))
-            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+            if not is_allowed_domain(
+                absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
+            ):
                 continue
             images.append(
                 ImageItem(
@@ -244,7 +304,9 @@ class SearchProviderScraper(BaseSearchScraper):
             absolute_url = normalize_url(absolutize_url(source, page_url))
             if not is_http_url(absolute_url):
                 continue
-            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+            if not is_allowed_domain(
+                absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
+            ):
                 continue
 
             width = None
@@ -263,8 +325,12 @@ class SearchProviderScraper(BaseSearchScraper):
             parent_anchor_text = ""
             parent_anchor_href = ""
             if parent_anchor:
-                parent_anchor_href = normalize_url(absolutize_url(parent_anchor.get("href", "").strip(), page_url))
-                parent_anchor_text = clean_attr(parent_anchor.get_text() or parent_anchor.get("title", ""))
+                parent_anchor_href = normalize_url(
+                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                )
+                parent_anchor_text = clean_attr(
+                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                )
 
             images.append(
                 ImageItem(
@@ -291,15 +357,21 @@ class SearchProviderScraper(BaseSearchScraper):
             absolute_url = normalize_url(absolutize_url(background_image, page_url))
             if not is_http_url(absolute_url):
                 continue
-            if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+            if not is_allowed_domain(
+                absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
+            ):
                 continue
 
             parent_anchor = element.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
             if parent_anchor:
-                parent_anchor_href = normalize_url(absolutize_url(parent_anchor.get("href", "").strip(), page_url))
-                parent_anchor_text = clean_attr(parent_anchor.get_text() or parent_anchor.get("title", ""))
+                parent_anchor_href = normalize_url(
+                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                )
+                parent_anchor_text = clean_attr(
+                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                )
 
             images.append(
                 ImageItem(
@@ -314,6 +386,7 @@ class SearchProviderScraper(BaseSearchScraper):
             )
 
         from core.filters import is_probable_image
+
         for anchor in soup.find_all("a"):
             href = anchor.get("href")
             if not href:
@@ -325,7 +398,9 @@ class SearchProviderScraper(BaseSearchScraper):
                 in_layout = self._is_in_layout_container(anchor)
                 if in_layout:
                     continue
-                if not is_allowed_domain(absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                if not is_allowed_domain(
+                    absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
+                ):
                     continue
                 anchor_text = clean_attr(anchor.get_text() or anchor.get("title", ""))
                 images.append(
@@ -343,10 +418,26 @@ class SearchProviderScraper(BaseSearchScraper):
     @staticmethod
     def _is_in_layout_container(element: Tag) -> bool:
         excluded_keywords = {
-            "sidebar", "footer", "widget", "related", "popular", "recommend",
-            "header", "menu", "nav", "carousel", "ad", "ads", "advert",
-            "advertisement", "breadcrumb", "pagination", "comment", "share",
-            "sharing", "social"
+            "sidebar",
+            "footer",
+            "widget",
+            "related",
+            "popular",
+            "recommend",
+            "header",
+            "menu",
+            "nav",
+            "carousel",
+            "ad",
+            "ads",
+            "advert",
+            "advertisement",
+            "breadcrumb",
+            "pagination",
+            "comment",
+            "share",
+            "sharing",
+            "social",
         }
         for parent in element.parents:
             if parent.name in ("body", "html"):
@@ -360,7 +451,9 @@ class SearchProviderScraper(BaseSearchScraper):
             if parent_id:
                 tokens.update(re.split(r"[-_\s]+", str(parent_id).lower()))
             if parent_class:
-                classes = parent_class if isinstance(parent_class, list) else [parent_class]
+                classes = (
+                    parent_class if isinstance(parent_class, list) else [parent_class]
+                )
                 for c in classes:
                     tokens.update(re.split(r"[-_\s]+", str(c).lower()))
 
@@ -414,7 +507,9 @@ class SearchProviderScraper(BaseSearchScraper):
                 results.append(curr)
         return results
 
-    def _extract_media_from_json(self, data: Any, page_url: str) -> tuple[list[ImageItem], list[VideoItem]]:
+    def _extract_media_from_json(
+        self, data: Any, page_url: str
+    ) -> tuple[list[ImageItem], list[VideoItem]]:
         from core.filters import (
             absolutize_url,
             is_http_url,
@@ -430,7 +525,12 @@ class SearchProviderScraper(BaseSearchScraper):
         for value in self._walk_json(data):
             if isinstance(value, str):
                 candidate = value.strip()
-                if is_http_url(candidate) or candidate.startswith("/") or candidate.startswith("./") or candidate.startswith("../"):
+                if (
+                    is_http_url(candidate)
+                    or candidate.startswith("/")
+                    or candidate.startswith("./")
+                    or candidate.startswith("../")
+                ):
                     try:
                         absolute = normalize_url(absolutize_url(candidate, page_url))
                         if is_probable_image(absolute):
@@ -459,7 +559,9 @@ class SearchProviderScraper(BaseSearchScraper):
     def _extract_page_title(soup: BeautifulSoup) -> str:
         if soup.title and soup.title.string:
             return soup.title.string.strip()
-        for meta in soup.select("meta[property='og:title'], meta[name='title'], meta[name='twitter:title']"):
+        for meta in soup.select(
+            "meta[property='og:title'], meta[name='title'], meta[name='twitter:title']"
+        ):
             content = meta.get("content", "").strip()
             if content:
                 return content

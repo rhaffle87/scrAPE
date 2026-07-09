@@ -8,43 +8,43 @@ def test_should_keep_image_rejects_generic_assets() -> None:
         source_page="https://example.com/page",
         alt_text="",
     )
-    assert should_keep_image(item, "subject_alpha") is False
+    assert should_keep_image(item, "subject") is False
 
 
 def test_should_keep_image_accepts_keyword_related_image() -> None:
     item = ImageItem(
-        url="https://example.com/subject_alpha-cosplay.jpg",
+        url="https://example.com/subject-cosplay.jpg",
         source_page="https://example.com/page",
-        alt_text="Subject Alpha cosplay image",
+        alt_text="Subject cosplay image",
     )
-    assert should_keep_image(item, "subject_alpha") is True
+    assert should_keep_image(item, "subject") is True
 
 
 def test_should_keep_video_accepts_keyword_related_video() -> None:
     item = VideoItem(
-        url="https://example.com/subject_alpha-demo.mp4",
-        source_page="https://example.com/subject_alpha",
+        url="https://example.com/subject-demo.mp4",
+        source_page="https://example.com/subject",
         type="direct",
     )
-    assert should_keep_video(item, "subject_alpha") is True
+    assert should_keep_video(item, "subject") is True
 
 
 def test_should_keep_image_rejects_thumbnail_like_urls() -> None:
     item = ImageItem(
-        url="https://example.com/thumbs/subject_alpha-200x200.jpg",
-        source_page="https://example.com/subject_alpha",
+        url="https://example.com/thumbs/subject-200x200.jpg",
+        source_page="https://example.com/subject",
         alt_text="thumbnail",
     )
-    assert should_keep_image(item, "subject_alpha") is False
+    assert should_keep_image(item, "subject") is False
 
 
 def test_should_keep_image_rejects_low_resolution_size_hints() -> None:
     item = ImageItem(
         url="https://example.com/image.jpg?width=120&height=120",
-        source_page="https://example.com/subject_alpha",
-        alt_text="Subject Alpha costume",
+        source_page="https://example.com/subject",
+        alt_text="Subject costume",
     )
-    assert should_keep_image(item, "subject_alpha") is False
+    assert should_keep_image(item, "subject") is False
 
 
 def test_should_keep_image_accepts_subject_name_in_source() -> None:
@@ -53,7 +53,9 @@ def test_should_keep_image_accepts_subject_name_in_source() -> None:
         source_page="https://example.com/alias_beta-gallery",
         alt_text="Official shoot",
     )
-    assert should_keep_image(item, "subject_alpha", entity_tokens=["alias_beta"]) is True
+    assert (
+        should_keep_image(item, "subject", entity_tokens=["alias_beta"]) is True
+    )
 
 
 def test_should_keep_video_rejects_unrelated_video() -> None:
@@ -62,7 +64,7 @@ def test_should_keep_video_rejects_unrelated_video() -> None:
         source_page="https://example.com/entertainment",
         type="direct",
     )
-    assert should_keep_video(item, "subject_alpha") is False
+    assert should_keep_video(item, "subject") is False
 
 
 def test_manifest_driven_media_type_gating_and_boost() -> None:
@@ -86,53 +88,102 @@ def test_manifest_driven_media_type_gating_and_boost() -> None:
             media_type="image",
             crawl_strategy="direct",
             crawl_depth=0,
-            cdn_hosts=["cdn.example-subject.com", "cdn.other.com"]
+            cdn_hosts=["cdn.example-subject.com", "cdn.other.com"],
         ),
         "videos.example-subject.com": DomainProfile(
             domain="videos.example-subject.com",
             media_type="video",
             crawl_strategy="index->detail",
             crawl_depth=1,
-            cdn_hosts=[]
+            cdn_hosts=[],
         ),
     }
 
     # Test CDN check
     allowed_hosts = ["cdn.example-subject.com"]
-    assert is_cdn_asset_domain("https://cdn.example-subject.com/asset.jpg", allow_hosts=allowed_hosts) is True
-    assert is_cdn_asset_domain("https://unrelated.com/asset.jpg", allow_hosts=allowed_hosts) is False
-    assert is_cdn_asset_domain("https://cdn.example-subject.com/asset.jpg", allow_hosts=None) is False
+    assert (
+        is_cdn_asset_domain(
+            "https://cdn.example-subject.com/asset.jpg", allow_hosts=allowed_hosts
+        )
+        is True
+    )
+    assert (
+        is_cdn_asset_domain(
+            "https://unrelated.com/asset.jpg", allow_hosts=allowed_hosts
+        )
+        is False
+    )
+    assert (
+        is_cdn_asset_domain(
+            "https://cdn.example-subject.com/asset.jpg", allow_hosts=None
+        )
+        is False
+    )
 
     # Test Media Gating:
     # Image on image domain -> Keep
-    img_ok = ImageItem(url="https://example.com/subject_alpha.jpg", source_page="https://images.example-subject.com/gallery")
+    img_ok = ImageItem(
+        url="https://example.com/subject.jpg",
+        source_page="https://images.example-subject.com/gallery",
+    )
     assert media_type_matches_domain_expectation(img_ok, profiles) is True
-    assert rejection_reason_for_image(img_ok, "subject_alpha", domain_profiles=profiles) is None
+    assert (
+        rejection_reason_for_image(img_ok, "subject", domain_profiles=profiles)
+        is None
+    )
 
     # Video on image domain -> Reject
-    vid_bad = VideoItem(url="https://example.com/subject_alpha.mp4", source_page="https://images.example-subject.com/gallery", type="direct")
+    vid_bad = VideoItem(
+        url="https://example.com/subject.mp4",
+        source_page="https://images.example-subject.com/gallery",
+        type="direct",
+    )
     assert media_type_matches_domain_expectation(vid_bad, profiles) is False
-    assert rejection_reason_for_video(vid_bad, "subject_alpha", domain_profiles=profiles) == "wrong_media_type_for_domain"
+    assert (
+        rejection_reason_for_video(vid_bad, "subject", domain_profiles=profiles)
+        == "wrong_media_type_for_domain"
+    )
 
     # Image on video domain -> Reject
-    img_bad = ImageItem(url="https://example.com/subject_alpha.jpg", source_page="https://videos.example-subject.com/page")
+    img_bad = ImageItem(
+        url="https://example.com/subject.jpg",
+        source_page="https://videos.example-subject.com/page",
+    )
     assert media_type_matches_domain_expectation(img_bad, profiles) is False
-    assert rejection_reason_for_image(img_bad, "subject_alpha", domain_profiles=profiles) == "wrong_media_type_for_domain"
+    assert (
+        rejection_reason_for_image(img_bad, "subject", domain_profiles=profiles)
+        == "wrong_media_type_for_domain"
+    )
 
     # Video on video domain -> Keep
-    vid_ok = VideoItem(url="https://example.com/subject_alpha.mp4", source_page="https://videos.example-subject.com/page", type="direct")
+    vid_ok = VideoItem(
+        url="https://example.com/subject.mp4",
+        source_page="https://videos.example-subject.com/page",
+        type="direct",
+    )
     assert media_type_matches_domain_expectation(vid_ok, profiles) is True
-    assert rejection_reason_for_video(vid_ok, "subject_alpha", domain_profiles=profiles) is None
+    assert (
+        rejection_reason_for_video(vid_ok, "subject", domain_profiles=profiles)
+        is None
+    )
 
     # Scoring Boost check:
     # Image on image domain gets +3 boost
-    score_with_boost = score_image_relevance(img_ok, "subject_alpha", domain_profiles=profiles)
-    score_without_boost = score_image_relevance(img_ok, "subject_alpha", domain_profiles=None)
+    score_with_boost = score_image_relevance(
+        img_ok, "subject", domain_profiles=profiles
+    )
+    score_without_boost = score_image_relevance(
+        img_ok, "subject", domain_profiles=None
+    )
     assert score_with_boost == score_without_boost + 3
 
     # Video on video domain gets +3 boost
-    vscore_with_boost = score_video_relevance(vid_ok, "subject_alpha", domain_profiles=profiles)
-    vscore_without_boost = score_video_relevance(vid_ok, "subject_alpha", domain_profiles=None)
+    vscore_with_boost = score_video_relevance(
+        vid_ok, "subject", domain_profiles=profiles
+    )
+    vscore_without_boost = score_video_relevance(
+        vid_ok, "subject", domain_profiles=None
+    )
     assert vscore_with_boost == vscore_without_boost + 3
 
     # CDN Dynamic Allow-List check:
@@ -141,17 +192,30 @@ def test_manifest_driven_media_type_gating_and_boost() -> None:
         url="https://cdn.other.com/asset.jpg",
         source_page="https://images.example-subject.com/page/2",
         alt_text="Some text",
-        page_title="Archives"
+        page_title="Archives",
     )
-    score_with_profiles = score_image_relevance(cdn_img, "subject_alpha", domain_profiles=profiles)
-    score_without_profiles = score_image_relevance(cdn_img, "subject_alpha", domain_profiles=None)
+    score_with_profiles = score_image_relevance(
+        cdn_img, "subject", domain_profiles=profiles
+    )
+    score_without_profiles = score_image_relevance(
+        cdn_img, "subject", domain_profiles=None
+    )
     # score_with_profiles gets +3 media boost AND bypasses the -15 archive penalty.
     assert score_with_profiles == score_without_profiles + 18
 
 
 def test_normalize_media_url() -> None:
     from core.filters import normalize_media_url
-    assert normalize_media_url("http://example.com/image.jpg?w=100&h=200") == "https://example.com/image.jpg"
-    assert normalize_media_url("https://example.com/video.mp4/") == "https://example.com/video.mp4"
-    assert normalize_media_url("https://example.com/Video.MP4?token=abc") == "https://example.com/video.mp4"
 
+    assert (
+        normalize_media_url("http://example.com/image.jpg?w=100&h=200")
+        == "https://example.com/image.jpg"
+    )
+    assert (
+        normalize_media_url("https://example.com/video.mp4/")
+        == "https://example.com/video.mp4"
+    )
+    assert (
+        normalize_media_url("https://example.com/Video.MP4?token=abc")
+        == "https://example.com/video.mp4"
+    )

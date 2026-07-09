@@ -1,6 +1,7 @@
 """
 rate_limiter.py — Thread-safe token-bucket rate limiter with optional jitter.
 """
+
 from __future__ import annotations
 
 import random

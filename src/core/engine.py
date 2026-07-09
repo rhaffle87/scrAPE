@@ -3,14 +3,14 @@ from __future__ import annotations
 import re
 import threading
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
+import time
 from urllib.parse import urlparse
 
 from tqdm import tqdm
 
 from config import (
     CONCURRENT_PAGES_PER_BATCH,
-    DEFAULT_RUNS_SUBDIR,
     MAX_CRAWL_DEPTH,
     MAX_PAGE_FETCHES,
     OUTPUT_DIR,
@@ -26,15 +26,59 @@ from core.filters import (
     score_image_relevance,
     score_video_relevance,
     looks_like_media,
-    is_archive_or_index_page,
 )
-from core.models import EngineOptions, ImageItem, PageReport, RejectedItem, ScrapeResult, VideoItem
+from core.models import (
+    EngineOptions,
+    ImageItem,
+    PageReport,
+    RejectedItem,
+    ScrapeResult,
+    VideoItem,
+)
 from scraper.google_images import SearchProviderScraper
 from scraper.video_scraper import VideoScraper
 from storage.file_downloader import MediaDownloader
 from utils.logger import get_logger
 
 LOGGER = get_logger(__name__)
+
+
+def _is_target_met(result: ScrapeResult, options: EngineOptions, max_results: int) -> bool:
+    if max_results <= 0:
+        return False
+
+    # 1. Analyze domain profiles to see what media types are expected
+    expected_types = set()
+    if options.domain_profiles:
+        for p in options.domain_profiles.values():
+            if hasattr(p, "media_type"):
+                expected_types.add(p.media_type)
+            elif isinstance(p, dict) and "media_type" in p:
+                expected_types.add(p["media_type"])
+
+    # If we have profiles, we can use them to restrict expectations
+    if expected_types:
+        has_image = "image" in expected_types or "mixed" in expected_types
+        has_video = "video" in expected_types or "mixed" in expected_types
+
+        image_met = (not has_image) or (len(result.images) >= max_results)
+        video_met = (not has_video) or (len(result.videos) >= max_results)
+        return image_met and video_met
+
+    # 2. If no profiles (General/Broad Search Scraping or keyword crawl), we check:
+    image_met = len(result.images) >= max_results
+    video_met = len(result.videos) >= max_results
+
+    if image_met and video_met:
+        return True
+
+    # If one of them has reached the limit, and we've scanned at least 3 pages but found 0 of the other:
+    if image_met and len(result.videos) == 0 and len(result.scanned_pages) >= 3:
+        return True
+    if video_met and len(result.images) == 0 and len(result.scanned_pages) >= 3:
+        return True
+
+    return False
 
 
 class ScrapingEngine:
@@ -45,11 +89,12 @@ class ScrapingEngine:
         ignore_robots: bool = False,
     ) -> None:
         self.workers = max(1, workers)
-        self.search_provider = SearchProviderScraper(domain_delays=domain_delays, ignore_robots=ignore_robots)
+        self.search_provider = SearchProviderScraper(
+            domain_delays=domain_delays, ignore_robots=ignore_robots
+        )
         self.video_scraper = VideoScraper(domain_delays=domain_delays)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http)
-
 
     def run(
         self,
@@ -95,10 +140,18 @@ class ScrapingEngine:
             result.run_id = run_id
 
         if options.seed_urls:
-            derived_domains = [urlparse(url).netloc.lower() for url in options.seed_urls if urlparse(url).netloc]
-            options.seed_domains = list(dict.fromkeys([*options.seed_domains, *derived_domains]))
+            derived_domains = [
+                urlparse(url).netloc.lower()
+                for url in options.seed_urls
+                if urlparse(url).netloc
+            ]
+            options.seed_domains = list(
+                dict.fromkeys([*options.seed_domains, *derived_domains])
+            )
         if options.strict_domain and options.seed_domains:
-            options.allow_domains = list(dict.fromkeys([*options.allow_domains, *options.seed_domains]))
+            options.allow_domains = list(
+                dict.fromkeys([*options.allow_domains, *options.seed_domains])
+            )
 
         search_pages: list[str] = []
         if options.use_search:
@@ -114,7 +167,11 @@ class ScrapingEngine:
         resolved_crawl_depth = float("inf") if crawl_depth <= 0 else crawl_depth
         # Organized by depth -> host -> deque of URLs
         queues: dict[int, dict[str, deque[str]]] = {}
-        queued_pages: set[str] = {normalize_url(page) for page in candidate_pages if page and not looks_like_media(normalize_url(page))}
+        queued_pages: set[str] = {
+            normalize_url(page)
+            for page in candidate_pages
+            if page and not looks_like_media(normalize_url(page))
+        }
         visited_pages: set[str] = set()
         ordered_pages: list[tuple[str, int]] = []
         discovered_links_counts: dict[str, int] = {}
@@ -128,7 +185,9 @@ class ScrapingEngine:
 
         while len(ordered_pages) < resolved_page_limit:
             # Find the minimum depth that still has pages to crawl
-            active_depths = [d for d, depth_queues in queues.items() if any(depth_queues.values())]
+            active_depths = [
+                d for d, depth_queues in queues.items() if any(depth_queues.values())
+            ]
             if not active_depths:
                 break
             current_depth = min(active_depths)
@@ -142,7 +201,7 @@ class ScrapingEngine:
             for host in active_hosts:
                 if len(ordered_pages) >= resolved_page_limit:
                     break
-                
+
                 page = depth_queues[host].popleft()
                 normalized_page = normalize_url(page)
                 if normalized_page in visited_pages:
@@ -158,7 +217,10 @@ class ScrapingEngine:
 
                 # ── Per-domain crawl strategy ──────────────────────────────
                 # 'direct' or skip_link_discovery: skip link discovery
-                if profile and (profile.crawl_strategy == "direct" or getattr(profile, "skip_link_discovery", False)):
+                if profile and (
+                    profile.crawl_strategy == "direct"
+                    or getattr(profile, "skip_link_discovery", False)
+                ):
                     discovered_links = []
                     discovered_links_counts[normalized_page] = 0
                 else:
@@ -167,18 +229,34 @@ class ScrapingEngine:
                         allow_domains=options.allow_domains,
                         block_domains=options.block_domains,
                         keyword=options.keyword if current_depth > 0 else None,
-                        entity_tokens=options.entity_tokens if current_depth > 0 else None,
+                        entity_tokens=options.entity_tokens
+                        if current_depth > 0
+                        else None,
                     )
                     # 'index→detail': at depth 0 only follow concrete detail links
                     # (deeper path than the seed URL, not pagination siblings)
-                    if profile and profile.crawl_strategy != "direct" and current_depth == 0:
+                    if (
+                        profile
+                        and profile.crawl_strategy != "direct"
+                        and current_depth == 0
+                    ):
                         seed_for_host = next(
-                            (s for s in options.seed_urls if urlparse(s).netloc.lower() == host),
+                            (
+                                s
+                                for s in options.seed_urls
+                                if urlparse(s).netloc.lower() == host
+                            ),
                             normalized_page,
                         )
                         discovered_links = [
-                            lnk for lnk in discovered_links
-                            if self._is_detail_page(lnk, seed_for_host, options.keyword, options.entity_tokens)
+                            lnk
+                            for lnk in discovered_links
+                            if self._is_detail_page(
+                                lnk,
+                                seed_for_host,
+                                options.keyword,
+                                options.entity_tokens,
+                            )
                         ]
                     discovered_links_counts[normalized_page] = len(discovered_links)
 
@@ -186,7 +264,9 @@ class ScrapingEngine:
                     normalized_link = normalize_url(link)
                     if looks_like_media(normalized_link):
                         continue
-                    scope_reason = self._scope_rejection_reason(normalized_link, options)
+                    scope_reason = self._scope_rejection_reason(
+                        normalized_link, options
+                    )
                     if scope_reason:
                         result.rejected_items.append(
                             RejectedItem(
@@ -197,15 +277,24 @@ class ScrapingEngine:
                             )
                         )
                         continue
-                    if normalized_link in visited_pages or normalized_link in queued_pages:
+                    if (
+                        normalized_link in visited_pages
+                        or normalized_link in queued_pages
+                    ):
                         continue
                     queued_pages.add(normalized_link)
-                    
+
                     # Enqueue link at depth + 1 under its own host
                     link_host = urlparse(normalized_link).netloc.lower()
-                    queues.setdefault(current_depth + 1, {}).setdefault(link_host, deque()).append(normalized_link)
+                    queues.setdefault(current_depth + 1, {}).setdefault(
+                        link_host, deque()
+                    ).append(normalized_link)
 
-        pages_to_fetch = ordered_pages if resolved_page_limit == float("inf") else ordered_pages[: int(resolved_page_limit)]
+        pages_to_fetch = (
+            ordered_pages
+            if resolved_page_limit == float("inf")
+            else ordered_pages[: int(resolved_page_limit)]
+        )
 
         # --- Concurrent page fetching ---
         # The per-domain RateLimiter is thread-safe, so workers hitting different
@@ -219,6 +308,26 @@ class ScrapingEngine:
         domain_profiles = options.domain_profiles or {}
 
         def _fetch_page(page: str, depth: int):
+            host = urlparse(page).netloc.lower()
+            with result_lock:
+                if host not in result.domain_stats:
+                    result.domain_stats[host] = {
+                        "pages_scanned": 0,
+                        "images_kept": 0,
+                        "videos_kept": 0,
+                        "rejected_count": 0,
+                        "error_429_count": 0,
+                        "error_other_count": 0,
+                    }
+                stats = result.domain_stats[host]
+                if stats["pages_scanned"] >= 30:
+                    yield_rate = (stats["images_kept"] + stats["videos_kept"]) / stats["pages_scanned"]
+                    if yield_rate < 0.05:
+                        LOGGER.info("Skipping %s: low yield from domain %s (<5%%)", page, host)
+                        return page, depth, [], [], "low_yield_skipped"
+                
+                stats["pages_scanned"] += 1
+
             page_images, page_videos, scrape_status = self.search_provider.scrape_page(
                 page,
                 allow_domains=options.allow_domains,
@@ -226,99 +335,286 @@ class ScrapingEngine:
             )
             return page, depth, page_images, page_videos, scrape_status
 
-        with tqdm(total=len(pages_to_fetch), desc="Fetching pages", unit="page") as pbar:
-            with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="scraper") as executor:
-                futures = {
-                    executor.submit(_fetch_page, page, depth): (page, depth)
-                    for page, depth in pages_to_fetch
-                }
-                for future in as_completed(futures):
+        current_concurrency = self.workers
+        futures = {}
+        pages_iter = iter(pages_to_fetch)
+
+        with tqdm(
+            total=len(pages_to_fetch), desc="Fetching pages", unit="page"
+        ) as pbar:
+            with ThreadPoolExecutor(
+                max_workers=self.workers, thread_name_prefix="scraper"
+            ) as executor:
+                
+                def submit_next():
                     try:
-                        page, depth, page_images, page_videos, scrape_status = future.result()
-                    except Exception as exc:
-                        page, depth = futures[future]
-                        LOGGER.warning("Worker failed for %s: %s", page, exc)
-                        page_images, page_videos, scrape_status = [], [], f"worker_error:{type(exc).__name__}"
-                    with result_lock:
-                        result.scanned_pages.append(page)
-                        result.page_reports.append(
-                            PageReport(
-                                url=page,
-                                depth=depth,
-                                status="success" if scrape_status == "ok" else "skipped",
-                                reason="" if scrape_status == "ok" else scrape_status,
-                                discovered_links=discovered_links_counts.get(page, 0),
-                                images_found=len(page_images),
-                                videos_found=len(page_videos),
+                        next_page, next_depth = next(pages_iter)
+                        fut = executor.submit(_fetch_page, next_page, next_depth)
+                        futures[fut] = (next_page, next_depth, time.monotonic())
+                        return True
+                    except StopIteration:
+                        return False
+
+                # Initially submit up to current_concurrency
+                for _ in range(current_concurrency):
+                    if not submit_next():
+                        break
+
+                while futures:
+                    done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
+                    for future in done:
+                        if future not in futures:
+                            continue
+                        page, depth, start_time = futures.pop(future)
+                        latency = time.monotonic() - start_time
+
+                        try:
+                            page, depth, page_images, page_videos, scrape_status = (
+                                future.result()
                             )
-                        )
+                        except Exception as exc:
+                            LOGGER.warning("Worker failed for %s: %s", page, exc)
+                            page_images, page_videos, scrape_status = (
+                                [],
+                                [],
+                                f"worker_error:{type(exc).__name__}",
+                            )
 
-                        # Filtering and deduplication of page_images
-                        for item in page_images:
-                            item.url = normalize_url(item.url)
-                            norm_key = normalize_media_url(item.url)
-                            if norm_key in seen_images:
-                                existing = seen_images[norm_key]
-                                # Upgrade: if new URL has query params (auth token) but stored one doesn't
-                                if "?" in item.url and "?" not in existing.url:
-                                    LOGGER.debug(
-                                        "Image URL upgraded from tokenless to tokened: %s -> %s",
-                                        existing.url, item.url,
+                        # Adjust dynamic concurrency based on health
+                        is_block = "429" in scrape_status or "403" in scrape_status or "worker_error" in scrape_status
+                        with result_lock:
+                            if is_block:
+                                current_concurrency = max(1, current_concurrency - 2)
+                                LOGGER.warning(
+                                    "Dynamic Concurrency: Block/Error on %s. Reducing worker limit to %d.",
+                                    page, current_concurrency
+                                )
+                            elif latency > 2.0:
+                                current_concurrency = max(1, current_concurrency - 1)
+                                LOGGER.info(
+                                    "Dynamic Concurrency: High latency (%.2fs) on %s. Reducing worker limit to %d.",
+                                    latency, page, current_concurrency
+                                )
+                            else:
+                                if current_concurrency < self.workers:
+                                    current_concurrency += 1
+                                    LOGGER.info(
+                                        "Dynamic Concurrency: Fast response (%.2fs) on %s. Scaling up worker limit to %d.",
+                                        latency, page, current_concurrency
                                     )
-                                    existing.url = item.url
-                                else:
-                                    result.rejected_items.append(RejectedItem("image", item.url, item.source_page, "duplicate"))
-                                continue
-                            score = score_image_relevance(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
-                            item.score = score
-                            reason = rejection_reason_for_image(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
-                            if reason:
-                                parent_href = getattr(item, "parent_anchor_href", "")
-                                LOGGER.debug("Image rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)", item.url, reason, score, item.source_page, parent_href)
-                                result.rejected_items.append(RejectedItem("image", item.url, item.source_page, reason, score))
-                                continue
 
-                            # Max results check
-                            if max_results > 0 and len(result.images) >= max_results:
-                                result.rejected_items.append(RejectedItem("image", item.url, item.source_page, "max_results_limit", score))
-                                continue
+                        with result_lock:
+                            host = urlparse(page).netloc.lower()
+                            if host not in result.domain_stats:
+                                result.domain_stats[host] = {
+                                    "pages_scanned": 0,
+                                    "images_kept": 0,
+                                    "videos_kept": 0,
+                                    "rejected_count": 0,
+                                    "error_429_count": 0,
+                                    "error_other_count": 0,
+                                }
+                            
+                            stats = result.domain_stats[host]
 
-                            seen_images[norm_key] = item
-                            result.images.append(item)
+                            if scrape_status == "ok":
+                                pass
+                            elif scrape_status == "low_yield_skipped":
+                                pass
+                            elif "429" in scrape_status or "cooldown" in scrape_status or "blacklisted" in scrape_status:
+                                stats["error_429_count"] += 1
+                            else:
+                                stats["error_other_count"] += 1
 
-                        # Filtering and deduplication of page_videos
-                        for item in page_videos:
-                            item.url = normalize_url(item.url)
-                            norm_key = normalize_media_url(item.url)
-                            if norm_key in seen_videos:
-                                existing = seen_videos[norm_key]
-                                # Upgrade: if new URL has query params (auth token) but stored one doesn't
-                                if "?" in item.url and "?" not in existing.url:
+                            result.scanned_pages.append(page)
+                            result.page_reports.append(
+                                PageReport(
+                                    url=page,
+                                    depth=depth,
+                                    status="success"
+                                    if scrape_status == "ok"
+                                    else "skipped",
+                                    reason="" if scrape_status == "ok" else scrape_status,
+                                    discovered_links=discovered_links_counts.get(page, 0),
+                                    images_found=len(page_images),
+                                    videos_found=len(page_videos),
+                                )
+                            )
+
+                            # Filtering and deduplication of page_images
+                            for item in page_images:
+                                item.url = normalize_url(item.url)
+                                norm_key = normalize_media_url(item.url)
+                                if norm_key in seen_images:
+                                    existing = seen_images[norm_key]
+                                    if "?" in item.url and "?" not in existing.url:
+                                        LOGGER.debug(
+                                            "Image URL upgraded from tokenless to tokened: %s -> %s",
+                                            existing.url,
+                                            item.url,
+                                        )
+                                        existing.url = item.url
+                                    else:
+                                        result.rejected_items.append(
+                                            RejectedItem(
+                                                "image",
+                                                item.url,
+                                                item.source_page,
+                                                "duplicate",
+                                            )
+                                        )
+                                        stats["rejected_count"] += 1
+                                    continue
+                                score = score_image_relevance(
+                                    item,
+                                    options.keyword,
+                                    options.entity_tokens,
+                                    seed_set,
+                                    domain_profiles,
+                                )
+                                item.score = score
+                                reason = rejection_reason_for_image(
+                                    item,
+                                    options.keyword,
+                                    options.entity_tokens,
+                                    seed_set,
+                                    domain_profiles,
+                                )
+                                if reason:
+                                    parent_href = getattr(item, "parent_anchor_href", "")
                                     LOGGER.debug(
-                                        "Video URL upgraded from tokenless to tokened: %s -> %s",
-                                        existing.url, item.url,
+                                        "Image rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
+                                        item.url,
+                                        reason,
+                                        score,
+                                        item.source_page,
+                                        parent_href,
                                     )
-                                    existing.url = item.url
-                                else:
-                                    result.rejected_items.append(RejectedItem("video", item.url, item.source_page, "duplicate"))
-                                continue
-                            score = score_video_relevance(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
-                            item.score = score
-                            reason = rejection_reason_for_video(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
-                            if reason:
-                                parent_href = getattr(item, "parent_anchor_href", "")
-                                LOGGER.debug("Video rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)", item.url, reason, score, item.source_page, parent_href)
-                                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, reason, score))
-                                continue
+                                    result.rejected_items.append(
+                                        RejectedItem(
+                                            "image",
+                                            item.url,
+                                            item.source_page,
+                                            reason,
+                                            score,
+                                        )
+                                    )
+                                    stats["rejected_count"] += 1
+                                    continue
 
-                            # Max results check
-                            if max_results > 0 and len(result.videos) >= max_results:
-                                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, "max_results_limit", score))
-                                continue
+                                if max_results > 0 and len(result.images) >= max_results:
+                                    result.rejected_items.append(
+                                        RejectedItem(
+                                            "image",
+                                            item.url,
+                                            item.source_page,
+                                            "max_results_limit",
+                                            score,
+                                        )
+                                    )
+                                    continue
 
-                            seen_videos[norm_key] = item
-                            result.videos.append(item)
-                    pbar.update(1)
+                                seen_images[norm_key] = item
+                                result.images.append(item)
+                                stats["images_kept"] += 1
+
+                            # Filtering and deduplication of page_videos
+                            for item in page_videos:
+                                item.url = normalize_url(item.url)
+                                norm_key = normalize_media_url(item.url)
+                                if norm_key in seen_videos:
+                                    existing = seen_videos[norm_key]
+                                    if "?" in item.url and "?" not in existing.url:
+                                        LOGGER.debug(
+                                            "Video URL upgraded from tokenless to tokened: %s -> %s",
+                                            existing.url,
+                                            item.url,
+                                        )
+                                        existing.url = item.url
+                                    else:
+                                        result.rejected_items.append(
+                                            RejectedItem(
+                                                "video",
+                                                item.url,
+                                                item.source_page,
+                                                "duplicate",
+                                            )
+                                        )
+                                        stats["rejected_count"] += 1
+                                    continue
+                                score = score_video_relevance(
+                                    item,
+                                    options.keyword,
+                                    options.entity_tokens,
+                                    seed_set,
+                                    domain_profiles,
+                                )
+                                item.score = score
+                                reason = rejection_reason_for_video(
+                                    item,
+                                    options.keyword,
+                                    options.entity_tokens,
+                                    seed_set,
+                                    domain_profiles,
+                                )
+                                if reason:
+                                    parent_href = getattr(item, "parent_anchor_href", "")
+                                    LOGGER.debug(
+                                        "Video rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
+                                        item.url,
+                                        reason,
+                                        score,
+                                        item.source_page,
+                                        parent_href,
+                                    )
+                                    result.rejected_items.append(
+                                        RejectedItem(
+                                            "video",
+                                            item.url,
+                                            item.source_page,
+                                            reason,
+                                            score,
+                                        )
+                                    )
+                                    stats["rejected_count"] += 1
+                                    continue
+
+                                if max_results > 0 and len(result.videos) >= max_results:
+                                    result.rejected_items.append(
+                                        RejectedItem(
+                                            "video",
+                                            item.url,
+                                            item.source_page,
+                                            "max_results_limit",
+                                            score,
+                                        )
+                                    )
+                                    continue
+
+                                seen_videos[norm_key] = item
+                                result.videos.append(item)
+                                stats["videos_kept"] += 1
+
+                        if max_results > 0 and _is_target_met(result, options, max_results):
+                            LOGGER.info(
+                                "Target media limits met early (%d images, %d videos). Cancelling remaining page fetches.",
+                                len(result.images),
+                                len(result.videos),
+                            )
+                            # Empty the remaining pages iterator so no more get submitted
+                            pages_iter = iter([])
+                            for f in list(futures.keys()):
+                                if not f.done():
+                                    f.cancel()
+                            pbar.update(pbar.total - pbar.n)
+                            break
+                        
+                        pbar.update(1)
+
+                    # Submit next pages to maintain target concurrency
+                    while len(futures) < current_concurrency:
+                        if not submit_next():
+                            break
 
         extra_videos = self.video_scraper.search(
             keyword,
@@ -336,20 +632,33 @@ class ScrapingEngine:
                 if "?" in item.url and "?" not in existing.url:
                     LOGGER.debug(
                         "Video URL upgraded from tokenless to tokened: %s -> %s",
-                        existing.url, item.url,
+                        existing.url,
+                        item.url,
                     )
                     existing.url = item.url
                 else:
-                    result.rejected_items.append(RejectedItem("video", item.url, item.source_page, "duplicate"))
+                    result.rejected_items.append(
+                        RejectedItem("video", item.url, item.source_page, "duplicate")
+                    )
                 continue
-            score = score_video_relevance(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            score = score_video_relevance(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             item.score = score
-            reason = rejection_reason_for_video(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            reason = rejection_reason_for_video(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             if reason:
-                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, reason, score))
+                result.rejected_items.append(
+                    RejectedItem("video", item.url, item.source_page, reason, score)
+                )
                 continue
             if max_results > 0 and len(result.videos) >= max_results:
-                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, "max_results_limit", score))
+                result.rejected_items.append(
+                    RejectedItem(
+                        "video", item.url, item.source_page, "max_results_limit", score
+                    )
+                )
                 continue
             seen_videos[norm_key] = item
             result.videos.append(item)
@@ -365,7 +674,13 @@ class ScrapingEngine:
                 DEFAULT_DOWNLOAD_VIDEOS_SUBDIR,
                 CONCURRENT_DOWNLOADS,
             )
-            output_root = options.output_dir / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
+
+            output_root = (
+                options.output_dir
+                / result.keyword_slug
+                / DEFAULT_RUNS_SUBDIR
+                / result.run_id
+            )
             image_dir = output_root / DEFAULT_DOWNLOAD_IMAGES_SUBDIR
             video_dir = output_root / DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
             image_dir.mkdir(parents=True, exist_ok=True)
@@ -397,7 +712,11 @@ class ScrapingEngine:
                 domain_dir.mkdir(parents=True, exist_ok=True)
                 domain_prefix = domain.replace(".", "_")
                 for idx, item in enumerate(items, start=1):
-                    stem_suffix = re.sub(r"[^a-zA-Z0-9]+", "_", (item.alt_text or item.page_title or "image").strip().lower()).strip("_")
+                    stem_suffix = re.sub(
+                        r"[^a-zA-Z0-9]+",
+                        "_",
+                        (item.alt_text or item.page_title or "image").strip().lower(),
+                    ).strip("_")
                     stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
                     stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
                     image_tasks.append((item, domain_dir, stem, "image"))
@@ -408,66 +727,128 @@ class ScrapingEngine:
                 domain_dir.mkdir(parents=True, exist_ok=True)
                 domain_prefix = domain.replace(".", "_")
                 for idx, item in enumerate(items, start=1):
-                    stem_suffix = re.sub(r"[^a-zA-Z0-9]+", "_", (item.page_title or item.type).strip().lower()).strip("_")
+                    stem_suffix = re.sub(
+                        r"[^a-zA-Z0-9]+",
+                        "_",
+                        (item.page_title or item.type).strip().lower(),
+                    ).strip("_")
                     stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
                     stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
                     video_tasks.append((item, domain_dir, stem, "video"))
 
             all_dl_tasks = image_tasks + video_tasks
             if all_dl_tasks:
-                LOGGER.info("Downloading %d images and %d videos...", len(image_tasks), len(video_tasks))
-                
-                downloaded_images = []
-                downloaded_videos = []
-                
-                with _cf.ThreadPoolExecutor(max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl") as dl_executor:
+                LOGGER.info(
+                    "Downloading %d images and %d videos...",
+                    len(image_tasks),
+                    len(video_tasks),
+                )
+
+                # Initialize non-downloadable videos status
+                downloaded_video_urls = {item.url for item, _, _, _ in video_tasks}
+                for item in result.videos:
+                    if item.url not in downloaded_video_urls:
+                        item.status = "skipped"
+                        item.failure_reason = "non_downloadable_type"
+
+                with _cf.ThreadPoolExecutor(
+                    max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
+                ) as dl_executor:
                     dl_futures = {
                         dl_executor.submit(
                             self.downloader._download_file,
-                            item.url, directory, stem, media_kind, item.source_page,
+                            item.url,
+                            directory,
+                            stem,
+                            media_kind,
+                            item.source_page,
                         ): (item, media_kind)
                         for item, directory, stem, media_kind in all_dl_tasks
                     }
                     for fut in _cf.as_completed(dl_futures):
                         item, media_kind = dl_futures[fut]
                         try:
-                            success, reason = fut.result()
+                            success, download_info = fut.result()
                             if success:
-                                if media_kind == "image":
-                                    downloaded_images.append(item)
-                                else:
-                                    downloaded_videos.append(item)
+                                item.status = "downloaded"
+                                item.file_path = download_info.get("file_path", "")
+                                item.hash = download_info.get("hash", "")
+                                item.file_size_bytes = download_info.get("file_size_bytes")
+                                item.mime_type = download_info.get("mime_type", "")
+                                if download_info.get("width") is not None:
+                                    item.width = download_info.get("width")
+                                if download_info.get("height") is not None:
+                                    item.height = download_info.get("height")
                             else:
+                                reason = download_info.get("reason", "unknown")
+                                item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
+                                item.failure_reason = reason
+
                                 result.rejected_items.append(
                                     RejectedItem(
                                         kind=media_kind,
                                         url=item.url,
                                         source_page=item.source_page,
                                         reason=f"download_{reason}",
-                                        score=item.score
+                                        score=item.score,
                                     )
                                 )
+                                dl_host = urlparse(item.source_page).netloc.lower()
+                                if dl_host in result.domain_stats:
+                                    result.domain_stats[dl_host]["rejected_count"] += 1
+                                    if media_kind == "image":
+                                        result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
+                                    else:
+                                        result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
                         except Exception as exc:
                             LOGGER.warning("Download error for %s: %s", item.url, exc)
+                            item.status = "failed"
+                            item.failure_reason = f"exception_{type(exc).__name__}"
+
                             result.rejected_items.append(
                                 RejectedItem(
                                     kind=media_kind,
                                     url=item.url,
                                     source_page=item.source_page,
                                     reason=f"download_failed:{type(exc).__name__}",
-                                    score=item.score
+                                    score=item.score,
                                 )
                             )
-                
-                result.images = downloaded_images
-                non_download_videos = [v for v in result.videos if v.type not in {"direct", "hls", "dash"}]
-                result.videos = downloaded_videos + non_download_videos
-                
+                            dl_host = urlparse(item.source_page).netloc.lower()
+                            if dl_host in result.domain_stats:
+                                result.domain_stats[dl_host]["rejected_count"] += 1
+                                if media_kind == "image":
+                                    result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
+                                else:
+                                    result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
+
                 LOGGER.info("Download phase complete.")
 
         # Sort the final lists of kept items by score for output consistency
-        result.images.sort(key=lambda item: (item.score, contains_subject_text(" ".join([item.url, item.source_page, item.alt_text, item.page_title]).lower(), options.keyword, options.entity_tokens)), reverse=True)
-        result.videos.sort(key=lambda item: (item.score, contains_subject_text(" ".join([item.url, item.source_page, item.page_title]).lower(), options.keyword, options.entity_tokens)), reverse=True)
+        result.images.sort(
+            key=lambda item: (
+                item.score,
+                contains_subject_text(
+                    " ".join(
+                        [item.url, item.source_page, item.alt_text, item.page_title]
+                    ).lower(),
+                    options.keyword,
+                    options.entity_tokens,
+                ),
+            ),
+            reverse=True,
+        )
+        result.videos.sort(
+            key=lambda item: (
+                item.score,
+                contains_subject_text(
+                    " ".join([item.url, item.source_page, item.page_title]).lower(),
+                    options.keyword,
+                    options.entity_tokens,
+                ),
+            ),
+            reverse=True,
+        )
 
         LOGGER.info(
             "Collected %s images and %s videos for '%s'",
@@ -526,11 +907,18 @@ class ScrapingEngine:
 
         # If seed path is NOT specific (e.g. root index, query search, or archive list),
         # enforce that detail page links must contain keyword or entity tokens.
-        is_seed_specific = seed_path not in {"", "/", "/index.html", "/index.php"} and not ("search" in seed_path or "archive" in seed_path or "?" in seed_page)
+        is_seed_specific = seed_path not in {
+            "",
+            "/",
+            "/index.html",
+            "/index.php",
+        } and not ("search" in seed_path or "archive" in seed_path or "?" in seed_page)
 
         if not is_seed_specific:
             normalized_link_path = link_path.lower()
-            if all_tokens and not any(token in normalized_link_path for token in all_tokens):
+            if all_tokens and not any(
+                token in normalized_link_path for token in all_tokens
+            ):
                 return False
         else:
             # If seed path is specific, the link must be a subpath or contain an entity token
@@ -538,13 +926,26 @@ class ScrapingEngine:
                 normalized_seed_path = seed_path.lower()
                 normalized_link_path = link_path.lower()
                 if not normalized_link_path.startswith(normalized_seed_path + "/"):
-                    if not any(token in normalized_link_path for token in entity_tokens):
+                    if not any(
+                        token in normalized_link_path for token in entity_tokens
+                    ):
                         return False
 
         # Reject common static nav/info paths
         nav_paths = {
-            "", "/", "/about", "/contact", "/dmca", "/privacy", "/terms",
-            "/login", "/register", "/logout", "/faq", "/support", "/help"
+            "",
+            "/",
+            "/about",
+            "/contact",
+            "/dmca",
+            "/privacy",
+            "/terms",
+            "/login",
+            "/register",
+            "/logout",
+            "/faq",
+            "/support",
+            "/help",
         }
         if link_path in nav_paths or link_path.rstrip("/") in nav_paths:
             return False
@@ -553,25 +954,41 @@ class ScrapingEngine:
         # (e.g. /category/, /tag/, /model/, /actor/, /videos/), and the link path also
         # contains a listing prefix, then the link path must contain the subject name/token
         # to be considered relevant (otherwise it's a listing page for another model/tag).
-        listing_prefixes = ["/category/", "/tag/", "/model/", "/actor/", "/videos/", "/search/", "/tags/", "/models/", "/actors/"]
+        listing_prefixes = [
+            "/category/",
+            "/tag/",
+            "/model/",
+            "/actor/",
+            "/videos/",
+            "/search/",
+            "/tags/",
+            "/models/",
+            "/actors/",
+        ]
         seed_listing = any(lp in seed_path for lp in listing_prefixes)
         link_listing = any(lp in link_path for lp in listing_prefixes)
 
         if link_listing:
-            if entity_tokens and not any(token in link_path.lower() for token in entity_tokens):
+            if entity_tokens and not any(
+                token in link_path.lower() for token in entity_tokens
+            ):
                 return False
 
         if seed_listing:
             for prefix in listing_prefixes:
                 if prefix in link_path:
                     suffix = link_path.split(prefix, 1)[1]
-                    if entity_tokens and not any(token in suffix.lower() for token in entity_tokens):
+                    if entity_tokens and not any(
+                        token in suffix.lower() for token in entity_tokens
+                    ):
                         return False
 
         return True
 
     @staticmethod
-    def _build_candidate_pages(search_pages: list[str], options: EngineOptions) -> list[str]:
+    def _build_candidate_pages(
+        search_pages: list[str], options: EngineOptions
+    ) -> list[str]:
         ordered_pages: list[str] = []
         seen: set[str] = set()
         for page in [*options.seed_urls, *search_pages]:
@@ -594,18 +1011,23 @@ class ScrapingEngine:
         host = urlparse(url).netloc.lower()
         path = urlparse(url).path or "/"
         if options.strict_domain and options.seed_domains:
-            if host not in options.seed_domains and not any(host.endswith(f".{domain}") for domain in options.seed_domains):
+            if host not in options.seed_domains and not any(
+                host.endswith(f".{domain}") for domain in options.seed_domains
+            ):
                 return "strict_domain"
         if options.site_tree_only and options.seed_urls:
             if not any(
-                host == urlparse(seed).netloc.lower() and path.startswith((urlparse(seed).path or "/").rstrip("/") or "/")
+                host == urlparse(seed).netloc.lower()
+                and path.startswith((urlparse(seed).path or "/").rstrip("/") or "/")
                 for seed in options.seed_urls
             ):
                 return "site_tree"
         return None
 
     @staticmethod
-    def _finalize_images(result: ScrapeResult, options: EngineOptions) -> list[ImageItem]:
+    def _finalize_images(
+        result: ScrapeResult, options: EngineOptions
+    ) -> list[ImageItem]:
         seed_set: set[str] = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
         seen: set[str] = set()
@@ -613,23 +1035,52 @@ class ScrapingEngine:
         for item in result.images:
             item.url = normalize_url(item.url)
             if item.url in seen:
-                result.rejected_items.append(RejectedItem("image", item.url, item.source_page, "duplicate"))
+                result.rejected_items.append(
+                    RejectedItem("image", item.url, item.source_page, "duplicate")
+                )
                 continue
-            score = score_image_relevance(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            score = score_image_relevance(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             item.score = score
-            reason = rejection_reason_for_image(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            reason = rejection_reason_for_image(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             if reason:
                 parent_href = getattr(item, "parent_anchor_href", "")
-                LOGGER.debug("Image rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)", item.url, reason, score, item.source_page, parent_href)
-                result.rejected_items.append(RejectedItem("image", item.url, item.source_page, reason, score))
+                LOGGER.debug(
+                    "Image rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
+                    item.url,
+                    reason,
+                    score,
+                    item.source_page,
+                    parent_href,
+                )
+                result.rejected_items.append(
+                    RejectedItem("image", item.url, item.source_page, reason, score)
+                )
                 continue
             seen.add(item.url)
             kept.append(item)
-        kept.sort(key=lambda item: (item.score, contains_subject_text(" ".join([item.url, item.source_page, item.alt_text, item.page_title]).lower(), options.keyword, options.entity_tokens)), reverse=True)
+        kept.sort(
+            key=lambda item: (
+                item.score,
+                contains_subject_text(
+                    " ".join(
+                        [item.url, item.source_page, item.alt_text, item.page_title]
+                    ).lower(),
+                    options.keyword,
+                    options.entity_tokens,
+                ),
+            ),
+            reverse=True,
+        )
         return kept
 
     @staticmethod
-    def _finalize_videos(result: ScrapeResult, options: EngineOptions) -> list[VideoItem]:
+    def _finalize_videos(
+        result: ScrapeResult, options: EngineOptions
+    ) -> list[VideoItem]:
         seed_set: set[str] = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
         seen: set[str] = set()
@@ -637,17 +1088,42 @@ class ScrapingEngine:
         for item in result.videos:
             item.url = normalize_url(item.url)
             if item.url in seen:
-                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, "duplicate"))
+                result.rejected_items.append(
+                    RejectedItem("video", item.url, item.source_page, "duplicate")
+                )
                 continue
-            score = score_video_relevance(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            score = score_video_relevance(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             item.score = score
-            reason = rejection_reason_for_video(item, options.keyword, options.entity_tokens, seed_set, domain_profiles)
+            reason = rejection_reason_for_video(
+                item, options.keyword, options.entity_tokens, seed_set, domain_profiles
+            )
             if reason:
                 parent_href = getattr(item, "parent_anchor_href", "")
-                LOGGER.debug("Video rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)", item.url, reason, score, item.source_page, parent_href)
-                result.rejected_items.append(RejectedItem("video", item.url, item.source_page, reason, score))
+                LOGGER.debug(
+                    "Video rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
+                    item.url,
+                    reason,
+                    score,
+                    item.source_page,
+                    parent_href,
+                )
+                result.rejected_items.append(
+                    RejectedItem("video", item.url, item.source_page, reason, score)
+                )
                 continue
             seen.add(item.url)
             kept.append(item)
-        kept.sort(key=lambda item: (item.score, contains_subject_text(" ".join([item.url, item.source_page, item.page_title]).lower(), options.keyword, options.entity_tokens)), reverse=True)
+        kept.sort(
+            key=lambda item: (
+                item.score,
+                contains_subject_text(
+                    " ".join([item.url, item.source_page, item.page_title]).lower(),
+                    options.keyword,
+                    options.entity_tokens,
+                ),
+            ),
+            reverse=True,
+        )
         return kept

@@ -18,7 +18,7 @@ def test_extract_videos_from_html_finds_direct_video_links() -> None:
 
 def test_extract_videos_from_html_finds_text_embedded_video_links() -> None:
     soup = BeautifulSoup(
-        '<html><body><div>Watch https://www.youtube.com/watch?v=abc123xyz</div></body></html>',
+        "<html><body><div>Watch https://www.youtube.com/watch?v=abc123xyz</div></body></html>",
         "html.parser",
     )
 

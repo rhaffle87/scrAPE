@@ -25,6 +25,7 @@ asyncio loop reuse:
   A single background event loop (daemon thread) handles all Crawl4AI coroutines.
   This eliminates the per-call browser spawn overhead from asyncio.run().
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -51,6 +52,8 @@ from config import (
     USER_AGENTS,
 )
 from utils.rate_limiter import RateLimiter
+from utils.session_pool import SessionPool
+
 
 
 # ---------------------------------------------------------------------------
@@ -119,18 +122,25 @@ class _DomainCooldownState:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.consecutive_429s: int = 0
-        self.consecutive_failures: int = 0    # consecutive timeouts or connection failures
-        self.cooldown_count: int = 0          # how many cooldowns have been triggered
-        self.cooldown_until: float = 0.0      # monotonic timestamp
+        self.consecutive_failures: int = (
+            0  # consecutive timeouts or connection failures
+        )
+        self.cooldown_count: int = 0  # how many cooldowns have been triggered
+        self.cooldown_until: float = 0.0  # monotonic timestamp
+        self.is_blacklisted: bool = False
 
     def record_429(self) -> float | None:
         """Increment the 429 counter.  Returns cooldown duration if threshold crossed, else None."""
         with self._lock:
             self.consecutive_429s += 1
             if self.consecutive_429s >= DOMAIN_COOLDOWN_THRESHOLD:
-                duration = DOMAIN_COOLDOWN_SECONDS[
-                    min(self.cooldown_count, len(DOMAIN_COOLDOWN_SECONDS) - 1)
-                ]
+                if self.cooldown_count >= 3:
+                    self.is_blacklisted = True
+                    self.cooldown_until = time.monotonic() + 36000.0  # 10 hours
+                    return 36000.0
+
+                durations = [30.0, 120.0, 600.0]
+                duration = durations[self.cooldown_count]
                 self.cooldown_until = time.monotonic() + duration
                 self.cooldown_count += 1
                 self.consecutive_429s = 0
@@ -142,10 +152,16 @@ class _DomainCooldownState:
         """Increment the failure counter. Returns cooldown duration if threshold crossed, else None."""
         with self._lock:
             self.consecutive_failures += 1
-            if self.consecutive_failures >= 3:  # Cooldown after 3 consecutive timeouts/connect errors
-                duration = DOMAIN_COOLDOWN_SECONDS[
-                    min(self.cooldown_count, len(DOMAIN_COOLDOWN_SECONDS) - 1)
-                ]
+            if (
+                self.consecutive_failures >= 3
+            ):  # Cooldown after 3 consecutive timeouts/connect errors
+                if self.cooldown_count >= 3:
+                    self.is_blacklisted = True
+                    self.cooldown_until = time.monotonic() + 36000.0  # 10 hours
+                    return 36000.0
+
+                durations = [30.0, 120.0, 600.0]
+                duration = durations[self.cooldown_count]
                 self.cooldown_until = time.monotonic() + duration
                 self.cooldown_count += 1
                 self.consecutive_429s = 0
@@ -161,10 +177,12 @@ class _DomainCooldownState:
 
     def is_cooling_down(self) -> bool:
         with self._lock:
-            return time.monotonic() < self.cooldown_until
+            return self.is_blacklisted or time.monotonic() < self.cooldown_until
 
     def cooldown_remaining(self) -> float:
         with self._lock:
+            if self.is_blacklisted:
+                return 36000.0
             return max(0.0, self.cooldown_until - time.monotonic())
 
 
@@ -181,9 +199,10 @@ class HttpClient:
     A 429 circuit-breaker prevents thrashing a rate-limited domain.
     All text/HTML/JSON responses are cached to disk.
     """
+
     _stealth_required_hosts: set[str] = set()
     _stealth_lock = threading.Lock()
-    _stealth_failed_hosts: set[str] = set()
+    _stealth_failed_hosts: dict[str, float] = {}
     _failed_stealth_lock = threading.Lock()
 
     def __init__(
@@ -206,13 +225,17 @@ class HttpClient:
                 if delay > 0:
                     converted_delays[host] = 1.0 / delay
         # Merged overrides: CLI-supplied > config defaults
-        self._domain_rps_overrides: dict[str, float] = {**DOMAIN_REQUESTS_PER_SECOND, **converted_delays}
+        self._domain_rps_overrides: dict[str, float] = {
+            **DOMAIN_REQUESTS_PER_SECOND,
+            **converted_delays,
+        }
         # Per-hostname RateLimiter (lazy-created)
         self._rate_limiters: dict[str, RateLimiter] = {}
         self._rl_lock = threading.Lock()
         # Per-hostname 429 circuit-breaker state (lazy-created)
         self._cooldown_states: dict[str, _DomainCooldownState] = {}
         self._cd_lock = threading.Lock()
+        self._session_pool = SessionPool()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
@@ -229,7 +252,9 @@ class HttpClient:
         with self._rl_lock:
             if host not in self._rate_limiters:
                 rps = self._domain_rps_overrides.get(host, DEFAULT_REQUESTS_PER_SECOND)
-                self._rate_limiters[host] = RateLimiter(rps, jitter=RATE_LIMIT_JITTER_SECONDS)
+                self._rate_limiters[host] = RateLimiter(
+                    rps, jitter=RATE_LIMIT_JITTER_SECONDS
+                )
             return self._rate_limiters[host]
 
     def _cooldown_state_for(self, url: str) -> _DomainCooldownState:
@@ -244,8 +269,12 @@ class HttpClient:
     # Headers
     # ------------------------------------------------------------------
 
-    def _headers(self) -> dict[str, str]:
-        """Return a request header dict with a randomly rotated User-Agent."""
+    def _headers(self, url: str | None = None) -> dict[str, str]:
+        """Return a request header dict with a sticky User-Agent for the domain."""
+        if url:
+            host = self._hostname(url)
+            session = self._session_pool.get_session(host)
+            return session.get_headers()
         return {"User-Agent": random.choice(USER_AGENTS)}
 
     # ------------------------------------------------------------------
@@ -263,12 +292,18 @@ class HttpClient:
             return None
         if time.time() - cache_path.stat().st_mtime > DEFAULT_CACHE_TTL_SECONDS:
             return None
-        return httpx.Response(status_code=200, text=cache_path.read_text(encoding="utf-8"))
+        return httpx.Response(
+            status_code=200, text=cache_path.read_text(encoding="utf-8")
+        )
 
     def _store_cache(self, url: str, response: httpx.Response) -> None:
         """Persist a text/HTML/JSON response body to disk."""
         content_type = response.headers.get("content-type", "")
-        if "text" not in content_type and "json" not in content_type and "xml" not in content_type:
+        if (
+            "text" not in content_type
+            and "json" not in content_type
+            and "xml" not in content_type
+        ):
             return
         self._cache_path(url).write_text(response.text, encoding="utf-8")
 
@@ -280,14 +315,23 @@ class HttpClient:
         """Return True if the HTML is a Cloudflare interstitial challenge page."""
         if not html:
             return False
-        title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+        title_match = re.search(
+            r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL
+        )
         if title_match:
             title = title_match.group(1).strip().lower()
-            if "just a moment" in title or "checking your browser" in title or "attention required" in title:
+            if (
+                "just a moment" in title
+                or "checking your browser" in title
+                or "attention required" in title
+            ):
                 return True
         lower_html = html.lower()
         if "challenges.cloudflare.com" in lower_html or "cf-challenge" in lower_html:
-            if "just a moment" in lower_html or "please enable javascript" in lower_html:
+            if (
+                "just a moment" in lower_html
+                or "please enable javascript" in lower_html
+            ):
                 return True
         return False
 
@@ -309,7 +353,13 @@ class HttpClient:
         # Disable crawl4ai's built-in block detector — we detect Cloudflare ourselves.
         crawl4ai.async_webcrawler.is_blocked = lambda status_code, html: (False, "")
 
-        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, UndetectedAdapter
+        from crawl4ai import (
+            AsyncWebCrawler,
+            BrowserConfig,
+            CrawlerRunConfig,
+            CacheMode,
+            UndetectedAdapter,
+        )
         from crawl4ai.async_crawler_strategy import AsyncPlaywrightCrawlerStrategy
 
         async def _run_tier(strategy, run_config) -> str:
@@ -321,6 +371,7 @@ class HttpClient:
 
         async def _run_crawler() -> str:
             from utils.logger import get_logger
+
             logger = get_logger(__name__)
 
             run_config = CrawlerRunConfig(
@@ -333,7 +384,9 @@ class HttpClient:
             )
 
             # --- Tier 1: Standard stealth Playwright ---
-            logger.info("Crawl4AI Fallback: Trying Tier 1 (Standard Stealth) for %s...", url)
+            logger.info(
+                "Crawl4AI Fallback: Trying Tier 1 (Standard Stealth) for %s...", url
+            )
             browser_cfg_1 = BrowserConfig(
                 headless=True,
                 verbose=False,
@@ -346,9 +399,16 @@ class HttpClient:
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 1 succeeded for %s.", url)
                     return html
-                logger.warning("Crawl4AI Tier 1 hit Cloudflare challenge for %s. Escalating to Tier 2...", url)
+                logger.warning(
+                    "Crawl4AI Tier 1 hit Cloudflare challenge for %s. Escalating to Tier 2...",
+                    url,
+                )
             except Exception as exc:
-                logger.warning("Crawl4AI Tier 1 failed for %s: %s. Escalating to Tier 2...", url, exc)
+                logger.warning(
+                    "Crawl4AI Tier 1 failed for %s: %s. Escalating to Tier 2...",
+                    url,
+                    exc,
+                )
 
             # --- Tier 2: UndetectedAdapter (bypasses deep fingerprinting / Turnstile) ---
             browser_cfg_2 = BrowserConfig(
@@ -368,7 +428,9 @@ class HttpClient:
                     return html
                 raise Exception("Crawl4AI Tier 2 hit Cloudflare challenge.")
             except Exception as exc:
-                raise Exception(f"All Crawl4AI fallback tiers failed for {url}: {exc}") from exc
+                raise Exception(
+                    f"All Crawl4AI fallback tiers failed for {url}: {exc}"
+                ) from exc
 
         return _run_coroutine_sync(_run_crawler())
 
@@ -384,6 +446,7 @@ class HttpClient:
         domain-cooldown errors are NOT retried.
         """
         from utils.logger import get_logger
+
         logger = get_logger(__name__)
 
         # 1. Cache
@@ -394,28 +457,45 @@ class HttpClient:
         # 2. Circuit-breaker: skip cooldown domains immediately
         cd_state = self._cooldown_state_for(url)
         if cd_state.is_cooling_down():
-            remaining = cd_state.cooldown_remaining()
             host = self._hostname(url)
+            if cd_state.is_blacklisted:
+                raise ScraperBypassError(
+                    f"Domain '{host}' is blacklisted due to repeated rate limits or offline failures. Fast-failing {url}."
+                )
+            remaining = cd_state.cooldown_remaining()
             raise ScraperBypassError(
                 f"Domain '{host}' is in 429 cooldown for {remaining:.0f}s more. Skipping {url}."
             )
 
         # Check if the domain is known to have failed stealth before
         host = self._hostname(url)
+        parsed_url = urlparse(url)
+        is_robots_txt = parsed_url.path.lower() == "/robots.txt"
+
         with self._failed_stealth_lock:
-            if host in self._stealth_failed_hosts:
-                raise ScraperBypassError(
-                    f"Domain '{host}' has previously failed all stealth fallback tiers. Fast-failing {url}."
-                )
+            if host in self._stealth_failed_hosts and not is_robots_txt:
+                blocked_until = self._stealth_failed_hosts[host]
+                if time.time() < blocked_until:
+                    remaining = blocked_until - time.time()
+                    raise ScraperBypassError(
+                        f"Domain '{host}' has previously failed all stealth fallback tiers. "
+                        f"Stealth cooldown active for {remaining:.0f}s. Fast-failing {url}."
+                    )
+                else:
+                    del self._stealth_failed_hosts[host]
 
         # Check if the domain is known to require stealth
         with self._stealth_lock:
             requires_stealth = host in self._stealth_required_hosts
 
-        if requires_stealth:
+        if requires_stealth and not is_robots_txt:
             from core.filters import looks_like_media
+
             if not looks_like_media(url):
-                logger.info("Domain '%s' is marked as requiring stealth. Routing directly to Crawl4AI fallback.", host)
+                logger.info(
+                    "Domain '%s' is marked as requiring stealth. Routing directly to Crawl4AI fallback.",
+                    host,
+                )
                 # Apply rate limiting before direct fallback
                 self._rate_limiter_for(url).wait()
                 try:
@@ -429,15 +509,17 @@ class HttpClient:
                     self._store_cache(url, response)
                     return response
                 except Exception as crawl_exc:
-                    logger.error("Direct Crawl4AI fallback failed for %s: %s", url, crawl_exc)
+                    logger.error(
+                        "Direct Crawl4AI fallback failed for %s: %s", url, crawl_exc
+                    )
                     with self._failed_stealth_lock:
-                        self._stealth_failed_hosts.add(host)
+                        self._stealth_failed_hosts[host] = time.time() + 1800.0
                     raise ScraperBypassError(
                         f"Failed to fetch {url} via direct Crawl4AI routing: {crawl_exc}"
                     ) from crawl_exc
 
         current_timeout = self.timeout
-        last_exc = None
+        session = self._session_pool.get_session(host)
 
         for attempt in range(1, DEFAULT_RETRY_ATTEMPTS + 1):
             try:
@@ -445,33 +527,44 @@ class HttpClient:
                 self._rate_limiter_for(url).wait()
 
                 # Merge custom headers if provided
-                req_headers = self._headers()
+                req_headers = self._headers(url)
                 if headers:
                     req_headers.update(headers)
 
                 # Fetch with escalating timeout
                 try:
-                    response = self.client.get(url, headers=req_headers, timeout=current_timeout)
+                    response = self.client.get(
+                        url, headers=req_headers, cookies=session.cookies, timeout=current_timeout
+                    )
                     response.raise_for_status()
+                    session.cookies.update(response.cookies)
                     cd_state.record_success()
                     self._store_cache(url, response)
                     return response
                 except httpx.TimeoutException as exc:
-                    last_exc = exc
                     logger.warning(
                         "Timeout fetching %s (attempt %d/%d, timeout=%ds).",
-                        url, attempt, DEFAULT_RETRY_ATTEMPTS, current_timeout
+                        url,
+                        attempt,
+                        DEFAULT_RETRY_ATTEMPTS,
+                        current_timeout,
                     )
                     current_timeout = min(60.0, current_timeout * 2.0)
                     if attempt < DEFAULT_RETRY_ATTEMPTS:
-                        time.sleep(2.0 ** attempt)
+                        time.sleep(2.0**attempt)
                         continue
                     raise exc
 
             except httpx.HTTPStatusError as exc:
                 status = exc.response.status_code
 
+                if status == 404:
+                    raise exc
+
                 if status in {403, 401, 429}:
+                    # Rotate the session on blocks
+                    session.reset_identity()
+
                     # 4a. Track 429 consecutive hits for circuit-breaker
                     if status == 429:
                         # Adaptive 429 rate limit backoff:
@@ -483,9 +576,11 @@ class HttpClient:
                             limiter.requests_per_second = new_rps
                             logger.warning(
                                 "HTTP 429 received from %s. Dynamically scaling back RPS from %.3f to %.3f.",
-                                host, old_rps, new_rps
+                                host,
+                                old_rps,
+                                new_rps,
                             )
-                        
+
                         cooldown_duration = cd_state.record_429()
                         if cooldown_duration is not None:
                             host = self._hostname(url)
@@ -496,12 +591,15 @@ class HttpClient:
                                 cooldown_duration,
                             )
 
-                    # Skip Crawl4AI fallback for direct media assets
+                    # Skip Crawl4AI fallback for direct media assets and robots.txt
                     from core.filters import looks_like_media
-                    if looks_like_media(url):
+
+                    if looks_like_media(url) or is_robots_txt:
                         raise exc
 
-                    logger.warning("GET %s returned %d. Falling back to Crawl4AI...", url, status)
+                    logger.warning(
+                        "GET %s returned %d. Falling back to Crawl4AI...", url, status
+                    )
 
                     # 4b. Browser fallback
                     try:
@@ -513,40 +611,46 @@ class HttpClient:
                         )
                         cd_state.record_success()
                         self._store_cache(url, response)
-                        
+
                         # Mark hostname as requiring stealth
                         host = self._hostname(url)
                         with self._stealth_lock:
                             self._stealth_required_hosts.add(host)
-                            
+
                         return response
                     except Exception as crawl_exc:
-                        logger.error("Crawl4AI fallback failed for %s: %s", url, crawl_exc)
+                        logger.error(
+                            "Crawl4AI fallback failed for %s: %s", url, crawl_exc
+                        )
                         with self._failed_stealth_lock:
-                            self._stealth_failed_hosts.add(host)
+                            self._stealth_failed_hosts[host] = time.time() + 1800.0
                         raise ScraperBypassError(
                             f"Failed to fetch {url} (status {status}) "
                             f"and Crawl4AI fallback failed: {crawl_exc}"
                         ) from exc
 
-                last_exc = exc
                 logger.warning(
                     "HTTPStatusError %d fetching %s (attempt %d/%d).",
-                    status, url, attempt, DEFAULT_RETRY_ATTEMPTS
+                    status,
+                    url,
+                    attempt,
+                    DEFAULT_RETRY_ATTEMPTS,
                 )
                 if attempt < DEFAULT_RETRY_ATTEMPTS:
-                    time.sleep(2.0 ** attempt)
+                    time.sleep(2.0**attempt)
                     continue
                 raise exc
 
             except httpx.HTTPError as exc:
-                last_exc = exc
                 logger.warning(
                     "HTTPError fetching %s (attempt %d/%d): %s",
-                    url, attempt, DEFAULT_RETRY_ATTEMPTS, exc
+                    url,
+                    attempt,
+                    DEFAULT_RETRY_ATTEMPTS,
+                    exc,
                 )
                 if attempt < DEFAULT_RETRY_ATTEMPTS:
-                    time.sleep(2.0 ** attempt)
+                    time.sleep(2.0**attempt)
                     continue
 
                 cooldown_duration = cd_state.record_failure()

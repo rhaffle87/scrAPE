@@ -13,7 +13,18 @@ def write_csv(result: ScrapeResult, output_root: Path) -> None:
     with image_file.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["url", "source_page", "alt_text", "page_title", "score", "mime_type"],
+            fieldnames=[
+                "url",
+                "source_page",
+                "alt_text",
+                "page_title",
+                "score",
+                "mime_type",
+                "status",
+                "file_path",
+                "failure_reason",
+                "hash",
+            ],
         )
         writer.writeheader()
         for item in result.images:
@@ -25,6 +36,10 @@ def write_csv(result: ScrapeResult, output_root: Path) -> None:
                     "page_title": item.page_title,
                     "score": item.score,
                     "mime_type": item.mime_type,
+                    "status": item.status,
+                    "file_path": item.file_path,
+                    "failure_reason": item.failure_reason,
+                    "hash": item.hash,
                 }
             )
 
@@ -32,7 +47,18 @@ def write_csv(result: ScrapeResult, output_root: Path) -> None:
     with video_file.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["url", "source_page", "type", "page_title", "score", "mime_type"],
+            fieldnames=[
+                "url",
+                "source_page",
+                "type",
+                "page_title",
+                "score",
+                "mime_type",
+                "status",
+                "file_path",
+                "failure_reason",
+                "hash",
+            ],
         )
         writer.writeheader()
         for item in result.videos:
@@ -44,6 +70,10 @@ def write_csv(result: ScrapeResult, output_root: Path) -> None:
                     "page_title": item.page_title,
                     "score": item.score,
                     "mime_type": item.mime_type,
+                    "status": item.status,
+                    "file_path": item.file_path,
+                    "failure_reason": item.failure_reason,
+                    "hash": item.hash,
                 }
             )
 
@@ -51,7 +81,15 @@ def write_csv(result: ScrapeResult, output_root: Path) -> None:
     with page_file.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["url", "depth", "status", "reason", "discovered_links", "images_found", "videos_found"],
+            fieldnames=[
+                "url",
+                "depth",
+                "status",
+                "reason",
+                "discovered_links",
+                "images_found",
+                "videos_found",
+            ],
         )
         writer.writeheader()
         for item in result.page_reports:

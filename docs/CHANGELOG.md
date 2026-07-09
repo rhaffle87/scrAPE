@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Interactive Terminal GUI Wizard** (`cli_wizard.py`, `run.bat`, `run.sh`):
+  Introduced a terminal menu wizard guiding users through Quick scan, Deep scrape, Focused archives, or Continuous monitoring configurations.
+- **Operational Scenarios Guide** (`docs/SCENARIOS.md`):
+  Added structured scenarios mapping goals (broad exploration, targeted seeds, watchdog) to their recommended CLI inputs and parameters.
+- **Adaptive Concurrency Control** (`engine.py`):
+  Dynamically scales the number of active workers based on domain request latencies and connection errors.
+- **SessionPool with Sticky User-Agents** (`session_pool.py`, `http_client.py`):
+  Maintains cookie jars and consistent User-Agent headers per domain across crawler/downloader cycles, preventing bot detections due to changing identities.
+- **Self-Healing Semantic Selectors** (`semantic_selectors.py`, `parser.py`):
+  Implements scoring models (word density, alt text, tag weights) to locate relevant assets when standard CSS selectors yield zero results.
+
 ### Fixed
 
 - **Trailing-slash media URL parsing** (`video_scraper.py`, `filters.py`):

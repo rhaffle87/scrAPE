@@ -52,6 +52,12 @@ GENERIC_ASSET_TERMS = {
     "thumbnail",
     "app-store",
     "play-store",
+    "color_indicator",
+    "color-indicator",
+    "color_dot",
+    "color-dot",
+    "favicon",
+    "service",
 }
 PREVIEW_MARKERS = {
     "thumb_vid",

@@ -9,6 +9,33 @@ crawl4ai-setup   # one-time — installs Playwright browsers for WAF fallback
 
 ---
 
+## Interactive Terminal GUI Wizard
+
+For the easiest way to configure and run scrapers without remembering CLI flags, launch the interactive console wizard:
+
+### On Windows
+
+Double-click `run.bat` or execute in terminal:
+
+```cmd
+run.bat
+```
+
+### On macOS / Linux
+
+```bash
+chmod +x run.sh
+./run.sh
+```
+
+The wizard guides you step-by-step through three different execution flows:
+
+1. **General/Broad Search**: Guides you to input keyword search, output format, result limits, and crawl depth.
+2. **Specified/Targeted Crawling**: Configures strict scraping targeting a loaded seed manifest file (e.g. `seeds/apple.txt`) and automatically sets up focus options.
+3. **Continuous Watchdog**: Configures and starts the interval watchdog for continuous background monitoring.
+
+---
+
 ## Basic keyword search
 
 ```bash
@@ -126,6 +153,7 @@ Any additional unknown arguments provided to `monitor_agent.py` will be automati
 
 - **scrAPE** targets public pages only and does not bypass paywalls or authenticated areas.
 - WAF-protected pages (403/429) are automatically retried via Crawl4AI stealth browser (Tier 1), then Undetected browser mode (Tier 2).
+- Operational Scenarios Guide — see `docs/SCENARIOS.md` for recommended inputs.
 - Quality filters bias results toward substantive media and away from thumbnails, decorative assets, and previews — see `docs/QUALITY_FILTERS.md`.
 - Output is written to `output/<keyword_slug>/runs/<run_id>/`.
 - Cache TTL is 1 hour by default. Delete `.cache/` to force a fresh crawl.

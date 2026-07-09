@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.seed_manifest import DomainProfile, SeedManifest
 
+
 @dataclass(slots=True)
 class ImageItem:
     url: str
@@ -23,6 +24,10 @@ class ImageItem:
     in_layout_container: bool = False
     parent_anchor_text: str = ""
     parent_anchor_href: str = ""
+    status: str = "pending"
+    file_path: str = ""
+    failure_reason: str = ""
+    hash: str = ""
 
 
 @dataclass(slots=True)
@@ -38,6 +43,10 @@ class VideoItem:
     in_layout_container: bool = False
     parent_anchor_text: str = ""
     parent_anchor_href: str = ""
+    status: str = "pending"
+    file_path: str = ""
+    failure_reason: str = ""
+    hash: str = ""
 
 
 @dataclass(slots=True)
@@ -71,6 +80,7 @@ class ScrapeResult:
     rejected_items: list[RejectedItem] = field(default_factory=list)
     images: list[ImageItem] = field(default_factory=list)
     videos: list[VideoItem] = field(default_factory=list)
+    domain_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     @property
     def keyword_slug(self) -> str:
@@ -88,6 +98,7 @@ class ScrapeResult:
             "rejected_items": [asdict(item) for item in self.rejected_items],
             "images": [asdict(item) for item in self.images],
             "videos": [asdict(item) for item in self.videos],
+            "domain_stats": self.domain_stats,
         }
 
 

@@ -49,43 +49,61 @@ def test_is_detail_page() -> None:
     from core.engine import ScrapingEngine
 
     # Test nested path (classic detail page pattern: index listing -> individual item)
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/videos/subject_alpha/123",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is True
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/videos/subject/123",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is True
+    )
 
     # Test non-nested path with listing prefix & correct token in slug
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/video/123/subject_alpha-cosplay",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is True
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/video/123/subject-cosplay",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is True
+    )
 
     # Test non-nested path with wrong token in listing prefix (different subject)
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/videos/other-model",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is False
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/videos/other-model",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is False
+    )
 
     # Test pagination sibling rejection
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/videos/subject_alpha/page/2",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is False
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/videos/subject/page/2",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is False
+    )
 
     # Test query param pagination rejection
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/videos/subject_alpha?page=3",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is False
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/videos/subject?page=3",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is False
+    )
 
     # Test static pages rejection
-    assert ScrapingEngine._is_detail_page(
-        "https://example.com/about",
-        "https://example.com/videos/subject_alpha",
-        ["subject_alpha"]
-    ) is False
+    assert (
+        ScrapingEngine._is_detail_page(
+            "https://example.com/about",
+            "https://example.com/videos/subject",
+            ["subject"],
+        )
+        is False
+    )

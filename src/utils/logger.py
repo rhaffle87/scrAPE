@@ -50,14 +50,20 @@ def configure_logging(
     )
 
     # ── Console handler (INFO and above to keep stdout readable) ──────────
-    if not any(isinstance(h, logging.StreamHandler) and h.stream is sys.stderr for h in root.handlers):
+    if not any(
+        isinstance(h, logging.StreamHandler) and h.stream is sys.stderr
+        for h in root.handlers
+    ):
         console = logging.StreamHandler(sys.stderr)
         console.setLevel(logging.INFO)
         console.setFormatter(_fmt)
         root.addHandler(console)
 
     # ── File handler (DEBUG and above — full trace for analysis) ──────────
-    if not any(isinstance(h, logging.FileHandler) and Path(h.baseFilename) == log_path for h in root.handlers):
+    if not any(
+        isinstance(h, logging.FileHandler) and Path(h.baseFilename) == log_path
+        for h in root.handlers
+    ):
         file_handler = logging.FileHandler(log_path, encoding="utf-8", mode="a")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(_fmt)
@@ -71,7 +77,9 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_run_start(logger: logging.Logger, keyword: str, seed_count: int, extra: dict | None = None) -> None:
+def log_run_start(
+    logger: logging.Logger, keyword: str, seed_count: int, extra: dict | None = None
+) -> None:
     """Emit a structured banner at the beginning of a scrape run."""
     sep = "=" * 72
     logger.info(sep)
@@ -82,7 +90,13 @@ def log_run_start(logger: logging.Logger, keyword: str, seed_count: int, extra: 
     logger.info(sep)
 
 
-def log_run_end(logger: logging.Logger, keyword: str, images: int, videos: int, output_dir: Path | str) -> None:
+def log_run_end(
+    logger: logging.Logger,
+    keyword: str,
+    images: int,
+    videos: int,
+    output_dir: Path | str,
+) -> None:
     """Emit a structured banner at the end of a scrape run."""
     sep = "=" * 72
     logger.info(sep)
@@ -107,7 +121,15 @@ def log_domain_profile_summary(logger: logging.Logger, manifest: object) -> None
     sep = "-" * 72
     logger.info(sep)
     logger.info("DOMAIN PROFILES  (%d domains)", len(getattr(manifest, "domains", [])))
-    logger.info("  %-30s  %-6s  %-12s  %-5s  %-6s  %s", "domain", "type", "crawl", "depth", "rps", "cdn")
+    logger.info(
+        "  %-30s  %-6s  %-12s  %-5s  %-6s  %s",
+        "domain",
+        "type",
+        "crawl",
+        "depth",
+        "rps",
+        "cdn",
+    )
     logger.info("  " + "-" * 68)
     for profile in getattr(manifest, "domains", []):
         strat = profile.crawl_strategy.replace("\u2192", "->")
@@ -124,4 +146,3 @@ def log_domain_profile_summary(logger: logging.Logger, manifest: object) -> None
             cdn_str,
         )
     logger.info(sep)
-

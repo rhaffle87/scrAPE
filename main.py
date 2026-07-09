@@ -22,8 +22,13 @@ from config import (
 from core.engine import ScrapingEngine
 from storage.csv_writer import write_csv
 from storage.json_writer import write_json
-from utils.logger import configure_logging, get_logger, log_run_start, log_run_end, log_domain_profile_summary
-
+from utils.logger import (
+    configure_logging,
+    get_logger,
+    log_run_start,
+    log_run_end,
+    log_domain_profile_summary,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -173,6 +178,7 @@ def dispose_unnecessary_cache(cache_dir: Path, ttl_seconds: float, logger) -> No
     if not cache_dir.exists():
         return
     import time
+
     now = time.time()
     deleted_count = 0
     error_count = 0
@@ -185,21 +191,29 @@ def dispose_unnecessary_cache(cache_dir: Path, ttl_seconds: float, logger) -> No
             except Exception:
                 error_count += 1
     if deleted_count > 0:
-        logger.info("Automatically disposed %d expired cache files from %s.", deleted_count, cache_dir)
+        logger.info(
+            "Automatically disposed %d expired cache files from %s.",
+            deleted_count,
+            cache_dir,
+        )
     if error_count > 0:
-        logger.warning("Failed to delete %d cache files due to permission or system errors.", error_count)
+        logger.warning(
+            "Failed to delete %d cache files due to permission or system errors.",
+            error_count,
+        )
 
 
 def main() -> None:
     from datetime import datetime, timezone
+
     # Generate run_id early so we can use it for the log file
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    
+
     log_file = f"run_{run_id}.log"
     log_path = configure_logging(log_dir=Path("logs"), log_file=log_file)
     logger = get_logger(__name__)
     logger.info("Logging to file: %s", log_path)
-    
+
     args = build_parser().parse_args()
 
     # Clear cache if requested, or automatically dispose expired cache
@@ -207,6 +221,7 @@ def main() -> None:
         logger.info("Clearing entire cache directory: %s", CACHE_DIR)
         if CACHE_DIR.exists():
             import shutil
+
             try:
                 shutil.rmtree(CACHE_DIR)
                 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -219,50 +234,81 @@ def main() -> None:
     import re
     from urllib.parse import quote_plus
 
-    keyword_slug = re.sub(r"[^a-zA-Z0-9]+", "_", args.keyword.strip().lower()).strip("_") or "query"
+    keyword_slug = (
+        re.sub(r"[^a-zA-Z0-9]+", "_", args.keyword.strip().lower()).strip("_")
+        or "query"
+    )
     seeds_folder = Path("seeds")
     dedicated_seed_file = seeds_folder / f"{keyword_slug}.txt"
 
-    if not dedicated_seed_file.exists():
-        root_template_file = Path("seed.txt")
-        if root_template_file.exists():
-            try:
-                template_content = root_template_file.read_text(encoding="utf-8")
-                q_param = quote_plus(args.keyword)
-                path_param = re.sub(r"[^a-zA-Z0-9]+", "-", args.keyword.strip().lower()).strip("-")
-                keyword_title = args.keyword.title()
-
-                lines = []
-                for line in template_content.splitlines():
-                    if line.strip().startswith("#"):
-                        updated = line.replace("Apple", keyword_title).replace("apple", args.keyword.lower())
-                        lines.append(updated)
-                    else:
-                        if not line.strip():
-                            lines.append(line)
-                            continue
-                        url = line.strip()
-                        if "?" in url:
-                            parts = url.split("?", 1)
-                            path = parts[0].replace("apple", path_param).replace("Apple", path_param)
-                            query = parts[1].replace("apple", q_param).replace("Apple", q_param)
-                            url = f"{path}?{query}"
-                        else:
-                            url = url.replace("apple", path_param).replace("Apple", path_param)
-                        lines.append(url)
-
-                seeds_folder.mkdir(parents=True, exist_ok=True)
-                dedicated_seed_file.write_text("\n".join(lines), encoding="utf-8")
-                logger.info("Created dedicated seed file: %s", dedicated_seed_file)
-            except Exception as exc:
-                logger.warning("Could not auto-generate dedicated seed file: %s", exc)
-        else:
-            logger.warning("Root template seed.txt not found. Skipping dedicated seed file creation.")
-
     active_seed_file = args.seed_file
-    if active_seed_file is None and dedicated_seed_file.exists():
-        active_seed_file = dedicated_seed_file
-        logger.info("Using dedicated seed file: %s", active_seed_file)
+    is_seed_context = (args.seed_file is not None) or args.skip_search
+
+    if is_seed_context:
+        if active_seed_file is None:
+            if dedicated_seed_file.exists():
+                active_seed_file = dedicated_seed_file
+                logger.info("Using dedicated seed file: %s", active_seed_file)
+            else:
+                root_template_file = Path("seed.txt")
+                if root_template_file.exists():
+                    try:
+                        template_content = root_template_file.read_text(
+                            encoding="utf-8"
+                        )
+                        q_param = quote_plus(args.keyword)
+                        path_param = re.sub(
+                            r"[^a-zA-Z0-9]+", "-", args.keyword.strip().lower()
+                        ).strip("-")
+                        keyword_title = args.keyword.title()
+
+                        lines = []
+                        for line in template_content.splitlines():
+                            if line.strip().startswith("#"):
+                                updated = line.replace("Apple", keyword_title).replace(
+                                    "apple", args.keyword.lower()
+                                )
+                                lines.append(updated)
+                            else:
+                                if not line.strip():
+                                    lines.append(line)
+                                    continue
+                                url = line.strip()
+                                if "?" in url:
+                                    parts = url.split("?", 1)
+                                    path = (
+                                        parts[0]
+                                        .replace("apple", path_param)
+                                        .replace("Apple", path_param)
+                                    )
+                                    query = (
+                                        parts[1]
+                                        .replace("apple", q_param)
+                                        .replace("Apple", q_param)
+                                    )
+                                    url = f"{path}?{query}"
+                                else:
+                                    url = url.replace("apple", path_param).replace(
+                                        "Apple", path_param
+                                    )
+                                lines.append(url)
+
+                        seeds_folder.mkdir(parents=True, exist_ok=True)
+                        dedicated_seed_file.write_text(
+                            "\n".join(lines), encoding="utf-8"
+                        )
+                        logger.info(
+                            "Created dedicated seed file: %s", dedicated_seed_file
+                        )
+                        active_seed_file = dedicated_seed_file
+                    except Exception as exc:
+                        logger.warning(
+                            "Could not auto-generate dedicated seed file: %s", exc
+                        )
+                else:
+                    logger.warning(
+                        "Root template seed.txt not found. Skipping dedicated seed file creation."
+                    )
 
     seed_urls = load_seed_urls(active_seed_file, args.seed_url)
 
@@ -277,6 +323,7 @@ def main() -> None:
     if active_seed_file is not None and active_seed_file.exists():
         try:
             from core.seed_manifest import SeedManifest
+
             manifest = SeedManifest.from_file(active_seed_file)
             domain_profiles = manifest.domain_map
             log_domain_profile_summary(logger, manifest)
@@ -294,28 +341,43 @@ def main() -> None:
             # 2. Auto-build allow_domains from manifest (domains + CDN hosts)
             if not args.allow_domain:
                 args.allow_domain = manifest.all_allowed_hosts
-                logger.info("Auto-locked allow_domains to %d hosts from seed manifest.", len(args.allow_domain))
+                logger.info(
+                    "Auto-locked allow_domains to %d hosts from seed manifest.",
+                    len(args.allow_domain),
+                )
 
             # 3. Auto-inject entity tokens from manifest subject header
-            manifest_tokens = [t for t in manifest.entity_tokens if t not in args.entity_token]
+            manifest_tokens = [
+                t for t in manifest.entity_tokens if t not in args.entity_token
+            ]
             if manifest_tokens:
                 args.entity_token = [*manifest_tokens, *args.entity_token]
-                logger.info("Auto-injected entity tokens from manifest: %s", manifest_tokens)
+                logger.info(
+                    "Auto-injected entity tokens from manifest: %s", manifest_tokens
+                )
 
         except Exception as exc:
-            logger.warning("Could not parse seed manifest from %s: %s", active_seed_file, exc)
+            logger.warning(
+                "Could not parse seed manifest from %s: %s", active_seed_file, exc
+            )
     # ─────────────────────────────────────────────────────────────────────
 
     domain_delays: dict[str, float] = {}
     for entry in args.domain_delay:
         if "=" not in entry:
-            logger.warning("Ignoring malformed --domain-delay value '%s' (expected DOMAIN=SECONDS)", entry)
+            logger.warning(
+                "Ignoring malformed --domain-delay value '%s' (expected DOMAIN=SECONDS)",
+                entry,
+            )
             continue
         domain, _, raw_seconds = entry.partition("=")
         try:
             domain_delays[domain.strip().lower()] = float(raw_seconds.strip())
         except ValueError:
-            logger.warning("Ignoring --domain-delay '%s': seconds value is not a valid float", entry)
+            logger.warning(
+                "Ignoring --domain-delay '%s': seconds value is not a valid float",
+                entry,
+            )
 
     if manifest:
         for profile in manifest.domains:
@@ -380,8 +442,18 @@ def main() -> None:
     if args.output in {"csv", "both"}:
         write_csv(result, output_root)
 
+    import json
+    with open(output_root / "domain_report.json", "w", encoding="utf-8") as f:
+        json.dump(result.domain_stats, f, indent=2)
+
     logger.info("Scraping completed. Results written to %s", output_root.resolve())
-    log_run_end(logger, keyword=args.keyword, images=len(result.images), videos=len(result.videos), output_dir=output_root.resolve())
+    log_run_end(
+        logger,
+        keyword=args.keyword,
+        images=len(result.images),
+        videos=len(result.videos),
+        output_dir=output_root.resolve(),
+    )
 
 
 if __name__ == "__main__":

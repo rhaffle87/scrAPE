@@ -17,6 +17,7 @@ Annotation syntax recognised inside comment blocks:
 A single comment line may contain multiple annotations separated by pipes,
 e.g.  # type: image  |  crawl: direct
 """
+
 from __future__ import annotations
 
 import re
@@ -24,12 +25,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
+
 @dataclass
 class DomainProfile:
     """Parsed profile for a single seed domain."""
 
     domain: str
-    """Bare hostname, e.g. 'erothots1.com'."""
+    """Bare hostname, e.g. 'example.com'."""
 
     seed_urls: list[str] = field(default_factory=list)
     """Bare URLs that belong to this domain (in order)."""
@@ -145,8 +147,12 @@ _TYPE_RE = re.compile(r"\btype\s*:\s*(video|image|mixed)\b", re.IGNORECASE)
 _CRAWL_RE = re.compile(r"\bcrawl\s*:\s*(direct|index.+?detail)\b", re.IGNORECASE)
 _CDN_RE = re.compile(r"#\s*\[CDN\]\s*(\S+)", re.IGNORECASE)
 _DEPTH_RE = re.compile(r"#\s*depth\s*:\s*(\d+)", re.IGNORECASE)
-_SKIP_RE = re.compile(r"#\s*(skip[-_]link[-_]discovery|skip link discovery)", re.IGNORECASE)
-_RATE_LIMIT_RE = re.compile(r"\bRate-limit\s*:\s*(\d+(?:\.\d+)?)\s*req/s", re.IGNORECASE)
+_SKIP_RE = re.compile(
+    r"#\s*(skip[-_]link[-_]discovery|skip link discovery)", re.IGNORECASE
+)
+_RATE_LIMIT_RE = re.compile(
+    r"\bRate-limit\s*:\s*(\d+(?:\.\d+)?)\s*req/s", re.IGNORECASE
+)
 _USERNAME_RE = re.compile(r"\bUsername\s*:\s*(\S+)", re.IGNORECASE)
 _EMAIL_RE = re.compile(r"\bEmail\s*:\s*(\S+)", re.IGNORECASE)
 _PASSWORD_RE = re.compile(r"\bPassword\s*:\s*(\S+)", re.IGNORECASE)
@@ -157,8 +163,8 @@ _SUBJECT_SPLIT_RE = re.compile(r"[/|,]")
 def _normalise_cdn_host(raw: str) -> str:
     """
     Normalise CDN host patterns to the real matchable hostname or parent domain.
-    e.g. 's{NNN}.erome.com' -> 'erome.com'
-         'cdn.erocdn.co'    -> 'cdn.erocdn.co'  (already concrete)
+    e.g. 's{NNN}.example.com' -> 'example.com'
+         'cdn.example.com'    -> 'cdn.example.com'  (already concrete)
     """
     raw = raw.lower().strip()
     # Strip wildcard / template prefixes like 's{NNN}.', 's*.', '*.', etc.

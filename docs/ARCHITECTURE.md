@@ -6,6 +6,9 @@
 scraper/
 ├── main.py                   # CLI entry point, argparse, output dispatch
 ├── monitor_agent.py          # Watchdog — repeatedly runs scrAPE on a configurable interval
+├── cli_wizard.py             # Interactive Terminal GUI Wizard
+├── run.bat                   # Interactive Wizard launcher script (Windows)
+├── run.sh                    # Interactive Wizard launcher script (macOS/Linux)
 ├── seed.txt                  # Root template for auto-generating per-keyword seed files
 ├── requirements.txt
 ├── seeds/                    # Per-keyword seed URL files (gitignored — add your own)
@@ -14,32 +17,36 @@ scraper/
 │   ├── ARCHITECTURE.md       # This file
 │   ├── CHANGELOG.md
 │   ├── QUALITY_FILTERS.md
+│   ├── SCENARIOS.md          # Operational guide with recommended input scenarios
 │   └── USAGE.md
 └── src/
     ├── config.py             # All tuneable constants (timeouts, thresholds, keywords)
     ├── core/
-    │   ├── engine.py         # ScrapingEngine — orchestrates the full crawl lifecycle
+    │   ├── engine.py         # ScrapingEngine — orchestrates the full crawl lifecycle with adaptive concurrency
     │   ├── filters.py        # Relevance scoring, rejection logic, URL utilities
     │   │                     #   └─ normalize_media_url() — canonical dedup key
     │   ├── models.py         # Dataclasses: ImageItem, VideoItem, PageReport, ScrapeResult
     │   ├── parser.py         # HTML parser factory (BeautifulSoup + lxml)
-    │   └── seed_manifest.py  # SeedManifest — parses and normalizes manifest annotations
+    │   ├── seed_manifest.py  # SeedManifest — parses and normalizes manifest annotations
+    │   └── semantic_selectors.py # SemanticSelectors — element scoring for self-healing extraction fallback
     ├── scraper/
     │   ├── base.py           # BaseSearchScraper ABC
     │   ├── google_images.py  # SearchProviderScraper — DuckDuckGo search + page scraping
     │   └── video_scraper.py  # VideoScraper — embed/iframe/JSON-LD video extraction
     │                         #   └─ detect_video_type() — trailing-slash aware
+    │   └── video_scraper.py  # VideoScraper — embed/iframe/JSON-LD video extraction
     ├── storage/
     │   ├── csv_writer.py     # CSV output for images, videos, pages, rejected
     │   ├── file_downloader.py# MediaDownloader — MIME/signature validated file writes
-    │   │                     #   └─ uses shared httpx.Client (no per-file reconnect)
+    │   │                     #   └─ uses shared httpx.Client and sticky session User-Agents
     │   └── json_writer.py    # Structured JSON output
     └── utils/
-        ├── http_client.py    # HttpClient — tiered request engine with WAF fallback
+        ├── http_client.py    # HttpClient — tiered request engine with sticky SessionPool integration
         ├── image_helper.py   # Image signature validation helpers
         ├── logger.py         # Logging configuration
         ├── rate_limiter.py   # Token-bucket rate limiter (thread-safe)
-        └── robots.py         # robots.txt compliance checker
+        ├── robots.py         # robots.txt compliance checker
+        └── session_pool.py   # SessionPool — sticky User-Agent and cookie jar manager
 ```
 
 ## Data Flow
@@ -161,3 +168,23 @@ Every `ImageItem` and `VideoItem` gets a numeric score computed by `score_image_
 | `MIN_VIDEO_DOWNLOAD_BYTES` | `16384` | Minimum video file size (16 KB) |
 | `MIN_IMAGE_WIDTH` | `400` | Minimum image width (px) |
 | `MIN_IMAGE_HEIGHT` | `300` | Minimum image height (px) |
+
+## Advanced Scraping & Anti-Bot Resilience
+
+To bypass modern anti-bot protections, scrAPE incorporates design patterns from leading scraping libraries (Scrapy, Crawlee, and Scrapling):
+
+### 1. Adaptive Concurrency Control (Auto-Throttling)
+
+Located in `src/core/engine.py`. The engine tracks response latency (moving average) and errors. If latency goes above a threshold or HTTP errors occur, the active concurrency is scaled down dynamically. If responses remain healthy and fast, the number of workers rises to the max concurrency target.
+
+### 2. SessionPool & Sticky User-Agents
+
+Located in `src/utils/session_pool.py` and `src/utils/http_client.py`. To avoid triggering bot alerts due to fluctuating User-Agent headers, each unique target domain maps to a sticky session profile. This session maintains a dedicated cookie jar and a consistent User-Agent throughout the crawl and download phases. If a session is blocked repeatedly, it is rotated.
+
+### 3. Self-Healing Semantic Selectors
+
+Located in `src/core/semantic_selectors.py`. When traditional CSS selector parsing fails (e.g. classes or IDs change dynamically), the scraper triggers element scoring fallback:
+
+- Finds candidate media tags (`img`, `video`, `iframe`, links).
+- Evaluates depth, attributes (`alt`, `title`, source name), and keyword matches.
+- Automatically selects the most relevant nodes.

@@ -14,7 +14,9 @@ from config import (
 )
 from core.models import ImageItem, VideoItem
 
-BACKGROUND_IMAGE_PATTERN = re.compile(r"""background-image\s*:\s*url\((['\"]?)(.*?)\1\)""")
+BACKGROUND_IMAGE_PATTERN = re.compile(
+    r"""background-image\s*:\s*url\((['\"]?)(.*?)\1\)"""
+)
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
@@ -56,8 +58,10 @@ def is_probable_video(url: str) -> bool:
         path = urlparse(url).path.lower().rstrip("/")
     except Exception:
         path = ""
-    return any(path.endswith(ext) for ext in VIDEO_EXTENSIONS | HLS_EXTENSIONS | DASH_EXTENSIONS)
-
+    return any(
+        path.endswith(ext)
+        for ext in VIDEO_EXTENSIONS | HLS_EXTENSIONS | DASH_EXTENSIONS
+    )
 
 
 def is_cdn_asset_domain(url: str, allow_hosts: list[str] | None = None) -> bool:
@@ -92,14 +96,13 @@ def _get_allowed_hosts(domain_profiles: dict | None) -> list[str] | None:
             cdn_hosts = profile.cdn_hosts
         elif isinstance(profile, dict) and "cdn_hosts" in profile:
             cdn_hosts = profile["cdn_hosts"]
-        
+
         if cdn_hosts:
             for host in cdn_hosts:
                 if host not in seen:
                     seen.add(host)
                     hosts.append(host)
     return hosts
-
 
 
 def media_type_matches_domain_expectation(
@@ -145,8 +148,23 @@ def domain_matches(url: str, domain_rules: list[str]) -> bool:
     return False
 
 
-def is_allowed_domain(url: str, allow_domains: list[str], block_domains: list[str]) -> bool:
+SOCIAL_LOGIN_WALL_DOMAINS = {
+    "facebook.com",
+    "instagram.com",
+    "twitter.com",
+    "x.com",
+    "faceit.com",
+    "linkedin.com",
+    "pinterest.com",
+}
+
+
+def is_allowed_domain(
+    url: str, allow_domains: list[str], block_domains: list[str]
+) -> bool:
     if ALWAYS_BLOCK_DOMAINS and domain_matches(url, list(ALWAYS_BLOCK_DOMAINS)):
+        return False
+    if domain_matches(url, list(SOCIAL_LOGIN_WALL_DOMAINS)):
         return False
     if block_domains and domain_matches(url, block_domains):
         return False
@@ -160,11 +178,26 @@ def is_allowed_path(url: str) -> bool:
         parsed = urlparse(url)
         path = parsed.path.lower()
         query = parsed.query.lower()
-        
+
+        # Reject non-HTML extensions from BFS crawling
+        if path.endswith((".json", ".xml", ".css", ".js")):
+            return False
+
         # WordPress JSON API endpoints, XML-RPC, feed, Cloudflare email protection, etc.
         skip_patterns = {
-            "/wp-json", "/wp-json/", "/xmlrpc.php", "/feed/", 
-            "/cdn-cgi/", "/cdn-cgi/l/", "/feed"
+            "/wp-json",
+            "/wp-json/",
+            "/xmlrpc.php",
+            "/feed/",
+            "/cdn-cgi/",
+            "/cdn-cgi/l/",
+            "/feed",
+            "/account",
+            "/cart",
+            "/checkout",
+            "goto/account",
+            "/shop/account",
+            "/store/account",
         }
         for pattern in skip_patterns:
             if pattern in path or path.endswith(pattern):
@@ -195,14 +228,18 @@ def subject_tokens(keyword: str, entity_tokens: list[str] | None = None) -> set[
     return raw_terms | compact
 
 
-def weighted_subject_score(text: str, keyword: str, entity_tokens: list[str] | None = None) -> int:
+def weighted_subject_score(
+    text: str, keyword: str, entity_tokens: list[str] | None = None
+) -> int:
     lowered = text.lower()
     compact_text = normalize_token(lowered)
     score = 0
     for token in subject_tokens(keyword, entity_tokens):
         if len(token) < 2:
             continue
-        exact_matches = re.findall(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", lowered)
+        exact_matches = re.findall(
+            rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", lowered
+        )
         if exact_matches:
             score += 5 * len(exact_matches)
             continue
@@ -211,7 +248,9 @@ def weighted_subject_score(text: str, keyword: str, entity_tokens: list[str] | N
     return score
 
 
-def contains_subject_text(text: str, keyword: str, entity_tokens: list[str] | None = None) -> bool:
+def contains_subject_text(
+    text: str, keyword: str, entity_tokens: list[str] | None = None
+) -> bool:
     return weighted_subject_score(text, keyword, entity_tokens) > 0
 
 
@@ -227,12 +266,27 @@ def is_archive_or_index_page(url: str, title: str) -> bool:
 
     # Consider empty/root paths or index files as homepages, which are index pages
     path_clean = path.strip("/")
-    if not path_clean or path_clean in {"index.html", "index.php", "index.htm", "home", "homepage"}:
+    if not path_clean or path_clean in {
+        "index.html",
+        "index.php",
+        "index.htm",
+        "home",
+        "homepage",
+    }:
         return True
 
     archive_paths = {
-        "/category/", "/tag/", "/tags/", "/search", "/actor/", "/models/",
-        "/archives/", "/page/", "/model/", "/actors/", "/categories/"
+        "/category/",
+        "/tag/",
+        "/tags/",
+        "/search",
+        "/actor/",
+        "/models/",
+        "/archives/",
+        "/page/",
+        "/model/",
+        "/actors/",
+        "/categories/",
     }
     if any(p in path for p in archive_paths):
         # Allow if there is a meaningful slug *after* the archive segment
@@ -240,15 +294,26 @@ def is_archive_or_index_page(url: str, title: str) -> bool:
         for seg in archive_paths:
             if seg in path:
                 after = path.split(seg, 1)[1].rstrip("/")
-                if "/" in after and after.split("/")[1]:  # depth >= 2 beyond the archive key
+                if (
+                    "/" in after and after.split("/")[1]
+                ):  # depth >= 2 beyond the archive key
                     return False
         return True
     if any(q in query for q in ("q=", "s=", "cat=", "tag=", "p=")):
         return True
 
     archive_titles = {
-        "archives", "category", "tag", "search results", "actor", "models",
-        "actors", "model profile", "all post", "tag:", "category:"
+        "archives",
+        "category",
+        "tag",
+        "search results",
+        "actor",
+        "models",
+        "actors",
+        "model profile",
+        "all post",
+        "tag:",
+        "category:",
     }
     if any(t in title_low for t in archive_titles):
         return True
@@ -263,7 +328,9 @@ def score_image_relevance(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> int:
-    text = " ".join([item.url, item.source_page, item.alt_text, item.page_title]).lower()
+    text = " ".join(
+        [item.url, item.source_page, item.alt_text, item.page_title]
+    ).lower()
     score = weighted_subject_score(text, keyword, entity_tokens)
     if item.alt_text:
         score += 1
@@ -274,7 +341,10 @@ def score_image_relevance(
     if any(token in text for token in {"captcha", "blank", "placeholder", "spacer"}):
         score -= 4
     score -= _preview_penalty(text)
-    if any(token in text for token in {"photo", "image", "gallery", "media", "post", "cosplay"}):
+    if any(
+        token in text
+        for token in {"photo", "image", "gallery", "media", "post", "cosplay"}
+    ):
         score += 1
     if is_probable_image(item.url):
         score += 2
@@ -303,13 +373,19 @@ def score_image_relevance(
         item.url,
         allow_hosts=_get_allowed_hosts(domain_profiles),
     )
-    if not explicitly_seeded and not cdn_asset and is_archive_or_index_page(item.source_page, item.page_title):
-        asset_text = " ".join([
-            item.url,
-            item.alt_text,
-            getattr(item, "parent_anchor_text", ""),
-            getattr(item, "parent_anchor_href", "")
-        ]).lower()
+    if (
+        not explicitly_seeded
+        and not cdn_asset
+        and is_archive_or_index_page(item.source_page, item.page_title)
+    ):
+        asset_text = " ".join(
+            [
+                item.url,
+                item.alt_text,
+                getattr(item, "parent_anchor_text", ""),
+                getattr(item, "parent_anchor_href", ""),
+            ]
+        ).lower()
         if not contains_subject_text(asset_text, keyword, entity_tokens):
             score -= 15
 
@@ -329,7 +405,19 @@ def score_video_relevance(
         score += 1
     if item.type in {"youtube", "vimeo", "direct", "hls", "dash"}:
         score += 2
-    if any(token in text for token in {"video", "clip", "embed", "watch", "movie", "stream", "media", "post"}):
+    if any(
+        token in text
+        for token in {
+            "video",
+            "clip",
+            "embed",
+            "watch",
+            "movie",
+            "stream",
+            "media",
+            "post",
+        }
+    ):
         score += 1
     if is_probable_video(item.url):
         score += 2
@@ -358,12 +446,18 @@ def score_video_relevance(
         item.url,
         allow_hosts=_get_allowed_hosts(domain_profiles),
     )
-    if not explicitly_seeded and not cdn_asset and is_archive_or_index_page(item.source_page, item.page_title):
-        asset_text = " ".join([
-            item.url,
-            getattr(item, "parent_anchor_text", ""),
-            getattr(item, "parent_anchor_href", "")
-        ]).lower()
+    if (
+        not explicitly_seeded
+        and not cdn_asset
+        and is_archive_or_index_page(item.source_page, item.page_title)
+    ):
+        asset_text = " ".join(
+            [
+                item.url,
+                getattr(item, "parent_anchor_text", ""),
+                getattr(item, "parent_anchor_href", ""),
+            ]
+        ).lower()
         if not contains_subject_text(asset_text, keyword, entity_tokens):
             score -= 15
 
@@ -388,8 +482,12 @@ def rejection_reason_for_image(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> str | None:
-    text = " ".join([item.url, item.source_page, item.alt_text, item.page_title]).lower()
-    score = score_image_relevance(item, keyword, entity_tokens, seed_urls, domain_profiles)
+    text = " ".join(
+        [item.url, item.source_page, item.alt_text, item.page_title]
+    ).lower()
+    score = score_image_relevance(
+        item, keyword, entity_tokens, seed_urls, domain_profiles
+    )
 
     # Wrong media type for this domain
     if not media_type_matches_domain_expectation(item, domain_profiles):
@@ -409,13 +507,19 @@ def rejection_reason_for_image(
         item.url,
         allow_hosts=_get_allowed_hosts(domain_profiles),
     )
-    if not explicitly_seeded and not cdn_asset and is_archive_or_index_page(item.source_page, item.page_title):
-        asset_text = " ".join([
-            item.url,
-            item.alt_text,
-            getattr(item, "parent_anchor_text", ""),
-            getattr(item, "parent_anchor_href", "")
-        ]).lower()
+    if (
+        not explicitly_seeded
+        and not cdn_asset
+        and is_archive_or_index_page(item.source_page, item.page_title)
+    ):
+        asset_text = " ".join(
+            [
+                item.url,
+                item.alt_text,
+                getattr(item, "parent_anchor_text", ""),
+                getattr(item, "parent_anchor_href", ""),
+            ]
+        ).lower()
         if not contains_subject_text(asset_text, keyword, entity_tokens):
             return "low_subject_relevance"
 
@@ -442,7 +546,9 @@ def rejection_reason_for_video(
     domain_profiles: dict | None = None,
 ) -> str | None:
     text = " ".join([item.url, item.source_page, item.type, item.page_title]).lower()
-    score = score_video_relevance(item, keyword, entity_tokens, seed_urls, domain_profiles)
+    score = score_video_relevance(
+        item, keyword, entity_tokens, seed_urls, domain_profiles
+    )
 
     # Wrong media type for this domain
     if not media_type_matches_domain_expectation(item, domain_profiles):
@@ -457,12 +563,18 @@ def rejection_reason_for_video(
         item.url,
         allow_hosts=_get_allowed_hosts(domain_profiles),
     )
-    if not explicitly_seeded and not cdn_asset and is_archive_or_index_page(item.source_page, item.page_title):
-        asset_text = " ".join([
-            item.url,
-            getattr(item, "parent_anchor_text", ""),
-            getattr(item, "parent_anchor_href", "")
-        ]).lower()
+    if (
+        not explicitly_seeded
+        and not cdn_asset
+        and is_archive_or_index_page(item.source_page, item.page_title)
+    ):
+        asset_text = " ".join(
+            [
+                item.url,
+                getattr(item, "parent_anchor_text", ""),
+                getattr(item, "parent_anchor_href", ""),
+            ]
+        ).lower()
         if not contains_subject_text(asset_text, keyword, entity_tokens):
             return "low_subject_relevance"
 
@@ -484,7 +596,12 @@ def should_keep_image(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> bool:
-    return rejection_reason_for_image(item, keyword, entity_tokens, seed_urls, domain_profiles) is None
+    return (
+        rejection_reason_for_image(
+            item, keyword, entity_tokens, seed_urls, domain_profiles
+        )
+        is None
+    )
 
 
 def should_keep_video(
@@ -494,7 +611,12 @@ def should_keep_video(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> bool:
-    return rejection_reason_for_video(item, keyword, entity_tokens, seed_urls, domain_profiles) is None
+    return (
+        rejection_reason_for_video(
+            item, keyword, entity_tokens, seed_urls, domain_profiles
+        )
+        is None
+    )
 
 
 def normalize_media_url(url: str) -> str:
@@ -504,6 +626,7 @@ def normalize_media_url(url: str) -> str:
     only in encoding (e.g. space vs %20) are treated as the same asset.
     """
     from urllib.parse import unquote
+
     try:
         parsed = urlparse(url.strip())
         scheme = "https"

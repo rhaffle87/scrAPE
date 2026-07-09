@@ -18,9 +18,11 @@ output/*
 !output/README.md
 .pytest_cache/
 *.cache
+.ruff_cache/
+.ruff_cache/*
 
 # Seed URL files
-seeds/
+seeds/*
 
 # Logs and temporary files
 logs/
@@ -41,3 +43,6 @@ Thumbs.db
 .pycache/
 
 .qodo/
+
+# test folder
+tests/

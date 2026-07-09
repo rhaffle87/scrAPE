@@ -41,12 +41,12 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
             if subformat == b"VP8 ":
                 if len(data) >= 30 and data[23:26] == b"\x9d\x01\x2a":
                     w, h = struct.unpack("<HH", data[26:30])
-                    return w & 0x3fff, h & 0x3fff
+                    return w & 0x3FFF, h & 0x3FFF
             elif subformat == b"VP8L":
-                if len(data) >= 25 and data[20] == 0x2f:
+                if len(data) >= 25 and data[20] == 0x2F:
                     val = struct.unpack("<I", data[21:25])[0]
-                    w = (val & 0x3fff) + 1
-                    h = ((val >> 14) & 0x3fff) + 1
+                    w = (val & 0x3FFF) + 1
+                    h = ((val >> 14) & 0x3FFF) + 1
                     return w, h
             elif subformat == b"VP8X":
                 if len(data) >= 30:
@@ -61,24 +61,42 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
         try:
             offset = 2
             while offset < len(data):
-                if data[offset] == 0xff:
-                    while offset < len(data) and data[offset] == 0xff:
+                if data[offset] == 0xFF:
+                    while offset < len(data) and data[offset] == 0xFF:
                         offset += 1
                     if offset >= len(data):
                         break
                     marker = data[offset]
                     offset += 1
-                    if marker in (0x00, 0x01, 0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9):
+                    if marker in (
+                        0x00,
+                        0x01,
+                        0xD0,
+                        0xD1,
+                        0xD2,
+                        0xD3,
+                        0xD4,
+                        0xD5,
+                        0xD6,
+                        0xD7,
+                        0xD8,
+                        0xD9,
+                    ):
                         continue
-                    if (0xc0 <= marker <= 0xc3) or (0xc5 <= marker <= 0xc7) or (0xc9 <= marker <= 0xcb) or (0xcd <= marker <= 0xcf):
+                    if (
+                        (0xC0 <= marker <= 0xC3)
+                        or (0xC5 <= marker <= 0xC7)
+                        or (0xC9 <= marker <= 0xCB)
+                        or (0xCD <= marker <= 0xCF)
+                    ):
                         if offset + 7 <= len(data):
                             # skip length (2 bytes), precision (1 byte)
-                            h, w = struct.unpack(">HH", data[offset+3:offset+7])
+                            h, w = struct.unpack(">HH", data[offset + 3 : offset + 7])
                             return w, h
                         break
                     else:
                         if offset + 2 <= len(data):
-                            length = struct.unpack(">H", data[offset:offset+2])[0]
+                            length = struct.unpack(">H", data[offset : offset + 2])[0]
                             offset += length
                         else:
                             break
