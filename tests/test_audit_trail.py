@@ -41,7 +41,7 @@ def test_engine_in_place_audit_mapping():
     )
     
     # Mock downloader._download_file to simulate success for image and failure for video
-    def mock_download(url, directory, prefix, media_kind, referer=None):
+    def mock_download(url, directory, prefix, media_kind, referer=None, min_image_size=None, thumbnail_prefix_pattern=None):
         if media_kind == "image":
             return True, {
                 "reason": "ok",

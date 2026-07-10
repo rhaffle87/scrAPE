@@ -69,6 +69,15 @@ class DomainProfile:
     password: str | None = None
     """Optional password credential parsed from manifest."""
 
+    min_image_size: tuple[int, int] | None = None
+    """Minimum allowed image dimensions (width, height) parsed from manifest."""
+
+    thumbnail_prefix_pattern: str | None = None
+    """Optional prefix string pattern to reject thumbnail URLs early."""
+
+    requires_referer: bool = False
+    """True if this domain requires a Referer header corresponding to the source page for asset downloads."""
+
     notes: list[str] = field(default_factory=list)
     """Remaining human-readable comment lines for this domain block."""
 
@@ -156,6 +165,9 @@ _RATE_LIMIT_RE = re.compile(
 _USERNAME_RE = re.compile(r"\bUsername\s*:\s*(\S+)", re.IGNORECASE)
 _EMAIL_RE = re.compile(r"\bEmail\s*:\s*(\S+)", re.IGNORECASE)
 _PASSWORD_RE = re.compile(r"\bPassword\s*:\s*(\S+)", re.IGNORECASE)
+_MIN_SIZE_RE = re.compile(r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b", re.IGNORECASE)
+_THUMB_PREFIX_RE = re.compile(r"\bthumbnail[-_]prefix\s*:\s*(\S+)\b", re.IGNORECASE)
+_REFERER_RE = re.compile(r"#\s*(requires[-_]referer|requires referer)", re.IGNORECASE)
 _URL_RE = re.compile(r"^https?://\S+$")
 _SUBJECT_SPLIT_RE = re.compile(r"[/|,]")
 
@@ -223,11 +235,15 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_username: str | None = None
     pend_email: str | None = None
     pend_password: str | None = None
+    pend_min_size: tuple[int, int] | None = None
+    pend_thumb_prefix: str | None = None
+    pend_referer: bool = False
     pend_notes: list[str] = []
 
     def reset_pending() -> None:
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
         nonlocal pend_rate_limit, pend_username, pend_email, pend_password
+        nonlocal pend_min_size, pend_thumb_prefix, pend_referer
         pend_media = "mixed"
         pend_crawl = "index\u2192detail"
         pend_cdns = []
@@ -237,6 +253,9 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_username = None
         pend_email = None
         pend_password = None
+        pend_min_size = None
+        pend_thumb_prefix = None
+        pend_referer = False
         pend_notes = []
 
     def commit_new_profile(domain: str) -> DomainProfile:
@@ -251,6 +270,9 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             username=pend_username,
             email=pend_email,
             password=pend_password,
+            min_image_size=pend_min_size,
+            thumbnail_prefix_pattern=pend_thumb_prefix,
+            requires_referer=pend_referer,
             notes=list(pend_notes),
         )
         manifest.domains.append(profile)
@@ -318,6 +340,20 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             m = _PASSWORD_RE.search(line)
             if m:
                 pend_password = m.group(1).strip()
+
+            # Annotation: min_image_size
+            m = _MIN_SIZE_RE.search(line)
+            if m:
+                pend_min_size = (int(m.group(1)), int(m.group(2)))
+
+            # Annotation: thumbnail_prefix_pattern
+            m = _THUMB_PREFIX_RE.search(line)
+            if m:
+                pend_thumb_prefix = m.group(1).strip()
+
+            # Flag: requires referer
+            if _REFERER_RE.search(line):
+                pend_referer = True
 
             pend_notes.append(line)
             continue

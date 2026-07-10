@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import time
 
 # Add src to python path to resolve modules
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -414,6 +415,7 @@ def main() -> None:
         },
     )
 
+    _run_start = time.monotonic()
     result = engine.run(
         keyword=args.keyword,
         max_results=args.max_results,
@@ -433,6 +435,17 @@ def main() -> None:
         domain_profiles=domain_profiles,
         run_id=run_id,
     )
+    result.duration_seconds = int(time.monotonic() - _run_start)
+    result.run_metadata = {
+        "seed_file": str(active_seed_file) if active_seed_file else None,
+        "workers": args.workers,
+        "dl_workers": args.dl_workers,
+        "page_limit": args.page_limit,
+        "crawl_depth": args.crawl_depth,
+        "max_results": args.max_results,
+        "entity_tokens": args.entity_token,
+        "download_media": args.download_media,
+    }
 
     output_root = OUTPUT_DIR / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
     output_root.mkdir(parents=True, exist_ok=True)

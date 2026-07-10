@@ -1,190 +1,167 @@
-# Architecture
+# Architecture — scrAPE
 
-## Module Layout
+## 1. Data Flow
 
-```text
-scraper/
-├── main.py                   # CLI entry point, argparse, output dispatch
-├── monitor_agent.py          # Watchdog — repeatedly runs scrAPE on a configurable interval
-├── cli_wizard.py             # Interactive Terminal GUI Wizard
-├── run.bat                   # Interactive Wizard launcher script (Windows)
-├── run.sh                    # Interactive Wizard launcher script (macOS/Linux)
-├── seed.txt                  # Root template for auto-generating per-keyword seed files
-├── requirements.txt
-├── seeds/                    # Per-keyword seed URL files (gitignored — add your own)
-│   └── <keyword_slug>.txt
-├── docs/
-│   ├── ARCHITECTURE.md       # This file
-│   ├── CHANGELOG.md
-│   ├── QUALITY_FILTERS.md
-│   ├── SCENARIOS.md          # Operational guide with recommended input scenarios
-│   └── USAGE.md
-└── src/
-    ├── config.py             # All tuneable constants (timeouts, thresholds, keywords)
-    ├── core/
-    │   ├── engine.py         # ScrapingEngine — orchestrates the full crawl lifecycle with adaptive concurrency
-    │   ├── filters.py        # Relevance scoring, rejection logic, URL utilities
-    │   │                     #   └─ normalize_media_url() — canonical dedup key
-    │   ├── models.py         # Dataclasses: ImageItem, VideoItem, PageReport, ScrapeResult
-    │   ├── parser.py         # HTML parser factory (BeautifulSoup + lxml)
-    │   ├── seed_manifest.py  # SeedManifest — parses and normalizes manifest annotations
-    │   └── semantic_selectors.py # SemanticSelectors — element scoring for self-healing extraction fallback
-    ├── scraper/
-    │   ├── base.py           # BaseSearchScraper ABC
-    │   ├── google_images.py  # SearchProviderScraper — DuckDuckGo search + page scraping
-    │   └── video_scraper.py  # VideoScraper — embed/iframe/JSON-LD video extraction
-    │                         #   └─ detect_video_type() — trailing-slash aware
-    │   └── video_scraper.py  # VideoScraper — embed/iframe/JSON-LD video extraction
-    ├── storage/
-    │   ├── csv_writer.py     # CSV output for images, videos, pages, rejected
-    │   ├── file_downloader.py# MediaDownloader — MIME/signature validated file writes
-    │   │                     #   └─ uses shared httpx.Client and sticky session User-Agents
-    │   └── json_writer.py    # Structured JSON output
-    └── utils/
-        ├── http_client.py    # HttpClient — tiered request engine with sticky SessionPool integration
-        ├── image_helper.py   # Image signature validation helpers
-        ├── logger.py         # Logging configuration
-        ├── rate_limiter.py   # Token-bucket rate limiter (thread-safe)
-        ├── robots.py         # robots.txt compliance checker
-        └── session_pool.py   # SessionPool — sticky User-Agent and cookie jar manager
+```mermaid
+flowchart TD
+    SM["Seed Manifest<br/>(seeds/*.txt)"]
+    P["SeedManifest<br/>.from_file() → DomainProfile[]"]
+    EO["EngineOptions<br/>(keyword, entity_tokens,<br/>domain_profiles, max_results,<br/>page_limit, crawl_depth)"]
+    SE["ScrapingEngine<br/>.run()"]
+    BF["BFS Page Discovery<br/>(depth 0, 1, 2, …)"]
+    AS["Asset Scoring &amp; Filtering<br/>(filters.py)"]
+    DL["Download Pipeline<br/>(ThreadPool, profile-aware)"]
+    SR["ScrapeResult<br/>→ manifest.json<br/>→ rejected_items<br/>→ run_metadata<br/>→ duration_secs"]
+
+    SM --> P --> EO --> SE
+    SE --> BF & AS & DL
+    BF --> SR
+    AS --> SR
+    DL --> SR
 ```
 
-## Data Flow
+## 2. Module Layout
 
 ```text
-CLI args
-  │
-  ▼
-main.py ──► SeedManifest.from_file()   ← Parse domain profiles & CDNs
-  │
-  ▼
-ScrapingEngine.run()
-  │
-  ├─► SearchProviderScraper.search_pages()   ← DuckDuckGo (disabled in Focused Mode)
-  │         │
-  │         ▼
-  │   candidate page URLs
-  │
-  ├─► BFS crawl loop (depth/host-balanced deque)
-  │         │
-  │         ├─► SearchProviderScraper.discover_links()
-  │         │         └─► HttpClient.get()  ← tiered fetch
-  │         │
-  │         └─► SearchProviderScraper.scrape_page()
-  │                   ├─► extract images + videos from HTML
-  │                   └─► dedup via normalize_media_url()
-  │                             └─► tokenless → tokened URL upgrade if needed
-  │
-  ├─► VideoScraper.search()   ← embed/iframe discovery
-  │
-  ├─► _finalize_images() / _finalize_videos()
-  │         ├─► score_*_relevance()
-  │         ├─► rejection_reason_for_*()
-  │         └─► deduplicate + sort by score
-  │
-  └─► MediaDownloader.download()  (deferred — runs after all pages fetched)
-            └─► shared httpx.Client (no reconnect per file)
+main.py                          — CLI entry point, dry-run, run orchestration
+seed.txt                         — Default literal seed (test/demo only)
+
+src/
+├── __init__.py
+├── core/
+│   ├── __init__.py
+│   ├── engine.py                — ScrapingEngine: BFS crawl, scoring, download orchestration
+│   ├── filters.py               — Relevance scoring, rejection reasons, low-res detection
+│   ├── models.py                — ScrapeResult, RejectedItem, EngineOptions, DomainProfile
+│   └── seed_manifest.py         — SeedManifest parser: annotations → DomainProfile[]
+├── storage/
+│   └── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, thumbnail rejection
+└── utils/
+    ├── __init__.py
+    └── robots.py                — RobotsChecker: per-domain thread-safe parser cache
+
+tests/
+├── test_advanced_features.py
+├── test_audit_trail.py
+├── test_download_retries.py
+└── test_performance_quality_features.py
+
+docs/
+├── CHANGELOG.md
+├── USAGE.md
+├── ARCHITECTURE.md
+├── QUALITY_FILTERS.md
+└── SCENARIOS.md
 ```
 
-## HTTP Client — Two-Tier Adaptive Fallback
+## 3. Core Components
 
-```text
-HttpClient.get(url)
-  │
-  ├─► 1. Cache hit? ──► return cached response
-  │
-  ├─► 2. httpx.get()
-  │     ├─► 200 OK ──► store cache, return
-  │     └─► 403/401/429
-  │               │
-  │               ▼
-  │         _get_with_crawl4ai(url)
-  │               │
-  │               ├─► Tier 1: AsyncPlaywrightCrawlerStrategy
-  │               │     (headless, enable_stealth=True, magic=True)
-  │               │     ├─► Success + no CF challenge ──► cache + return
-  │               │     └─► CF challenge or error ──► escalate
-  │               │
-  │               └─► Tier 2: AsyncPlaywrightCrawlerStrategy
-  │                     + UndetectedAdapter()
-  │                     ├─► Success + no CF challenge ──► cache + return
-  │                     └─► Still blocked ──► raise ScraperBypassError
-  │
-  └─► ScraperBypassError (non-retryable, exits tenacity loop immediately)
-```
+### 3.1 Seed Manifest (`seed_manifest.py`)
 
-## Media URL Deduplication
+`SeedManifest.from_file()` reads a `.txt` seed file and produces a list of `DomainProfile` objects.
 
-All collected images and videos are keyed by `normalize_media_url()` in `filters.py` before insertion into the result set. This function:
+**Parser features:**
 
-1. Strips query parameters (auth tokens, cache-busters).
-2. Decodes percent-encoded path segments (`%20` → space) so `file%20name.mp4` and `file name.mp4` resolve to the same key.
-3. Lowercases the path and strips trailing slashes.
-4. Normalises the scheme to `https`.
+- Lines beginning with `# type:` → parsed as media type / crawl strategy annotation
+- Lines beginning with `# Rate-limit:` → parsed as float req/s
+- Lines beginning with `# skip-link-discovery` → flag set on domain profile
+- Lines beginning with `[CDN]` → CDN whitelist entry
+- All annotations preceding a URL belong to that domain's profile
+- Unrecognized comment lines ignored
 
-`seen_images` and `seen_videos` in `engine.py` are `dict[str, item]` (not sets), so the engine can **upgrade** a stored item in-place when a duplicate key arrives with a query-parameter-bearing URL (a CDN auth token) and the stored entry has none. This resolves the common pattern where a page's JSON-LD emits a tokenless `contentUrl` first and its inline `<script>` block later emits the full tokened URL required for a successful download.
+**DomainProfile fields:**
 
-### Deferred Download Phase
-
-All downloads are dispatched **after** the full concurrent page-fetching loop finishes. This guarantees every tokenless → tokened upgrade has been applied before the first byte is requested from the CDN.
-
-## Relevance Scoring
-
-Every `ImageItem` and `VideoItem` gets a numeric score computed by `score_image_relevance` / `score_video_relevance` in `filters.py`.
-
-| Signal | Δ Score |
-| --- | --- |
-| Exact keyword/entity token match in URL/alt/title | +5 per match |
-| Compact (joined) token match | +3 |
-| Media type matches expected type of domain profile | +3 |
-| Has alt text | +1 |
-| Has page title | +1 |
-| Probable image/video extension | +2 |
-| Known video type (youtube, direct, hls…) | +2 |
-| Generic asset term (logo, icon, banner…) | −3 |
-| Captcha / placeholder / blank token | −4 |
-| Preview marker in URL (thumb, preview, small…) | −4 per marker |
-| Low-res query param (`width=120`) | −3 |
-| Small explicit dimension (`width < 300`) | −20 |
-| Layout container (`in_layout_container`) | −20 |
-| Non-relevant item on archive/index page | −15 |
-
-### Allowed Hosts & CDN Bypass
-
-- **CDN Host bypass**: If a media item is hosted on a profile's primary domain or any of its associated `# [CDN]` hosts, it is classified as a CDN asset (`is_cdn_asset_domain` is True) and **bypasses the −15 index page relevance penalty**.
-- Items with a final score < 1 are rejected with reason `low_score`. Items with no subject text at all are rejected with `low_subject_relevance`.
-
-## Configuration Constants (`config.py`)
-
-| Constant | Default | Description |
+| Field | Source | Default |
 | --- | --- | --- |
-| `DEFAULT_REQUESTS_PER_SECOND` | `1.0` | Global rate limit for `httpx` requests |
-| `DEFAULT_TIMEOUT_SECONDS` | `15.0` | Per-request timeout |
-| `DEFAULT_RETRY_ATTEMPTS` | `3` | Max tenacity retries for network errors |
-| `DEFAULT_CACHE_TTL_SECONDS` | `3600` | Disk cache TTL (1 hour) |
-| `MAX_PAGE_FETCHES` | `0` (unlimited) | Page crawl limit |
-| `MAX_CRAWL_DEPTH` | `0` (unlimited) | BFS depth limit |
-| `MIN_IMAGE_DOWNLOAD_BYTES` | `10240` | Minimum image file size (10 KB) |
-| `MIN_VIDEO_DOWNLOAD_BYTES` | `16384` | Minimum video file size (16 KB) |
-| `MIN_IMAGE_WIDTH` | `400` | Minimum image width (px) |
-| `MIN_IMAGE_HEIGHT` | `300` | Minimum image height (px) |
+| `seed_urls` | URLs listed after annotations | `[]` |
+| `type` | `# type:` parse | `""` |
+| `crawl` | `# crawl:` within type line | `""` |
+| `depth` | `# depth:` | `None` (engine default) |
+| `rate_limit` | `# Rate-limit:` | `None` |
+| `skip_link_discovery` | `# skip-link-discovery` | `False` |
+| `min_image_size` | Programmatic / future annotation | `None` |
+| `thumbnail_prefix_pattern` | Programmatic / future annotation | `None` |
+| `requires_referer` | Programmatic / future annotation | `False` |
 
-## Advanced Scraping & Anti-Bot Resilience
+### 3.2 Filter Pipeline (`filters.py`)
 
-To bypass modern anti-bot protections, scrAPE incorporates design patterns from leading scraping libraries (Scrapy, Crawlee, and Scrapling):
+**`safe_join(items, sep)`** — Joins only non-None items; replaces all `" ".join([...])` calls in filter functions for `None`-safety.
 
-### 1. Adaptive Concurrency Control (Auto-Throttling)
+**Relevance scoring** uses `weighted_subject_score()`:
 
-Located in `src/core/engine.py`. The engine tracks response latency (moving average) and errors. If latency goes above a threshold or HTTP errors occur, the active concurrency is scaled down dynamically. If responses remain healthy and fast, the number of workers rises to the max concurrency target.
+- URL tokens get 3× weight
+- Alt text tokens get 2× weight  
+- Source page / page title tokens get 1× weight
+- Entity tokens (keyword + additional) get 2× bonus when matched in high-weight fields
 
-### 2. SessionPool & Sticky User-Agents
+**Rejection reasons** (checked in order):
 
-Located in `src/utils/session_pool.py` and `src/utils/http_client.py`. To avoid triggering bot alerts due to fluctuating User-Agent headers, each unique target domain maps to a sticky session profile. This session maintains a dedicated cookie jar and a consistent User-Agent throughout the crawl and download phases. If a session is blocked repeatedly, it is rotated.
+| Reason | When |
+| --- | --- |
+| `duplicate` | Same URL seen already (norm key collision) |
+| `placeholder_asset` | Generic URL pattern with no subject keywords |
+| `preview_or_thumbnail` | Preview markers detected (query param or path pattern) |
+| `low_resolution_hint` | `has_low_res_query_param()` OR `has_low_res_path_pattern()` |
+| `low_subject_relevance` | Below score threshold (image < 3, video < 2) |
+| `archive_or_index` | Source page is archive/index AND low score; also CDN-bypassable |
+| `max_results_limit` | Collection already full |
 
-### 3. Self-Healing Semantic Selectors
+**Low-resolution path patterns** (`has_low_res_path_pattern()`):
 
-Located in `src/core/semantic_selectors.py`. When traditional CSS selector parsing fails (e.g. classes or IDs change dynamically), the scraper triggers element scoring fallback:
+- Double dimensions: `-150x150`, `_200x300`, `/150x150/`
+- Resizer paths: `/resize/150/150/`, `/w_150,h_150/`, `/w_150/h_150/`
+- Single dimension: `_150x.jpg` (width-based), `_x150.jpg` (height-based)
+- Minimum thresholds: width < 400px, height < 300px
 
-- Finds candidate media tags (`img`, `video`, `iframe`, links).
-- Evaluates depth, attributes (`alt`, `title`, source name), and keyword matches.
-- Automatically selects the most relevant nodes.
+### 3.3 Scraping Engine (`engine.py`)
+
+**Concurrency:**
+
+- Page fetching: all queued pages submitted to `ThreadPoolExecutor`; per-domain `RateLimiter` ensures polite crawl
+- Downloading: all qualified items submitted to separate `ThreadPoolExecutor` (configurable via `--dl-workers`)
+- `result_lock` is an `RLock` (reentrant) — supports nested critical sections safely
+
+**Deduplication:**
+
+- Global `add_rejected(kind, url, source_page, reason, score)` closure — dedup by `(url, reason)` tuple via `seen_rejected_urls` set. Same URL+reason only logged once.
+
+**Video resolution hint:**
+
+- `_video_resolution_hint(url)` — extracts numeric resolution from URL path (e.g. `_1080p`, `_720p`) via regex `[_\-/](\d{3,4})p`
+
+### 3.4 Download Pipeline (`file_downloader.py`)
+
+`_download_file(url, directory, stem, media_kind, referer=None, min_image_size=None, thumbnail_prefix_pattern=None)`:
+
+1. If `min_image_size` set and media is image: skip if size < threshold
+2. If `thumbnail_prefix_pattern` set: skip if URL matches pattern (thumbnail heuristic)
+3. HTTP fetch with retry (`tenacity`)
+4. Dimension extraction (HEAD request + PIL if needed)
+5. Skip on: < configured min size, unparseable dimensions, invalid media type
+
+### 3.5 Robots Checker (`robots.py`)
+
+`RobotsChecker` maintains a per-domain parser cache (`self._parsers` dict) instead of `@lru_cache` for thread safety.
+
+### 3.6 Main Entry (`main.py`)
+
+- Captures `time.monotonic()` start → end → `duration_seconds` on result
+- Stores `run_metadata` dict with: `seed_file`, `workers`, `dl_workers`, `page_limit`, `crawl_depth`, `max_results`, `entity_tokens`, `download_media`
+
+## 4. Concurrency Model
+
+```mermaid
+flowchart LR
+    subgraph SE["ScrapingEngine"]
+        PP["Page Fetch Pool<br/>(--workers)<br/>Per-domain rate limiter<br/>(asyncio-like queuing)"]
+        DP["Download Pool<br/>(--dl-workers)<br/>Profile-aware:<br/>- referer<br/>- min_image_size<br/>- thumb_pattern"]
+        RL["result_lock = RLock()<br/>seen_rejected_urls = set[(url, reason)]"]
+    end
+```
+
+## 5. Error Handling
+
+- `RobotsChecker` — fetch failures logged, treated as "allowed"
+- `_download_file` — returns `(success, reason_dict)` tuple; callers update `item.status`/`item.failure_reason`
+- Download exceptions → `item.status = "failed"`, `failure_reason = "exception_{TypeName}"`
+- Page fetch failures → skipped with `scope_reason` logged via `add_rejected("page", ...)`

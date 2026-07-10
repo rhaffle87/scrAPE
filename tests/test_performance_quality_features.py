@@ -159,7 +159,7 @@ def test_is_target_met_mixed():
 
 
 def test_yield_based_domain_filtering():
-    """Verify domains with <5% yield after 30 pages are skipped."""
+    """Verify domains with 0 yield after 20 pages are skipped early."""
     engine = ScrapingEngine(workers=1)
     
     # Mock search provider
@@ -168,9 +168,14 @@ def test_yield_based_domain_filtering():
     mock_provider.scrape_page.return_value = ([], [], "ok")
     engine.search_provider = mock_provider
 
+    # Mock video scraper
+    mock_video_scraper = MagicMock()
+    mock_video_scraper.search.return_value = []
+    engine.video_scraper = mock_video_scraper
+
     # Let's populate mock links so crawler has pages to fetch
-    # We want 35 pages from lowyield.com
-    pages = [f"https://lowyield.com/page{i}" for i in range(35)]
+    # We want 35 pages from unseeded.com
+    pages = [f"https://unseeded.com/page{i}" for i in range(35)]
     
     # Mock discover_links side_effect: return pages for the start page, empty list for others
     engine.search_provider.discover_links.side_effect = lambda url, *args, **kwargs: pages if "start" in url else []
@@ -190,29 +195,130 @@ def test_yield_based_domain_filtering():
         download_media=False,
         seed_urls=["https://lowyield.com/start"],
         domain_profiles=domain_profiles,
-        page_limit=40,
-        crawl_depth=3
+        page_limit=45,
+        crawl_depth=3,
+        ignore_robots=True
     )
     
-    # Scrape page should have been called 30 times for lowyield.com (scanned_pages count),
-    # but pages 31-35 should be skipped as low yield.
-    # Let's verify that lowyield.com was skipped and stats recorded.
-    stats = result.domain_stats.get("lowyield.com")
+    # Scrape page should have been called 20 times for unseeded.com (scanned_pages count),
+    # and the remaining pages should be skipped.
+    stats = result.domain_stats.get("unseeded.com")
     assert stats is not None
-    assert stats["pages_scanned"] == 30
+    assert stats["pages_scanned"] == 20
     assert stats["images_kept"] == 0
     assert stats["videos_kept"] == 0
     
-    # Verify mock_provider.scrape_page was not called more than 30 times for lowyield.com
-    # (Actually the start page is 1, plus 29 other pages = 30)
-    # The remaining 6 pages should be skipped.
+    # All 36 pages (1 start + 35 unseeded) appear in scanned_pages regardless of skip status;
+    # only pages_scanned stat stops at 20 (the cutoff threshold).
     scanned_hosts = [httpx.URL(p).host for p in result.scanned_pages]
-    # In visited_pages / scanned_pages, we added 30 scanned pages and 6 skipped pages
     assert len(scanned_hosts) == 36
     
     # Check that skipped pages were recorded in page_reports with reason "low_yield_skipped"
     skipped_reports = [r for r in result.page_reports if r.reason == "low_yield_skipped"]
-    assert len(skipped_reports) == 6
+    assert len(skipped_reports) == 15
+
+
+def test_low_yield_domain_filtering_at_30():
+    """Verify domains with <5% (but >0%) yield after 30 pages are skipped."""
+    engine = ScrapingEngine(workers=1)
+    mock_provider = MagicMock()
+    
+    # Return 1 image on the very first page of unseeded.com, but 0 on all other pages
+    def scrape_side_effect(url, *args, **kwargs):
+        if "unseeded.com/page0" in url:
+            return ([ImageItem(url="https://unseeded.com/apple.jpg", source_page=url)], [], "ok")
+        return ([], [], "ok")
+        
+    mock_provider.scrape_page.side_effect = scrape_side_effect
+    engine.search_provider = mock_provider
+
+    # Mock video scraper
+    mock_video_scraper = MagicMock()
+    mock_video_scraper.search.return_value = []
+    engine.video_scraper = mock_video_scraper
+
+    pages = [f"https://unseeded.com/page{i}" for i in range(35)]
+    engine.search_provider.discover_links.side_effect = lambda url, *args, **kwargs: pages if "start" in url else []
+    engine.search_provider.search.return_value = ["https://lowyield.com/start"]
+    
+    profile = DomainProfile(domain="lowyield.com", crawl_depth=3)
+    domain_profiles = {"lowyield.com": profile}
+    
+    result = engine.run(
+        keyword="apple",
+        max_results=10,
+        output_format="json",
+        download_media=False,
+        seed_urls=["https://lowyield.com/start"],
+        domain_profiles=domain_profiles,
+        page_limit=45,
+        crawl_depth=3,
+        ignore_robots=True
+    )
+    
+    stats = result.domain_stats.get("unseeded.com")
+    assert stats is not None
+    assert stats["pages_scanned"] == 30
+    assert stats["images_kept"] == 1
+    
+    skipped_reports = [r for r in result.page_reports if r.reason == "low_yield_skipped"]
+    assert len(skipped_reports) == 5
+
+
+def test_has_low_res_path_pattern():
+    """Verify has_low_res_path_pattern matches dimensions in URL path."""
+    from core.filters import has_low_res_path_pattern
+    
+    # Double dimensions that are small
+    assert has_low_res_path_pattern("https://example.com/assets/img-150x150.jpg") is True
+    assert has_low_res_path_pattern("https://example.com/assets/img_100x200.png") is True
+    
+    # Double dimensions that are acceptable (>= 400x300)
+    assert has_low_res_path_pattern("https://example.com/assets/img-800x600.jpg") is False
+    assert has_low_res_path_pattern("https://example.com/assets/img_400x300.png") is False
+    
+    # Next/Resizer paths
+    assert has_low_res_path_pattern("https://example.com/resize/150/150/img.jpg") is True
+    assert has_low_res_path_pattern("https://example.com/resize/800/600/img.jpg") is False
+    assert has_low_res_path_pattern("https://example.com/w_100,h_200/img.jpg") is True
+    assert has_low_res_path_pattern("https://example.com/w_500,h_500/img.jpg") is False
+    
+    # Shopify style single dimension at end
+    assert has_low_res_path_pattern("https://example.com/products/toy_150x.jpg") is True
+    assert has_low_res_path_pattern("https://example.com/products/toy_x150.png") is True
+    assert has_low_res_path_pattern("https://example.com/products/toy_800x.jpg") is False
+    assert has_low_res_path_pattern("https://example.com/products/toy_x600.png") is False
+    
+    # Non-dimension numbers
+    assert has_low_res_path_pattern("https://example.com/products/model-10x-multiplier.jpg") is False
+
+
+def test_robots_checker_netloc_caching():
+    """Verify RobotsChecker caches robot parsers by domain netloc."""
+    mock_client = MagicMock(spec=httpx.Client)
+    response_txt = httpx.Response(
+        status_code=200,
+        request=httpx.Request("GET", "https://example.com/robots.txt"),
+        text="User-agent: *\nDisallow: /private",
+    )
+    mock_client.get.return_value = response_txt
+
+    http = HttpClient()
+    http.client = mock_client
+    http._load_cache = MagicMock(return_value=None)
+    http._store_cache = MagicMock()
+    
+    checker = RobotsChecker(http)
+    
+    # Check page 1
+    assert checker.is_allowed("https://example.com/page1") is True
+    # Check page 2 (same domain)
+    assert checker.is_allowed("https://example.com/page2") is True
+    # Check page 3 (private - disallowed)
+    assert checker.is_allowed("https://example.com/private") is False
+    
+    # Verify client.get was only called once for robots.txt (meaning cache hit occurred)
+    assert mock_client.get.call_count == 1
 
 
 def test_post_run_report_generation(tmp_path):
@@ -256,3 +362,4 @@ def test_post_run_report_generation(tmp_path):
             
         assert data["example.com"]["pages_scanned"] == 5
         assert data["example.com"]["images_kept"] == 2
+

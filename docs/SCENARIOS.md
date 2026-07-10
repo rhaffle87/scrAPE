@@ -1,68 +1,82 @@
-# Operational Guide — scrAPE Scenarios & Recommended Inputs
+# Operational Scenarios — scrAPE
 
-This guide explains the distinct usage scenarios for **scrAPE** and recommends specific input values for each.
+## 1. Broad Search (No Seed File)
 
----
+```bash
+python main.py --keyword example_subject --seed seed.txt --page-limit 50
+```
 
-## 1. General / Broad Exploration Mode
+Uses the literal `seed.txt` with `example.com` URLs. Good for quick tests.
 
-* **Goal**: Discover files broadly across the web using search engines (DuckDuckGo/Google Images) and recursively follow links.
-* **Best For**: Unstructured research, building generic subject datasets, or finding new source domains.
+## 2. Targeted Seed Manifest
 
-### Recommended Inputs
+```bash
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --entity-token "Entity Name" --entity-token "keyword" ^
+  --max-results 30 --page-limit 50 --crawl-depth 2 ^
+  --download-media --workers 8 --dl-workers 6
+```
 
-| Field | Recommended Value | Reason |
-| --- | --- | --- |
-| **Search Keyword** | `[Your keyword]` | Simple term or entity name (e.g. `apple`, `tesla`). |
-| **Download Media** | `y` | Set to `n` first if you only want to preview links in `results.json` without consuming disk space. |
-| **Max Results** | `50` to `200` | Limits target assets per type (images/videos) so the run finishes quickly. |
-| **Max Page Limit** | `30` to `50` | Prevents the crawler from wandering infinitely onto external links. |
-| **Max Crawl Depth** | `2` | **Depth 1** crawls only the search results. **Depth 2** follows one hop from those pages. Depth 3+ spreads too widely. |
-| **Ignore Robots** | `n` | Highly recommended to respect robots.txt on broad runs to avoid IP bans on general websites. |
+Focused crawl using curated domain profiles. High precision via entity tokens.
 
----
+## 3. Production Sweep (Full Run)
 
-## 2. Specified / Targeted Seed Archiving Mode
+```bash
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --max-results 100 --workers 16 --dl-workers 8 ^
+  --page-limit 200 --crawl-depth 3 --download-media --yes
+```
 
-* **Goal**: Focus extraction strictly on a pre-defined set of domain seeds.
-* **Best For**: High-yield scraping of specific known galleries, forum threads, or dedicated profiles.
+Maximum throughput. Multi-subject runs should use separate terminals or a shell script.
 
-### Recommended Inputs
+## 4. Stealth / Minimal Footprint
 
-| Field | Recommended Value | Reason |
-| --- | --- | --- |
-| **Keyword Identifier** | `[Entity name]` | Matches the seed file configuration slug. |
-| **Seed Manifest File** | `seeds/subject.txt` | Path to the text file containing custom seed domain structures. |
-| **Download Media** | `y` | Usually the main goal of targeted runs. |
-| **Ignore Robots** | `y` | Targeted media host websites often block crawlers in `robots.txt` default rules. Bypassing is necessary here. |
-| **Force Search** | `n` | Keeps the scrape strictly localized to the seed file hosts. Set to `y` only if you also want to augment files via search engine keywords. |
+```bash
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --workers 2 --dl-workers 1 --crawl-depth 1 ^
+  --page-limit 20 --max-results 10
+```
 
----
+Low concurrency, shallow crawl. Minimal impact on target servers.
 
-## 3. Uncapped Production/Archive Run
+## 5. Uncapped Mirror Run
 
-* **Goal**: Extract every single piece of media matching the targeted seeds with no limits.
-* **Best For**: Building a complete offline mirror of a subject gallery.
+```bash
+python main.py --keyword deep_archive_subject --seed seeds/deep_archive_subject.txt ^
+  --max-results 9999 --page-limit 5000 --crawl-depth 3 ^
+  --workers 8 --dl-workers 4 --download-media --yes
+```
 
-### Recommended Inputs
+Maximum collection for deep-archive subjects. Requires sufficient disk space. Use `--page-limit` to bound discovery.
 
-| Field | Recommended Value | Reason |
-| --- | --- | --- |
-| **Max Results** | `0` (Unlimited) | Runs until no new media matches the criteria. |
-| **Max Page Limit** | `0` (Unlimited) | Traverses all candidate sub-pages in the BFS queue. |
-| **Max Crawl Depth** | `0` (Unlimited) | Crawls all linked pages within target domains. |
-| **Ignore Robots** | `y` | Avoids failure states on restricted domain subfolders. |
+## 6. Background Watchdog
 
----
+```bash
+# Terminal 1 — Run the scrape
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --max-results 50 --workers 8 --dl-workers 4 ^
+  --page-limit 100 --crawl-depth 2 --download-media --yes
 
-## 4. Continuous Watchdog Mode
+# Terminal 2 — Monitor output growth
+dir /s output/example_subject/runs/
+```
 
-* **Goal**: Periodically scrape seeds to capture new additions (e.g., daily updates).
-* **Best For**: Scheduled runs on home servers or VPS nodes.
+Use `tail` (or equivalent) on the log file for live progress. Run ID is printed at start and stored in `manifest.json`.
 
-### Recommended Inputs
+## 7. Validate Seed Only (Dry Run)
 
-| Field | Recommended Value | Reason |
-| --- | --- | --- |
-| **Interval** | `3600` (1 hour) or `86400` (1 day) | Prevents hitting target servers too frequently, which could trigger IP blocks. |
-| **Timeout** | `1800` (30 mins) | Automatically terminates a hung or stuck scraping process before the next scheduled run starts. |
+```bash
+python main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
+```
+
+Parses and validates the seed manifest without crawling. Useful for debugging annotation syntax.
+
+## 8. Quick Re-Run with Custom Slug
+
+```bash
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --run-id "retry-01" --keyword-slug "subject-v2" ^
+  --workers 8 --dl-workers 6 --page-limit 100 --download-media --yes
+```
+
+Multiple runs for the same subject are stored under separate run IDs inside `runs/`.

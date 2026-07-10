@@ -1,149 +1,155 @@
-# scrAPE
+# scrAPE — Scraper for Archival & Production Extraction
 
-```text
-  ██████  ▄████▄   ██▀███   ▄▄▄       ██▓███  ▓█████ 
-▒██    ▒ ▒██▀ ▀█  ▓██ ▒ ██▒▒████▄    ▓██░  ██▒▓█   ▀ 
-░ ▓██▄   ▒▓█    ▄ ▓██ ░▄█ ▒▒██  ▀█▄  ▓██░ ██▓▒▒███   
-  ▒   ██▒▒▓▓▄ ▄██▒▒██▀▀█▄  ░██▄▄▄▄██ ▒██▄█▓▒ ▒▒▓█  ▄ 
-▒██████▒▒▒ ▓███▀ ░░██▓ ▒██▒ ▓█   ▓██▒▒██▒ ░  ░░▒████▒
-▒ ▒▓▒ ▒ ░░ ░▒ ▒  ░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░▒▓▒░ ░  ░░░ ▒░ ░
-░ ░▒  ░ ░  ░  ▒     ░▒ ░ ▒░  ▒   ▒▒ ░░▒ ░      ░ ░  ░
-░  ░  ░  ░          ░░   ░   ░   ▒   ░░          ░   
-      ░  ░ ░         ░           ░  ░            ░  ░
-         ░                                           
-```
+**Batch media scraper** for crawling domains, discovering image/video assets, filtering for relevance, and downloading results.
 
-Production-oriented Python scraper that collects public image and video URLs for a keyword query or a user-supplied set of seed pages. Features a __two-tier adaptive fallback system__ that transparently handles WAF-protected and Cloudflare-challenged endpoints using headless browser automation.
+---
 
 ## Features
 
-- __Interactive Terminal GUI Wizard__ (`run.bat` / `run.sh` / `cli_wizard.py`) for automated step-by-step setup of Quick, Deep, Targeted, and Watchdog tasks without typing complex command line flags.
-- __Adaptive Concurrency Control (Auto-Throttling)__: dynamically scales concurrent crawler tasks up or down based on moving response latencies and server load.
-- __Sticky SessionPool__: maintains a persistent cookie jar and consistent User-Agent per target domain to prevent bot detection caused by changing identities.
-- __Self-Healing Semantic Selectors__: scores DOM element properties (nesting, alt text, attributes) as a fallback strategy when layout structures or CSS classes change.
-- Keyword-based media discovery via DuckDuckGo
-- Direct seed URL scraping from CLI or text file with auto-generated seed files from a template
-- Entity-aware relevance scoring with optional `--entity-token` aliases
-- Domain allow/block rules, strict seed-domain mode, and seed subtree scoping
-- Recursive in-domain link discovery with round-robin host balancing and path prioritization
-- HTML parsing for images, videos, OpenGraph media, lazy-loaded assets, JSON-LD videos, inline script URLs, and embeds
-- __Media URL deduplication via `normalize_media_url()`__: strips auth tokens and query params, decodes percent-encoding, and normalises scheme/case/trailing slashes so structurally identical URLs from different discovery sources collapse to the same key
-- __Tokenless → tokened URL upgrade__: when a page exposes a media URL twice (once without and once with a CDN auth token), the engine upgrades the stored entry in-place so downloads always use the authenticated URL
-- __Trailing-slash aware extraction__: `DIRECT_VIDEO_PATTERN`, `HLS_PATTERN`, `DASH_PATTERN`, `detect_video_type()`, `is_probable_image()`, and `is_probable_video()` all handle URLs where a trailing `/` precedes the query string
-- __Deferred download phase__: all media downloads start after the full crawl loop completes, guaranteeing every URL upgrade is finalised before the first download request
-- __Two-tier adaptive HTTP fallback:__
-  - __Tier 1__ — Crawl4AI stealth browser (standard Playwright + stealth flags)
-  - __Tier 2__ — Crawl4AI `UndetectedAdapter` (bypasses deep fingerprinting and Cloudflare Turnstile)
-- Cloudflare challenge detection via DOM and HTTP heuristics
-- `ScraperBypassError` for hard-blocked resources that terminates retry loops immediately
-- Retry-aware HTTP client with per-domain rate limiting, SHA-256 content caching, and user-agent rotation
-- JSON and CSV output with page-level provenance and rejection reasons
-- Optional media download mode with MIME/signature validation and tiny-file rejection
-- Basic `robots.txt` compliance check for page fetches
+- **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`
+- **BFS Crawler** — Breadth-first page discovery with configurable depth & page limits
+- **Concurrent Download Pipeline** — Multi-worker download pool with per-domain rate limiting and profile-aware settings (referer, min size, thumbnail rejection)
+- **Quality Filters** — Relevance scoring (keyword + entity tokens), low-res detection (query params & URL path patterns), archive/index page penalty, preview marker detection, CDN whitelist
+- **Memory-Backed Dedup** — Inline duplicate rejection (same URL+reason suppressed) via thread-safe `add_rejected()` closure
+- **Audit Trail** — `rejected_items` list with reason + score; `run_metadata` + `duration_seconds` on each `ScrapeResult`
+- **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag
+- **Crawl4AI Fallback** — When primary HTTP requests fail, falls back to JS-rendered crawling via Crawl4AI
+- **Export** — JSON manifest output per run
 
-## Setup
+---
+
+## Quick Start
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+# Install dependencies
 pip install -r requirements.txt
-crawl4ai-setup   # installs Playwright browsers required for WAF fallback
+
+# Run with keyword and seed file
+python main.py --keyword example_subject --seed seeds/example_subject.txt
+
+# Run with entity tokens for higher precision
+python main.py --keyword example_subject --seed seeds/example_subject.txt --entity-token "Entity Name" --entity-token "keyword"
+
+# Run with explicit output (faster, no CLI wizard)
+python main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 30 --page-limit 50 --crawl-depth 2
 ```
 
-> __Note:__ `crawl4ai-setup` must be run at least once to install the Playwright browser engines used by the anti-bot fallback system.
+See [USAGE.md](docs/USAGE.md) for full CLI reference.
 
-## Usage
-
-For the easiest way to configure and launch runs without memorising complex command line flags, run the interactive terminal wizard:
-
-- __On Windows__: Run `run.bat` (or double-click it in File Explorer).
-- __On macOS / Linux__: Run `chmod +x run.sh && ./run.sh`.
-
-Alternatively, configure the CLI parameters manually:
-
-```bash
-# Basic keyword search
-python main.py --keyword "example_subject" --max-results 100 --output both
-
-# Seed-URL crawl (no search), download all media
-python main.py --keyword "example_subject" --seed-file seeds/example_subject.txt --download-media
-
-# Deep crawl with domain scoping
-python main.py --keyword "example_subject" --download-media --max-results 500 \
-    --page-limit 200 --crawl-depth 6 --strict-domain
-
-# Extra entity aliases to boost relevance
-python main.py --keyword "example_subject" --entity-token "alias1" --entity-token "alias2"
-
-# Allow / block specific domains
-python main.py --keyword "example_subject" --allow-domain targetsite.com --allow-domain blog.com
-
-# Site-tree-scoped crawl within a profile subtree
-python main.py --keyword "example_subject" --seed-url "https://example.com/profile/example_subject" \
-    --strict-domain --site-tree-only
-
-# Continuous mode — run scrAPE repeatedly on a 60-second interval
-# Edit KEYWORD and SEED_FILE at the top of the file first, then:
-python monitor_agent.py
-```
+---
 
 ## Seed Manifest Format
 
-__scrAPE__ supports a __rich manifest-driven focused-mode__ where seed files (placed at `seeds/<keyword_slug>.txt`) contain metadata annotations to configure crawl behavior and allowed CDNs on a per-domain basis:
-
-```text
-# subject: example_subject | alias1 | alias2
-
-# type: image
-# crawl: direct
-# [CDN] cdn.targetsite.com
-https://targetsite.com/gallery/example_subject/
-
-# type: video
-# crawl: index->detail
-# [CDN] video-cdn.com
-https://blog.com/posts/example_subject-videos/
-```
+Each `.txt` seed file defines one subject with per-domain profiles. Annotations before a URL line apply to that domain.
 
 ### Supported Annotations
 
-- __`# subject: name | alias1 | alias2`__: Configures keyword and entity tokens to auto-inject for scoring.
-- __`# type: image | video | mixed`__: Gating constraint. Drops non-matching media types (e.g. discards videos on image-only sites).
-- __`# crawl: direct | index->detail`__: BFS strategy. `direct` scrapes media only from the listed page. `index->detail` traverses only detail links from the page.
-- __`# [CDN] hostname`__: Explicitly registers domain-associated CDNs, bypassing archive-page relevance penalties for files served from those CDN hosts.
+```text
+# type: <media|crawl>    — Media type hint + crawl strategy
+# depth: <int>           — BFS crawl depth override (default 2)
+# Rate-limit: <float>    — Requests per second (default engine)
+# skip-link-discovery    — Skip link discovery (fetch known URLs only)
+# [CDN] <domain>         — Whitelist CDN domain (bypasses page relevance penalty)
+# Alt-Subject: <string>  — Alternative subject name (for broader matching)
+```
 
-Seed files placed at `seeds/<keyword_slug>.txt` are automatically picked up. If the file does not exist and a `seed.txt` template is present in the project root, it is auto-generated with keyword substitution.
+### Per-Domain Profile Fields
 
-## Output Layout
+ | Field | Type | Description |
+ | --- | --- | --- |
+ | `min_image_size` | `int` | Minimum image dimension (px) — smaller skipped |
+ | `thumbnail_prefix_pattern` | `str` | Regex — matching URLs are rejected as thumbnails |
+ | `requires_referer` | `bool` | Send `Referer` header during download |
+
+These fields are set programmatically in `seed_manifest.py` via `DomainProfile` attributes (not parsed from annotations yet).
+
+### Example
+
+```text
+# Subject: Example Subject
+# Alt-Subject: Example / Subject Alt
+
+# ---------------------------------------------------------------------------
+# gallery.example.com
+# ---------------------------------------------------------------------------
+# type: image | crawl: direct
+https://gallery.example.com/subject
+https://gallery.example.com/search?q=subject
+
+# ---------------------------------------------------------------------------
+# videos.example.org
+# ---------------------------------------------------------------------------
+type: video | crawl: index→detail
+depth: 1
+# Rate-limit: 0.4 req/s
+# [CDN] cdn.example.org
+https://videos.example.org/subject
+```
+
+> **Note**: Comment-style annotations (`# type:`, `# Rate-limit:`) are parsed from lines starting with `#`. Bare annotations (no `#`) are reserved for in-line overrides. See [seed_manifest.py](src/core/seed_manifest.py) for the full parser.
+
+---
+
+## Quality Filter Pipeline
+
+Assets discovered during crawling pass through a multi-stage filter before being kept or rejected:
+
+1. **Relevance scoring** — Weighted against keyword + entity tokens via `weighted_subject_score()`
+2. **Low-resolution detection** — `has_low_res_query_param()` (query params) + `has_low_res_path_pattern()` (URL path dims, resizer paths, single-dim suffixes)
+3. **Archive/index page penalty** — Assets on archive/index pages are penalized (low-info pages)
+4. **Preview marker penalty** — URL/context containing thumbnail preview markers (e.g., `_th`, `thumb`, `preview`)
+5. **Placeholder asset rejection** — Generic placeholder paths (/media/, /uploads/) with no subject keywords
+6. **CDN bypass** — Assets on registered CDN domains bypass page-level penalties
+
+See [docs/QUALITY_FILTERS.md](docs/QUALITY_FILTERS.md) for full details.
+
+---
+
+## Architecture Overview
+
+```mermaid
+flowchart TD
+    MP["main.py"] --> SM["SeedManifest"]
+    SM --> DP["DomainProfile[]<br/>(rate-limit, skip,<br/>min_size, referer)"]
+    SM --> EO["EngineOptions"] --> SE["ScrapingEngine"]
+    DP --> SE
+
+    subgraph SE["ScrapingEngine"]
+        BF["BFS Crawler<br/>(per-domain rate-limited)"]
+        AD["Asset Discovery &amp;<br/>Relevance Scoring"]
+        DLP["Download Pipeline<br/>(concurrent, profile-aware)"]
+    end
+
+    RC["RobotsChecker<br/>(thread-safe _parsers dict)"] -.-> C["Cache"]
+    C -.-> RC
+
+    SR["ScrapeResult<br/>(duration_seconds,<br/>run_metadata,<br/>rejected_items)"]
+
+    BF --> AD --> DLP --> SR
+```
+
+- `main.py` — Entry point, CLI args, run loop
+- `src/core/seed_manifest.py` — Parser: SeedManifest → list[DomainProfile]
+- `src/core/engine.py` — ScrapingEngine: BFS crawl + scoring + download orchestration
+- `src/core/filters.py` — `score_image_relevance()`, `score_video_relevance()`, `rejection_reason_for_*()`, `has_low_res_*()`, `safe_join()`
+- `src/storage/file_downloader.py` — `download_file()`: HTTP fetch with retries, referer, min-size, thumbnail filtering
+- `src/utils/robots.py` — `RobotsChecker`: per-domain parser cache (thread-safe), `--ignore-robots`
+
+---
+
+## Output Structure
 
 ```text
 output/
-└── <keyword_slug>/
-    └── runs/
-        └── 20260706T163900Z/
-            ├── results.json     # full structured result set
-            ├── images.csv       # image inventory with scores and provenance
-            ├── videos.csv       # video inventory with scores and provenance
-            ├── pages.csv        # per-page crawl report
-            ├── rejected.csv     # items rejected with reasons
-            ├── images/          # downloaded images (--download-media)
-            └── videos/          # downloaded videos (--download-media)
+  {keyword_slug}/
+    runs/
+      {run_id}/
+        manifest.json         # Full scrape result (scanned pages, assets, rejected list, metadata)
+        pages/                # HTML snapshots (optional)
 ```
 
-## Anti-Bot Fallback Behaviour
+---
 
-When a page returns __403__ or __429__, the client automatically escalates:
+## License
 
-1. __Tier 1 (Standard Stealth)__ — Playwright browser with `magic=True`, `simulate_user=True`, and `override_navigator=True`. Resolves most WAF soft-blocks in ~6–7 s.
-2. __Tier 2 (Undetected Browser)__ — Same browser stack but with `UndetectedAdapter` injected to bypass deep fingerprinting and Cloudflare Turnstile challenges.
-3. __ScraperBypassError__ — If both tiers fail, a non-retryable exception is raised immediately, skipping the URL without exhausting the `tenacity` retry budget.
-
-Successfully bypassed content is written to the disk cache and served from there on subsequent runs.
-
-## Notes
-
-- __scrAPE__ only targets public pages and does not bypass paywalls or authenticated areas.
-- `--strict-domain` keeps the crawl inside the seed-domain set.
-- `--site-tree-only` narrows discovered links to the same seed path subtree.
-- Download mode only saves direct or manifest media that passes MIME/signature checks and minimum size thresholds.
-- Cache TTL defaults to __1 hour__. Delete `.cache/` to force a fresh crawl.
+MIT

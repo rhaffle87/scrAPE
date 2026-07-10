@@ -178,6 +178,8 @@ class MediaDownloader:
         prefix: str,
         media_kind: str,
         referer: str | None = None,
+        min_image_size: tuple[int, int] | None = None,
+        thumbnail_prefix_pattern: str | None = None,
     ) -> tuple[bool, dict]:
         """Fetch a single media binary and persist it to *directory*.
 
@@ -188,6 +190,10 @@ class MediaDownloader:
         CDN 403s are resolved by sending a full browser-like Referer + Origin
         header pair derived from the source page URL.
         """
+        if thumbnail_prefix_pattern and url.lower().startswith(thumbnail_prefix_pattern.lower()):
+            LOGGER.info("Skipping URL matching thumbnail prefix pattern %s: %s", thumbnail_prefix_pattern, url)
+            return False, {"reason": "low_resolution"}
+
         from config import OUTPUT_DIR
         directory.mkdir(parents=True, exist_ok=True)
         from urllib.parse import quote
@@ -246,7 +252,9 @@ class MediaDownloader:
                                 current_bytes = b"".join(chunks)
                                 w, h = get_image_dimensions(current_bytes)
                                 if w is not None and h is not None:
-                                    if w < MIN_IMAGE_WIDTH or h < MIN_IMAGE_HEIGHT:
+                                    limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
+                                    limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                                    if w < limit_w or h < limit_h:
                                         LOGGER.info(
                                             "Skipping low-resolution image asset %s (%dx%d)",
                                             url,
@@ -318,7 +326,9 @@ class MediaDownloader:
                 if media_kind == "image":
                     w, h = get_image_dimensions(content)
                     if w is not None and h is not None:
-                        if w < MIN_IMAGE_WIDTH or h < MIN_IMAGE_HEIGHT:
+                        limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
+                        limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                        if w < limit_w or h < limit_h:
                             LOGGER.info(
                                 "Skipping low-resolution image asset %s (%dx%d)", url, w, h
                             )

@@ -20,6 +20,10 @@ BACKGROUND_IMAGE_PATTERN = re.compile(
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
+def safe_join(items: list[str | None], sep: str = " ") -> str:
+    return sep.join(s for s in items if s is not None)
+
+
 def absolutize_url(candidate: str, base_url: str) -> str:
     return urljoin(base_url, candidate.strip())
 
@@ -258,11 +262,11 @@ def _preview_penalty(text: str) -> int:
     return sum(4 for marker in PREVIEW_MARKERS if marker in text)
 
 
-def is_archive_or_index_page(url: str, title: str) -> bool:
+def is_archive_or_index_page(url: str, title: str | None) -> bool:
     parsed = urlparse(url)
     path = parsed.path.lower()
     query = parsed.query.lower()
-    title_low = title.lower()
+    title_low = title.lower() if title else ""
 
     # Consider empty/root paths or index files as homepages, which are index pages
     path_clean = path.strip("/")
@@ -328,9 +332,7 @@ def score_image_relevance(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> int:
-    text = " ".join(
-        [item.url, item.source_page, item.alt_text, item.page_title]
-    ).lower()
+    text = safe_join([item.url, item.source_page, item.alt_text, item.page_title]).lower()
     score = weighted_subject_score(text, keyword, entity_tokens)
     if item.alt_text:
         score += 1
@@ -378,7 +380,7 @@ def score_image_relevance(
         and not cdn_asset
         and is_archive_or_index_page(item.source_page, item.page_title)
     ):
-        asset_text = " ".join(
+        asset_text = safe_join(
             [
                 item.url,
                 item.alt_text,
@@ -399,7 +401,7 @@ def score_video_relevance(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> int:
-    text = " ".join([item.url, item.source_page, item.type, item.page_title]).lower()
+    text = safe_join([item.url, item.source_page, item.type, item.page_title]).lower()
     score = weighted_subject_score(text, keyword, entity_tokens)
     if item.page_title:
         score += 1
@@ -429,7 +431,7 @@ def score_video_relevance(
     score -= _preview_penalty(item.url.lower())
 
     # Apply a minor penalty if the page title or source page contains preview markers
-    context_text = " ".join([item.source_page, item.page_title]).lower()
+    context_text = safe_join([item.source_page, item.page_title]).lower()
     if _preview_penalty(context_text) >= 4:
         score -= 2
 
@@ -451,7 +453,7 @@ def score_video_relevance(
         and not cdn_asset
         and is_archive_or_index_page(item.source_page, item.page_title)
     ):
-        asset_text = " ".join(
+        asset_text = safe_join(
             [
                 item.url,
                 getattr(item, "parent_anchor_text", ""),
@@ -475,6 +477,67 @@ def has_low_res_query_param(url: str, min_size: int = 400) -> bool:
     return False
 
 
+def has_low_res_path_pattern(url: str, min_width: int = 400, min_height: int = 300) -> bool:
+    try:
+        path = urlparse(url).path.lower()
+    except Exception:
+        return False
+
+    # 1. Double dimensions matching: e.g. -150x150, _200x300, /150x150/
+    double_dim_match = re.search(r"[-_/](\d+)x(\d+)\b", path)
+    if double_dim_match:
+        try:
+            w = int(double_dim_match.group(1))
+            h = int(double_dim_match.group(2))
+            if w < min_width or h < min_height:
+                return True
+        except ValueError:
+            pass
+
+    # 2. Resizer paths matching: e.g. /w_150,h_150/ or /w_150/h_150/ or /resize/150/150/
+    resizer_match1 = re.search(r"/(?:resize|fit|crop)/(\d+)/(\d+)", path)
+    if resizer_match1:
+        try:
+            w = int(resizer_match1.group(1))
+            h = int(resizer_match1.group(2))
+            if w < min_width or h < min_height:
+                return True
+        except ValueError:
+            pass
+
+    resizer_match2 = re.search(r"/(?:w|width)_?(\d+)[,/](?:h|height)_?(\d+)", path)
+    if resizer_match2:
+        try:
+            w = int(resizer_match2.group(1))
+            h = int(resizer_match2.group(2))
+            if w < min_width or h < min_height:
+                return True
+        except ValueError:
+            pass
+
+    # 3. Single dimension matching ending in extension: e.g. _150x.jpg or _x150.jpg
+    single_w_match = re.search(r"[-_](\d+)x\.[a-z0-9]{3,4}$", path)
+    if single_w_match:
+        try:
+            w = int(single_w_match.group(1))
+            if w < min_width:
+                return True
+        except ValueError:
+            pass
+
+    single_h_match = re.search(r"[-_]x(\d+)\.[a-z0-9]{3,4}$", path)
+    if single_h_match:
+        try:
+            h = int(single_h_match.group(1))
+            if h < min_height:
+                return True
+        except ValueError:
+            pass
+
+    return False
+
+
+
 def rejection_reason_for_image(
     item: ImageItem,
     keyword: str,
@@ -482,7 +545,7 @@ def rejection_reason_for_image(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> str | None:
-    text = " ".join(
+    text = safe_join(
         [item.url, item.source_page, item.alt_text, item.page_title]
     ).lower()
     score = score_image_relevance(
@@ -512,7 +575,7 @@ def rejection_reason_for_image(
         and not cdn_asset
         and is_archive_or_index_page(item.source_page, item.page_title)
     ):
-        asset_text = " ".join(
+        asset_text = safe_join(
             [
                 item.url,
                 item.alt_text,
@@ -529,7 +592,7 @@ def rejection_reason_for_image(
         return "placeholder_asset"
     if _preview_penalty(text) >= 4:
         return "preview_or_thumbnail"
-    if has_low_res_query_param(item.url):
+    if has_low_res_query_param(item.url) or has_low_res_path_pattern(item.url):
         return "low_resolution_hint"
     if not contains_subject_text(text, keyword, entity_tokens):
         return "low_subject_relevance"
@@ -545,7 +608,7 @@ def rejection_reason_for_video(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> str | None:
-    text = " ".join([item.url, item.source_page, item.type, item.page_title]).lower()
+    text = safe_join([item.url, item.source_page, item.type, item.page_title]).lower()
     score = score_video_relevance(
         item, keyword, entity_tokens, seed_urls, domain_profiles
     )
@@ -568,7 +631,7 @@ def rejection_reason_for_video(
         and not cdn_asset
         and is_archive_or_index_page(item.source_page, item.page_title)
     ):
-        asset_text = " ".join(
+        asset_text = safe_join(
             [
                 item.url,
                 getattr(item, "parent_anchor_text", ""),

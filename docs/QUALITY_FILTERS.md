@@ -1,50 +1,82 @@
-# Quality filtering and media selection
+# Quality Filters — scrAPE
 
-## Goals
+## Pipeline Order
 
-**scrAPE** favors substantive media assets for the target keyword rather than generic site decorations, thumbnails, or low-resolution previews.
+For each discovered image/video asset, the filter pipeline runs in this order:
 
-## What is filtered out
+1. **Duplicate check** — Already seen via normalized key → `"duplicate"`
+2. **Relevance scoring** — `weighted_subject_score()` with field-weighted tokens
+3. **Low-resolution detection** — URL query params OR path pattern → `"low_resolution_hint"`
+4. **Archive/index page penalty** — Source page detected as archive/index → score affected
+5. **Preview thumbnail penalty** — URL contains preview markers → `"preview_or_thumbnail"`
+6. **Placeholder rejection** — Generic path pattern + no subject keywords → `"placeholder_asset"`
+7. **Subject relevance threshold** — Score below minimum → `"low_subject_relevance"`
+8. **Max results limit** — Collection full → `"max_results_limit"`
 
-- Thumbnail-like URLs that contain terms such as `thumb`, `thumbnail`, `preview`, `avatar`, `icon`, `sprite`, or `small`
-- Tiny assets indicated by low content-length values during download
-- Low-resolution size hints in URLs such as `width=120` or `height=120`
-- Generic site assets that are clearly decorative, such as logos, icons, badges, avatars, and placeholders
+## Low-Resolution Detection
 
-## What is kept
+Two complementary functions:
 
-- Media URLs that are clearly related to the target keyword
-- Images and videos whose surrounding page context suggests a real gallery, post, media, cosplay, or video entry
-- Higher-signal assets that are not obviously decorative thumbnails
-- Assets served from domain-associated CDN hosts (which bypass the index/archive page score penalties)
+### `has_low_res_query_param(url, min_size=400)`
 
-## How the pipeline works
+Checks URL query parameters for dimension hints:
 
-1. Candidate media URLs are collected from pages and discovered links.
-2. Each item is filtered by media type expectations against its parent domain profile (e.g. discarding videos on image-only domains).
-3. The relevance scoring system evaluates keywords/entity tokens, layout locations, and URL metadata.
-4. Media items hosted on registered CDN allow-lists bypass archive-page score penalties.
-5. The filter rejects low-value assets (final score < 1) before they are stored in the final result set.
-6. The downloader reevaluates the media before writing files to disk and skips tiny or poor-quality assets.
+- `w=150`, `h=100`, `width=200`, `height=200`, `sz=small`
+- Parameters with numeric values < `min_size`
 
-## 1. Thumbnail and Decorative-asset Filters
+### `has_low_res_path_pattern(url, min_width=400, min_height=300)`
 
-**scrAPE** implements multiple heuristics to avoid collecting decorative site elements.
+Checks URL path for dimension patterns:
 
-### Thumbnail / preview heuristics
+ | Pattern | Example | Matches |
+ | --- | --- | --- |
+ | Double dimensions | `-150x150.jpg`, `_200x300/`, `/150x150/` | Width < 400 OR height < 300 |
+ | Resizer paths | `/resize/150/200`, `/w_150,h_150/`, `/fit/100/200` | Same thresholds |
+ | Single width | `_150x.jpg` | Width < 400 |
+ | Single height | `_x150.jpg` | Height < 300 |
 
-- **Directory names**: skips paths containing `thumb`, `thumbnail`, `preview`, `prev`, `thumb_full`, `thumb_hr`, etc.
-- **Filename patterns**: rejects `t_`, `tn_`, `preview-`, `thumbnail-` prefixes
-- **Width/height tokens**: rejects URLs where `w=` or `h=` are set to small values (default thresholds in `IMG_SIZE_THRESHOLDS`, configurable via env vars)
-- **Placeholder names**: rejects `placeholder` or `dummy` in paths or query params
+## Preview / Thumbnail Detection
 
-### Logo and icon filtering
+Negative markers checked in URL and context text:
 
-- **File extensions**: Skips `.ico`, `.svg`, `.png`, `.gif` assets where `filename` or `path_segment` match common icon patterns.
-- **Filename terms**: Skips paths containing `logo`, `icon`, `badge`, `avatar`, `profile_pic`, etc.
-- **Query params**: Rejects tokens like `format=icon` or `size=small`.
+```text
+# From _preview_penalty():
+'thumb', 'thumbs', 'thumbnail', '_th', '/th/', '-th-',
+'preview', 'small', '150x150', '100x100', '200x200',
+'tiny', 'icon', 'micro', 'mini', 'sq.', '/sq/'
+```
 
-### Decorative asset scoring
+If ≥ 4 points worth of markers detected → `"preview_or_thumbnail"`
 
-- Decorative images get an automatic `decorational_score` penalty (between -0.5 and -1.0).
-- This penalty is subtracted from the final relevance score **before** the `final_score < 1` filter.
+## Archive / Index Page Detection
+
+`is_archive_or_index_page(url, title)` — checks path for:
+
+- Empty or root path (`/`, `/index.html`)
+- `/page/`, `/post/`, `/article/`, `/gallery/`, `/photo/`, `/image/`
+- Archive patterns: date segments, `/tag/`, `/category/`, `/author/`, `/search/`
+- Query parameters: `?page=`, `?s=`, `?tag=`
+
+Assets on archive/index pages get a **-3 score penalty** unless the domain is a registered CDN.
+
+## CDN Bypass
+
+Domains listed as `[CDN]` in seed manifests bypass the archive/index page penalty entirely. This allows image hosts (e.g., `example-cdn.net`) to keep their assets regardless of source page structure.
+
+## `safe_join` Helper
+
+```python
+def safe_join(items: list[str | None], sep: str = " ") -> str:
+    return sep.join(s for s in items if s is not None)
+```
+
+All filter functions use `safe_join` instead of `" ".join([...])` to avoid `TypeError` when processing items with `None` fields (e.g., missing alt text, page title).
+
+## Thresholds
+
+ | Field | Score Condition |
+ | --- | --- |
+ | Image min score | `score >= 3` (or CDN and not archive) |
+ | Video min score | `score >= 2` (or CDN and not archive) |
+ | Token weights | URL: 3×, alt: 2×, source/title: 1× |
+ | Entity bonus | 2× when matched in URL or alt text |

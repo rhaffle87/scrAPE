@@ -14,6 +14,7 @@ class RobotsChecker:
     def __init__(self, http_client: HttpClient, ignore_robots: bool = False) -> None:
         self.http_client = http_client
         self.ignore_robots = ignore_robots
+        self._parsers: dict[str, robotparser.RobotFileParser | None] = {}
 
     def is_allowed(self, url: str, user_agent: str = "*") -> bool:
         if self.ignore_robots:
@@ -23,16 +24,28 @@ class RobotsChecker:
             return True
         return parser.can_fetch(user_agent, url)
 
-    @lru_cache(maxsize=128)
     def _get_parser(self, url: str) -> robotparser.RobotFileParser | None:
-        parsed = urlparse(url)
-        robots_url = urljoin(f"{parsed.scheme}://{parsed.netloc}", "/robots.txt")
+        try:
+            parsed = urlparse(url)
+            netloc = parsed.netloc.lower()
+            if not netloc:
+                return None
+        except Exception:
+            return None
+
+        if netloc in self._parsers:
+            return self._parsers[netloc]
+
+        robots_url = urljoin(f"{parsed.scheme}://{netloc}", "/robots.txt")
         try:
             response = self.http_client.get(robots_url)
         except Exception as exc:
             LOGGER.debug("Unable to fetch robots.txt from %s: %s", robots_url, exc)
+            self._parsers[netloc] = None
             return None
 
         parser = robotparser.RobotFileParser()
         parser.parse(response.text.splitlines())
+        self._parsers[netloc] = parser
         return parser
+

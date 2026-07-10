@@ -1,159 +1,96 @@
-# Usage guide
+# Usage — scrAPE CLI
 
-## Prerequisites
-
-```bash
-pip install -r requirements.txt
-crawl4ai-setup   # one-time — installs Playwright browsers for WAF fallback
-```
-
----
-
-## Interactive Terminal GUI Wizard
-
-For the easiest way to configure and run scrapers without remembering CLI flags, launch the interactive console wizard:
-
-### On Windows
-
-Double-click `run.bat` or execute in terminal:
-
-```cmd
-run.bat
-```
-
-### On macOS / Linux
+## Synopsis
 
 ```bash
-chmod +x run.sh
-./run.sh
+python main.py --keyword <keyword> --seed <path> [options]
 ```
 
-The wizard guides you step-by-step through three different execution flows:
+## Arguments
 
-1. **General/Broad Search**: Guides you to input keyword search, output format, result limits, and crawl depth.
-2. **Specified/Targeted Crawling**: Configures strict scraping targeting a loaded seed manifest file (e.g. `seeds/apple.txt`) and automatically sets up focus options.
-3. **Continuous Watchdog**: Configures and starts the interval watchdog for continuous background monitoring.
+ | Argument | Type | Default | Description |
+ | --- | --- | --- | --- |
+ | `--keyword` | `str` | **required** | Search keyword / subject name |
+ | `--seed` | `str` | `seed.txt` | Path to seed manifest file |
+ | `--max-results` | `int` | `50` | Max images+videos per run |
+ | `--output-dir` | `str` | `./output` | Root output directory |
+ | `--workers` | `int` | `8` | Page fetch concurrency |
+ | `--dl-workers` | `int` | `6` | Download concurrency |
+ | `--page-limit` | `int` | `100` | Max pages to crawl |
+ | `--crawl-depth` | `int` | `2` | BFS max depth |
+ | `--download-media` | flag | `False` | Enable actual file download |
+ | `--ignore-robots` | flag | `False` | Skip robots.txt checks |
+ | `--entity-token` | `str[]` | `[]` | Additional entity tokens (repeatable) |
+ | `--yes` | flag | `False` | Skip confirmations (non-interactive) |
+ | `--dry-run` | flag | `False` | Parse seed + validate, no crawl |
+ | `--run-id` | `str` | auto | Override run ID |
+ | `--keyword-slug` | `str` | auto | Override output dir slug |
 
----
+## Seed Manifest
 
-## Basic keyword search
+Domain profiles are defined in `.txt` seed files. See [README.md](../README.md#seed-manifest-format) for full annotation syntax.
 
 ```bash
-python main.py --keyword "example_subject" --max-results 100 --output both
+# Basic run
+python main.py --keyword example_subject --seed seeds/example_subject.txt
+
+# Targeted with extra tokens
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --entity-token "Entity Name" --entity-token "topic"
+
+# Production sweep (high concurrency, no confirmations)
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --max-results 100 --workers 16 --dl-workers 8 ^
+  --page-limit 200 --crawl-depth 3 --download-media --yes
+
+# Validate seed manifest only
+python main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
+
+# Stealth mode (single worker, polite speed)
+python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+  --workers 1 --page-limit 20 --crawl-depth 1
 ```
 
-## Download media
+## Output Structure
+
+```text
+output/{keyword_slug}/runs/{run_id}/
+├── manifest.json            # Full scrape result
+└── media/                   # (if --download-media)
+    ├── images/
+    │   └── {filename}.{ext}
+    └── videos/
+        └── {filename}.{ext}
+```
+
+### manifest.json fields
+
+ | Field | Description |
+ | --- | --- |
+ | `keyword` | Search keyword |
+ | `run_id` | Unique run identifier |
+ | `duration_seconds` | Total wall-clock time |
+ | `run_metadata` | CLI flags used (workers, page_limit, etc.) |
+ | `page_count` | Total pages scanned |
+ | `scanned_pages` | List of page URLs visited |
+ | `page_reports` | Per-page scan diagnostics |
+ | `images` / `videos` | Kept asset items |
+ | `rejected_items` | Rejected items with reason + score |
+ | `domain_stats` | Per-domain stats (pages scanned, kept, rejected) |
+ | `errors` | Per-domain error counts |
+
+## Dry Run
 
 ```bash
-python main.py --keyword "example_subject" --download-media --max-results 500 \
-    --page-limit 200 --crawl-depth 6
+python main.py --keyword test --seed seed.txt --dry-run
 ```
 
-## Seed-URL crawl (no search)
+Parses the seed file and prints the domain profiles without crawling.
 
-When a seed manifest file is used, **scrAPE** automatically enters a **Focused Mode**:
-
-- Broad keyword search is **disabled automatically** (unless overridden with `--force-search`).
-- Allowed domains are **auto-locked** to the seed domains plus their respective CDN hosts.
-- Extra entity tokens/aliases are **auto-injected** from the `# subject:` header.
+## Terminal GUI Wizard
 
 ```bash
-python main.py --keyword "example_subject" --seed-file seeds/example_subject.txt --download-media
+python cli_wizard.py
 ```
 
-## Restrict to specific domains manually
-
-If not using a manifest, you can manually lock domains:
-
-```bash
-python main.py --keyword "example_subject" \
-    --allow-domain targetsite.com \
-    --allow-domain blog.com \
-    --skip-search --seed-file seeds/example_subject.txt
-```
-
-## Extra entity aliases (boost relevance for alternate names)
-
-```bash
-python main.py --keyword "example_subject" \
-    --entity-token "alias1" \
-    --entity-token "alias2" \
-    --entity-token "alias1 alias2"
-```
-
-## Scoped site-tree crawl
-
-```bash
-python main.py --keyword "example_subject" \
-    --seed-url "https://example.com/profile/example_subject" \
-    --strict-domain --site-tree-only --skip-search
-```
-
-## Block unwanted domains
-
-```bash
-python main.py --keyword "example_subject" \
-    --block-domain blockedsite.com \
-    --block-domain badsite.com
-```
-
----
-
-## Monitoring agent (continuous mode)
-
-`monitor_agent.py` is a lightweight watchdog that runs **scrAPE** repeatedly at a fixed interval, useful for long-running scheduled collection jobs.
-
-```bash
-python monitor_agent.py --keyword "example_subject" --seed-file seeds/example_subject.txt --download-media --interval 60 --timeout 1800
-```
-
-The agent performs an initial scrape immediately, then sleeps and repeats on the configured interval. It tails the child process stdout in real-time and enforces a per-run timeout (default 30 minutes) to prevent runaway sessions. Press `Ctrl+C` to stop gracefully.
-
-**All CLI flags for `monitor_agent.py`:**
-
-| Flag | Env Variable | Default | Description |
-| --- | --- | --- | --- |
-| `--keyword`, `-k` | `SCRAPE_KEYWORD` | *(required)* | The keyword / subject name to scrape |
-| `--seed-file`, `-s` | `SCRAPE_SEED_FILE` | `None` | Path to the matching seed manifest file |
-| `--interval`, `-i` | `SCRAPE_INTERVAL` | `60` | Seconds between the end of one run and the start of the next |
-| `--timeout`, `-t` | `SCRAPE_TIMEOUT` | `1800` | Max seconds a single scrape run may take before it is killed |
-| `--download-media`, `-d` | — | off | Enable downloading of discovered media |
-
-Any additional unknown arguments provided to `monitor_agent.py` will be automatically passed down to the underlying `main.py` executions.
-
----
-
-## All CLI flags
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--keyword` | *(required)* | Primary search keyword |
-| `--max-results` | `0` (unlimited) | Max media items per type |
-| `--output` | `json` | `json`, `csv`, or `both` |
-| `--download-media` | off | Download files to disk |
-| `--seed-url` | — | Seed page URL (repeat for multiple) |
-| `--seed-file` | — | Text file with one URL per line |
-| `--seed-domain` | — | Extra in-scope domain root |
-| `--allow-domain` | — | Restrict crawl to these domains |
-| `--block-domain` | — | Skip these domains |
-| `--entity-token` | — | Extra relevance alias (repeat as needed) |
-| `--skip-search` | off | Disable DuckDuckGo search |
-| `--page-limit` | `0` (unlimited) | Max pages to visit |
-| `--crawl-depth` | `0` (unlimited) | Max BFS link depth |
-| `--strict-domain` | off | Restrict to seed domain set |
-| `--site-tree-only` | off | Restrict to seed path subtrees |
-| `--domain-delay` | — | Override per-domain request rate (e.g. `example.com=3.0`) |
-| `--workers` | `12` | Number of concurrent pages to fetch |
-| `--dl-workers` | `16` | Number of concurrent media downloads |
-| `--force-search` | off | Force DuckDuckGo search even when a seed file is loaded |
-
----
-
-## Notes
-
-- **scrAPE** targets public pages only and does not bypass paywalls or authenticated areas.
-- WAF-protected pages (403/429) are automatically retried via Crawl4AI stealth browser (Tier 1), then Undetected browser mode (Tier 2).
-- Operational Scenarios Guide — see `docs/SCENARIOS.md` for recommended inputs.
-- Quality filters bias results toward substantive media and away from thumbnails, decorative assets, and previews — see `docs/QUALITY_FILTERS.md`.
-- Output is written to `output/<keyword_slug>/runs/<run_id>/`.
-- Cache TTL is 1 hour by default. Delete `.cache/` to force a fresh crawl.
+Interactive TUI for configuring and running scrapes. Launched via `run.bat`.

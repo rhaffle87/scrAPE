@@ -81,6 +81,15 @@ def _is_target_met(result: ScrapeResult, options: EngineOptions, max_results: in
     return False
 
 
+_VIDEO_RES_RE = re.compile(r"[_\-/](\d{3,4})p", re.IGNORECASE)
+
+
+def _video_resolution_hint(url: str) -> int:
+    """Return numeric resolution (e.g. 1080) from URL path, or 0 if not found."""
+    m = _VIDEO_RES_RE.search(url)
+    return int(m.group(1)) if m else 0
+
+
 class ScrapingEngine:
     def __init__(
         self,
@@ -176,6 +185,27 @@ class ScrapingEngine:
         ordered_pages: list[tuple[str, int]] = []
         discovered_links_counts: dict[str, int] = {}
 
+        result_lock = threading.RLock()
+        seen_rejected_urls: set[tuple[str, str]] = set()
+
+        def add_rejected(kind: str, url: str, source_page: str, reason: str, score: int = 0) -> bool:
+            key = (url, reason)
+            with result_lock:
+                if key in seen_rejected_urls:
+                    return False
+                seen_rejected_urls.add(key)
+                result.rejected_items.append(
+                    RejectedItem(
+                        kind=kind,
+                        url=url,
+                        source_page=source_page,
+                        reason=reason,
+                        score=score,
+                    )
+                )
+                return True
+
+
         # Enqueue candidate pages at depth 0
         for page in candidate_pages:
             if not page or looks_like_media(normalize_url(page)):
@@ -268,14 +298,7 @@ class ScrapingEngine:
                         normalized_link, options
                     )
                     if scope_reason:
-                        result.rejected_items.append(
-                            RejectedItem(
-                                kind="page",
-                                url=normalized_link,
-                                source_page=normalized_page,
-                                reason=scope_reason,
-                            )
-                        )
+                        add_rejected("page", normalized_link, normalized_page, scope_reason)
                         continue
                     if (
                         normalized_link in visited_pages
@@ -299,7 +322,6 @@ class ScrapingEngine:
         # --- Concurrent page fetching ---
         # The per-domain RateLimiter is thread-safe, so workers hitting different
         # domains proceed in parallel while same-domain calls are naturally queued.
-        result_lock = threading.Lock()
 
         # Deduplication maps: norm_key → item (allows URL upgrading from tokenless → tokened)
         seen_images: dict[str, object] = {}
@@ -320,11 +342,22 @@ class ScrapingEngine:
                         "error_other_count": 0,
                     }
                 stats = result.domain_stats[host]
-                if stats["pages_scanned"] >= 30:
-                    yield_rate = (stats["images_kept"] + stats["videos_kept"]) / stats["pages_scanned"]
-                    if yield_rate < 0.05:
-                        LOGGER.info("Skipping %s: low yield from domain %s (<5%%)", page, host)
+                pages_scanned = stats["pages_scanned"]
+                total_kept = stats["images_kept"] + stats["videos_kept"]
+                total_raw_found = total_kept + stats["rejected_count"]
+                
+                is_seeded = (host in domain_profiles) or (host in (options.seed_domains or []))
+
+                if not is_seeded and total_raw_found < 50:
+                    if pages_scanned >= 20 and total_kept == 0:
+                        LOGGER.info("Skipping %s: early zero-yield cutoff from domain %s", page, host)
                         return page, depth, [], [], "low_yield_skipped"
+
+                    if pages_scanned >= 30:
+                        yield_rate = total_kept / pages_scanned
+                        if yield_rate < 0.05:
+                            LOGGER.info("Skipping %s: low yield from domain %s (<5%%)", page, host)
+                            return page, depth, [], [], "low_yield_skipped"
                 
                 stats["pages_scanned"] += 1
 
@@ -455,15 +488,8 @@ class ScrapingEngine:
                                         )
                                         existing.url = item.url
                                     else:
-                                        result.rejected_items.append(
-                                            RejectedItem(
-                                                "image",
-                                                item.url,
-                                                item.source_page,
-                                                "duplicate",
-                                            )
-                                        )
-                                        stats["rejected_count"] += 1
+                                        if add_rejected("image", item.url, item.source_page, "duplicate"):
+                                            stats["rejected_count"] += 1
                                     continue
                                 score = score_image_relevance(
                                     item,
@@ -490,28 +516,12 @@ class ScrapingEngine:
                                         item.source_page,
                                         parent_href,
                                     )
-                                    result.rejected_items.append(
-                                        RejectedItem(
-                                            "image",
-                                            item.url,
-                                            item.source_page,
-                                            reason,
-                                            score,
-                                        )
-                                    )
-                                    stats["rejected_count"] += 1
+                                    if add_rejected("image", item.url, item.source_page, reason, score):
+                                        stats["rejected_count"] += 1
                                     continue
 
                                 if max_results > 0 and len(result.images) >= max_results:
-                                    result.rejected_items.append(
-                                        RejectedItem(
-                                            "image",
-                                            item.url,
-                                            item.source_page,
-                                            "max_results_limit",
-                                            score,
-                                        )
-                                    )
+                                    add_rejected("image", item.url, item.source_page, "max_results_limit", score)
                                     continue
 
                                 seen_images[norm_key] = item
@@ -524,23 +534,24 @@ class ScrapingEngine:
                                 norm_key = normalize_media_url(item.url)
                                 if norm_key in seen_videos:
                                     existing = seen_videos[norm_key]
-                                    if "?" in item.url and "?" not in existing.url:
+                                    # Upgrade to higher-resolution copy if one is available
+                                    new_res = _video_resolution_hint(item.url)
+                                    old_res = _video_resolution_hint(existing.url)
+                                    if new_res > old_res:
+                                        LOGGER.debug(
+                                            "Video resolution upgrade %dp→%dp: %s",
+                                            old_res, new_res, item.url,
+                                        )
+                                        existing.url = item.url
+                                    elif "?" in item.url and "?" not in existing.url:
                                         LOGGER.debug(
                                             "Video URL upgraded from tokenless to tokened: %s -> %s",
-                                            existing.url,
-                                            item.url,
+                                            existing.url, item.url,
                                         )
                                         existing.url = item.url
                                     else:
-                                        result.rejected_items.append(
-                                            RejectedItem(
-                                                "video",
-                                                item.url,
-                                                item.source_page,
-                                                "duplicate",
-                                            )
-                                        )
-                                        stats["rejected_count"] += 1
+                                        if add_rejected("video", item.url, item.source_page, "duplicate"):
+                                            stats["rejected_count"] += 1
                                     continue
                                 score = score_video_relevance(
                                     item,
@@ -567,28 +578,12 @@ class ScrapingEngine:
                                         item.source_page,
                                         parent_href,
                                     )
-                                    result.rejected_items.append(
-                                        RejectedItem(
-                                            "video",
-                                            item.url,
-                                            item.source_page,
-                                            reason,
-                                            score,
-                                        )
-                                    )
-                                    stats["rejected_count"] += 1
+                                    if add_rejected("video", item.url, item.source_page, reason, score):
+                                        stats["rejected_count"] += 1
                                     continue
 
                                 if max_results > 0 and len(result.videos) >= max_results:
-                                    result.rejected_items.append(
-                                        RejectedItem(
-                                            "video",
-                                            item.url,
-                                            item.source_page,
-                                            "max_results_limit",
-                                            score,
-                                        )
-                                    )
+                                    add_rejected("video", item.url, item.source_page, "max_results_limit", score)
                                     continue
 
                                 seen_videos[norm_key] = item
@@ -637,9 +632,7 @@ class ScrapingEngine:
                     )
                     existing.url = item.url
                 else:
-                    result.rejected_items.append(
-                        RejectedItem("video", item.url, item.source_page, "duplicate")
-                    )
+                    add_rejected("video", item.url, item.source_page, "duplicate")
                 continue
             score = score_video_relevance(
                 item, options.keyword, options.entity_tokens, seed_set, domain_profiles
@@ -649,16 +642,10 @@ class ScrapingEngine:
                 item, options.keyword, options.entity_tokens, seed_set, domain_profiles
             )
             if reason:
-                result.rejected_items.append(
-                    RejectedItem("video", item.url, item.source_page, reason, score)
-                )
+                add_rejected("video", item.url, item.source_page, reason, score)
                 continue
             if max_results > 0 and len(result.videos) >= max_results:
-                result.rejected_items.append(
-                    RejectedItem(
-                        "video", item.url, item.source_page, "max_results_limit", score
-                    )
-                )
+                add_rejected("video", item.url, item.source_page, "max_results_limit", score)
                 continue
             seen_videos[norm_key] = item
             result.videos.append(item)
@@ -754,17 +741,26 @@ class ScrapingEngine:
                 with _cf.ThreadPoolExecutor(
                     max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
                 ) as dl_executor:
-                    dl_futures = {
-                        dl_executor.submit(
+                    dl_futures = {}
+                    for item, directory, stem, media_kind in all_dl_tasks:
+                        dl_host = urlparse(item.source_page).netloc.lower()
+                        profile = options.domain_profiles.get(dl_host) if options.domain_profiles else None
+                        min_size = getattr(profile, "min_image_size", None) if profile else None
+                        thumb_pattern = getattr(profile, "thumbnail_prefix_pattern", None) if profile else None
+                        needs_referer = getattr(profile, "requires_referer", False) if profile else False
+                        referer = item.source_page if needs_referer else None
+
+                        fut = dl_executor.submit(
                             self.downloader._download_file,
                             item.url,
                             directory,
                             stem,
                             media_kind,
-                            item.source_page,
-                        ): (item, media_kind)
-                        for item, directory, stem, media_kind in all_dl_tasks
-                    }
+                            referer,
+                            min_size,
+                            thumb_pattern,
+                        )
+                        dl_futures[fut] = (item, media_kind)
                     for fut in _cf.as_completed(dl_futures):
                         item, media_kind = dl_futures[fut]
                         try:
@@ -784,14 +780,12 @@ class ScrapingEngine:
                                 item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
                                 item.failure_reason = reason
 
-                                result.rejected_items.append(
-                                    RejectedItem(
-                                        kind=media_kind,
-                                        url=item.url,
-                                        source_page=item.source_page,
-                                        reason=f"download_{reason}",
-                                        score=item.score,
-                                    )
+                                add_rejected(
+                                    media_kind,
+                                    item.url,
+                                    item.source_page,
+                                    f"download_{reason}",
+                                    item.score,
                                 )
                                 dl_host = urlparse(item.source_page).netloc.lower()
                                 if dl_host in result.domain_stats:
@@ -805,14 +799,12 @@ class ScrapingEngine:
                             item.status = "failed"
                             item.failure_reason = f"exception_{type(exc).__name__}"
 
-                            result.rejected_items.append(
-                                RejectedItem(
-                                    kind=media_kind,
-                                    url=item.url,
-                                    source_page=item.source_page,
-                                    reason=f"download_failed:{type(exc).__name__}",
-                                    score=item.score,
-                                )
+                            add_rejected(
+                                media_kind,
+                                item.url,
+                                item.source_page,
+                                f"download_failed:{type(exc).__name__}",
+                                item.score,
                             )
                             dl_host = urlparse(item.source_page).netloc.lower()
                             if dl_host in result.domain_stats:

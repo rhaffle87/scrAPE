@@ -81,6 +81,8 @@ class ScrapeResult:
     images: list[ImageItem] = field(default_factory=list)
     videos: list[VideoItem] = field(default_factory=list)
     domain_stats: dict[str, dict[str, int]] = field(default_factory=dict)
+    duration_seconds: int | None = None
+    run_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def keyword_slug(self) -> str:
@@ -92,6 +94,8 @@ class ScrapeResult:
         return {
             "keyword": self.keyword,
             "run_id": self.run_id,
+            "duration_seconds": self.duration_seconds,
+            "run_metadata": self.run_metadata,
             "page_count": len(self.scanned_pages),
             "scanned_pages": self.scanned_pages,
             "page_reports": [asdict(item) for item in self.page_reports],
