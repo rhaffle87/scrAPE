@@ -1,0 +1,155 @@
+# agent.md — scrAPE Operator Guide
+
+You are maintaining a media scraping system. Your job is to run it, read the results, figure out what went wrong or underperformed, fix it, and run it again. Repeat until quality stabilizes.
+
+## Project Layout
+
+```text
+main.py                     — CLI entry point, all flags documented via --help
+src/config.py               — Tunable constants (timeouts, concurrency, thresholds)
+src/core/engine.py          — BFS crawl loop, page scoring, domain stats
+src/core/filters.py         — URL classification, media detection, relevance scoring
+src/core/models.py          — ScrapeResult, ImageItem, VideoItem dataclasses
+src/scraper/google_images.py — Search provider + page scraper + link/media extraction
+src/storage/file_downloader.py — Concurrent media downloader with MIME/size validation
+src/utils/http_client.py    — Rate limiting, session pooling, 429 circuit breaker, Crawl4AI fallback
+src/utils/blacklist.py      — Persistent domain blacklist (data/blacklist.json)
+src/utils/session.py        — Persistent cookie cache (data/sessions/)
+src/utils/session_pool.py   — Per-domain sticky sessions with disk persistence
+data/domain_config.json     — Dynamic domain overrides (rate limits, referer, hotlink, deep scrape)
+src/config/subject_profiles.json — Subject profile presets (priority domains, max results)
+seeds/                      — Per-subject seed manifest files (.txt)
+output/<subject>/runs/<run_id>/ — Run output (results.json, domain_report.json, CSVs)
+logs/run_<run_id>.log       — Full structured log per run
+```
+
+## The Loop
+
+### 1. Run
+
+```powershell
+# Full production run with seed file
+python main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
+  --max-results 200 --workers 12 --dl-workers 16 ^
+  --page-limit 300 --crawl-depth 3 --download-media
+
+# Quick validation run (no downloads, low limits)
+python main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
+  --max-results 10 --page-limit 20 --crawl-depth 1
+
+# Run without seeds (search-only discovery)
+python main.py --keyword "<subject>" --max-results 50 --page-limit 100
+
+# Clear stale cache before run
+python main.py --keyword "<subject>" --seed seeds/<subject>.txt --clear-cache
+```
+
+### 2. Analyze
+
+After a run completes, look at these files:
+
+**Primary outputs** (in `output/<subject>/runs/<run_id>/`):
+
+- `results.json` — full result payload. Check `.images[]`, `.videos[]`, `.rejected_items[]`, `.page_reports[]`, `.domain_stats`, `.duration_seconds`, `.run_metadata`
+- `domain_report.json` — per-domain yield breakdown (pages hit, images found, videos found)
+- `images.csv` / `videos.csv` — flat export if `--output both` was used
+
+**Logs** (in `logs/`):
+
+- `run_<run_id>.log` — full structured log. Search for these patterns:
+  - `HTTP 429` — rate limited. Domain needs lower RPS in `data/domain_config.json`
+  - `ScraperBypassError` — Crawl4AI fallback also failed. Domain may need referer override or is fully blocked
+  - `blacklisted` — domain hit circuit breaker threshold. Check `data/blacklist.json`
+  - `cooldown` — domain entered temporary backoff
+  - `fetch_error` — network/timeout failures
+  - `Skipping scrape` — fast-fail on known dead domains
+  - `rejected` — media item failed quality filters
+
+**Runtime state** (in `data/`):
+
+- `blacklist.json` — domains auto-banned during the run. Review before next run: remove false positives, keep real dead domains
+- `sessions/` — persisted cookies. Usually leave alone
+
+### 3. Diagnose
+
+Read the analysis results and identify which category the problems fall into:
+
+| Symptom | Where to look | What to change |
+| --- | --- | --- |
+| Low image/video count | `domain_report.json` — which domains yielded zero? | Add better seeds, check if domain is blacklisted |
+| Too many rejected items | `results.json → rejected_items[]` — read the `reason` field | Tune filters in `src/core/filters.py` |
+| Lots of 429 errors | Log grep for `HTTP 429` | Lower RPS in `data/domain_config.json` → `rate_limits` |
+| Crawl4AI fallback failures | Log grep for `ScraperBypassError` | Add domain to `referer_overrides` or `hotlink_protected` in `data/domain_config.json` |
+| Downloads failing | `results.json → images/videos` where `status == "failed"` | Check `failure_reason` field. Common: blocked hotlink, too small, wrong MIME |
+| Pages returning empty | `page_reports[]` where `images_found == 0 && videos_found == 0` | Domain may need `deep_scrape` config or different link patterns |
+| Run too slow | `duration_seconds` in results, log timestamps | Increase `--workers`, check if cooldowns are dominating |
+| Placeholder/broken images downloaded | Check downloaded file sizes, look for tiny files | Add URL patterns to `is_broken_media_url()` in `filters.py` |
+
+### 4. Fix
+
+Changes you can make, ordered by where they live:
+
+**No code changes needed** (config/data only):
+
+- `data/domain_config.json` — rate limits, referer overrides, hotlink protection, deep scrape targets, domain handler patterns
+- `data/blacklist.json` — remove false positive bans, or add permanently dead domains
+- `seeds/<subject>.txt` — add/remove seed URLs, add annotations (`# type:`, `# Rate-limit:`, `[CDN]`)
+- `src/config/subject_profiles.json` — subject profile presets
+
+**Tuning constants** (`src/config.py`):
+
+- `DEFAULT_REQUESTS_PER_SECOND` — global default RPS
+- `DOMAIN_COOLDOWN_THRESHOLD` — how many 429s before circuit breaker trips
+- `DOMAIN_COOLDOWN_SECONDS` — escalation durations [30, 60, 120]
+- `MIN_IMAGE_DOWNLOAD_BYTES` / `MIN_VIDEO_DOWNLOAD_BYTES` — size floor for downloads
+- `MIN_IMAGE_WIDTH` / `MIN_IMAGE_HEIGHT` — dimension floor
+- `CONCURRENT_PAGES_PER_BATCH` / `CONCURRENT_DOWNLOADS` — parallelism defaults
+
+**Filter logic** (`src/core/filters.py`):
+
+- `is_broken_media_url()` — add patterns for known placeholder/error image URLs
+- `looks_like_media()` — tweak media detection heuristics
+- `should_keep_image()` / `should_keep_video()` — quality gate criteria
+- `CDN_ASSET_DOMAINS` — domains to skip during crawl (ad networks, trackers, stock photo sites)
+- `GENERIC_ASSET_TERMS` — filename tokens that indicate non-target assets (logo, icon, banner)
+
+**Extraction logic** (`src/scraper/google_images.py`):
+
+- `_extract_images()` — how images are found in page HTML
+- `_extract_page_links()` — how crawl links are discovered
+- `scrape_page()` — exception handling, status classification
+
+**HTTP behavior** (`src/utils/http_client.py`):
+
+- `_headers()` — how request headers are built per domain (reads from `REFERER_OVERRIDES`)
+- `_DomainCooldownState` — circuit breaker thresholds and escalation
+- Crawl4AI fallback tiers — stealth browser escalation
+
+**Download behavior** (`src/storage/file_downloader.py`):
+
+- `_make_download_headers()` — per-domain header injection for media downloads
+- `_download_file()` — stream validation, MIME checks, size checks
+
+### 5. Verify
+
+Before doing another full run:
+
+```powershell
+# Run all tests
+python -m pytest tests/ -v
+
+# Quick smoke test
+python main.py --keyword testrun --max-results 1 --page-limit 1 --crawl-depth 0 --clear-cache
+```
+
+Then go back to step 1.
+
+## Rules
+
+- Never hardcode specific subject names, target URLs, or domain names in source files under `src/`. All domain-specific behavior goes in `data/domain_config.json`, `src/config/subject_profiles.json`, or `seeds/*.txt`.
+- The `data/` and `src/config/` directories are gitignored. They contain target-specific operational data that stays local.
+- After modifying any source code, run `python -m pytest tests/ -v` before doing a full run. All 78 tests must pass.
+- When analyzing a run, always read `results.json` AND the log file. The JSON tells you what happened; the log tells you why.
+- If a domain gets auto-blacklisted during a run and you think it was wrong, delete its entry from `data/blacklist.json` before the next run.
+- If you add a new domain-specific behavior (referer, rate limit, handler pattern), add it to `data/domain_config.json` — not inline in Python.
+- Update `docs/CHANGELOG.md` when making meaningful system changes. Update `docs/ARCHITECTURE.md` when adding new components or changing data flow.

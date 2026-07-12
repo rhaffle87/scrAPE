@@ -158,9 +158,3 @@ output/
         manifest.json         # Full scrape result (scanned pages, assets, rejected list, metadata)
         pages/                # HTML snapshots (optional)
 ```
-
----
-
-## License
-
-MIT
