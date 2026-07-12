@@ -23,6 +23,7 @@ from config import (
     MIN_IMAGE_HEIGHT,
     MIN_IMAGE_WIDTH,
     MIN_VIDEO_DOWNLOAD_BYTES,
+    REFERER_OVERRIDES,
 )
 from core.filters import should_keep_image, should_keep_video
 from core.models import ScrapeResult
@@ -66,6 +67,18 @@ class MediaDownloader:
         self._seen_hashes: set[str] = set()
         self._hash_lock = threading.Lock()
 
+
+    def _is_hotlink_protected(self, url: str) -> bool:
+        """Check if URL is from a domain that requires Referer header."""
+        from src.config import HOTLINK_PROTECTED_DOMAINS
+        try:
+            import re
+            domain_match = re.search(r"https?://([^/]+)", url)
+            if domain_match:
+                return domain_match.group(1) in HOTLINK_PROTECTED_DOMAINS
+        except Exception:
+            pass
+        return False
     def download(self, result: ScrapeResult, output_root: Path) -> None:
         """Download all accepted images and videos in parallel."""
         with self._hash_lock:
@@ -169,7 +182,15 @@ class MediaDownloader:
         if referer:
             headers["Referer"] = referer
             headers["Origin"] = origin
+        for ref_host, ref_val in REFERER_OVERRIDES.items():
+            if ref_host in host:
+                headers["Referer"] = ref_val
+                parsed_ref = urlparse(ref_val)
+                if parsed_ref.netloc:
+                    headers["Origin"] = f"{parsed_ref.scheme}://{parsed_ref.netloc}"
+                break
         return headers
+
 
     def _download_file(
         self,

@@ -1,6 +1,0 @@
-# Subject: Apple
-# type: mixed | crawl: index -> detail
-# [CDN] s1.example-cdn.net
-# [CDN] s2.example-cdn.net
-https://example.com/gallery/apple
-https://example-video.com/search?q=apple

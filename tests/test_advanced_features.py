@@ -99,8 +99,9 @@ def test_self_healing_semantic_selectors():
             <div class="gallery-item-container" data-highres-url="https://example.com/highres.jpg">
                 <div class="photo-viewer" data-lazy="https://example.com/lazy.png"></div>
                 <a href="https://example.com/post-link" class="attachment-link">Attachment Page</a>
+                <div class="gallery-photo" title="Page 1: _1.jpg" alt="Sample_Image.png"></div>
             </div>
-            <div class="main-video-player" data-video-src="https://example.com/video.mp4"></div>
+            <div class="main-video-player" data-video-src="https://example.com/video.mp4" title="Sample_Video.mp4"></div>
         </body>
     </html>
     """
@@ -115,3 +116,8 @@ def test_self_healing_semantic_selectors():
     assert "https://example.com/highres.jpg" in image_urls
     assert "https://example.com/lazy.png" in image_urls
     assert "https://example.com/video.mp4" in video_urls
+    
+    # Assert that textual attributes are ignored and do not generate false URLs
+    assert not any("Page%201" in url or "_1.jpg" in url or "Sample_Image" in url for url in image_urls)
+    assert not any("Sample_Video" in url for url in video_urls)
+

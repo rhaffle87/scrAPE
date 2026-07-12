@@ -50,9 +50,12 @@ from config import (
     DOMAIN_REQUESTS_PER_SECOND,
     RATE_LIMIT_JITTER_SECONDS,
     USER_AGENTS,
+    REFERER_OVERRIDES,
 )
 from utils.rate_limiter import RateLimiter
 from utils.session_pool import SessionPool
+from utils.blacklist import is_blacklisted
+from utils.session import SessionManager
 
 
 
@@ -218,6 +221,7 @@ class HttpClient:
         """
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout, follow_redirects=True)
+        self.session_manager = SessionManager()
         # Convert seconds_per_request (delays) to requests_per_second (RPS)
         converted_delays = {}
         if domain_delays:
@@ -274,8 +278,14 @@ class HttpClient:
         if url:
             host = self._hostname(url)
             session = self._session_pool.get_session(host)
-            return session.get_headers()
+            headers = session.get_headers().copy()
+            for ref_host, ref_val in REFERER_OVERRIDES.items():
+                if ref_host in host:
+                    headers["Referer"] = ref_val
+                    break
+            return headers
         return {"User-Agent": random.choice(USER_AGENTS)}
+
 
     # ------------------------------------------------------------------
     # Disk cache
@@ -448,6 +458,15 @@ class HttpClient:
         from utils.logger import get_logger
 
         logger = get_logger(__name__)
+        domain = urlparse(url).netloc
+        if is_blacklisted(domain):
+            raise ScraperBypassError(f"Domain {domain} is blacklisted")
+
+            
+        cookies = self.session_manager.load_session(domain)
+        if cookies:
+            if headers is None: headers = {}
+            headers['Cookie'] = '; '.join([f'{k}={v}' for k, v in cookies.items()])
 
         # 1. Cache
         cached = self._load_cache(url)
@@ -538,6 +557,11 @@ class HttpClient:
                     )
                     response.raise_for_status()
                     session.cookies.update(response.cookies)
+                    session.save_to_disk()
+                    if response.cookies:
+                        existing = self.session_manager.load_session(host) or {}
+                        existing.update(dict(response.cookies.items()))
+                        self.session_manager.save_session(host, existing)
                     cd_state.record_success()
                     self._store_cache(url, response)
                     return response
@@ -590,6 +614,10 @@ class HttpClient:
                                 host,
                                 cooldown_duration,
                             )
+                            if cd_state.is_blacklisted:
+                                from utils.blacklist import add_to_blacklist
+                                add_to_blacklist(host, reason="consecutive_429s")
+
 
                     # Skip Crawl4AI fallback for direct media assets and robots.txt
                     from core.filters import looks_like_media
@@ -662,4 +690,7 @@ class HttpClient:
                         host,
                         cooldown_duration,
                     )
+                    if cd_state.is_blacklisted:
+                        from utils.blacklist import add_to_blacklist
+                        add_to_blacklist(host, reason="consecutive_failures")
                 raise exc

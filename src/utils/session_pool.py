@@ -8,7 +8,8 @@ import random
 import threading
 import httpx
 from config import USER_AGENTS
-
+import json
+from pathlib import Path
 
 class Session:
     """Represents a virtual scraping session with sticky browser properties."""
@@ -19,6 +20,34 @@ class Session:
         self.cookies = httpx.Cookies()
         self.consecutive_errors = 0
         self.lock = threading.Lock()
+        self._cookie_file = Path(".cache") / "cookies" / f"{self.domain}.json"
+        self._load_from_disk()
+
+    def _load_from_disk(self) -> None:
+        try:
+            if self._cookie_file.exists():
+                data = json.loads(self._cookie_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    if "user_agent" in data:
+                        self.user_agent = data["user_agent"]
+                    if "cookies" in data and isinstance(data["cookies"], dict):
+                        self.cookies.update(data["cookies"])
+        except Exception:
+            pass
+
+    def save_to_disk(self) -> None:
+        """Persist current cookies and user agent to disk."""
+        with self.lock:
+            try:
+                self._cookie_file.parent.mkdir(parents=True, exist_ok=True)
+                cookies_dict = dict(self.cookies.items())
+                data = {
+                    "user_agent": self.user_agent,
+                    "cookies": cookies_dict
+                }
+                self._cookie_file.write_text(json.dumps(data), encoding="utf-8")
+            except Exception:
+                pass
 
     def get_headers(self) -> dict[str, str]:
         """Return consistent headers for this session."""
@@ -36,6 +65,11 @@ class Session:
             self.user_agent = random.choice(available_uas) if available_uas else self.user_agent
             self.cookies.clear()
             self.consecutive_errors = 0
+            try:
+                if self._cookie_file.exists():
+                    self._cookie_file.unlink()
+            except Exception:
+                pass
 
 
 class SessionPool:

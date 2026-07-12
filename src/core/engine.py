@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import threading
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 import time
 from urllib.parse import urlparse
 
@@ -91,6 +91,40 @@ def _video_resolution_hint(url: str) -> int:
 
 
 class ScrapingEngine:
+    def should_deep_scrape(self, domain: str) -> bool:
+        import json
+        with open('data/domain_config.json', 'r') as f:
+            cfg = json.load(f)
+        return domain in cfg.get('deep_scrape', [])
+
+    def handle_kittykawai_links(self, soup, domain):
+        import json
+        with open('data/domain_config.json', 'r') as f:
+            cfg = json.load(f)
+        handler = cfg.get('domain_handlers', {}).get(domain, {})
+        pattern = handler.get('link_pattern', '/post/')
+        return [a['href'] for a in soup.find_all('a', href=re.compile(pattern))]
+        # Specific handler for kittykawai.com: follow detail links
+
+    def filter_domains_by_profile(self, domains, profile_name):
+        """Filter list of domains based on subject profile."""
+        try:
+            import json
+            profile_path = 'src/config/subject_profiles.json'
+            with open(profile_path, 'r', encoding='utf-8') as f:
+                profiles = json.load(f)
+            
+            if profile_name not in profiles:
+                return domains
+                
+            profile = profiles[profile_name]
+            block = profile.get('block_image_only_domains', [])
+            
+            filtered = [d for d in domains if not any(b in d for b in block)]
+            return filtered
+        except Exception as e:
+            return domains
+
     def __init__(
         self,
         domain_delays: dict[str, float] | None = None,
@@ -98,12 +132,59 @@ class ScrapingEngine:
         ignore_robots: bool = False,
     ) -> None:
         self.workers = max(1, workers)
+        self.domain_yield = {}
+        
         self.search_provider = SearchProviderScraper(
             domain_delays=domain_delays, ignore_robots=ignore_robots
         )
         self.video_scraper = VideoScraper(domain_delays=domain_delays)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http)
+
+    def track_domain_yield(self, domain, kept_delta, pages_delta):
+        stats = self.domain_yield.get(domain, [0, 0])
+        stats[0] += kept_delta
+        stats[1] += pages_delta
+        self.domain_yield[domain] = stats
+        
+        # Throttling logic
+        if stats[1] > 20 and (stats[0] / stats[1]) < 0.02:
+            LOGGER.warning(f"Deprioritizing low-yield domain: {domain} ({stats[0]/stats[1]:.1%})")
+            # This is a passive deprioritization signal
+            self.domain_yield[domain] = [-1000, 0] 
+
+    def should_deep_scrape(self, domain: str) -> bool:
+        import json
+        with open('data/domain_config.json', 'r') as f:
+            cfg = json.load(f)
+        return domain in cfg.get('deep_scrape', [])
+
+    def handle_kittykawai_links(self, soup, domain):
+        import json
+        with open('data/domain_config.json', 'r') as f:
+            cfg = json.load(f)
+        handler = cfg.get('domain_handlers', {}).get(domain, {})
+        pattern = handler.get('link_pattern', '/post/')
+        return [a['href'] for a in soup.find_all('a', href=re.compile(pattern))]
+
+    def filter_domains_by_profile(self, domains, profile_name):
+        """Filter list of domains based on subject profile."""
+        try:
+            import json
+            profile_path = 'src/config/subject_profiles.json'
+            with open(profile_path, 'r', encoding='utf-8') as f:
+                profiles = json.load(f)
+            
+            if profile_name not in profiles:
+                return domains
+                
+            profile = profiles[profile_name]
+            block = profile.get('block_image_only_domains', [])
+            
+            filtered = [d for d in domains if not any(b in d for b in block)]
+            return filtered
+        except Exception as e:
+            return domains
 
     def run(
         self,
@@ -329,6 +410,13 @@ class ScrapingEngine:
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
 
+        def get_domain_slug(url: str) -> str:
+            parsed = urlparse(url)
+            netloc = parsed.netloc.lower()
+            if ":" in netloc:
+                netloc = netloc.split(":")[0]
+            return netloc
+
         def _fetch_page(page: str, depth: int):
             host = urlparse(page).netloc.lower()
             with result_lock:
@@ -525,6 +613,7 @@ class ScrapingEngine:
                                     continue
 
                                 seen_images[norm_key] = item
+                                item.source_domain = get_domain_slug(item.source_page)
                                 result.images.append(item)
                                 stats["images_kept"] += 1
 
@@ -587,6 +676,7 @@ class ScrapingEngine:
                                     continue
 
                                 seen_videos[norm_key] = item
+                                item.source_domain = get_domain_slug(item.source_page)
                                 result.videos.append(item)
                                 stats["videos_kept"] += 1
 
@@ -648,6 +738,7 @@ class ScrapingEngine:
                 add_rejected("video", item.url, item.source_page, "max_results_limit", score)
                 continue
             seen_videos[norm_key] = item
+            item.source_domain = get_domain_slug(item.source_page)
             result.videos.append(item)
 
         # --- Deferred download phase ---
@@ -672,14 +763,6 @@ class ScrapingEngine:
             video_dir = output_root / DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
             image_dir.mkdir(parents=True, exist_ok=True)
             video_dir.mkdir(parents=True, exist_ok=True)
-
-            def get_domain_slug(url: str) -> str:
-                parsed = urlparse(url)
-                netloc = parsed.netloc.lower()
-                if ":" in netloc:
-                    netloc = netloc.split(":")[0]
-                return netloc
-
             # Group image items by domain
             images_by_domain: dict[str, list[ImageItem]] = {}
             for item in result.images:
@@ -775,10 +858,14 @@ class ScrapingEngine:
                                     item.width = download_info.get("width")
                                 if download_info.get("height") is not None:
                                     item.height = download_info.get("height")
+                                result.download_stats["downloaded"] = result.download_stats.get("downloaded", 0) + 1
                             else:
                                 reason = download_info.get("reason", "unknown")
                                 item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
                                 item.failure_reason = reason
+
+                                key = f"download_{reason}"
+                                result.download_stats[key] = result.download_stats.get(key, 0) + 1
 
                                 add_rejected(
                                     media_kind,

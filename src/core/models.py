@@ -28,6 +28,7 @@ class ImageItem:
     file_path: str = ""
     failure_reason: str = ""
     hash: str = ""
+    source_domain: str = ""
 
 
 @dataclass(slots=True)
@@ -47,6 +48,7 @@ class VideoItem:
     file_path: str = ""
     failure_reason: str = ""
     hash: str = ""
+    source_domain: str = ""
 
 
 @dataclass(slots=True)
@@ -81,6 +83,7 @@ class ScrapeResult:
     images: list[ImageItem] = field(default_factory=list)
     videos: list[VideoItem] = field(default_factory=list)
     domain_stats: dict[str, dict[str, int]] = field(default_factory=dict)
+    download_stats: dict[str, int] = field(default_factory=dict)
     duration_seconds: int | None = None
     run_metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -103,6 +106,7 @@ class ScrapeResult:
             "images": [asdict(item) for item in self.images],
             "videos": [asdict(item) for item in self.videos],
             "domain_stats": self.domain_stats,
+            "download_stats": self.download_stats,
         }
 
 

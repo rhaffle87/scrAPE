@@ -13,6 +13,11 @@ Annotation syntax recognised inside comment blocks:
     # Subject : Name / AltName / ...   (header block, first occurrence used)
     # depth: N                         (optional per-domain crawl depth cap)
     # skip-link-discovery              (flag domains unsuitable for crawling)
+    # requires_referer                 (CDN requires Referer header for downloads)
+    # thumbnail_prefix: <pattern>      (regex matched against URL to drop thumbs)
+    # google-fallback: true            (fall back to Google Images when page returns 0)
+    # min_image_size: WxH              (per-domain minimum accepted image dimensions)
+    # Rate-limit: N req/s              (per-domain rate limit)
 
 A single comment line may contain multiple annotations separated by pipes,
 e.g.  # type: image  |  crawl: direct

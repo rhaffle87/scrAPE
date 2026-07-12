@@ -43,3 +43,7 @@ Thumbs.db
 .pycache/
 
 .qodo/
+
+# Persistent runtime data
+data/*
+src/config/*

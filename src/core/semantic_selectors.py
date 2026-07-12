@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import re
-from urllib.parse import urlparse
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from core.models import ImageItem, VideoItem
 from core.filters import (
     absolutize_url,
@@ -10,7 +8,6 @@ from core.filters import (
     is_allowed_domain,
     is_http_url,
     normalize_url,
-    looks_like_media,
     is_probable_image,
     is_probable_video,
 )
@@ -56,8 +53,30 @@ def extract_semantic_fallback_images(
             if kw in text_to_check.lower():
                 score += 10
 
-        # Scan all attributes for image URLs
+        # Scan all attributes for image URLs, ignoring textual/structural attributes.
+        # NOTE: 'title' MUST be excluded – sites like e-hentai use title="Page N: _N.jpg"
+        # on div thumbnails; that value would otherwise be mistaken for a .jpg URL.
         for attr, val in el.attrs.items():
+            if attr.lower() in {
+                "alt",
+                "title",
+                "class",
+                "id",
+                "style",
+                "width",
+                "height",
+                "onclick",
+                "onload",
+                "sizes",
+                "rel",
+                "target",
+                "type",
+                "media",
+                "aria-label",
+                "data-title",
+                "data-alt",
+            }:
+                continue
             if not isinstance(val, str):
                 continue
             val_stripped = val.strip()
@@ -124,8 +143,29 @@ def extract_semantic_fallback_videos(
             if kw in text_to_check.lower():
                 score += 10
 
-        # Scan attributes
+        # Scan attributes, ignoring textual/structural attributes.
+        # NOTE: 'title' MUST be excluded – same reason as extract_semantic_fallback_images.
         for attr, val in el.attrs.items():
+            if attr.lower() in {
+                "alt",
+                "title",
+                "class",
+                "id",
+                "style",
+                "width",
+                "height",
+                "onclick",
+                "onload",
+                "sizes",
+                "rel",
+                "target",
+                "type",
+                "media",
+                "aria-label",
+                "data-title",
+                "data-alt",
+            }:
+                continue
             if not isinstance(val, str):
                 continue
             val_stripped = val.strip()

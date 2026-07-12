@@ -15,7 +15,7 @@ from config import (
 from core.models import ImageItem, VideoItem
 
 BACKGROUND_IMAGE_PATTERN = re.compile(
-    r"""background-image\s*:\s*url\((['\"]?)(.*?)\1\)"""
+    r"""background(?:-image)?\s*:\s*[^;]*?url\((['\"]?)(.*?)\1\)"""
 )
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
@@ -49,12 +49,48 @@ def extract_background_image(style_value: str | None) -> str | None:
     return match.group(2)
 
 
+
+# Compiled once: matches gallery navigation pseudo-URLs like
+# "Page 1: _1.jpg" that e-hentai injects into div title attributes.
+_PAGE_LABEL_RE = re.compile(r"page\s+\d+\s*:", re.IGNORECASE)
+
+
 def is_probable_image(url: str) -> bool:
     try:
         path = urlparse(url).path.lower().rstrip("/")
     except Exception:
         path = ""
+    # Reject gallery-navigation pseudo-paths such as "Page 1: _1.jpg" that some
+    # sites (e.g. e-hentai) store in div title attributes.  These are never
+    # valid HTTP resource paths.
+    if _PAGE_LABEL_RE.search(path):
+        return False
+    # Real CDN image paths never contain spaces; paths with spaces before the
+    # extension are almost certainly mis-parsed text attributes.
+    basename = path.rsplit("/", 1)[-1]
+    if " " in basename:
+        return False
     return any(path.endswith(ext) for ext in IMAGE_EXTENSIONS)
+
+
+def is_thumbnail_url(url: str) -> bool:
+    """Return True if URL is a known thumbnail or low-res pattern."""
+    try:
+        path = urlparse(url).path.lower()
+    except Exception:
+        path = ""
+    # rule34-style picN thumbnails (pic256, pic512, etc.)
+    if re.search(r"\.pic\d+\.jpe?g", path):
+        return True
+    # Common thumbnail patterns
+    if "/thumb" in path:
+        return True
+    if "thumbnail" in path:
+        return True
+    # loading.gif placeholders
+    if path.endswith("/loading.gif"):
+        return True
+    return False
 
 
 def is_probable_video(url: str) -> bool:
@@ -137,8 +173,21 @@ def is_http_url(url: str) -> bool:
     return urlparse(url).scheme in {"http", "https"}
 
 
+def is_broken_media_url(url: str) -> bool:
+    """Return True if the URL matches known broken, error, placeholder, or 404 media patterns."""
+    lower_url = url.lower()
+    if "placeholder" in lower_url or "404" in lower_url or "notfound" in lower_url:
+        return True
+    if "error-image" in lower_url or "default-thumbnail" in lower_url:
+        return True
+    return False
+
+
 def looks_like_media(url: str) -> bool:
+    if is_broken_media_url(url):
+        return False
     return is_probable_image(url) or is_probable_video(url)
+
 
 
 def domain_matches(url: str, domain_rules: list[str]) -> bool:
@@ -259,7 +308,7 @@ def contains_subject_text(
 
 
 def _preview_penalty(text: str) -> int:
-    return sum(4 for marker in PREVIEW_MARKERS if marker in text)
+    return sum(6 for marker in PREVIEW_MARKERS if marker in text)
 
 
 def is_archive_or_index_page(url: str, title: str | None) -> bool:
@@ -548,6 +597,22 @@ def rejection_reason_for_image(
     text = safe_join(
         [item.url, item.source_page, item.alt_text, item.page_title]
     ).lower()
+
+    # Check thumbnail prefix pattern early to classify as preview_or_thumbnail
+    if domain_profiles:
+        source_host = urlparse(item.source_page).netloc.lower()
+        item_host = urlparse(item.url).netloc.lower()
+        for host in (source_host, item_host):
+            profile = domain_profiles.get(host)
+            if profile:
+                thumb_pattern = getattr(profile, "thumbnail_prefix_pattern", None)
+                if thumb_pattern:
+                    try:
+                        if re.search(thumb_pattern, item.url):
+                            return "preview_or_thumbnail"
+                    except Exception:
+                        pass
+
     score = score_image_relevance(
         item, keyword, entity_tokens, seed_urls, domain_profiles
     )
@@ -590,9 +655,9 @@ def rejection_reason_for_image(
         return "generic_asset"
     if any(token in text for token in {"captcha", "blank", "placeholder", "spacer"}):
         return "placeholder_asset"
-    if _preview_penalty(text) >= 4:
+    if _preview_penalty(text) >= 6:
         return "preview_or_thumbnail"
-    if has_low_res_query_param(item.url) or has_low_res_path_pattern(item.url):
+    if has_low_res_query_param(item.url, min_size=300) or has_low_res_path_pattern(item.url, min_width=300, min_height=250):
         return "low_resolution_hint"
     if not contains_subject_text(text, keyword, entity_tokens):
         return "low_subject_relevance"
@@ -643,7 +708,7 @@ def rejection_reason_for_video(
 
     if any(token in text for token in {"captcha", "blank", "placeholder", "spacer"}):
         return "placeholder_asset"
-    if _preview_penalty(item.url.lower()) >= 4:
+    if _preview_penalty(item.url.lower()) >= 6:
         return "preview_or_thumbnail"
     if not contains_subject_text(text, keyword, entity_tokens):
         return "low_subject_relevance"

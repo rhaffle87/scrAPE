@@ -38,13 +38,20 @@ src/
 │   └── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, thumbnail rejection
 └── utils/
     ├── __init__.py
-    └── robots.py                — RobotsChecker: per-domain thread-safe parser cache
+    ├── blacklist.py             — BlacklistManager: persistent 404/403/Cloudflare domains blacklist
+    ├── http_client.py           — HttpClient: shared http connection pool, rate limiting, and cookie injection
+    ├── robots.py                — RobotsChecker: per-domain thread-safe parser cache
+    └── session.py               — SessionManager: persistent session cookies cache
 
 tests/
 ├── test_advanced_features.py
 ├── test_audit_trail.py
+├── test_cookie_persistence.py
 ├── test_download_retries.py
 └── test_performance_quality_features.py
+
+data/
+└── domain_config.json           — Dynamic configuration of rate limits, hotlink-protected, and deep crawl targets
 
 docs/
 ├── CHANGELOG.md
@@ -147,6 +154,24 @@ docs/
 
 - Captures `time.monotonic()` start → end → `duration_seconds` on result
 - Stores `run_metadata` dict with: `seed_file`, `workers`, `dl_workers`, `page_limit`, `crawl_depth`, `max_results`, `entity_tokens`, `download_media`
+
+### 3.7 Blacklist Manager (`blacklist.py`)
+
+Provides a system to track domains that consistently return HTTP 404, 403, or trigger Cloudflare blocks, ensuring that subsequent HTTP client requests bypass them instantly without incurring network or timeout penalties.
+
+### 3.8 Session Manager (`session.py`)
+
+Manages the persistence of session cookies. Cookies parsed from successful visits or browser fallbacks are serialized and loaded dynamically to ensure that future crawl workers retain valid session contexts, enhancing bypass consistency for guarded domains.
+
+### 3.9 Dynamic Domain Config (`domain_config.json`)
+
+Stores all domain-specific settings dynamically rather than hardcoding them in code. This includes:
+
+- `hotlink_protected`: domains that block hotlinking.
+- `rate_limits`: Custom requests/second configurations.
+- `deep_scrape`: List of domains targeting deep page crawler traversal.
+- `domain_handlers`: Pattern overrides used to extract links from targets (e.g. `kittykawai.com` with `/post/`).
+- `referer_overrides`: Custom HTTP request referer overrides map. Used to dynamically inject Referer and Origin headers to bypass hotlink protection on specific domains.
 
 ## 4. Concurrency Model
 

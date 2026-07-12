@@ -19,6 +19,7 @@ RATE_LIMIT_JITTER_SECONDS = 0.4
 # Domains not listed here fall back to DEFAULT_REQUESTS_PER_SECOND.
 # e.g. {"example.com": 0.5}
 # Note: Custom rate limits are dynamically loaded from seed manifest headers or --domain-delay.
+# Dynamically loaded from data/domain_config.json
 DOMAIN_REQUESTS_PER_SECOND: dict[str, float] = {}
 
 # 429 circuit-breaker: how many consecutive 429 responses before cooldown triggers.
@@ -119,6 +120,21 @@ ALWAYS_BLOCK_DOMAINS = {
     "adsystem.com",
     "adservice.google.com",
 }
+
+HOTLINK_PROTECTED_DOMAINS: set[str] = set()
+REFERER_OVERRIDES: dict[str, str] = {}
+
+import json
+def _load_dynamic_config():
+    try:
+        with open('data/domain_config.json', 'r') as f:
+            cfg = json.load(f)
+            DOMAIN_REQUESTS_PER_SECOND.update(cfg.get('rate_limits', {}))
+            HOTLINK_PROTECTED_DOMAINS.update(cfg.get('hotlink_protected', []))
+            REFERER_OVERRIDES.update(cfg.get('referer_overrides', {}))
+    except: pass
+_load_dynamic_config()
+
 # CDN parent domains are now derived dynamically from the seed manifest's [CDN]
 # annotations (SeedManifest.all_allowed_hosts) instead of a hardcoded dict here.
 # See src/core/seed_manifest.py and the _normalise_cdn_host() function.

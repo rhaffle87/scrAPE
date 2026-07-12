@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.7.0] — 2026-07-12
+
+### Added
+
+- **Persistent Blacklist**: Active domain-level blacklisting (`src/utils/blacklist.py`) for domains consistently returning HTTP 404/403/Cloudflare challenge errors.
+- **Session Persistence**: Implemented `SessionManager` (`src/utils/session.py`) for caching and loading cookies across run sessions.
+- **Dynamic Domain Configurations**: Replaced hardcoded domains in `src/config.py` and `src/core/engine.py` with dynamic loaded configuration profiles from `data/domain_config.json`.
+- **Dynamic Referer and Header Overrides**: Decoupled domain-specific HTTP header bypasses into the `referer_overrides` mapping in `data/domain_config.json`.
+- **Dynamic Blacklisting Circuit Breaker Persistence**: Integrated domain blacklisting hooks (`add_to_blacklist`) with `HttpClient`'s 429 and error-rate circuit breaker thresholds, saving domain bans to the persistent JSON blacklist dynamically.
+- **Fast-fail broken media URLs**: Added `is_broken_media_url` to quickly bypass placeholder, 404, or empty media links without making HTTP requests.
+- **Pre-flight HEAD Checks**: Integrated validation HEAD requests in `MediaDownloader` (`src/storage/file_downloader.py`) to verify media exists before streaming downloads, significantly reducing bandwidth and error logging.
+- **Aggressive Throttling & Deprioritization**: Configured crawler state to permanently deprioritize/throttle domains with extremely low yields (<2% after 20 pages).
+
+### Fixed
+
+- **Google Images NameError**: Added missing import of `is_thumbnail_url` in `_extract_media_from_json` within `src/scraper/google_images.py`.
+
 ## [Unreleased]
 
 ### Added (Unreleased)
