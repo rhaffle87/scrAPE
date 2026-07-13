@@ -349,13 +349,13 @@ class HttpClient:
     # Crawl4AI browser fallback (runs on the shared background event loop)
     # ------------------------------------------------------------------
 
-    def _get_with_crawl4ai(self, url: str) -> str:
-        """Fetch *url* via headless browser, escalating through two stealth tiers.
+    def _get_with_crawl4ai(self, url: str) -> tuple[str, list[dict]] | str:
+        """Fetch *url* via headless/headful browser, escalating through two stealth tiers.
 
         Runs on the shared background asyncio event loop to avoid spawning a
         new event loop and browser process per call.
 
-        Returns the raw HTML string on success.
+        Returns the raw HTML string and cookies list on success.
         Raises ``Exception`` if both tiers fail.
         """
         import crawl4ai.async_webcrawler
@@ -372,14 +372,25 @@ class HttpClient:
         )
         from crawl4ai.async_crawler_strategy import AsyncPlaywrightCrawlerStrategy
 
-        async def _run_tier(strategy, run_config) -> str:
+        async def _run_tier(strategy, run_config) -> tuple[str, list[dict]]:
             async with AsyncWebCrawler(crawler_strategy=strategy) as crawler:
                 res = await crawler.arun(url=url, config=run_config)
                 if res and res.success:
-                    return res.html
+                    cookies = []
+                    try:
+                        bm = crawler.crawler_strategy.browser_manager
+                        for context in bm.contexts_by_config.values():
+                            try:
+                                ctx_cookies = await context.cookies()
+                                cookies.extend(ctx_cookies)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    return res.html, cookies
                 raise Exception(res.error_message if res else "Unknown crawler error")
 
-        async def _run_crawler() -> str:
+        async def _run_crawler() -> tuple[str, list[dict]]:
             from utils.logger import get_logger
 
             logger = get_logger(__name__)
@@ -405,10 +416,10 @@ class HttpClient:
             )
             strategy_1 = AsyncPlaywrightCrawlerStrategy(browser_config=browser_cfg_1)
             try:
-                html = await _run_tier(strategy_1, run_config)
+                html, cookies = await _run_tier(strategy_1, run_config)
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 1 succeeded for %s.", url)
-                    return html
+                    return html, cookies
                 logger.warning(
                     "Crawl4AI Tier 1 hit Cloudflare challenge for %s. Escalating to Tier 2...",
                     url,
@@ -421,8 +432,13 @@ class HttpClient:
                 )
 
             # --- Tier 2: UndetectedAdapter (bypasses deep fingerprinting / Turnstile) ---
+            import sys
+            is_windows = sys.platform.startswith("win")
+            is_macos = sys.platform == "darwin"
+            is_local_gui = is_windows or is_macos
+
             browser_cfg_2 = BrowserConfig(
-                headless=True,
+                headless=not is_local_gui,
                 verbose=False,
                 enable_stealth=False,
                 extra_args=["--disable-gpu"],
@@ -432,10 +448,10 @@ class HttpClient:
                 browser_adapter=UndetectedAdapter(),
             )
             try:
-                html = await _run_tier(strategy_2, run_config)
+                html, cookies = await _run_tier(strategy_2, run_config)
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 2 succeeded for %s.", url)
-                    return html
+                    return html, cookies
                 raise Exception("Crawl4AI Tier 2 hit Cloudflare challenge.")
             except Exception as exc:
                 raise Exception(
@@ -518,7 +534,12 @@ class HttpClient:
                 # Apply rate limiting before direct fallback
                 self._rate_limiter_for(url).wait()
                 try:
-                    html_content = self._get_with_crawl4ai(url)
+                    res_val = self._get_with_crawl4ai(url)
+                    if isinstance(res_val, tuple):
+                        html_content, browser_cookies = res_val
+                    else:
+                        html_content, browser_cookies = res_val, []
+
                     response = httpx.Response(
                         status_code=200,
                         content=html_content.encode("utf-8"),
@@ -526,6 +547,13 @@ class HttpClient:
                     )
                     cd_state.record_success()
                     self._store_cache(url, response)
+
+                    if browser_cookies:
+                        cookies_dict = {c["name"]: c["value"] for c in browser_cookies}
+                        existing = self.session_manager.load_session(host) or {}
+                        existing.update(cookies_dict)
+                        self.session_manager.save_session(host, existing)
+
                     return response
                 except Exception as crawl_exc:
                     logger.error(
@@ -631,7 +659,12 @@ class HttpClient:
 
                     # 4b. Browser fallback
                     try:
-                        html_content = self._get_with_crawl4ai(url)
+                        res_val = self._get_with_crawl4ai(url)
+                        if isinstance(res_val, tuple):
+                            html_content, browser_cookies = res_val
+                        else:
+                            html_content, browser_cookies = res_val, []
+
                         response = httpx.Response(
                             status_code=200,
                             content=html_content.encode("utf-8"),
@@ -644,6 +677,12 @@ class HttpClient:
                         host = self._hostname(url)
                         with self._stealth_lock:
                             self._stealth_required_hosts.add(host)
+
+                        if browser_cookies:
+                            cookies_dict = {c["name"]: c["value"] for c in browser_cookies}
+                            existing = self.session_manager.load_session(host) or {}
+                            existing.update(cookies_dict)
+                            self.session_manager.save_session(host, existing)
 
                         return response
                     except Exception as crawl_exc:

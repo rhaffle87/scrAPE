@@ -55,24 +55,19 @@ Each `.txt` seed file defines one subject with per-domain profiles. Annotations 
 
 ### Supported Annotations
 
-```text
-# type: <media|crawl>    — Media type hint + crawl strategy
-# depth: <int>           — BFS crawl depth override (default 2)
-# Rate-limit: <float>    — Requests per second (default engine)
-# skip-link-discovery    — Skip link discovery (fetch known URLs only)
-# [CDN] <domain>         — Whitelist CDN domain (bypasses page relevance penalty)
-# Alt-Subject: <string>  — Alternative subject name (for broader matching)
-```
+Comment-style annotations (`# <key>: <value>`) immediately preceding a domain/URL block configure that domain's extraction rules:
 
-### Per-Domain Profile Fields
-
- | Field | Type | Description |
- | --- | --- | --- |
- | `min_image_size` | `int` | Minimum image dimension (px) — smaller skipped |
- | `thumbnail_prefix_pattern` | `str` | Regex — matching URLs are rejected as thumbnails |
- | `requires_referer` | `bool` | Send `Referer` header during download |
-
-These fields are set programmatically in `seed_manifest.py` via `DomainProfile` attributes (not parsed from annotations yet).
+| Annotation | Example | Description |
+| --- | --- | --- |
+| `# type: <video\|image\|mixed>` | `# type: image` | Media type hint + crawl strategy |
+| `# crawl: <direct\|index→detail>` | `# crawl: direct` | Use `direct` to skip link discovery and scrape matching URLs only |
+| `# depth: <int>` | `# depth: 1` | BFS crawl depth override (default 1 for index, 0 for direct) |
+| `# Rate-limit: <float> req/s` | `# Rate-limit: 0.5 req/s` | Requests per second throttle for this domain |
+| `# skip-link-discovery` | `# skip-link-discovery` | Skip crawling/link discovery entirely |
+| `# [CDN] <hostname>` | `# [CDN] cdn.domain.com` | Whitelist CDN domain (bypasses page-level penalties) |
+| `# min_image_size: WxH` | `# min_image_size: 800x600` | Minimum accepted image dimensions (width x height) |
+| `# thumbnail_prefix: <pattern>` | `# thumbnail_prefix: /thumbs/` | String pattern to reject thumbnail URLs early |
+| `# requires_referer` | `# requires_referer` | Send page referer header during download to bypass hotlinking protection |
 
 ### Example
 
@@ -84,20 +79,21 @@ These fields are set programmatically in `seed_manifest.py` via `DomainProfile` 
 # gallery.example.com
 # ---------------------------------------------------------------------------
 # type: image | crawl: direct
+# min_image_size: 1000x800
+# thumbnail_prefix: /thumbs/
 https://gallery.example.com/subject
 https://gallery.example.com/search?q=subject
 
 # ---------------------------------------------------------------------------
 # videos.example.org
 # ---------------------------------------------------------------------------
-type: video | crawl: index→detail
-depth: 1
+# type: video | crawl: index→detail
+# depth: 1
 # Rate-limit: 0.4 req/s
 # [CDN] cdn.example.org
+# requires_referer
 https://videos.example.org/subject
 ```
-
-> **Note**: Comment-style annotations (`# type:`, `# Rate-limit:`) are parsed from lines starting with `#`. Bare annotations (no `#`) are reserved for in-line overrides. See [seed_manifest.py](src/core/seed_manifest.py) for the full parser.
 
 ---
 

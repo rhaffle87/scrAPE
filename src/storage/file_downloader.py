@@ -189,6 +189,16 @@ class MediaDownloader:
                 if parsed_ref.netloc:
                     headers["Origin"] = f"{parsed_ref.scheme}://{parsed_ref.netloc}"
                 break
+
+        # Attach any active session cookies from the http client's session manager
+        if self.http and hasattr(self.http, "session_manager"):
+            cookies = self.http.session_manager.load_session(host)
+            if cookies:
+                cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                if cookie_str:
+                    headers["Cookie"] = cookie_str
+                    LOGGER.info("Enriched download headers with %d session cookies for host: %s", len(cookies), host)
+
         return headers
 
 

@@ -123,3 +123,26 @@ def test_download_file_retry_on_server_error(tmp_path):
         assert len(calls) == 2
         assert mock_sleep.call_count == 1
         mock_sleep.assert_called_once_with(2.0)
+
+
+def test_downloader_session_cookie_enrichment():
+    """Verify that MediaDownloader gets session cookies from HttpClient.session_manager."""
+    http = HttpClient()
+    host = "example-enrichment.com"
+    cookies_to_save = {"cf_clearance": "bypass123", "session_token": "abc789"}
+    
+    try:
+        http.session_manager.save_session(host, cookies_to_save)
+
+        downloader = MediaDownloader(http=http)
+        headers = downloader._make_download_headers("https://example-enrichment.com/image.jpg")
+        
+        assert "Cookie" in headers
+        cookie_header = headers["Cookie"]
+        assert "cf_clearance=bypass123" in cookie_header
+        assert "session_token=abc789" in cookie_header
+    finally:
+        # Clean up session file
+        session_file = Path(http.session_manager.get_session_file(host))
+        if session_file.exists():
+            session_file.unlink()
