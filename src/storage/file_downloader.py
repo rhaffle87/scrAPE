@@ -240,6 +240,8 @@ class MediaDownloader:
             try:
                 self.http._rate_limiter_for(url).wait()
                 req_headers = self._make_download_headers(safe_url, safe_referer)
+                if attempt > 1:
+                    req_headers["Connection"] = "close"
 
                 content = b""
                 content_type = ""

@@ -29,9 +29,17 @@ def absolutize_url(candidate: str, base_url: str) -> str:
 
 
 def normalize_url(url: str) -> str:
-    parsed = urlparse(url.strip())
-    cleaned = parsed._replace(fragment="")
-    return urlunparse(cleaned)
+    from urllib.parse import unquote, quote
+    try:
+        unquoted = unquote(url.strip())
+        parsed = urlparse(unquoted)
+        # Re-quote path and query parameters to ensure canonical escaping
+        quoted_path = quote(parsed.path, safe="/")
+        quoted_query = quote(parsed.query, safe="=&%")
+        cleaned = parsed._replace(fragment="", path=quoted_path, query=quoted_query)
+        return urlunparse(cleaned)
+    except Exception:
+        return url.strip()
 
 
 def clean_attr(value: str | None) -> str:

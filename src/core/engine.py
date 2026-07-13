@@ -270,7 +270,8 @@ class ScrapingEngine:
         seen_rejected_urls: set[tuple[str, str]] = set()
 
         def add_rejected(kind: str, url: str, source_page: str, reason: str, score: int = 0) -> bool:
-            key = (url, reason)
+            norm_url = normalize_url(url)
+            key = (norm_url, reason)
             with result_lock:
                 if key in seen_rejected_urls:
                     return False
@@ -278,7 +279,7 @@ class ScrapingEngine:
                 result.rejected_items.append(
                     RejectedItem(
                         kind=kind,
-                        url=url,
+                        url=norm_url,
                         source_page=source_page,
                         reason=reason,
                         score=score,
@@ -407,6 +408,7 @@ class ScrapingEngine:
         # Deduplication maps: norm_key → item (allows URL upgrading from tokenless → tokened)
         seen_images: dict[str, object] = {}
         seen_videos: dict[str, object] = {}
+        processed_media_urls: set[str] = set()
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
 
@@ -579,6 +581,10 @@ class ScrapingEngine:
                                         if add_rejected("image", item.url, item.source_page, "duplicate"):
                                             stats["rejected_count"] += 1
                                     continue
+                                
+                                if norm_key in processed_media_urls:
+                                    continue
+                                processed_media_urls.add(norm_key)
                                 score = score_image_relevance(
                                     item,
                                     options.keyword,
@@ -642,6 +648,10 @@ class ScrapingEngine:
                                         if add_rejected("video", item.url, item.source_page, "duplicate"):
                                             stats["rejected_count"] += 1
                                     continue
+                                
+                                if norm_key in processed_media_urls:
+                                    continue
+                                processed_media_urls.add(norm_key)
                                 score = score_video_relevance(
                                     item,
                                     options.keyword,

@@ -437,6 +437,17 @@ class HttpClient:
             is_macos = sys.platform == "darwin"
             is_local_gui = is_windows or is_macos
 
+            if is_local_gui:
+                logger.warning(
+                    "\n"
+                    "========================================================================\n"
+                    "CLOUDFLARE TURNSTILE DETECTED ON: %s\n"
+                    "Running Browser in HEADFUL (visible) mode for 20 seconds.\n"
+                    "Please solve/click the Turnstile checkbox if prompted in the window.\n"
+                    "========================================================================",
+                    url
+                )
+
             browser_cfg_2 = BrowserConfig(
                 headless=not is_local_gui,
                 verbose=False,
@@ -447,8 +458,16 @@ class HttpClient:
                 browser_config=browser_cfg_2,
                 browser_adapter=UndetectedAdapter(),
             )
+            run_config_2 = CrawlerRunConfig(
+                word_count_threshold=0,
+                cache_mode=CacheMode.BYPASS,
+                magic=True,
+                simulate_user=True,
+                override_navigator=True,
+                delay_before_return_html=20.0,  # Give 20s for WAF solve & redirection
+            )
             try:
-                html, cookies = await _run_tier(strategy_2, run_config)
+                html, cookies = await _run_tier(strategy_2, run_config_2)
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 2 succeeded for %s.", url)
                     return html, cookies
