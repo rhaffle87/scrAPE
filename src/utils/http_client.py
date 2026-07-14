@@ -58,6 +58,22 @@ from utils.blacklist import is_blacklisted
 from utils.session import SessionManager
 
 
+# ---------------------------------------------------------------------------
+# URL normalisation (canonical implementation is in core.filters.normalize_url)
+# ---------------------------------------------------------------------------
+# normalise_url() is kept here as a convenience re-export so existing callers
+# that import it from this module continue to work.  All normalisation rules
+# live in config.URL_NORMALISATION_RULES — do not add patterns here.
+
+def normalise_url(url: str) -> str:
+    """Canonicalise *url* by applying all rules from ``config.URL_NORMALISATION_RULES``.
+
+    This is a thin delegation to ``core.filters.normalize_url``.
+    Add new normalisation rules to ``config.URL_NORMALISATION_RULES``, not here.
+    """
+    from core.filters import normalize_url
+    return normalize_url(url)
+
 
 # ---------------------------------------------------------------------------
 # Background asyncio loop (singleton) — eliminates per-call event loop cost
@@ -189,6 +205,114 @@ class _DomainCooldownState:
             return max(0.0, self.cooldown_until - time.monotonic())
 
 
+def _apply_playwright_channel_patch() -> None:
+    """Patch playwright and patchright launch_persistent_context to respect BrowserConfig channel."""
+    import inspect
+    from utils.logger import get_logger
+
+    logger = get_logger(__name__)
+
+    try:
+        import playwright.async_api
+        _orig_playwright_async = playwright.async_api.async_playwright
+        
+        # Check if already patched to avoid double patching
+        if not getattr(_orig_playwright_async, "_is_patched", False):
+            def _patched_playwright_async(*args, **kwargs):
+                cm = _orig_playwright_async(*args, **kwargs)
+                orig_start = cm.start
+                async def patched_start(*args, **kwargs):
+                    instance = await orig_start(*args, **kwargs)
+                    _patch_playwright_instance(instance, logger)
+                    return instance
+                cm.start = patched_start
+                return cm
+            _patched_playwright_async._is_patched = True
+            playwright.async_api.async_playwright = _patched_playwright_async
+            logger.info("Successfully patched playwright.async_api.async_playwright")
+    except Exception as e:
+        logger.warning("Failed to patch playwright.async_api.async_playwright: %s", e)
+
+    try:
+        import patchright.async_api
+        _orig_patchright_async = patchright.async_api.async_playwright
+        
+        if not getattr(_orig_patchright_async, "_is_patched", False):
+            def _patched_patchright_async(*args, **kwargs):
+                cm = _orig_patchright_async(*args, **kwargs)
+                orig_start = cm.start
+                async def patched_start(*args, **kwargs):
+                    instance = await orig_start(*args, **kwargs)
+                    _patch_playwright_instance(instance, logger)
+                    return instance
+                cm.start = patched_start
+                return cm
+            _patched_patchright_async._is_patched = True
+            patchright.async_api.async_playwright = _patched_patchright_async
+            logger.info("Successfully patched patchright.async_api.async_playwright")
+    except Exception as e:
+        logger.warning("Failed to patch patchright.async_api.async_playwright: %s", e)
+
+
+def _patch_playwright_instance(instance, logger) -> None:
+    import inspect
+    import sys
+    if hasattr(instance, "chromium"):
+        orig_launch_persistent = instance.chromium.launch_persistent_context
+        if not getattr(orig_launch_persistent, "_is_patched", False):
+            async def patched_launch_persistent(user_data_dir, **kwargs):
+                # Walk up stack to find BrowserManager
+                channel = None
+                for frame_info in inspect.stack():
+                    frame = frame_info.frame
+                    self_obj = frame.f_locals.get("self")
+                    if self_obj and self_obj.__class__.__name__ == "BrowserManager":
+                        if hasattr(self_obj, "config"):
+                            channel = getattr(self_obj.config, "chrome_channel", None) or getattr(self_obj.config, "channel", None)
+                        break
+                if channel and channel != "chromium":
+                    logger.info("Injecting channel='%s' into launch_persistent_context", channel)
+                    kwargs["channel"] = channel
+                
+                is_windows = sys.platform.startswith("win")
+
+                # Filter out anti-sandbox flags that expose automation warning banners in Chrome.
+                # On Windows, we must keep --no-sandbox to prevent GPU process crashes and rendering hangs.
+                if "args" in kwargs and isinstance(kwargs["args"], list):
+                    if is_windows:
+                        kwargs["args"] = [arg for arg in kwargs["args"] if arg != "--disable-setuid-sandbox"]
+                    else:
+                        kwargs["args"] = [arg for arg in kwargs["args"] if arg not in ("--no-sandbox", "--disable-setuid-sandbox")]
+
+                # Exclude default flags that reveal automation or trigger Cloudflare checks.
+                # On Windows, we must NOT ignore --no-sandbox to ensure Chrome launches with sandbox disabled.
+                target_ignores = ["--enable-automation", "--disable-extensions"]
+                if not is_windows:
+                    target_ignores.append("--no-sandbox")
+
+                if "ignore_default_args" not in kwargs:
+                    kwargs["ignore_default_args"] = target_ignores
+                elif isinstance(kwargs["ignore_default_args"], list):
+                    for arg in target_ignores:
+                        if arg not in kwargs["ignore_default_args"]:
+                            kwargs["ignore_default_args"].append(arg)
+
+                logger.info("launch_persistent_context kwargs: %s", kwargs)
+                return await orig_launch_persistent(user_data_dir, **kwargs)
+            patched_launch_persistent._is_patched = True
+            instance.chromium.launch_persistent_context = patched_launch_persistent
+
+
+
+def _get_platform_user_agent() -> str:
+    import sys
+    if sys.platform.startswith("win"):
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    elif sys.platform == "darwin":
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+
 # ---------------------------------------------------------------------------
 # HttpClient
 # ---------------------------------------------------------------------------
@@ -207,6 +331,20 @@ class HttpClient:
     _stealth_lock = threading.Lock()
     _stealth_failed_hosts: dict[str, float] = {}
     _failed_stealth_lock = threading.Lock()
+    _cloudflare_blocked_hosts: set[str] = set()
+    _cf_blocked_lock = threading.Lock()
+
+    @classmethod
+    def register_cloudflare_blocked(cls, hostname: str) -> None:
+        """Mark *hostname* as Cloudflare-blocked.
+
+        When marked, the client will skip all Crawl4AI browser fallback tiers
+        for that hostname and raise ``ScraperBypassError`` immediately on 403/429.
+        This prevents wasting 25+ seconds on headful browser attempts that are
+        guaranteed to fail due to Turnstile challenges.
+        """
+        with cls._cf_blocked_lock:
+            cls._cloudflare_blocked_hosts.add(hostname.lower())
 
     def __init__(
         self,
@@ -240,7 +378,16 @@ class HttpClient:
         self._cooldown_states: dict[str, _DomainCooldownState] = {}
         self._cd_lock = threading.Lock()
         self._session_pool = SessionPool()
+        # Per-domain serialization locks for Crawl4AI fallback
+        self._domain_fallback_locks: dict[str, threading.Lock] = {}
+        self._fallback_lock = threading.Lock()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _fallback_lock_for(self, host: str) -> threading.Lock:
+        with self._fallback_lock:
+            if host not in self._domain_fallback_locks:
+                self._domain_fallback_locks[host] = threading.Lock()
+            return self._domain_fallback_locks[host]
 
     # ------------------------------------------------------------------
     # Domain helpers
@@ -358,6 +505,8 @@ class HttpClient:
         Returns the raw HTML string and cookies list on success.
         Raises ``Exception`` if both tiers fail.
         """
+        _apply_playwright_channel_patch()
+
         import crawl4ai.async_webcrawler
 
         # Disable crawl4ai's built-in block detector — we detect Cloudflare ourselves.
@@ -395,6 +544,24 @@ class HttpClient:
 
             logger = get_logger(__name__)
 
+            # Determine domain and build persistent profile path
+            parsed = urlparse(url)
+            host = parsed.netloc or parsed.hostname or ""
+            domain_slug = re.sub(r"[^\w\-]", "_", host)
+            profile_path = Path("data/profiles") / domain_slug
+            profile_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Load any existing session cookies to seed the browser context
+            session_cookies = self.session_manager.load_session(host) or {}
+            playwright_cookies = []
+            for k, v in session_cookies.items():
+                playwright_cookies.append({
+                    "name": k,
+                    "value": v,
+                    "domain": host,
+                    "path": "/"
+                })
+
             run_config = CrawlerRunConfig(
                 word_count_threshold=0,
                 cache_mode=CacheMode.BYPASS,
@@ -402,21 +569,67 @@ class HttpClient:
                 simulate_user=True,
                 override_navigator=True,
                 delay_before_return_html=5.0,
+                session_id=f"session_{domain_slug}",
             )
+
+            async def _run_with_chrome_fallback(
+                headless: bool,
+                enable_stealth: bool,
+                browser_adapter=None,
+                run_cfg=None
+            ) -> tuple[str, list[dict]]:
+                try:
+                    cfg = BrowserConfig(
+                        browser_type="chromium",
+                        channel="chrome",
+                        chrome_channel="chrome",
+                        headless=headless,
+                        verbose=False,
+                        enable_stealth=enable_stealth,
+                        user_agent=_get_platform_user_agent(),
+                        extra_args=["--disable-gpu"] if headless else [],
+                        user_data_dir=str(profile_path.resolve()),
+                        use_persistent_context=True,
+                        cookies=playwright_cookies,
+                    )
+                    strat = AsyncPlaywrightCrawlerStrategy(
+                        browser_config=cfg,
+                        browser_adapter=browser_adapter,
+                    )
+                    return await _run_tier(strat, run_cfg)
+                except Exception as exc:
+                    logger.warning(
+                        "Crawl4AI fallback run with channel='chrome' failed: %s. Retrying with default Playwright Chromium...",
+                        exc
+                    )
+                    cfg_fallback = BrowserConfig(
+                        browser_type="chromium",
+                        headless=headless,
+                        verbose=False,
+                        enable_stealth=enable_stealth,
+                        user_agent=_get_platform_user_agent(),
+                        extra_args=["--disable-gpu"] if headless else [],
+                        user_data_dir=str(profile_path.resolve()),
+                        use_persistent_context=True,
+                        cookies=playwright_cookies,
+                    )
+                    strat_fallback = AsyncPlaywrightCrawlerStrategy(
+                        browser_config=cfg_fallback,
+                        browser_adapter=browser_adapter,
+                    )
+                    return await _run_tier(strat_fallback, run_cfg)
 
             # --- Tier 1: Standard stealth Playwright ---
             logger.info(
                 "Crawl4AI Fallback: Trying Tier 1 (Standard Stealth) for %s...", url
             )
-            browser_cfg_1 = BrowserConfig(
-                headless=True,
-                verbose=False,
-                enable_stealth=True,
-                extra_args=["--disable-gpu"],
-            )
-            strategy_1 = AsyncPlaywrightCrawlerStrategy(browser_config=browser_cfg_1)
             try:
-                html, cookies = await _run_tier(strategy_1, run_config)
+                html, cookies = await _run_with_chrome_fallback(
+                    headless=True,
+                    enable_stealth=True,
+                    browser_adapter=None,
+                    run_cfg=run_config
+                )
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 1 succeeded for %s.", url)
                     return html, cookies
@@ -448,16 +661,6 @@ class HttpClient:
                     url
                 )
 
-            browser_cfg_2 = BrowserConfig(
-                headless=not is_local_gui,
-                verbose=False,
-                enable_stealth=False,
-                extra_args=["--disable-gpu"],
-            )
-            strategy_2 = AsyncPlaywrightCrawlerStrategy(
-                browser_config=browser_cfg_2,
-                browser_adapter=UndetectedAdapter(),
-            )
             run_config_2 = CrawlerRunConfig(
                 word_count_threshold=0,
                 cache_mode=CacheMode.BYPASS,
@@ -465,9 +668,15 @@ class HttpClient:
                 simulate_user=True,
                 override_navigator=True,
                 delay_before_return_html=20.0,  # Give 20s for WAF solve & redirection
+                session_id=f"session_{domain_slug}",
             )
             try:
-                html, cookies = await _run_tier(strategy_2, run_config_2)
+                html, cookies = await _run_with_chrome_fallback(
+                    headless=not is_local_gui,
+                    enable_stealth=True,
+                    browser_adapter=UndetectedAdapter(),
+                    run_cfg=run_config_2
+                )
                 if not self._is_cloudflare_challenge(html):
                     logger.info("Crawl4AI Tier 2 succeeded for %s.", url)
                     return html, cookies
@@ -477,7 +686,12 @@ class HttpClient:
                     f"All Crawl4AI fallback tiers failed for {url}: {exc}"
                 ) from exc
 
-        return _run_coroutine_sync(_run_crawler())
+        # Clean hostname to make a safe path slug
+        parsed_url = urlparse(url)
+        host = parsed_url.netloc or parsed_url.hostname or ""
+        lock = self._fallback_lock_for(host)
+        with lock:
+            return _run_coroutine_sync(_run_crawler())
 
     # ------------------------------------------------------------------
     # Public interface
@@ -572,6 +786,9 @@ class HttpClient:
                         existing = self.session_manager.load_session(host) or {}
                         existing.update(cookies_dict)
                         self.session_manager.save_session(host, existing)
+                        session = self._session_pool.get_session(host)
+                        session.cookies.update(cookies_dict)
+                        session.save_to_disk()
 
                     return response
                 except Exception as crawl_exc:
@@ -672,6 +889,22 @@ class HttpClient:
                     if looks_like_media(url) or is_robots_txt:
                         raise exc
 
+                    # Skip Crawl4AI fallback if domain is known to be Cloudflare-blocked.
+                    # These domains defeat both headless and headful browser tiers (Turnstile)
+                    # so there is no point spending 25+ seconds attempting the fallback.
+                    with self.__class__._cf_blocked_lock:
+                        cf_blocked = host in self.__class__._cloudflare_blocked_hosts
+                    if cf_blocked:
+                        logger.warning(
+                            "GET %s returned %d, but domain '%s' is flagged cloudflare_blocked. "
+                            "Skipping Crawl4AI fallback.",
+                            url, status, host,
+                        )
+                        raise ScraperBypassError(
+                            f"Domain '{host}' is Cloudflare-blocked (Turnstile). "
+                            f"Skipping all fallback tiers for {url}."
+                        )
+
                     logger.warning(
                         "GET %s returned %d. Falling back to Crawl4AI...", url, status
                     )
@@ -702,6 +935,8 @@ class HttpClient:
                             existing = self.session_manager.load_session(host) or {}
                             existing.update(cookies_dict)
                             self.session_manager.save_session(host, existing)
+                            session.cookies.update(cookies_dict)
+                            session.save_to_disk()
 
                         return response
                     except Exception as crawl_exc:

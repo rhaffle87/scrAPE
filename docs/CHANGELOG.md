@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.8.0] — 2026-07-14
+
+### Added
+
+- **`cloudflare_blocked` domain flag** (`seed_manifest.py`, `http_client.py`, `main.py`): New `DomainProfile` field parsed from `# cloudflare: true` seed annotation. When set, `HttpClient` raises `ScraperBypassError` immediately on 403/429 for that domain, skipping both Tier-1 and Tier-2 Crawl4AI browser runs entirely. Eliminates the ~25s per-page waste on domains protected by Cloudflare Turnstile that defeat all browser tiers. Registered automatically at startup via `HttpClient.register_cloudflare_blocked()`.
+
+- **`max_pages` per-domain cap** (`seed_manifest.py`, `engine.py`): New `DomainProfile` field parsed from `# max_pages: N` seed annotation. The engine enforces a hard page-count ceiling per domain per run, preventing over-crawling of low-yield sources. Page is skipped with status `"max_pages_capped"` before any HTTP request is issued.
+
+- **JSON-driven URL normalisation rules** (`data/url_normalisation_rules.json`, `config.py`): URL normalisation patterns are no longer hardcoded in any Python source file. `config.URL_NORMALISATION_RULES` is now populated at startup from `data/url_normalisation_rules.json`. Each rule is a `{ "pattern": "<regex>", "replacement": "<str>", "description": "..." }` object compiled to a `(re.Pattern, str)` tuple. Add new rules to the JSON file only.
+
+- **AsianViralHub locale-collapse normalisation** (`data/url_normalisation_rules.json`): First entry in the new rules file. Strips the 2-character locale segment (`/de/`, `/fr/`, `/zh/`, etc.) from AsianViralHub `get_file`/`contents`/`video` paths so all 9 locale variants of the same video resolve to one canonical URL before entering the crawl queue. Prevents ~72 duplicate download requests per meenfox run.
+
+- **`normalise_url()` re-export** (`http_client.py`): Kept as a thin delegation to `core.filters.normalize_url` for backward compatibility with existing call sites. All normalisation logic is now canonically in `filters.py`.
+
+### Changed
+
+- **`normalize_url()` extended** (`core/filters.py`): Now applies all rules from `config.URL_NORMALISATION_RULES` before standard URL canonicalisation (unquote → re-quote → strip fragment). No domain-specific knowledge embedded in the function body.
+
+- **`_load_dynamic_config()` unified** (`config.py`): Merged domain config loading and URL normalisation rule loading into a single startup function. `url_normalisation_rules.json` is loaded alongside `domain_config.json`.
+
+- **Seed file overhaul — meenfox** (`seeds/meenfox.txt`):
+  - Disabled zero-yield domains: `hotleak.vip` (0/11 pages), `sorafolder.com` (CDN-only), `oneprotests.thefap.net` (dead), `e-hentai.org` (JS-only gallery)
+  - Added `cloudflare: true` + `Rate-limit: 0.1 req/s` to `cosplaythots.com`
+  - Reduced rate limit `0.3 → 0.1 req/s` for `cosplayrule34.com`
+  - Added `max_pages: 5` cap to `pornasia.net` (previously 26 pages → 2 images)
+  - Pruned 2 dead `dogestream.live` CDN URLs from `indoporn.mobi` detail seeds
+
+- **Seed file overhaul — eatwaffles** (`seeds/eatwaffles.txt`):
+  - Disabled auth-walled domains: `www.pixiv.net`, `eatwaffles.fanbox.cc`, `kemono.cr`, `pawchive.st`
+  - Changed crawl strategy `direct → index→detail` for `rule34.us`, `rule34.world`, `rule34.xyz`, `kusowanka.com` — listing pages serve 256px thumbnails only; detail pages contain full-res CDN links
+
+### System Limitations (documented)
+
+- **Cloudflare Turnstile**: Domains protected by Turnstile (interactive JS challenge) cannot be bypassed by any automated tier including headful Crawl4AI. Mark these with `# cloudflare: true` in the seed file to avoid wasting fallback time.
+- **Auth-walled sources**: `pixiv`, `fanbox`, `kemono.cr` are disabled pending a session-cookie injection workflow. These are high-value sources but require authenticated sessions that the current HTTP client does not support automatically.
+- **Booru `index→detail`**: The booru crawl strategy change for `rule34.*` and `kusowanka.com` depends on the engine's detail-page extractor successfully parsing those sites' post page templates. This is unverified and should be monitored on the first eatwaffles run after this change.
+- **`run_summary.json`**: Post-run observability (JSON performance report per run) is not yet implemented. Current post-run analysis requires manual log-grepping or scratch scripts.
+
 ## [0.7.0] — 2026-07-12
 
 ### Added

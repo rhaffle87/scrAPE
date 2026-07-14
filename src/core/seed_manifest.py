@@ -18,6 +18,8 @@ Annotation syntax recognised inside comment blocks:
     # google-fallback: true            (fall back to Google Images when page returns 0)
     # min_image_size: WxH              (per-domain minimum accepted image dimensions)
     # Rate-limit: N req/s              (per-domain rate limit)
+    # cloudflare: true                 (skip Crawl4AI fallback; domain is Cloudflare-blocked)
+    # max_pages: N                     (hard cap on pages crawled per domain)
 
 A single comment line may contain multiple annotations separated by pipes,
 e.g.  # type: image  |  crawl: direct
@@ -82,6 +84,19 @@ class DomainProfile:
 
     requires_referer: bool = False
     """True if this domain requires a Referer header corresponding to the source page for asset downloads."""
+
+    cloudflare_blocked: bool = False
+    """
+    When True, the http_client skips the Crawl4AI fallback entirely for this
+    domain and raises ScraperBypassError immediately on 403/429. Use for domains
+    protected by Cloudflare Turnstile that defeat both headless and headful tiers.
+    """
+
+    max_pages: int | None = None
+    """
+    Optional hard cap on pages crawled per domain per run. None = unlimited.
+    The engine will skip further pages from a domain once this limit is reached.
+    """
 
     notes: list[str] = field(default_factory=list)
     """Remaining human-readable comment lines for this domain block."""
@@ -173,6 +188,8 @@ _PASSWORD_RE = re.compile(r"\bPassword\s*:\s*(\S+)", re.IGNORECASE)
 _MIN_SIZE_RE = re.compile(r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b", re.IGNORECASE)
 _THUMB_PREFIX_RE = re.compile(r"\bthumbnail[-_]prefix\s*:\s*(\S+)\b", re.IGNORECASE)
 _REFERER_RE = re.compile(r"#\s*(requires[-_]referer|requires referer)", re.IGNORECASE)
+_CLOUDFLARE_RE = re.compile(r"\bcloudflare\s*:\s*true\b", re.IGNORECASE)
+_MAX_PAGES_RE = re.compile(r"\bmax_pages\s*:\s*(\d+)\b", re.IGNORECASE)
 _URL_RE = re.compile(r"^https?://\S+$")
 _SUBJECT_SPLIT_RE = re.compile(r"[/|,]")
 
@@ -243,12 +260,15 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_min_size: tuple[int, int] | None = None
     pend_thumb_prefix: str | None = None
     pend_referer: bool = False
+    pend_cloudflare: bool = False
+    pend_max_pages: int | None = None
     pend_notes: list[str] = []
 
     def reset_pending() -> None:
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
         nonlocal pend_rate_limit, pend_username, pend_email, pend_password
         nonlocal pend_min_size, pend_thumb_prefix, pend_referer
+        nonlocal pend_cloudflare, pend_max_pages
         pend_media = "mixed"
         pend_crawl = "index\u2192detail"
         pend_cdns = []
@@ -261,6 +281,8 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_min_size = None
         pend_thumb_prefix = None
         pend_referer = False
+        pend_cloudflare = False
+        pend_max_pages = None
         pend_notes = []
 
     def commit_new_profile(domain: str) -> DomainProfile:
@@ -278,6 +300,8 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             min_image_size=pend_min_size,
             thumbnail_prefix_pattern=pend_thumb_prefix,
             requires_referer=pend_referer,
+            cloudflare_blocked=pend_cloudflare,
+            max_pages=pend_max_pages,
             notes=list(pend_notes),
         )
         manifest.domains.append(profile)
@@ -359,6 +383,15 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             # Flag: requires referer
             if _REFERER_RE.search(line):
                 pend_referer = True
+
+            # Flag: cloudflare_blocked — skip Crawl4AI fallback for this domain
+            if _CLOUDFLARE_RE.search(line):
+                pend_cloudflare = True
+
+            # Annotation: max_pages — hard cap on pages crawled per domain
+            m = _MAX_PAGES_RE.search(line)
+            if m:
+                pend_max_pages = int(m.group(1))
 
             pend_notes.append(line)
             continue

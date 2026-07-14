@@ -124,16 +124,44 @@ ALWAYS_BLOCK_DOMAINS = {
 HOTLINK_PROTECTED_DOMAINS: set[str] = set()
 REFERER_OVERRIDES: dict[str, str] = {}
 
-import json
-def _load_dynamic_config():
+# ---------------------------------------------------------------------------
+# URL Normalisation Rules
+# ---------------------------------------------------------------------------
+# Populated at startup from data/url_normalisation_rules.json.
+# Each entry is a (compiled_re.Pattern, replacement_str) tuple applied in order
+# by normalize_url() in core/filters.py.  Edit the JSON file to add or change
+# rules — do NOT hardcode domain patterns here or in any logic file.
+URL_NORMALISATION_RULES: list[tuple] = []
+
+import re as _re, json
+
+def _load_dynamic_config() -> None:
+    # ── domain_config.json ────────────────────────────────────────────────
     try:
         with open('data/domain_config.json', 'r') as f:
             cfg = json.load(f)
             DOMAIN_REQUESTS_PER_SECOND.update(cfg.get('rate_limits', {}))
             HOTLINK_PROTECTED_DOMAINS.update(cfg.get('hotlink_protected', []))
             REFERER_OVERRIDES.update(cfg.get('referer_overrides', {}))
-    except: pass
+    except Exception:
+        pass
+
+    # ── url_normalisation_rules.json ──────────────────────────────────────
+    try:
+        with open('data/url_normalisation_rules.json', 'r') as f:
+            data = json.load(f)
+        for rule in data.get('rules', []):
+            pattern_str = rule.get('pattern', '')
+            replacement = rule.get('replacement', '')
+            if pattern_str:
+                URL_NORMALISATION_RULES.append(
+                    (_re.compile(pattern_str, _re.IGNORECASE), replacement)
+                )
+    except Exception:
+        pass
+
 _load_dynamic_config()
+
 
 # CDN parent domains are now derived dynamically from the seed manifest's [CDN]
 # annotations (SeedManifest.all_allowed_hosts) instead of a hardcoded dict here.

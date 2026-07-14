@@ -448,7 +448,18 @@ class ScrapingEngine:
                         if yield_rate < 0.05:
                             LOGGER.info("Skipping %s: low yield from domain %s (<5%%)", page, host)
                             return page, depth, [], [], "low_yield_skipped"
-                
+
+                # Per-domain max_pages hard cap (set via 'max_pages: N' in seed file)
+                profile = domain_profiles.get(host)
+                if profile is not None:
+                    max_pages_cap = getattr(profile, "max_pages", None)
+                    if max_pages_cap is not None and pages_scanned >= max_pages_cap:
+                        LOGGER.info(
+                            "Skipping %s: domain '%s' reached max_pages cap (%d).",
+                            page, host, max_pages_cap,
+                        )
+                        return page, depth, [], [], "max_pages_capped"
+
                 stats["pages_scanned"] += 1
 
             page_images, page_videos, scrape_status = self.search_provider.scrape_page(

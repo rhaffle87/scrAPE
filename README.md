@@ -17,14 +17,15 @@
 
 ## Features
 
-- **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`
-- **BFS Crawler** — Breadth-first page discovery with configurable depth & page limits
+- **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`, `cloudflare`, `max_pages`
+- **BFS Crawler** — Breadth-first page discovery with configurable depth, page limits, and per-domain page caps
 - **Concurrent Download Pipeline** — Multi-worker download pool with per-domain rate limiting and profile-aware settings (referer, min size, thumbnail rejection)
 - **Quality Filters** — Relevance scoring (keyword + entity tokens), low-res detection (query params & URL path patterns), archive/index page penalty, preview marker detection, CDN whitelist
+- **WAF Fallback Tiers** — Primary httpx → Tier-1 Crawl4AI headless → Tier-2 Crawl4AI headful. Domains flagged `cloudflare: true` skip fallback immediately.
+- **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
 - **Memory-Backed Dedup** — Inline duplicate rejection (same URL+reason suppressed) via thread-safe `add_rejected()` closure
 - **Audit Trail** — `rejected_items` list with reason + score; `run_metadata` + `duration_seconds` on each `ScrapeResult`
 - **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag
-- **Crawl4AI Fallback** — When primary HTTP requests fail, falls back to JS-rendered crawling via Crawl4AI
 - **Export** — JSON manifest output per run
 
 ---
@@ -63,6 +64,8 @@ Comment-style annotations (`# <key>: <value>`) immediately preceding a domain/UR
 | `# crawl: <direct\|index→detail>` | `# crawl: direct` | Use `direct` to skip link discovery and scrape matching URLs only |
 | `# depth: <int>` | `# depth: 1` | BFS crawl depth override (default 1 for index, 0 for direct) |
 | `# Rate-limit: <float> req/s` | `# Rate-limit: 0.5 req/s` | Requests per second throttle for this domain |
+| `# max_pages: <int>` | `# max_pages: 5` | Hard cap on pages crawled for this domain per run. Skips excess pages before any HTTP request. |
+| `# cloudflare: true` | `# cloudflare: true` | Marks domain as Cloudflare Turnstile-protected. Skips all Crawl4AI fallback tiers immediately on 403/429. |
 | `# skip-link-discovery` | `# skip-link-discovery` | Skip crawling/link discovery entirely |
 | `# [CDN] <hostname>` | `# [CDN] cdn.domain.com` | Whitelist CDN domain (bypasses page-level penalties) |
 | `# min_image_size: WxH` | `# min_image_size: 800x600` | Minimum accepted image dimensions (width x height) |
@@ -141,6 +144,28 @@ flowchart TD
 - `src/core/filters.py` — `score_image_relevance()`, `score_video_relevance()`, `rejection_reason_for_*()`, `has_low_res_*()`, `safe_join()`
 - `src/storage/file_downloader.py` — `download_file()`: HTTP fetch with retries, referer, min-size, thumbnail filtering
 - `src/utils/robots.py` — `RobotsChecker`: per-domain parser cache (thread-safe), `--ignore-robots`
+
+---
+
+## System Limitations
+
+| Limitation | Status | Workaround |
+| --- | --- | --- |
+| **Cloudflare Turnstile** | Hard block — no automated bypass exists | Mark domain `# cloudflare: true` in seed file to skip wasted fallback time |
+| **Auth-walled sources** (pixiv, fanbox, kemono) | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
+| **JS-only pages** (e-hentai gallery) | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
+| **Post-run observability** | No automated `run_summary.json` yet | Use scratch scripts in `scratch/` or grep logs manually |
+
+---
+
+## Data Files
+
+| File | Purpose |
+| --- | --- |
+| `data/domain_config.json` | Rate limits, hotlink-protected domains, referer overrides, deep-scrape targets |
+| `data/url_normalisation_rules.json` | URL canonicalisation rules (regex → replacement). Loaded at startup into `config.URL_NORMALISATION_RULES`. Add new domain-specific URL collapse rules here. |
+| `data/blacklist.json` | Domains auto-banned by the circuit breaker. Review after each run — remove false positives. |
+| `data/sessions/` | Persisted cookie jars per domain. Usually leave untouched. |
 
 ---
 

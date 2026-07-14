@@ -30,8 +30,15 @@ def absolutize_url(candidate: str, base_url: str) -> str:
 
 def normalize_url(url: str) -> str:
     from urllib.parse import unquote, quote
+    from config import URL_NORMALISATION_RULES
     try:
-        unquoted = unquote(url.strip())
+        url = url.strip()
+        # Apply all domain-specific URL normalisation rules from config.
+        # Rules collapse variant URLs (e.g. locale-prefixed paths) to a single
+        # canonical form before the URL enters the crawl queue.
+        for pattern, replacement in URL_NORMALISATION_RULES:
+            url = pattern.sub(replacement, url)
+        unquoted = unquote(url)
         parsed = urlparse(unquoted)
         # Re-quote path and query parameters to ensure canonical escaping
         quoted_path = quote(parsed.path, safe="/")

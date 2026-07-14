@@ -390,6 +390,14 @@ def main() -> None:
                     profile.rate_limit,
                     1.0 / profile.rate_limit,
                 )
+            # Register Cloudflare-blocked domains so HttpClient skips Crawl4AI fallback
+            if getattr(profile, "cloudflare_blocked", False):
+                from utils.http_client import HttpClient
+                HttpClient.register_cloudflare_blocked(profile.domain)
+                logger.info(
+                    "Domain '%s' flagged cloudflare_blocked — Crawl4AI fallback disabled.",
+                    profile.domain,
+                )
 
     engine = ScrapingEngine(
         domain_delays=domain_delays or None,

@@ -51,7 +51,8 @@ tests/
 └── test_performance_quality_features.py
 
 data/
-└── domain_config.json           — Dynamic configuration of rate limits, hotlink-protected, and deep crawl targets
+├── domain_config.json           — Rate limits, hotlink-protected, referer overrides, deep crawl
+└── url_normalisation_rules.json — URL canonicalisation rules compiled into config.URL_NORMALISATION_RULES
 
 docs/
 ├── CHANGELOG.md
@@ -81,14 +82,17 @@ docs/
 | Field | Source | Default |
 | --- | --- | --- |
 | `seed_urls` | URLs listed after annotations | `[]` |
-| `type` | `# type:` parse | `""` |
-| `crawl` | `# crawl:` within type line | `""` |
-| `depth` | `# depth:` | `None` (engine default) |
-| `rate_limit` | `# Rate-limit:` | `None` |
-| `skip_link_discovery` | `# skip-link-discovery` | `False` |
-| `min_image_size` | Programmatic / future annotation | `None` |
-| `thumbnail_prefix_pattern` | Programmatic / future annotation | `None` |
-| `requires_referer` | Programmatic / future annotation | `False` |
+| `media_type` | `# type:` annotation | `"mixed"` |
+| `crawl_strategy` | `# crawl:` annotation | `"index→detail"` |
+| `crawl_depth` | `# depth:` annotation | `None` (engine default) |
+| `rate_limit` | `# Rate-limit: N req/s` | `None` |
+| `skip_link_discovery` | `# skip-link-discovery` flag | `False` |
+| `cloudflare_blocked` | `# cloudflare: true` flag | `False` — skips all Crawl4AI fallback tiers on 403/429 |
+| `max_pages` | `# max_pages: N` annotation | `None` (unlimited) |
+| `cdn_hosts` | `# [CDN] hostname` lines | `[]` |
+| `min_image_size` | `# min_image_size: WxH` | `None` |
+| `thumbnail_prefix_pattern` | `# thumbnail_prefix:` | `None` |
+| `requires_referer` | `# requires_referer` flag | `False` |
 
 ### 3.2 Filter Pipeline (`filters.py`)
 
@@ -127,6 +131,10 @@ docs/
 - Page fetching: all queued pages submitted to `ThreadPoolExecutor`; per-domain `RateLimiter` ensures polite crawl
 - Downloading: all qualified items submitted to separate `ThreadPoolExecutor` (configurable via `--dl-workers`)
 - `result_lock` is an `RLock` (reentrant) — supports nested critical sections safely
+
+**Domain-level page cap (`max_pages`):**
+
+If a `DomainProfile` has `max_pages` set, `_fetch_page()` checks `pages_scanned >= max_pages` before making any HTTP request and returns `"max_pages_capped"` immediately. Prevents over-crawling of low-yield domains.
 
 **Deduplication:**
 
@@ -172,6 +180,39 @@ Stores all domain-specific settings dynamically rather than hardcoding them in c
 - `deep_scrape`: List of domains targeting deep page crawler traversal.
 - `domain_handlers`: Pattern overrides used to extract links from targets (e.g. `kittykawai.com` with `/post/`).
 - `referer_overrides`: Custom HTTP request referer overrides map. Used to dynamically inject Referer and Origin headers to bypass hotlink protection on specific domains.
+
+### 3.10 URL Normalisation Rules (`url_normalisation_rules.json`)
+
+Stores regex-based URL canonicalisation rules that are compiled at startup into `config.URL_NORMALISATION_RULES`. Applied by `core.filters.normalize_url()` before any URL enters the crawl queue or visited-pages set.
+
+**Rule schema:**
+```json
+{
+  "rules": [
+    {
+      "description": "Human-readable description",
+      "pattern": "<regex capturing groups>",
+      "replacement": "\\1/\\2"
+    }
+  ]
+}
+```
+
+All patterns are compiled with `re.IGNORECASE`. Backreferences use `\1`, `\2` etc.
+**Operator rule**: Do not add domain-specific URL patterns anywhere in Python source. All new rules go here.
+
+### 3.11 WAF Fallback Tiers (`http_client.py`)
+
+On 403/401/429 HTTP responses, the client escalates through three tiers:
+
+| Tier | Method | Typical cost | Bypass condition |
+| --- | --- | --- | --- |
+| 0 (primary) | `httpx` with session cookies | ~0.5–2s | — |
+| 1 | Crawl4AI headless Chromium | ~8–15s | — |
+| 2 | Crawl4AI headful Chromium (stealth) | ~20–30s | — |
+| — | **Bypassed** | ~0s | `DomainProfile.cloudflare_blocked == True` |
+
+If a domain is registered via `HttpClient.register_cloudflare_blocked()` (triggered automatically by the `# cloudflare: true` seed annotation), Tiers 1 and 2 are skipped and `ScraperBypassError` is raised immediately.
 
 ## 4. Concurrency Model
 

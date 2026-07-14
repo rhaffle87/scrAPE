@@ -17,6 +17,7 @@ src/utils/blacklist.py      — Persistent domain blacklist (data/blacklist.json
 src/utils/session.py        — Persistent cookie cache (data/sessions/)
 src/utils/session_pool.py   — Per-domain sticky sessions with disk persistence
 data/domain_config.json     — Dynamic domain overrides (rate limits, referer, hotlink, deep scrape)
+data/url_normalisation_rules.json — URL canonicalisation rules loaded into config.URL_NORMALISATION_RULES
 src/config/subject_profiles.json — Subject profile presets (priority domains, max results)
 seeds/                      — Per-subject seed manifest files (.txt)
 output/<subject>/runs/<run_id>/ — Run output (results.json, domain_report.json, CSVs)
@@ -59,10 +60,12 @@ After a run completes, look at these files:
 - `run_<run_id>.log` — full structured log. Search for these patterns:
   - `HTTP 429` — rate limited. Domain needs lower RPS in `data/domain_config.json`
   - `ScraperBypassError` — Crawl4AI fallback also failed. Domain may need referer override or is fully blocked
+  - `cloudflare_blocked` / `Skipping Crawl4AI fallback` — domain flagged CF-blocked; expected, no action needed
   - `blacklisted` — domain hit circuit breaker threshold. Check `data/blacklist.json`
   - `cooldown` — domain entered temporary backoff
   - `fetch_error` — network/timeout failures
   - `Skipping scrape` — fast-fail on known dead domains
+  - `max_pages_capped` — domain hit its `max_pages` limit; normal if set intentionally
   - `rejected` — media item failed quality filters
 
 **Runtime state** (in `data/`):
@@ -79,7 +82,11 @@ Read the analysis results and identify which category the problems fall into:
 | Low image/video count | `domain_report.json` — which domains yielded zero? | Add better seeds, check if domain is blacklisted |
 | Too many rejected items | `results.json → rejected_items[]` — read the `reason` field | Tune filters in `src/core/filters.py` |
 | Lots of 429 errors | Log grep for `HTTP 429` | Lower RPS in `data/domain_config.json` → `rate_limits` |
+| Crawl4AI waste (25s+ per page) | Log grep for `Falling back to Crawl4AI` on same domain repeatedly | Add `# cloudflare: true` to that domain in seed file |
 | Crawl4AI fallback failures | Log grep for `ScraperBypassError` | Add domain to `referer_overrides` or `hotlink_protected` in `data/domain_config.json` |
+| Domain over-crawled (many pages, low yield) | `domain_report.json` — high pages_scanned, low images/videos | Add `# max_pages: N` annotation to seed file for that domain |
+| Booru domains yield thumbnails only | Output images are 256px or named `pic256.jpg` | Set `# crawl: index→detail` and `# depth: 1` for that domain |
+| Same URL downloaded multiple times | Log grep for duplicate filenames or locale variants in paths | Add URL normalisation rule to `data/url_normalisation_rules.json` |
 | Downloads failing | `results.json → images/videos` where `status == "failed"` | Check `failure_reason` field. Common: blocked hotlink, too small, wrong MIME |
 | Pages returning empty | `page_reports[]` where `images_found == 0 && videos_found == 0` | Domain may need `deep_scrape` config or different link patterns |
 | Run too slow | `duration_seconds` in results, log timestamps | Increase `--workers`, check if cooldowns are dominating |
@@ -92,8 +99,9 @@ Changes you can make, ordered by where they live:
 **No code changes needed** (config/data only):
 
 - `data/domain_config.json` — rate limits, referer overrides, hotlink protection, deep scrape targets, domain handler patterns
+- `data/url_normalisation_rules.json` — add a `{ "pattern": "...", "replacement": "..." }` entry to collapse duplicate URL variants
 - `data/blacklist.json` — remove false positive bans, or add permanently dead domains
-- `seeds/<subject>.txt` — add/remove seed URLs, add annotations (`# type:`, `# Rate-limit:`, `[CDN]`)
+- `seeds/<subject>.txt` — add/remove seed URLs; add annotations (`# type:`, `# Rate-limit:`, `# cloudflare: true`, `# max_pages: N`, `[CDN]`)
 - `src/config/subject_profiles.json` — subject profile presets
 
 **Tuning constants** (`src/config.py`):
@@ -146,10 +154,13 @@ Then go back to step 1.
 
 ## Rules
 
-- Never hardcode specific subject names, target URLs, or domain names in source files under `src/`. All domain-specific behavior goes in `data/domain_config.json`, `src/config/subject_profiles.json`, or `seeds/*.txt`.
+- Never hardcode specific subject names, target URLs, or domain names in source files under `src/`. All domain-specific behavior goes in `data/domain_config.json`, `data/url_normalisation_rules.json`, `src/config/subject_profiles.json`, or `seeds/*.txt`.
 - The `data/` and `src/config/` directories are gitignored. They contain target-specific operational data that stays local.
-- After modifying any source code, run `python -m pytest tests/ -v` before doing a full run. All 78 tests must pass.
+- After modifying any source code, run `python -m pytest tests/ -v` before doing a full run. All tests must pass.
 - When analyzing a run, always read `results.json` AND the log file. The JSON tells you what happened; the log tells you why.
 - If a domain gets auto-blacklisted during a run and you think it was wrong, delete its entry from `data/blacklist.json` before the next run.
 - If you add a new domain-specific behavior (referer, rate limit, handler pattern), add it to `data/domain_config.json` — not inline in Python.
+- If a domain serves duplicate URLs via locale or variant path segments, add a normalisation rule to `data/url_normalisation_rules.json` — not inline in Python.
+- If a domain is protected by Cloudflare Turnstile (defeats all browser tiers), add `# cloudflare: true` to its seed block. This skips wasted 25s Crawl4AI fallback attempts that are guaranteed to fail.
+- If a domain is over-crawled (many pages scanned, few assets kept), add `# max_pages: N` to its seed block to hard-cap crawl cost without affecting other domains.
 - Update `docs/CHANGELOG.md` when making meaningful system changes. Update `docs/ARCHITECTURE.md` when adding new components or changing data flow.
