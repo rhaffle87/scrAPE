@@ -56,8 +56,12 @@ def test_download_file_retry_on_network_error(tmp_path):
     # Mock rate limiter wait to speed up the test
     http._rate_limiter_for("https://example.com/img.jpg").wait = MagicMock()
 
+    mock_fast_rl = MagicMock()
+    mock_fast_rl.wait = MagicMock()
+
     with patch("time.sleep") as mock_sleep, \
-         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)):
+         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)), \
+         patch("storage.file_downloader._fast_limiter_for", return_value=mock_fast_rl):
         success, reason = downloader._download_file(
             url="https://example.com/img.jpg",
             directory=tmp_path,
@@ -109,8 +113,12 @@ def test_download_file_retry_on_server_error(tmp_path):
     downloader = MediaDownloader(http=http)
     http._rate_limiter_for("https://example.com/img.jpg").wait = MagicMock()
 
+    mock_fast_rl2 = MagicMock()
+    mock_fast_rl2.wait = MagicMock()
+
     with patch("time.sleep") as mock_sleep, \
-         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)):
+         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)), \
+         patch("storage.file_downloader._fast_limiter_for", return_value=mock_fast_rl2):
         success, reason = downloader._download_file(
             url="https://example.com/img.jpg",
             directory=tmp_path,

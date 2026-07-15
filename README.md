@@ -18,10 +18,10 @@
 ## Features
 
 - **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`, `cloudflare`, `max_pages`
-- **BFS Crawler** — Breadth-first page discovery with configurable depth, page limits, and per-domain page caps
-- **Concurrent Download Pipeline** — Multi-worker download pool with per-domain rate limiting and profile-aware settings (referer, min size, thumbnail rejection)
+- **BFS Crawler** — Breadth-first page discovery with adaptive net-only latency concurrency scaling, configurable depth, page limits, and per-domain page caps
+- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings (referer, min size, thumbnail rejection)
 - **Quality Filters** — Relevance scoring (keyword + entity tokens), low-res detection (query params & URL path patterns), archive/index page penalty, preview marker detection, CDN whitelist
-- **WAF Fallback Tiers** — Primary httpx → Tier-1 Crawl4AI headless → Tier-2 Crawl4AI headful. Domains flagged `cloudflare: true` skip fallback immediately.
+- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting (`browser-cookie3`) and full automation fallback (`DrissionPage`) to defeat Cloudflare, Turnstile, and JS-only walls.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
 - **Memory-Backed Dedup** — Inline duplicate rejection (same URL+reason suppressed) via thread-safe `add_rejected()` closure
 - **Audit Trail** — `rejected_items` list with reason + score; `run_metadata` + `duration_seconds` on each `ScrapeResult`
@@ -47,6 +47,23 @@ python main.py --keyword example_subject --seed seeds/example_subject.txt --max-
 ```
 
 See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed annotation and dynamic settings reference.
+
+---
+
+## WAF, Turnstile & JS-Only Bypass (Local Modes)
+
+scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Turnstile challenges, login walls, and JS-only rendering locally without relying on expensive cloud proxies:
+
+1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests.
+2. **Crawl4AI Headless/Headful Browser** — Executes standard headless browser-based requests.
+3. **DrissionPage Automation Fallback** — A robust Chromium-based controller that bypasses Turnstile and renders JS-only pages. Reuses persistent browser profiles located in `data/drission_profiles/<domain_slug>`. On Windows/macOS, it launches in headful mode, allowing manual/interactive Turnstile completion if automatic bypass is blocked.
+
+### Configuration Settings
+
+These features can be controlled globally in `src/config.py`:
+
+- `ENABLE_COOKIE_HARVESTING = True`
+- `ENABLE_DRISSIONPAGE_FALLBACK = True`
 
 ---
 

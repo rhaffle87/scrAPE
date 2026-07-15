@@ -5,6 +5,14 @@ import re
 import time
 from pathlib import Path
 
+# Ensure UTF-8 output encoding for block characters on Windows
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+
 # ANSI colors for premium terminal styling
 CLR_HEADER = "\033[95m"
 CLR_BLUE = "\033[94m"

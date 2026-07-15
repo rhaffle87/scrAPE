@@ -30,8 +30,31 @@ from core.models import ScrapeResult
 from utils.image_helper import get_image_dimensions
 from utils.http_client import HttpClient
 from utils.logger import get_logger
+from utils.rate_limiter import RateLimiter
+
 
 LOGGER = get_logger(__name__)
+
+# Per-hostname rate limiters used exclusively during the download phase.
+# These run at DOWNLOAD_RATE_LIMIT_RPS (5 req/s) and are independent of the
+# crawl-phase limiters so that concurrent download workers are not serialized
+# by a slow crawl rate (e.g. 0.1 req/s) on the same domain.
+_FAST_DOWNLOAD_LIMITERS: dict[str, RateLimiter] = {}
+_FAST_DL_LOCK = threading.Lock()
+DOWNLOAD_RATE_LIMIT_RPS = 5.0  # Max requests/sec for non-CDN download hosts
+
+
+def _fast_limiter_for(host: str) -> RateLimiter:
+    """Return (or lazily create) the fast download-phase RateLimiter for *host*.
+
+    These limiters cap at ``DOWNLOAD_RATE_LIMIT_RPS`` and are not shared with
+    the main crawl-phase limiters, so download threads never block on crawl
+    rate limits and vice-versa.
+    """
+    with _FAST_DL_LOCK:
+        if host not in _FAST_DOWNLOAD_LIMITERS:
+            _FAST_DOWNLOAD_LIMITERS[host] = RateLimiter(DOWNLOAD_RATE_LIMIT_RPS)
+        return _FAST_DOWNLOAD_LIMITERS[host]
 
 IMAGE_SIGNATURES = (
     b"\xff\xd8\xff",
@@ -211,6 +234,7 @@ class MediaDownloader:
         referer: str | None = None,
         min_image_size: tuple[int, int] | None = None,
         thumbnail_prefix_pattern: str | None = None,
+        cdn_hosts: list[str] | None = None,
     ) -> tuple[bool, dict]:
         """Fetch a single media binary and persist it to *directory*.
 
@@ -220,12 +244,20 @@ class MediaDownloader:
         any session cookies across concurrent download workers.
         CDN 403s are resolved by sending a full browser-like Referer + Origin
         header pair derived from the source page URL.
+
+        Rate-limiting strategy:
+        - If *url* belongs to a known CDN host (``cdn_hosts``), skip the
+          rate-limiter entirely — CDN servers handle high concurrency natively
+          and rate-limiting them serializes all 16 download threads.
+        - Otherwise, use a fast download-specific limiter (5 req/s) that is
+          independent of the crawl limiter, preventing serialization caused by
+          very slow crawl rates (e.g. 0.1 req/s) on the same hostname.
         """
         if thumbnail_prefix_pattern and url.lower().startswith(thumbnail_prefix_pattern.lower()):
             LOGGER.info("Skipping URL matching thumbnail prefix pattern %s: %s", thumbnail_prefix_pattern, url)
             return False, {"reason": "low_resolution"}
 
-        from config import OUTPUT_DIR
+        from config import OUTPUT_DIR  # noqa: F401 — kept for potential future use
         directory.mkdir(parents=True, exist_ok=True)
         from urllib.parse import quote
         import time
@@ -233,12 +265,22 @@ class MediaDownloader:
         safe_url = quote(url, safe="/:?=&%#~()[],;")
         safe_referer = quote(referer, safe="/:?=&%#~()[],;") if referer else None
 
+        # Determine rate-limiting strategy for this URL.
+        # CDN hosts are exempt from rate-limiting; all other hosts get a fast
+        # download-only limiter that doesn't interact with the crawl limiters.
+        from core.filters import is_cdn_asset_domain
+        _url_host = urlparse(url).netloc.lower()
+        _is_cdn = is_cdn_asset_domain(url, allow_hosts=cdn_hosts) if cdn_hosts else False
+
         w, h = None, None
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
             try:
-                self.http._rate_limiter_for(url).wait()
+                # Rate-limit gate: skip for CDN hosts, use fast limiter otherwise.
+                if not _is_cdn:
+                    _fast_limiter_for(_url_host).wait()
+
                 req_headers = self._make_download_headers(safe_url, safe_referer)
                 if attempt > 1:
                     req_headers["Connection"] = "close"

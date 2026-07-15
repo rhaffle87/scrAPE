@@ -230,6 +230,18 @@ class ScrapingEngine:
             result.run_id = run_id
         _crawl_start_time = time.monotonic()
 
+        # Fix 3: Register Cloudflare-blocked domains early so the HttpClient
+        # skips all browser fallback tiers immediately for protected domains.
+        # This prevents ~30s timeouts per page when Turnstile is active.
+        from utils.http_client import HttpClient
+        if options.domain_profiles:
+            for _domain, _profile in options.domain_profiles.items():
+                if getattr(_profile, "cloudflare_blocked", False):
+                    HttpClient.register_cloudflare_blocked(_domain)
+                    LOGGER.info(
+                        "Registered Cloudflare-blocked domain at startup: %s", _domain
+                    )
+
         if options.seed_urls:
             derived_domains = [
                 urlparse(url).netloc.lower()
@@ -515,6 +527,18 @@ class ScrapingEngine:
                                 f"worker_error:{type(exc).__name__}",
                             )
 
+                        # Fix 1: Use the pure network latency reported by the HttpClient
+                        # (which excludes rate-limiter sleep) for the concurrency scaler.
+                        # Using wall-clock time caused concurrency to collapse to 1 whenever
+                        # a slow-rate-limited domain was in flight, throttling all domains.
+                        net_latency = self.search_provider.http.last_net_latency
+                        # Handle mocks/MagicMocks in unit tests where search_provider.http is a mock
+                        if not isinstance(net_latency, (int, float)):
+                            net_latency = 0.0
+                        # Fall back to wall-clock latency only when net_latency is 0 (cache
+                        # hit or robots block — no real network request was made).
+                        effective_latency = net_latency if net_latency > 0.0 else latency
+
                         # Adjust dynamic concurrency based on health
                         is_block = "429" in scrape_status or "403" in scrape_status or "worker_error" in scrape_status
                         with result_lock:
@@ -524,18 +548,18 @@ class ScrapingEngine:
                                     "Dynamic Concurrency: Block/Error on %s. Reducing worker limit to %d.",
                                     page, current_concurrency
                                 )
-                            elif latency > 2.0:
+                            elif effective_latency > 2.0:
                                 current_concurrency = max(1, current_concurrency - 1)
                                 LOGGER.info(
-                                    "Dynamic Concurrency: High latency (%.2fs) on %s. Reducing worker limit to %d.",
-                                    latency, page, current_concurrency
+                                    "Dynamic Concurrency: High latency (%.2fs net) on %s. Reducing worker limit to %d.",
+                                    effective_latency, page, current_concurrency
                                 )
                             else:
                                 if current_concurrency < self.workers:
                                     current_concurrency += 1
                                     LOGGER.info(
-                                        "Dynamic Concurrency: Fast response (%.2fs) on %s. Scaling up worker limit to %d.",
-                                        latency, page, current_concurrency
+                                        "Dynamic Concurrency: Fast response (%.2fs net) on %s. Scaling up worker limit to %d.",
+                                        effective_latency, page, current_concurrency
                                     )
 
                         with result_lock:
@@ -848,6 +872,25 @@ class ScrapingEngine:
                         item.status = "skipped"
                         item.failure_reason = "non_downloadable_type"
 
+                # Fix 2: Collect all CDN hosts so _download_file can bypass
+                # rate-limiting for CDN assets, enabling pure parallel downloads.
+                # Sources: seed manifest cdn_hosts declarations + all allowed hosts.
+                _cdn_hosts: list[str] = []
+                if options.seed_manifest is not None:
+                    _cdn_hosts.extend(
+                        getattr(options.seed_manifest, "all_allowed_hosts", [])
+                    )
+                elif options.domain_profiles:
+                    for _dp in options.domain_profiles.values():
+                        _cdn_hosts.extend(getattr(_dp, "cdn_hosts", []))
+                # Deduplicate while preserving order
+                _seen_cdn: set[str] = set()
+                _cdn_hosts_deduped: list[str] = []
+                for _h in _cdn_hosts:
+                    if _h not in _seen_cdn:
+                        _seen_cdn.add(_h)
+                        _cdn_hosts_deduped.append(_h)
+
                 with _cf.ThreadPoolExecutor(
                     max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
                 ) as dl_executor:
@@ -869,6 +912,7 @@ class ScrapingEngine:
                             referer,
                             min_size,
                             thumb_pattern,
+                            _cdn_hosts_deduped,  # Fix 2: CDN bypass list
                         )
                         dl_futures[fut] = (item, media_kind)
                     for fut in _cf.as_completed(dl_futures):

@@ -44,6 +44,14 @@ class RobotsChecker:
             self._parsers[netloc] = None
             return None
 
+        # Fix 4: A successful robots.txt fetch should not leave any residual
+        # failure count that might push the domain into cooldown.  The HttpClient
+        # already calls record_success() internally, so this call is a safety net
+        # that is a no-op in the normal flow but guards against edge-cases where
+        # a previous transient error was recorded for robots.txt itself.
+        cd_state = self.http_client._cooldown_state_for(robots_url)
+        cd_state.record_success()
+
         parser = robotparser.RobotFileParser()
         parser.parse(response.text.splitlines())
         self._parsers[netloc] = parser

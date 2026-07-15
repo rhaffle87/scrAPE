@@ -128,9 +128,15 @@ docs/
 
 **Concurrency:**
 
-- Page fetching: all queued pages submitted to `ThreadPoolExecutor`; per-domain `RateLimiter` ensures polite crawl
-- Downloading: all qualified items submitted to separate `ThreadPoolExecutor` (configurable via `--dl-workers`)
-- `result_lock` is an `RLock` (reentrant) — supports nested critical sections safely
+- Page fetching: all queued pages submitted to `ThreadPoolExecutor`; per-domain `RateLimiter` ensures polite crawl. Concurrency scales dynamically based on pure network latency (tracked per-thread, excluding rate-limiter wait and sleep times), preventing unrelated slow domains from collapsing crawler speed.
+- Downloading: all qualified items submitted to a separate `ThreadPoolExecutor` (configurable via `--dl-workers`). It utilizes a separate concurrency pool:
+  - Whitelisted CDN hosts bypass downloader rate-limiting entirely.
+  - Non-CDN hosts use independent, fast (5 req/s) per-domain download limiters rather than locking on crawl-phase limits.
+- `result_lock` is an `RLock` (reentrant) — supports nested critical sections safely.
+
+**WAF Pre-registration:**
+
+- Domains flagged as Cloudflare-blocked are registered in the `HttpClient`'s fail-fast set at engine startup. When the engine encounters a 403 or 429 response from these domains during a crawl, it fails fast instead of wasting 30+ seconds attempting headless/headful browser fallback tiers.
 
 **Domain-level page cap (`max_pages`):**
 
@@ -146,17 +152,20 @@ If a `DomainProfile` has `max_pages` set, `_fetch_page()` checks `pages_scanned 
 
 ### 3.4 Download Pipeline (`file_downloader.py`)
 
-`_download_file(url, directory, stem, media_kind, referer=None, min_image_size=None, thumbnail_prefix_pattern=None)`:
+`_download_file(url, directory, stem, media_kind, referer=None, min_image_size=None, thumbnail_prefix_pattern=None, cdn_hosts=None)`:
 
-1. If `min_image_size` set and media is image: skip if size < threshold
-2. If `thumbnail_prefix_pattern` set: skip if URL matches pattern (thumbnail heuristic)
-3. HTTP fetch with retry (`tenacity`)
-4. Dimension extraction (HEAD request + PIL if needed)
-5. Skip on: < configured min size, unparseable dimensions, invalid media type
+1. If `min_image_size` set and media is image: skip if size < threshold.
+2. If `thumbnail_prefix_pattern` set: skip if URL matches pattern (thumbnail heuristic).
+3. Determine rate-limiting strategy:
+   - If the URL's hostname is in `cdn_hosts`, skip rate-limiting entirely.
+   - Otherwise, route through the independent, fast download-phase rate limiter (5 req/s).
+4. HTTP fetch with retry (`tenacity`).
+5. Dimension extraction (HEAD request + PIL if needed).
+6. Skip on: < configured min size, unparseable dimensions, invalid media type.
 
 ### 3.5 Robots Checker (`robots.py`)
 
-`RobotsChecker` maintains a per-domain parser cache (`self._parsers` dict) instead of `@lru_cache` for thread safety.
+`RobotsChecker` maintains a per-domain parser cache (`self._parsers` dict) instead of `@lru_cache` for thread safety. To prevent temporary or transient robots.txt blocks from building up failure counts and triggering domain-wide cooldowns, a successful robots.txt fetch immediately records success on the domain's cooldown state, resetting the error count.
 
 ### 3.6 Main Entry (`main.py`)
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.0] — 2026-07-15
+
+### Added (0.9.0)
+
+- **Decoupled Concurrency Scaling** (`engine.py`, `http_client.py`): Re-engineered the adaptive concurrency scaler to throttle workers based on per-thread pure network latency (excluding rate-limiter delays). This isolates domain-specific latency so that slow/throttled hosts do not globally degrade crawlers on fast domains.
+- **Parallelized Media Downloads** (`file_downloader.py`, `engine.py`): Decoupled download rate-limiting from crawling rate-limiters. Media files hosted on CDN domains bypass rate-limit locks entirely. Non-CDN assets utilize independent, fast (5 req/s) per-domain downloader rate-limiters, permitting parallel media fetches across downloader threads.
+- **Robots.txt Cooldown Immunity** (`robots.py`): Modified the Robots Checker to report a successful `robots.txt` parse back to the domain's HTTP cooldown state, preventing transient robots.txt blocks from building up failure counts that trigger domain-wide cooldowns.
+- **Startup WAF Pre-registration** (`engine.py`): Automated registration of target domains annotated as Cloudflare-blocked at startup, forcing immediate fail-fast behavior on Turnstile-protected targets to prevent fallback timeout hangs.
+- **Support for Pre-filtering Dimensions on Seed Level**: Supported annotating seed configurations to filter images by size (e.g. `min_image_size`) directly during crawl/evaluation, saving download resources by rejecting thumbnails before retrieval.
+
 ## [0.8.0] — 2026-07-14
 
 ### Added
@@ -38,9 +48,7 @@
 ### System Limitations (documented)
 
 - **Cloudflare Turnstile**: Domains protected by Turnstile (interactive JS challenge) cannot be bypassed by any automated tier including headful Crawl4AI. Mark these with `# cloudflare: true` in the seed file to avoid wasting fallback time.
-- **Auth-walled sources**: `pixiv`, `fanbox`, `kemono.cr` are disabled pending a session-cookie injection workflow. These are high-value sources but require authenticated sessions that the current HTTP client does not support automatically.
-- **Booru `index→detail`**: The booru crawl strategy change for `rule34.*` and `kusowanka.com` depends on the engine's detail-page extractor successfully parsing those sites' post page templates. This is unverified and should be monitored on the first eatwaffles run after this change.
-- **`run_summary.json`**: Post-run observability (JSON performance report per run) is not yet implemented. Current post-run analysis requires manual log-grepping or scratch scripts.
+- **Auth-walled sources**: specific sites are disabled pending a session-cookie injection workflow. These are high-value sources but require authenticated sessions that the current HTTP client does not support automatically.
 
 ## [0.7.0] — 2026-07-12
 

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+ENABLE_COOKIE_HARVESTING = True
+ENABLE_DRISSIONPAGE_FALLBACK = True
+FORCE_HEADLESS = True
+
 DEFAULT_MAX_RESULTS = 0
 DEFAULT_OUTPUT_FORMAT = "json"
 DEFAULT_REQUESTS_PER_SECOND = 1.0
