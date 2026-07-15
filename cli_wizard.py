@@ -303,10 +303,324 @@ def mode_continuous_watchdog():
     run_command(cmd)
 
 
+def print_mission_statement():
+    print(f" {CLR_BOLD}{CLR_CYAN}═══════════════════ HIGH-EFFICIENCY FUEL PUMP FOR AI ═══════════════════{CLR_END}")
+    print(f"  scrAPE is essentially a {CLR_BOLD}high-efficiency fuel pump for AI{CLR_END}.")
+    print(f"  By using a systematic layer-by-layer crawler (BFS) equipped with an")
+    print(f"  AI-friendly scraper (Crawl4AI), it maps entire websites and converts")
+    print(f"  messy internet pages into clean, structured text that AI models and LLMs")
+    print(f"  can immediately understand.")
+    print(f"  ")
+    print(f"  Because scrAPE has built-in smart asset deduplication, concurrent")
+    print(f"  downloading, and strict boundary controls, it solves the biggest")
+    print(f"  headaches in data engineering:")
+    print(f"  • Stops the crawler from getting lost on external sites")
+    print(f"  • Cuts down massive storage costs by stripping out duplicate files")
+    print(f"  • Gathers deep data at lightning speed")
+    print(f"  ")
+    print(f"  It is exactly what companies want for building custom AI knowledge bases,")
+    print(f"  feeding vector databases for RAG applications, and running cost-effective")
+    print(f"  AI data pipeline operations.")
+    print(f" {CLR_BOLD}{CLR_CYAN}════════════════════════════════════════════════════════════════════════{CLR_END}\n")
+
+
+def select_completed_run():
+    # Scan output/ directory
+    output_dir = Path("output")
+    if not output_dir.exists():
+        print(f" {CLR_FAIL}No output directory found. Please run a scrape first.{CLR_END}")
+        return None, None
+    
+    subjects = [d for d in output_dir.iterdir() if d.is_dir() and d.name != "cache"]
+    if not subjects:
+        print(f" {CLR_FAIL}No completed runs found under output/.{CLR_END}")
+        return None, None
+    
+    print("\nSelect scraped subject:")
+    for idx, sub in enumerate(subjects, 1):
+        print(f"  {idx}) {CLR_GREEN}{sub.name}{CLR_END}")
+    
+    sub_choice = get_input(f"Select subject (1-{len(subjects)})", val_fn=validate_number)
+    sub_idx = int(sub_choice) - 1
+    if sub_idx < 0 or sub_idx >= len(subjects):
+        print(f" {CLR_FAIL}Invalid selection.{CLR_END}")
+        return None, None
+    
+    subject_dir = subjects[sub_idx]
+    runs_dir = subject_dir / "runs"
+    if not runs_dir.exists():
+        # Fallback if no runs subfolder structure exists
+        runs = [subject_dir]
+    else:
+        runs = [d for d in runs_dir.iterdir() if d.is_dir()]
+        
+    if not runs:
+        print(f" {CLR_FAIL}No runs found for {subject_dir.name}.{CLR_END}")
+        return None, None
+        
+    print("\nSelect specific run ID:")
+    for idx, r in enumerate(runs, 1):
+        print(f"  {idx}) {CLR_BLUE}{r.name}{CLR_END}")
+        
+    r_choice = get_input(f"Select run (1-{len(runs)})", val_fn=validate_number)
+    r_idx = int(r_choice) - 1
+    if r_idx < 0 or r_idx >= len(runs):
+        print(f" {CLR_FAIL}Invalid selection.{CLR_END}")
+        return None, None
+        
+    return subject_dir.name, runs[r_idx]
+
+
+def mode_create_dataset():
+    import shutil
+    from urllib.parse import urlparse
+    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Create Structured AI Dataset ───{CLR_END}\n")
+    print("This utility groups and exports scraped files from a completed run into a single")
+    print("structured folder with clean filenames and custom organization styles.\n")
+    
+    subject_name, run_dir = select_completed_run()
+    if not run_dir:
+        return
+        
+    # Check if there are images or videos to copy
+    image_src = run_dir / "images"
+    video_src = run_dir / "videos"
+    
+    has_images = image_src.exists() and any(image_src.iterdir())
+    has_videos = video_src.exists() and any(video_src.iterdir())
+    
+    if not has_images and not has_videos:
+        print(f"\n {CLR_WARNING}Warning: No downloaded media files found in this run.{CLR_END}")
+        print(" (Make sure you ran the scraper with the --download-media flag.)")
+        return
+        
+    print("\nChoose grouping / layout style for the dataset:")
+    print(f"  1) {CLR_GREEN}{CLR_BOLD}Consolidated Flat{CLR_END} (All files in one folder, prefixed to prevent collisions)")
+    print(f"  2) {CLR_BLUE}{CLR_BOLD}Domain-Grouped{CLR_END} (Subfolders created for each source domain)")
+    print(f"  3) {CLR_CYAN}{CLR_BOLD}Media-Type Grouped{CLR_END} (Subfolders for 'images' and 'videos')")
+    
+    style = get_input("Select layout (1-3)", default="1")
+    
+    target_root = Path("datasets") / f"{subject_name}_{run_dir.name}_dataset"
+    target_root.mkdir(parents=True, exist_ok=True)
+    
+    print(f"\nExporting to: {CLR_GREEN}{target_root.resolve()}{CLR_END}...")
+    copied_count = 0
+    
+    def sanitize_filename(name: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_\-\.]", "_", name)
+
+    # We can load results.json if we want to know source domain or alt text details
+    results_path = run_dir / "results.json"
+    url_to_domain = {}
+    if results_path.exists():
+        import json
+        try:
+            with open(results_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for img in data.get("images", []):
+                url_to_domain[img.get("file_path")] = img.get("source_domain") or urlparse(img.get("url")).netloc
+            for vid in data.get("videos", []):
+                url_to_domain[vid.get("file_path")] = vid.get("source_domain") or urlparse(vid.get("url")).netloc
+        except Exception:
+            pass
+
+    for src_dir, kind in [(image_src, "images"), (video_src, "videos")]:
+        if not src_dir.exists():
+            continue
+        for file_path in src_dir.iterdir():
+            if not file_path.is_file():
+                continue
+                
+            # Determine domain folder if needed
+            rel_path_in_run = f"{kind}/{file_path.name}"
+            domain = url_to_domain.get(rel_path_in_run) or "unknown_domain"
+            domain_clean = sanitize_filename(domain)
+            
+            if style == "1":
+                # Consolidated flat
+                new_name = f"{domain_clean}_{file_path.name}"
+                dest = target_root / new_name
+            elif style == "2":
+                # Domain grouped
+                domain_dir = target_root / domain_clean
+                domain_dir.mkdir(exist_ok=True)
+                dest = domain_dir / file_path.name
+            else:
+                # Media type grouped
+                kind_dir = target_root / kind
+                kind_dir.mkdir(exist_ok=True)
+                dest = kind_dir / file_path.name
+                
+            shutil.copy2(file_path, dest)
+            copied_count += 1
+            
+    print(f"\n {CLR_GREEN}Success!{CLR_END} Copied {copied_count} files to: {target_root.name}")
+
+
+def mode_rag_ingest():
+    from urllib.parse import urlparse
+    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Enterprise LLM RAG Ingestion Helper ───{CLR_END}\n")
+    print("This utility processes crawled pages, text tokens, alt descriptions, and scores")
+    print("into highly structured formats optimized for ingestion into Vector DBs/RAG pipelines.\n")
+    
+    subject_name, run_dir = select_completed_run()
+    if not run_dir:
+        return
+        
+    results_path = run_dir / "results.json"
+    if not results_path.exists():
+        print(f" {CLR_FAIL}Error: results.json not found in the run folder.{CLR_END}")
+        return
+        
+    import json
+    try:
+        with open(results_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f" {CLR_FAIL}Error reading results.json: {e}{CLR_END}")
+        return
+        
+    print("\nChoose ingestion output format:")
+    print(f"  1) {CLR_GREEN}{CLR_BOLD}Consolidated Markdown Document{CLR_END} (A single well-structured .md document of all findings)")
+    print(f"  2) {CLR_BLUE}{CLR_BOLD}Chunked Page-Level Documents{CLR_END} (Individual markdown files for each scraped page)")
+    print(f"  3) {CLR_CYAN}{CLR_BOLD}JSON-Lines (JSONL) format{CLR_END} (One JSON record per document, perfect for automated embedding pipelines)")
+    
+    format_choice = get_input("Select format (1-3)", default="1")
+    
+    dest_dir = Path("rag_ingest") / f"{subject_name}_{run_dir.name}_rag"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    images = data.get("images", [])
+    videos = data.get("videos", [])
+    reports = data.get("page_reports", [])
+    metadata = data.get("run_metadata", {})
+    
+    print(f"\nGenerating RAG documents in: {CLR_GREEN}{dest_dir.resolve()}{CLR_END}...")
+    
+    if format_choice == "1":
+        # Consolidated markdown
+        md_file = dest_dir / "consolidated_knowledge.md"
+        with open(md_file, "w", encoding="utf-8") as f:
+            f.write(f"# Knowledge Base: Scrape Results for '{data.get('keyword')}'\n\n")
+            f.write(f"- **Run ID:** {data.get('run_id')}\n")
+            f.write(f"- **Scanned Pages Count:** {data.get('page_count')}\n")
+            f.write(f"- **Discovered Images:** {len(images)}\n")
+            f.write(f"- **Discovered Videos:** {len(videos)}\n\n")
+            
+            f.write("## Scanned Source Pages\n\n")
+            for idx, r in enumerate(reports, 1):
+                f.write(f"{idx}. [{r.get('url')}]({r.get('url')}) — Status: {r.get('status')} (Depth: {r.get('depth')})\n")
+                
+            f.write("\n## Extracted Structured Media & Alt Text Metadata\n\n")
+            f.write("Below is the cleaned alt text, titles, and source URLs representing extracted knowledge.\n\n")
+            
+            for idx, img in enumerate(images, 1):
+                f.write(f"### Image Asset #{idx}\n")
+                f.write(f"- **Source Page:** {img.get('source_page')}\n")
+                f.write(f"- **File Path:** {img.get('file_path')}\n")
+                f.write(f"- **Alt Description:** \"{img.get('alt_text') or 'N/A'}\"\n")
+                f.write(f"- **Context Title:** \"{img.get('page_title') or 'N/A'}\"\n")
+                f.write(f"- **Relevance Score:** {img.get('score')}\n")
+                f.write(f"- **URL:** {img.get('url')}\n\n")
+                
+            for idx, vid in enumerate(videos, 1):
+                f.write(f"### Video Asset #{idx}\n")
+                f.write(f"- **Source Page:** {vid.get('source_page')}\n")
+                f.write(f"- **File Path:** {vid.get('file_path')}\n")
+                f.write(f"- **Context Title/Label:** \"{vid.get('page_title') or vid.get('type') or 'N/A'}\"\n")
+                f.write(f"- **Relevance Score:** {vid.get('score')}\n")
+                f.write(f"- **URL:** {vid.get('url')}\n\n")
+                
+        print(f"Created: {md_file.name}")
+        
+    elif format_choice == "2":
+        # Chunked Page-Level Documents
+        # Group assets by page URL
+        pages_dict = {}
+        for r in reports:
+            pages_dict[r.get("url")] = {"report": r, "images": [], "videos": []}
+        for img in images:
+            sp = img.get("source_page")
+            if sp not in pages_dict:
+                pages_dict[sp] = {"report": None, "images": [], "videos": []}
+            pages_dict[sp]["images"].append(img)
+        for vid in videos:
+            sp = vid.get("source_page")
+            if sp not in pages_dict:
+                pages_dict[sp] = {"report": None, "images": [], "videos": []}
+            pages_dict[sp]["videos"].append(vid)
+            
+        file_count = 0
+        for page_url, pdata in pages_dict.items():
+            parsed = urlparse(page_url)
+            filename = re.sub(r"[^a-zA-Z0-9]+", "_", parsed.netloc + parsed.path).strip("_") or "root"
+            p_file = dest_dir / f"{filename}.md"
+            
+            with open(p_file, "w", encoding="utf-8") as f:
+                f.write(f"# Document: {pdata['report'].get('url') if pdata['report'] else page_url}\n\n")
+                if pdata['report']:
+                    f.write(f"- **Crawl Depth:** {pdata['report'].get('depth')}\n")
+                    f.write(f"- **Crawl Status:** {pdata['report'].get('status')}\n\n")
+                
+                f.write("## Extracted Media Contents & Descriptions\n\n")
+                for idx, img in enumerate(pdata["images"], 1):
+                    f.write(f"### Image #{idx} (Score: {img.get('score')})\n")
+                    f.write(f"- **Description:** {img.get('alt_text') or 'No alt description available.'}\n")
+                    f.write(f"- **Title:** {img.get('page_title') or 'N/A'}\n")
+                    f.write(f"- **Asset Path:** {img.get('file_path')}\n")
+                    f.write(f"- **Direct Link:** {img.get('url')}\n\n")
+                    
+                for idx, vid in enumerate(pdata["videos"], 1):
+                    f.write(f"### Video #{idx} (Score: {vid.get('score')})\n")
+                    f.write(f"- **Title:** {vid.get('page_title') or 'N/A'}\n")
+                    f.write(f"- **Asset Path:** {vid.get('file_path')}\n")
+                    f.write(f"- **Direct Link:** {vid.get('url')}\n\n")
+                    
+            file_count += 1
+        print(f"Created {file_count} chunked page document markdown files.")
+        
+    else:
+        # JSONL format
+        jsonl_file = dest_dir / "documents.jsonl"
+        with open(jsonl_file, "w", encoding="utf-8") as f:
+            for idx, img in enumerate(images, 1):
+                doc = {
+                    "id": f"img_{idx}",
+                    "url": img.get("url"),
+                    "source_page": img.get("source_page"),
+                    "text": f"Image showing {img.get('alt_text')}. Context: {img.get('page_title')}.",
+                    "metadata": {
+                        "type": "image",
+                        "score": img.get("score"),
+                        "file_path": img.get("file_path"),
+                        "mime_type": img.get("mime_type")
+                    }
+                }
+                f.write(json.dumps(doc) + "\n")
+            for idx, vid in enumerate(videos, 1):
+                doc = {
+                    "id": f"vid_{idx}",
+                    "url": vid.get("url"),
+                    "source_page": vid.get("source_page"),
+                    "text": f"Video media titled {vid.get('page_title') or vid.get('type')}.",
+                    "metadata": {
+                        "type": "video",
+                        "score": vid.get("score"),
+                        "file_path": vid.get("file_path")
+                    }
+                }
+                f.write(json.dumps(doc) + "\n")
+        print(f"Created: {jsonl_file.name}")
+        
+    print(f"\n {CLR_GREEN}Success!{CLR_END} Ingestion assets generated in: {dest_dir.name}")
+
+
 def main():
     while True:
         clear_screen()
         print_banner()
+        print_mission_statement()
         print(f" {CLR_BOLD}Please select a scraping operation flow:{CLR_END}\n")
         print(
             f"   {CLR_GREEN}{CLR_BOLD}1.{CLR_END} General/Broad Search Scraping  (Uses DuckDuckGo search + recursive crawl)"
@@ -317,9 +631,15 @@ def main():
         print(
             f"   {CLR_GREEN}{CLR_BOLD}3.{CLR_END} Continuous Watchdog Agent      (Runs scheduled scrapes at interval)"
         )
-        print(f"   {CLR_FAIL}{CLR_BOLD}4.{CLR_END} Exit\n")
+        print(
+            f"   {CLR_GREEN}{CLR_BOLD}4.{CLR_END} Create Structured AI Dataset   (Format and group findings in one folder)"
+        )
+        print(
+            f"   {CLR_GREEN}{CLR_BOLD}5.{CLR_END} Enterprise LLM RAG Ingestion   (Extract clean markdown texts for vector DBs)"
+        )
+        print(f"   {CLR_FAIL}{CLR_BOLD}6.{CLR_END} Exit\n")
 
-        choice = get_input("Enter selection (1-4)", default="1")
+        choice = get_input("Enter selection (1-6)", default="1")
 
         clear_screen()
         print_banner()
@@ -331,10 +651,14 @@ def main():
         elif choice == "3":
             mode_continuous_watchdog()
         elif choice == "4":
+            mode_create_dataset()
+        elif choice == "5":
+            mode_rag_ingest()
+        elif choice == "6":
             print(f"\n {CLR_GREEN}Goodbye!{CLR_END}\n")
             break
         else:
-            print(f" {CLR_FAIL}Invalid option '{choice}'. Please select 1-4.{CLR_END}")
+            print(f" {CLR_FAIL}Invalid option '{choice}'. Please select 1-6.{CLR_END}")
             time.sleep(2)
             continue
 

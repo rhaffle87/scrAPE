@@ -186,6 +186,7 @@ Stores all domain-specific settings dynamically rather than hardcoding them in c
 Stores regex-based URL canonicalisation rules that are compiled at startup into `config.URL_NORMALISATION_RULES`. Applied by `core.filters.normalize_url()` before any URL enters the crawl queue or visited-pages set.
 
 **Rule schema:**
+
 ```json
 {
   "rules": [

@@ -87,10 +87,18 @@ python main.py --keyword test --seed seed.txt --dry-run
 
 Parses the seed file and prints the domain profiles without crawling.
 
-## Terminal GUI Wizard
+## Interactive GUI Wizard & AI Pipeline Tools
 
 ```bash
 python cli_wizard.py
 ```
 
-Interactive TUI for configuring and running scrapes. Launched via `run.bat`.
+The interactive terminal GUI acts as a **high-efficiency fuel pump for AI**. It guides users through configuring and running crawls, mapping entire websites with systematic BFS and Crawl4AI, and converting messy pages into clean, structured data for LLM ingestions.
+
+In addition to launching crawls, the wizard provides built-in utilities for downstream AI ingestion:
+
+1. **General/Broad Search Scraping** — Launches automated searches and deep recursive crawling.
+2. **Specified/Targeted Scraping** — Runs targeted crawls against strict seed manifests.
+3. **Continuous Watchdog Agent** — Polls target sites on a set scheduler to monitor changes.
+4. **Create Structured AI Dataset** — Groups and exports files from any completed run into a consolidated folder with custom layouts (Consolidated Flat, Domain-Grouped, or Media-Type Grouped).
+5. **Enterprise LLM RAG Ingestion** — Extracts page titles, alt texts, image contexts, and URLs from scraped results, outputting clean formats ready for ingestion (Single Consolidated Markdown, Chunked Page Markdown documents, or JSONL Embeddings formats).

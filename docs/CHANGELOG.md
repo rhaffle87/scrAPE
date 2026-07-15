@@ -4,6 +4,10 @@
 
 ### Added
 
+- **AI-Focused CLI Wizard & Ingestion Utilities** (`cli_wizard.py`): Updated the terminal GUI to act as a **high-efficiency fuel pump for AI**. Added two new dedicated modes:
+  - **Create Structured AI Dataset (Mode 4)**: Consolidates and groups downloaded assets from completed runs into structured formats (Flat, Domain-grouped, or Media-type grouped subfolders).
+  - **Enterprise LLM RAG Ingestion Helper (Mode 5)**: Extracts page titles, alt texts, image contexts, and URLs from runs, exporting them as consolidated markdown docs, chunked page-level `.md` files, or JSONL embedding records for Vector DB ingestion.
+
 - **`cloudflare_blocked` domain flag** (`seed_manifest.py`, `http_client.py`, `main.py`): New `DomainProfile` field parsed from `# cloudflare: true` seed annotation. When set, `HttpClient` raises `ScraperBypassError` immediately on 403/429 for that domain, skipping both Tier-1 and Tier-2 Crawl4AI browser runs entirely. Eliminates the ~25s per-page waste on domains protected by Cloudflare Turnstile that defeat all browser tiers. Registered automatically at startup via `HttpClient.register_cloudflare_blocked()`.
 
 - **`max_pages` per-domain cap** (`seed_manifest.py`, `engine.py`): New `DomainProfile` field parsed from `# max_pages: N` seed annotation. The engine enforces a hard page-count ceiling per domain per run, preventing over-crawling of low-yield sources. Page is skipped with status `"max_pages_capped"` before any HTTP request is issued.
@@ -40,7 +44,7 @@
 
 ## [0.7.0] — 2026-07-12
 
-### Added
+### Added (0.7.0)
 
 - **Persistent Blacklist**: Active domain-level blacklisting (`src/utils/blacklist.py`) for domains consistently returning HTTP 404/403/Cloudflare challenge errors.
 - **Session Persistence**: Implemented `SessionManager` (`src/utils/session.py`) for caching and loading cookies across run sessions.

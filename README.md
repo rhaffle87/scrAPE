@@ -46,7 +46,7 @@ python main.py --keyword example_subject --seed seeds/example_subject.txt --enti
 python main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 30 --page-limit 50 --crawl-depth 2
 ```
 
-See [USAGE.md](docs/USAGE.md) for full CLI reference.
+See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed annotation and dynamic settings reference.
 
 ---
 
@@ -152,8 +152,8 @@ flowchart TD
 | Limitation | Status | Workaround |
 | --- | --- | --- |
 | **Cloudflare Turnstile** | Hard block — no automated bypass exists | Mark domain `# cloudflare: true` in seed file to skip wasted fallback time |
-| **Auth-walled sources** (pixiv, fanbox, kemono) | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
-| **JS-only pages** (e-hentai gallery) | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
+| **Auth-walled sources** | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
+| **JS-only pages** | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
 | **Post-run observability** | No automated `run_summary.json` yet | Use scratch scripts in `scratch/` or grep logs manually |
 
 ---
