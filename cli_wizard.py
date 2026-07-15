@@ -428,13 +428,13 @@ def mode_create_dataset():
     for src_dir, kind in [(image_src, "images"), (video_src, "videos")]:
         if not src_dir.exists():
             continue
-        for file_path in src_dir.iterdir():
+        for file_path in src_dir.rglob("*"):
             if not file_path.is_file():
                 continue
                 
             # Determine domain folder if needed
-            rel_path_in_run = f"{kind}/{file_path.name}"
-            domain = url_to_domain.get(rel_path_in_run) or "unknown_domain"
+            rel_path_in_run = file_path.relative_to(run_dir).as_posix()
+            domain = url_to_domain.get(rel_path_in_run) or file_path.parent.name
             domain_clean = sanitize_filename(domain)
             
             if style == "1":

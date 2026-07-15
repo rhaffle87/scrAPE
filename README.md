@@ -147,6 +147,21 @@ flowchart TD
 
 ---
 
+## Post-Run Observability
+
+Every crawl run generates an automated post-run metrics summary at `output/{keyword_slug}/runs/{run_id}/run_summary.json`. This provides detailed visibility into crawler performance, yield, and failures:
+
+- **Runtime Breakdown** — Exact timing of the BFS crawl phase vs the media download phase.
+- **Yield Stats** — Total pages scanned, images/videos kept, rejections, and download success/fail/skip counts.
+- **Domain Breakdown** — Granular per-domain counters for pages scanned, media kept, rejected items, duplicate hash skips, and wasted (failed) requests.
+- **Top Rejection Reasons** — Frequency counts of why URLs were rejected (e.g. low resolution, duplicates, etc.).
+- **Zero-Yield Domain List** — Allowed/scanned domains that had $>0$ pages crawled but 0 kept images or videos.
+- **Dead Download Links** — Listing of specific media URLs that failed to download, including source pages and exact failure reasons (e.g. 404, HTTP error).
+
+The summary is printed to the console at the end of every run, and stored in JSON format for easy programmatic ingestion.
+
+---
+
 ## System Limitations
 
 | Limitation | Status | Workaround |
@@ -154,7 +169,6 @@ flowchart TD
 | **Cloudflare Turnstile** | Hard block — no automated bypass exists | Mark domain `# cloudflare: true` in seed file to skip wasted fallback time |
 | **Auth-walled sources** | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
 | **JS-only pages** | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
-| **Post-run observability** | No automated `run_summary.json` yet | Use scratch scripts in `scratch/` or grep logs manually |
 
 ---
 
@@ -176,6 +190,9 @@ output/
   {keyword_slug}/
     runs/
       {run_id}/
-        manifest.json         # Full scrape result (scanned pages, assets, rejected list, metadata)
-        pages/                # HTML snapshots (optional)
+        results.json          # Full scrape result (scanned pages, assets, rejected list, metadata)
+        run_summary.json      # Structured post-run observability metrics and summaries
+        domain_report.json    # Per-domain crawl count dictionary
+        images/               # Downloaded image files grouped by domain
+        videos/               # Downloaded video files grouped by domain
 ```

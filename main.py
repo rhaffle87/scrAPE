@@ -444,7 +444,7 @@ def main() -> None:
         run_id=run_id,
     )
     result.duration_seconds = int(time.monotonic() - _run_start)
-    result.run_metadata = {
+    metadata_updates = {
         "seed_file": str(active_seed_file) if active_seed_file else None,
         "workers": args.workers,
         "dl_workers": args.dl_workers,
@@ -454,6 +454,7 @@ def main() -> None:
         "entity_tokens": args.entity_token,
         "download_media": args.download_media,
     }
+    result.run_metadata.update(metadata_updates)
 
     output_root = OUTPUT_DIR / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
     output_root.mkdir(parents=True, exist_ok=True)
@@ -466,6 +467,12 @@ def main() -> None:
     import json
     with open(output_root / "domain_report.json", "w", encoding="utf-8") as f:
         json.dump(result.domain_stats, f, indent=2)
+
+    # Generate post-run summary observability report and write run_summary.json
+    from core.run_summary import generate_run_summary
+    crawl_dur = result.run_metadata.get("crawl_duration_seconds", 0.0)
+    download_dur = result.run_metadata.get("download_duration_seconds", 0.0)
+    generate_run_summary(result, output_root, crawl_dur, download_dur)
 
     logger.info("Scraping completed. Results written to %s", output_root.resolve())
     log_run_end(

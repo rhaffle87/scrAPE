@@ -228,6 +228,7 @@ class ScrapingEngine:
         result = ScrapeResult(keyword=keyword)
         if run_id:
             result.run_id = run_id
+        _crawl_start_time = time.monotonic()
 
         if options.seed_urls:
             derived_domains = [
@@ -765,7 +766,12 @@ class ScrapingEngine:
         # --- Deferred download phase ---
         # All crawl pages have been processed; URL upgrades (tokenless → tokened) are
         # complete, so downloads now use the best available URL for each asset.
+        crawl_duration = time.monotonic() - _crawl_start_time
+        result.run_metadata["crawl_duration_seconds"] = crawl_duration
+        result.run_metadata["download_duration_seconds"] = 0.0
+
         if options.download_media:
+            _download_start_time = time.monotonic()
             import concurrent.futures as _cf
             from config import (
                 DEFAULT_RUNS_SUBDIR,
@@ -923,6 +929,8 @@ class ScrapingEngine:
                                     result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
 
                 LOGGER.info("Download phase complete.")
+            download_duration = time.monotonic() - _download_start_time
+            result.run_metadata["download_duration_seconds"] = download_duration
 
         # Sort the final lists of kept items by score for output consistency
         result.images.sort(

@@ -73,11 +73,19 @@ def test_adaptive_concurrency_throttling():
     def mock_fetch_page_slow(page, depth):
         return page, depth, [ImageItem(url="https://example.com/img.jpg", source_page=page)], [], "ok"
 
+    mock_monotonic_vals = [0, 0.5, 0.5, 1.0, 1.0, 1.5, 1.5, 2.0]
+    monotonic_iter = iter(mock_monotonic_vals)
+    def safe_monotonic():
+        try:
+            return next(monotonic_iter)
+        except StopIteration:
+            return mock_monotonic_vals[-1]
+
     # Test scaling down on block
     with patch.object(engine.search_provider, "search_pages", return_value=["https://example.com/page1", "https://example.com/page2"]), \
          patch.object(engine.search_provider, "discover_links", return_value=[]), \
          patch.object(engine.search_provider, "scrape_page", return_value=([], [], "429_blocked")), \
-         patch("time.monotonic", side_effect=[0, 0.5, 0.5, 1.0, 1.0, 1.5, 1.5, 2.0]):
+         patch("time.monotonic", side_effect=safe_monotonic):
         
         result = engine.run(
             keyword="test",
