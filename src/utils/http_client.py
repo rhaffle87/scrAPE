@@ -349,6 +349,18 @@ class HttpClient:
         with cls._cf_blocked_lock:
             cls._cloudflare_blocked_hosts.add(hostname.lower())
 
+    @classmethod
+    def register_stealth_required(cls, hostname: str) -> None:
+        """Mark *hostname* as requiring direct browser-stealth routing.
+
+        When marked, all ``get()`` requests for that hostname bypass the standard
+        ``httpx`` transport and are routed immediately through the Crawl4AI /
+        DrissionPage browser pipeline.  Use for search providers and other hosts
+        that block raw HTTP clients with bot-detection before returning a 4xx.
+        """
+        with cls._stealth_lock:
+            cls._stealth_required_hosts.add(hostname.lower())
+
     def __init__(
         self,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,

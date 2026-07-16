@@ -329,6 +329,19 @@ def main() -> None:
             domain_profiles = manifest.domain_map
             log_domain_profile_summary(logger, manifest)
 
+            # Filter out seed URLs belonging to disabled domains
+            disabled_domains = {p.domain for p in manifest.domains if p.disabled}
+            if disabled_domains:
+                filtered_urls = []
+                for u in seed_urls:
+                    from urllib.parse import urlparse
+                    host = urlparse(u).netloc.lower()
+                    if host not in disabled_domains:
+                        filtered_urls.append(u)
+                    else:
+                        logger.info("Skipping seed URL belonging to disabled domain: %s", u)
+                seed_urls = filtered_urls
+
             # 1. Auto-disable broad search for speed/focus
             if not getattr(args, "force_search", False):
                 if manifest.domains:

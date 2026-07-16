@@ -98,6 +98,9 @@ class DomainProfile:
     The engine will skip further pages from a domain once this limit is reached.
     """
 
+    disabled: bool = False
+    """When True, this domain profile is disabled and its seed URLs should be ignored."""
+
     notes: list[str] = field(default_factory=list)
     """Remaining human-readable comment lines for this domain block."""
 
@@ -136,10 +139,11 @@ class SeedManifest:
 
     @property
     def all_seed_urls(self) -> list[str]:
-        """Flat list of every seed URL across all domains, in file order."""
+        """Flat list of every active seed URL across all domains, in file order."""
         urls: list[str] = []
         for profile in self.domains:
-            urls.extend(profile.seed_urls)
+            if not profile.disabled:
+                urls.extend(profile.seed_urls)
         return urls
 
     @property
@@ -151,6 +155,8 @@ class SeedManifest:
         seen: set[str] = set()
         out: list[str] = []
         for profile in self.domains:
+            if profile.disabled:
+                continue
             for host in [profile.domain, *profile.cdn_hosts]:
                 if host not in seen:
                     seen.add(host)
@@ -189,6 +195,7 @@ _MIN_SIZE_RE = re.compile(r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b"
 _THUMB_PREFIX_RE = re.compile(r"\bthumbnail[-_]prefix\s*:\s*(\S+)\b", re.IGNORECASE)
 _REFERER_RE = re.compile(r"#\s*(requires[-_]referer|requires referer)", re.IGNORECASE)
 _CLOUDFLARE_RE = re.compile(r"\bcloudflare\s*:\s*true\b", re.IGNORECASE)
+_DISABLED_RE = re.compile(r"\bdisabled\b", re.IGNORECASE)
 _MAX_PAGES_RE = re.compile(r"\bmax_pages\s*:\s*(\d+)\b", re.IGNORECASE)
 _URL_RE = re.compile(r"^https?://\S+$")
 _SUBJECT_SPLIT_RE = re.compile(r"[/|,]")
@@ -261,6 +268,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_thumb_prefix: str | None = None
     pend_referer: bool = False
     pend_cloudflare: bool = False
+    pend_disabled: bool = False
     pend_max_pages: int | None = None
     pend_notes: list[str] = []
 
@@ -268,7 +276,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
         nonlocal pend_rate_limit, pend_username, pend_email, pend_password
         nonlocal pend_min_size, pend_thumb_prefix, pend_referer
-        nonlocal pend_cloudflare, pend_max_pages
+        nonlocal pend_cloudflare, pend_max_pages, pend_disabled
         pend_media = "mixed"
         pend_crawl = "index\u2192detail"
         pend_cdns = []
@@ -282,6 +290,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_thumb_prefix = None
         pend_referer = False
         pend_cloudflare = False
+        pend_disabled = False
         pend_max_pages = None
         pend_notes = []
 
@@ -301,6 +310,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             thumbnail_prefix_pattern=pend_thumb_prefix,
             requires_referer=pend_referer,
             cloudflare_blocked=pend_cloudflare,
+            disabled=pend_disabled,
             max_pages=pend_max_pages,
             notes=list(pend_notes),
         )
@@ -387,6 +397,10 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             # Flag: cloudflare_blocked — skip Crawl4AI fallback for this domain
             if _CLOUDFLARE_RE.search(line):
                 pend_cloudflare = True
+
+            # Flag: disabled — skip domain entirely
+            if _DISABLED_RE.search(line):
+                pend_disabled = True
 
             # Annotation: max_pages — hard cap on pages crawled per domain
             m = _MAX_PAGES_RE.search(line)

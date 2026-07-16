@@ -660,6 +660,43 @@ https://videosite-beta.com/category/subject
     assert "videosite-beta.com" in allowed
 
 
+def test_disabled_domain_manifest_parsing(tmp_path):
+    from core.seed_manifest import SeedManifest
+
+    manifest_content = """# Subject: Test Subject
+# type: image | crawl: direct
+# DISABLED: This domain is broken
+https://mediasite-alpha.com/subject
+
+# type: video | crawl: index -> detail
+# disabled: true
+https://videosite-beta.com/category/subject
+
+# type: mixed | crawl: direct
+https://activesite.com/page
+"""
+    manifest_file = tmp_path / "subject.txt"
+    manifest_file.write_text(manifest_content, encoding="utf-8")
+
+    manifest = SeedManifest.from_file(manifest_file)
+
+    assert len(manifest.domains) == 3
+
+    alpha_prof = manifest.domain_map["mediasite-alpha.com"]
+    assert alpha_prof.disabled is True
+
+    beta_prof = manifest.domain_map["videosite-beta.com"]
+    assert beta_prof.disabled is True
+
+    active_prof = manifest.domain_map["activesite.com"]
+    assert active_prof.disabled is False
+
+    # Check that disabled domains are filtered out of all_seed_urls and all_allowed_hosts
+    assert manifest.all_seed_urls == ["https://activesite.com/page"]
+    assert manifest.all_allowed_hosts == ["activesite.com"]
+
+
+
 def test_http_client_rate_limiting_delay_conversion():
     from utils.http_client import HttpClient
 
@@ -1015,3 +1052,72 @@ def test_http_client_escalating_timeout_and_adaptive_rate_limit(monkeypatch):
     assert resp.text == "<html>Mocked Crawl4AI Page</html>"
     # The requests_per_second should be halved!
     assert limiter.requests_per_second == original_rps * 0.5
+
+
+# ---------------------------------------------------------------------------
+# Search pagination & stealth registration
+# ---------------------------------------------------------------------------
+
+def test_search_pagination_follows_next_page_form():
+    """_extract_next_page_url should return a URL when a valid DDG form is present."""
+    from bs4 import BeautifulSoup
+    from scraper.google_images import SearchProviderScraper
+
+    html_page1 = """
+    <html><body>
+      <a class="result__a" href="https://example.com/page1">Result 1</a>
+      <form method="post" action="/html/">
+        <input type="hidden" name="q" value="test keyword">
+        <input type="hidden" name="s" value="30">
+        <input type="hidden" name="vqd" value="abc123token">
+        <input type="hidden" name="kp" value="-2">
+        <input type="submit" value="Next">
+      </form>
+    </body></html>
+    """
+    soup = BeautifulSoup(html_page1, "html.parser")
+    next_url = SearchProviderScraper._extract_next_page_url(soup)
+    assert next_url is not None, "Should find next-page URL from form"
+    assert "html.duckduckgo.com" in next_url
+    assert "vqd=abc123token" in next_url
+    assert "s=30" in next_url
+
+
+def test_search_pagination_returns_none_on_missing_form():
+    """_extract_next_page_url should return None when no valid form exists."""
+    from bs4 import BeautifulSoup
+    from scraper.google_images import SearchProviderScraper
+
+    html_last_page = """
+    <html><body>
+      <a class="result__a" href="https://example.com/page1">Result 1</a>
+      <!-- No next-page form -->
+    </body></html>
+    """
+    soup = BeautifulSoup(html_last_page, "html.parser")
+    next_url = SearchProviderScraper._extract_next_page_url(soup)
+    assert next_url is None, "Should return None on last page (no next-page form)"
+
+
+def test_register_stealth_required_marks_host():
+    """register_stealth_required should add the hostname to the class-level set."""
+    from utils.http_client import HttpClient
+
+    test_host = "stealth-test-host.example"
+    # Ensure clean state for this test
+    HttpClient._stealth_required_hosts.discard(test_host)
+    HttpClient.register_stealth_required(test_host)
+    assert test_host in HttpClient._stealth_required_hosts
+    # Cleanup
+    HttpClient._stealth_required_hosts.discard(test_host)
+
+
+def test_search_provider_scraper_registers_ddg_stealth():
+    """SearchProviderScraper.__init__ must register DDG hosts as stealth-required."""
+    from utils.http_client import HttpClient
+    from scraper.google_images import SearchProviderScraper
+
+    # Instantiate to trigger __init__ stealth registration
+    _scraper = SearchProviderScraper()
+    assert "duckduckgo.com" in HttpClient._stealth_required_hosts
+    assert "html.duckduckgo.com" in HttpClient._stealth_required_hosts

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import parse_qs, quote_plus, urlparse
+from urllib.parse import parse_qs, quote_plus, urlencode, urlparse
 from typing import Any
 
 from bs4 import BeautifulSoup, Tag
@@ -25,11 +25,17 @@ LOGGER = get_logger(__name__)
 
 
 class SearchProviderScraper(BaseSearchScraper):
+    # DuckDuckGo host variants that must bypass raw httpx and use browser stealth.
+    _DDG_HOSTS = ("duckduckgo.com", "html.duckduckgo.com")
+
     def __init__(
         self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False
     ) -> None:
         self.http = HttpClient(domain_delays=domain_delays)
         self.robots = RobotsChecker(self.http, ignore_robots=ignore_robots)
+        # Route all DuckDuckGo requests through browser stealth to avoid bot blocks.
+        for ddg_host in self._DDG_HOSTS:
+            HttpClient.register_stealth_required(ddg_host)
 
     def search_pages(
         self,
@@ -40,26 +46,47 @@ class SearchProviderScraper(BaseSearchScraper):
     ) -> list[str]:
         allow_domains = allow_domains or []
         block_domains = block_domains or []
-        search_url = f"https://duckduckgo.com/html/?q={quote_plus(keyword)}"
-        response = self.http.get(search_url)
-        soup = parse_html(response.text)
-
+        # kp=-2 disables SafeSearch; browser stealth is already registered for DDG.
+        search_url: str | None = (
+            f"https://duckduckgo.com/html/?q={quote_plus(keyword)}&kp=-2"
+        )
         links: list[str] = []
-        anchors = soup.select("a.result__a") or soup.select("a[href]")
-        for anchor in anchors:
-            href = self._extract_result_href(anchor.get("href", "").strip())
-            if not href or not is_http_url(href):
-                continue
-            if not is_allowed_domain(href, allow_domains, block_domains):
-                continue
-            if not is_allowed_path(href):
-                continue
-            if href not in links:
-                links.append(href)
+        visited: set[str] = set()
+
+        while search_url and search_url not in visited:
+            visited.add(search_url)
+            LOGGER.info("Fetching search page: %s", search_url)
+            try:
+                response = self.http.get(search_url)
+                soup = parse_html(response.text)
+            except Exception as exc:
+                LOGGER.warning("Search page fetch failed (%s): %s", search_url, exc)
+                break
+
+            anchors = soup.select("a.result__a") or soup.select("a[href]")
+            page_count = 0
+            for anchor in anchors:
+                href = self._extract_result_href(anchor.get("href", "").strip())
+                if not href or not is_http_url(href):
+                    continue
+                if not is_allowed_domain(href, allow_domains, block_domains):
+                    continue
+                if not is_allowed_path(href):
+                    continue
+                if href not in links:
+                    links.append(href)
+                    page_count += 1
+                if max_results > 0 and len(links) >= max_results:
+                    break
+
+            LOGGER.info("Page yielded %d links (total: %d)", page_count, len(links))
             if max_results > 0 and len(links) >= max_results:
                 break
 
-        LOGGER.info("Search provider returned %s candidate pages", len(links))
+            # Follow the next-page form (hidden inputs carry vqd/s/dc tokens).
+            search_url = self._extract_next_page_url(soup)
+
+        LOGGER.info("Search provider returned %s candidate pages total", len(links))
         return links
 
     def scrape_page(
@@ -574,6 +601,30 @@ class SearchProviderScraper(BaseSearchScraper):
             if content:
                 return content
         return ""
+
+    @staticmethod
+    def _extract_next_page_url(soup: BeautifulSoup) -> str | None:
+        """Parse the DuckDuckGo next-page form and return the next search URL.
+
+        DDG's HTML endpoint includes a ``<form action="/html/">`` at the bottom
+        of each results page with hidden fields (``q``, ``s``, ``vqd``, etc.).
+        Extracting those inputs and building a GET URL lets us paginate without
+        sessions or POST requests, and picks up any new token fields automatically.
+        """
+        for form in soup.find_all("form"):
+            action = form.get("action", "")
+            if "html" not in action.lower():
+                continue
+            params: dict[str, str] = {}
+            for inp in form.find_all("input"):
+                name = inp.get("name")
+                val = inp.get("value", "")
+                if name:
+                    params[name] = val
+            # Only follow if real pagination params are present.
+            if params and ("s" in params or "vqd" in params):
+                return f"https://html.duckduckgo.com/html/?{urlencode(params)}"
+        return None
 
     @staticmethod
     def _extract_result_href(href: str) -> str:

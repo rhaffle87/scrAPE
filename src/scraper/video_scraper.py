@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import parse_qs, quote_plus, urlparse
+from urllib.parse import parse_qs, quote_plus, urlencode, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -280,8 +280,14 @@ def detect_video_type(url: str) -> str | None:
 
 
 class VideoScraper:
+    # DuckDuckGo host variants requiring browser-stealth routing.
+    _DDG_HOSTS = ("duckduckgo.com", "html.duckduckgo.com")
+
     def __init__(self, domain_delays: dict[str, float] | None = None) -> None:
         self.http = HttpClient(domain_delays=domain_delays)
+        # Route DDG through browser stealth to bypass bot-detection.
+        for ddg_host in self._DDG_HOSTS:
+            HttpClient.register_stealth_required(ddg_host)
 
     def search(
         self,
@@ -292,15 +298,22 @@ class VideoScraper:
     ) -> list[VideoItem]:
         allow_domains = allow_domains or []
         block_domains = block_domains or []
-        search_url = (
+        # kp=-2 disables SafeSearch; stealth routing already registered for DDG.
+        search_url: str | None = (
             "https://duckduckgo.com/html/?q="
-            f"{quote_plus(keyword)}+site%3Ayoutube.com+OR+site%3Avimeo.com"
+            f"{quote_plus(keyword)}+site%3Ayoutube.com+OR+site%3Avimeo.com&kp=-2"
         )
-        try:
-            response = self.http.get(search_url)
-            soup = BeautifulSoup(response.text, "lxml")
+        videos: list[VideoItem] = []
+        visited: set[str] = set()
 
-            videos: list[VideoItem] = []
+        while search_url and search_url not in visited:
+            visited.add(search_url)
+            try:
+                response = self.http.get(search_url)
+                soup = BeautifulSoup(response.text, "lxml")
+            except Exception:
+                break
+
             for anchor in soup.select("a.result__a"):
                 href = self._extract_result_href(anchor.get("href", "").strip())
                 if not href:
@@ -312,18 +325,42 @@ class VideoScraper:
                 video_type = detect_video_type(href)
                 if not video_type:
                     continue
-                videos.append(
-                    VideoItem(
-                        url=normalize_url(href),
-                        source_page=search_url,
-                        type=video_type,
+                normalized = normalize_url(href)
+                if not any(v.url == normalized for v in videos):
+                    videos.append(
+                        VideoItem(
+                            url=normalized,
+                            source_page=search_url,
+                            type=video_type,
+                        )
                     )
-                )
                 if max_results > 0 and len(videos) >= max_results:
                     break
-            return videos
-        except Exception:
-            return []
+
+            if max_results > 0 and len(videos) >= max_results:
+                break
+
+            # Follow next-page form (extracts vqd/s/dc tokens automatically).
+            search_url = self._extract_next_page_url(soup)
+
+        return videos
+
+    @staticmethod
+    def _extract_next_page_url(soup: BeautifulSoup) -> str | None:
+        """Extract the next-page URL from the DuckDuckGo HTML results form."""
+        for form in soup.find_all("form"):
+            action = form.get("action", "")
+            if "html" not in action.lower():
+                continue
+            params: dict[str, str] = {}
+            for inp in form.find_all("input"):
+                name = inp.get("name")
+                val = inp.get("value", "")
+                if name:
+                    params[name] = val
+            if params and ("s" in params or "vqd" in params):
+                return f"https://html.duckduckgo.com/html/?{urlencode(params)}"
+        return None
 
     @staticmethod
     def _extract_result_href(href: str) -> str:
