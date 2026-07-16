@@ -56,6 +56,7 @@ def _fast_limiter_for(host: str) -> RateLimiter:
             _FAST_DOWNLOAD_LIMITERS[host] = RateLimiter(DOWNLOAD_RATE_LIMIT_RPS)
         return _FAST_DOWNLOAD_LIMITERS[host]
 
+
 IMAGE_SIGNATURES = (
     b"\xff\xd8\xff",
     b"\x89PNG\r\n\x1a\n",
@@ -90,18 +91,20 @@ class MediaDownloader:
         self._seen_hashes: set[str] = set()
         self._hash_lock = threading.Lock()
 
-
     def _is_hotlink_protected(self, url: str) -> bool:
         """Check if URL is from a domain that requires Referer header."""
         from src.config import HOTLINK_PROTECTED_DOMAINS
+
         try:
             import re
+
             domain_match = re.search(r"https?://([^/]+)", url)
             if domain_match:
                 return domain_match.group(1) in HOTLINK_PROTECTED_DOMAINS
         except Exception:
             pass
         return False
+
     def download(self, result: ScrapeResult, output_root: Path) -> None:
         """Download all accepted images and videos in parallel."""
         with self._hash_lock:
@@ -120,6 +123,7 @@ class MediaDownloader:
                 self._build_file_stem(idx, item.alt_text or item.page_title or "image"),
                 "image",
                 item.source_page,
+                getattr(item, "original_url", item.url) or item.url,
             )
             for idx, item in enumerate(result.images, start=1)
             if should_keep_image(item, result.keyword)
@@ -131,6 +135,7 @@ class MediaDownloader:
                 self._build_file_stem(idx, item.page_title or item.type),
                 "video",
                 item.source_page,
+                item.url,
             )
             for idx, item in enumerate(result.videos, start=1)
             if item.type in {"direct", "hls", "dash"}
@@ -153,8 +158,24 @@ class MediaDownloader:
         _counters: dict[Path, int] = {}
 
         def _run(task):
-            url, directory, prefix, media_kind, referer = task
-            self._download_file(url, directory, prefix, media_kind, referer=referer)
+            url, directory, prefix, media_kind, referer, original_url = task
+            from core.filters import transform_to_highres
+
+            upscaled_url, orig = transform_to_highres(url)
+
+            success, result = self._download_file(
+                upscaled_url, directory, prefix, media_kind, referer=referer
+            )
+            if not success and upscaled_url != orig:
+                LOGGER.info(
+                    "High-res upscale failed for %s, falling back to original: %s",
+                    upscaled_url,
+                    orig,
+                )
+                success, result = self._download_file(
+                    orig, directory, prefix, media_kind, referer=referer
+                )
+            return success, result
 
         with ThreadPoolExecutor(
             max_workers=self.workers, thread_name_prefix="dl"
@@ -170,7 +191,9 @@ class MediaDownloader:
 
         LOGGER.info("Download phase complete.")
 
-    def _make_download_headers(self, url: str, referer: str | None = None) -> dict[str, str]:
+    def _make_download_headers(
+        self, url: str, referer: str | None = None
+    ) -> dict[str, str]:
         """Build browser-like headers for a direct binary media fetch.
 
         Using a dedicated header set (separate from HttpClient) avoids triggering
@@ -188,6 +211,7 @@ class MediaDownloader:
 
         if not user_agent:
             from config import USER_AGENTS
+
             user_agent = random.choice(USER_AGENTS)
 
         origin = (
@@ -220,10 +244,13 @@ class MediaDownloader:
                 cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
                 if cookie_str:
                     headers["Cookie"] = cookie_str
-                    LOGGER.info("Enriched download headers with %d session cookies for host: %s", len(cookies), host)
+                    LOGGER.info(
+                        "Enriched download headers with %d session cookies for host: %s",
+                        len(cookies),
+                        host,
+                    )
 
         return headers
-
 
     def _download_file(
         self,
@@ -253,11 +280,18 @@ class MediaDownloader:
           independent of the crawl limiter, preventing serialization caused by
           very slow crawl rates (e.g. 0.1 req/s) on the same hostname.
         """
-        if thumbnail_prefix_pattern and url.lower().startswith(thumbnail_prefix_pattern.lower()):
-            LOGGER.info("Skipping URL matching thumbnail prefix pattern %s: %s", thumbnail_prefix_pattern, url)
+        if thumbnail_prefix_pattern and url.lower().startswith(
+            thumbnail_prefix_pattern.lower()
+        ):
+            LOGGER.info(
+                "Skipping URL matching thumbnail prefix pattern %s: %s",
+                thumbnail_prefix_pattern,
+                url,
+            )
             return False, {"reason": "low_resolution"}
 
         from config import OUTPUT_DIR  # noqa: F401 — kept for potential future use
+
         directory.mkdir(parents=True, exist_ok=True)
         from urllib.parse import quote
         import time
@@ -269,8 +303,11 @@ class MediaDownloader:
         # CDN hosts are exempt from rate-limiting; all other hosts get a fast
         # download-only limiter that doesn't interact with the crawl limiters.
         from core.filters import is_cdn_asset_domain
+
         _url_host = urlparse(url).netloc.lower()
-        _is_cdn = is_cdn_asset_domain(url, allow_hosts=cdn_hosts) if cdn_hosts else False
+        _is_cdn = (
+            is_cdn_asset_domain(url, allow_hosts=cdn_hosts) if cdn_hosts else False
+        )
 
         w, h = None, None
 
@@ -299,7 +336,9 @@ class MediaDownloader:
                         cl = int(content_length_header)
                         if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
                             LOGGER.info(
-                                "Skipping tiny image asset %s (Content-Length=%d)", url, cl
+                                "Skipping tiny image asset %s (Content-Length=%d)",
+                                url,
+                                cl,
                             )
                             return False, {"reason": "low_resolution"}
                         if (
@@ -308,7 +347,9 @@ class MediaDownloader:
                             and not self._is_manifest_url(url)
                         ):
                             LOGGER.info(
-                                "Skipping tiny video asset %s (Content-Length=%d)", url, cl
+                                "Skipping tiny video asset %s (Content-Length=%d)",
+                                url,
+                                cl,
                             )
                             return False, {"reason": "low_resolution"}
 
@@ -327,8 +368,16 @@ class MediaDownloader:
                                 current_bytes = b"".join(chunks)
                                 w, h = get_image_dimensions(current_bytes)
                                 if w is not None and h is not None:
-                                    limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
-                                    limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                                    limit_w = (
+                                        min_image_size[0]
+                                        if min_image_size
+                                        else MIN_IMAGE_WIDTH
+                                    )
+                                    limit_h = (
+                                        min_image_size[1]
+                                        if min_image_size
+                                        else MIN_IMAGE_HEIGHT
+                                    )
                                     if w < limit_w or h < limit_h:
                                         LOGGER.info(
                                             "Skipping low-resolution image asset %s (%dx%d)",
@@ -350,7 +399,9 @@ class MediaDownloader:
                                             "Skipping image with unparseable dimensions %s",
                                             url,
                                         )
-                                        return False, {"reason": "unparseable_dimensions"}
+                                        return False, {
+                                            "reason": "unparseable_dimensions"
+                                        }
                                     dimensions_checked = True
                         content = b"".join(chunks)
                     else:
@@ -369,7 +420,9 @@ class MediaDownloader:
                     and not self._is_manifest_url(url)
                 ):
                     LOGGER.info(
-                        "Skipping tiny video asset %s (size=%d bytes)", url, content_length
+                        "Skipping tiny video asset %s (size=%d bytes)",
+                        url,
+                        content_length,
                     )
                     return False, {"reason": "low_resolution"}
 
@@ -393,7 +446,9 @@ class MediaDownloader:
                 with self._hash_lock:
                     if content_hash in self._seen_hashes:
                         LOGGER.info(
-                            "Skipping duplicate content hash %s for %s", content_hash, url
+                            "Skipping duplicate content hash %s for %s",
+                            content_hash,
+                            url,
                         )
                         return False, {"reason": "duplicate"}
                     self._seen_hashes.add(content_hash)
@@ -401,15 +456,24 @@ class MediaDownloader:
                 if media_kind == "image":
                     w, h = get_image_dimensions(content)
                     if w is not None and h is not None:
-                        limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
-                        limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                        limit_w = (
+                            min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
+                        )
+                        limit_h = (
+                            min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                        )
                         if w < limit_w or h < limit_h:
                             LOGGER.info(
-                                "Skipping low-resolution image asset %s (%dx%d)", url, w, h
+                                "Skipping low-resolution image asset %s (%dx%d)",
+                                url,
+                                w,
+                                h,
                             )
                             return False, {"reason": "low_resolution"}
                     elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-                        LOGGER.info("Skipping image with unparseable dimensions %s", url)
+                        LOGGER.info(
+                            "Skipping image with unparseable dimensions %s", url
+                        )
                         return False, {"reason": "unparseable_dimensions"}
 
                 target = directory / f"{prefix}{suffix}"
@@ -432,7 +496,9 @@ class MediaDownloader:
                     "width": w,
                     "height": h,
                     "file_size_bytes": content_length,
-                    "mime_type": content_type or mimetypes.guess_type(target.name)[0] or "",
+                    "mime_type": content_type
+                    or mimetypes.guess_type(target.name)[0]
+                    or "",
                 }
 
             except httpx.HTTPStatusError as exc:
@@ -449,12 +515,15 @@ class MediaDownloader:
                     )
                     time.sleep(sleep_time)
                     continue
-                LOGGER.warning(
-                    "HTTP %d downloading %s: %s", status, url, exc
-                )
+                LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
                 return False, {"reason": f"http_error:{status}"}
 
-            except (httpx.HTTPError, httpx.StreamError, ConnectionError, TimeoutError) as exc:
+            except (
+                httpx.HTTPError,
+                httpx.StreamError,
+                ConnectionError,
+                TimeoutError,
+            ) as exc:
                 if attempt < max_attempts:
                     sleep_time = 2.0**attempt
                     LOGGER.warning(
@@ -471,7 +540,9 @@ class MediaDownloader:
                 return False, {"reason": f"download_error:{type(exc).__name__}"}
 
             except Exception as exc:
-                LOGGER.warning("Failed to download %s due to unexpected error: %s", url, exc)
+                LOGGER.warning(
+                    "Failed to download %s due to unexpected error: %s", url, exc
+                )
                 return False, {"reason": f"download_error:{type(exc).__name__}"}
 
     @staticmethod

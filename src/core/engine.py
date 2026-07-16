@@ -37,13 +37,17 @@ from core.models import (
 )
 from scraper.google_images import SearchProviderScraper
 from scraper.video_scraper import VideoScraper
+from scraper.specialized import SpecializedExtractor
 from storage.file_downloader import MediaDownloader
+from storage.state_cache import StateCache
 from utils.logger import get_logger
 
 LOGGER = get_logger(__name__)
 
 
-def _is_target_met(result: ScrapeResult, options: EngineOptions, max_results: int) -> bool:
+def _is_target_met(
+    result: ScrapeResult, options: EngineOptions, max_results: int
+) -> bool:
     if max_results <= 0:
         return False
 
@@ -91,99 +95,72 @@ def _video_resolution_hint(url: str) -> int:
 
 
 class ScrapingEngine:
-    def should_deep_scrape(self, domain: str) -> bool:
-        import json
-        with open('data/domain_config.json', 'r') as f:
-            cfg = json.load(f)
-        return domain in cfg.get('deep_scrape', [])
-
-    def handle_kittykawai_links(self, soup, domain):
-        import json
-        with open('data/domain_config.json', 'r') as f:
-            cfg = json.load(f)
-        handler = cfg.get('domain_handlers', {}).get(domain, {})
-        pattern = handler.get('link_pattern', '/post/')
-        return [a['href'] for a in soup.find_all('a', href=re.compile(pattern))]
-        # Specific handler for kittykawai.com: follow detail links
-
-    def filter_domains_by_profile(self, domains, profile_name):
-        """Filter list of domains based on subject profile."""
-        try:
-            import json
-            profile_path = 'src/config/subject_profiles.json'
-            with open(profile_path, 'r', encoding='utf-8') as f:
-                profiles = json.load(f)
-            
-            if profile_name not in profiles:
-                return domains
-                
-            profile = profiles[profile_name]
-            block = profile.get('block_image_only_domains', [])
-            
-            filtered = [d for d in domains if not any(b in d for b in block)]
-            return filtered
-        except Exception as e:
-            return domains
-
     def __init__(
         self,
         domain_delays: dict[str, float] | None = None,
         workers: int = CONCURRENT_PAGES_PER_BATCH,
         ignore_robots: bool = False,
+        use_state_cache: bool = False,
     ) -> None:
         self.workers = max(1, workers)
         self.domain_yield = {}
-        
+
         self.search_provider = SearchProviderScraper(
             domain_delays=domain_delays, ignore_robots=ignore_robots
         )
         self.video_scraper = VideoScraper(domain_delays=domain_delays)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http)
+        self.state_cache = StateCache() if use_state_cache else None
 
     def track_domain_yield(self, domain, kept_delta, pages_delta):
         stats = self.domain_yield.get(domain, [0, 0])
         stats[0] += kept_delta
         stats[1] += pages_delta
         self.domain_yield[domain] = stats
-        
+
         # Throttling logic
         if stats[1] > 20 and (stats[0] / stats[1]) < 0.02:
-            LOGGER.warning(f"Deprioritizing low-yield domain: {domain} ({stats[0]/stats[1]:.1%})")
+            LOGGER.warning(
+                f"Deprioritizing low-yield domain: {domain} ({stats[0] / stats[1]:.1%})"
+            )
             # This is a passive deprioritization signal
-            self.domain_yield[domain] = [-1000, 0] 
+            self.domain_yield[domain] = [-1000, 0]
 
     def should_deep_scrape(self, domain: str) -> bool:
         import json
-        with open('data/domain_config.json', 'r') as f:
+
+        with open("data/domain_config.json", "r") as f:
             cfg = json.load(f)
-        return domain in cfg.get('deep_scrape', [])
+        return domain in cfg.get("deep_scrape", [])
 
     def handle_kittykawai_links(self, soup, domain):
         import json
-        with open('data/domain_config.json', 'r') as f:
+
+        with open("data/domain_config.json", "r") as f:
             cfg = json.load(f)
-        handler = cfg.get('domain_handlers', {}).get(domain, {})
-        pattern = handler.get('link_pattern', '/post/')
-        return [a['href'] for a in soup.find_all('a', href=re.compile(pattern))]
+        handler = cfg.get("domain_handlers", {}).get(domain, {})
+        pattern = handler.get("link_pattern", "/post/")
+        return [a["href"] for a in soup.find_all("a", href=re.compile(pattern))]
 
     def filter_domains_by_profile(self, domains, profile_name):
         """Filter list of domains based on subject profile."""
         try:
             import json
-            profile_path = 'src/config/subject_profiles.json'
-            with open(profile_path, 'r', encoding='utf-8') as f:
+
+            profile_path = "src/config/subject_profiles.json"
+            with open(profile_path, "r", encoding="utf-8") as f:
                 profiles = json.load(f)
-            
+
             if profile_name not in profiles:
                 return domains
-                
+
             profile = profiles[profile_name]
-            block = profile.get('block_image_only_domains', [])
-            
+            block = profile.get("block_image_only_domains", [])
+
             filtered = [d for d in domains if not any(b in d for b in block)]
             return filtered
-        except Exception as e:
+        except Exception:
             return domains
 
     def run(
@@ -234,6 +211,7 @@ class ScrapingEngine:
         # skips all browser fallback tiers immediately for protected domains.
         # This prevents ~30s timeouts per page when Turnstile is active.
         from utils.http_client import HttpClient
+
         if options.domain_profiles:
             for _domain, _profile in options.domain_profiles.items():
                 if getattr(_profile, "cloudflare_blocked", False):
@@ -282,7 +260,9 @@ class ScrapingEngine:
         result_lock = threading.RLock()
         seen_rejected_urls: set[tuple[str, str]] = set()
 
-        def add_rejected(kind: str, url: str, source_page: str, reason: str, score: int = 0) -> bool:
+        def add_rejected(
+            kind: str, url: str, source_page: str, reason: str, score: int = 0
+        ) -> bool:
             norm_url = normalize_url(url)
             key = (norm_url, reason)
             with result_lock:
@@ -299,7 +279,6 @@ class ScrapingEngine:
                     )
                 )
                 return True
-
 
         # Enqueue candidate pages at depth 0
         for page in candidate_pages:
@@ -330,6 +309,9 @@ class ScrapingEngine:
                 page = depth_queues[host].popleft()
                 normalized_page = normalize_url(page)
                 if normalized_page in visited_pages:
+                    continue
+                if self.state_cache and self.state_cache.is_processed(normalized_page):
+                    LOGGER.debug(f"Skipping already processed page: {normalized_page}")
                     continue
                 visited_pages.add(normalized_page)
                 ordered_pages.append((normalized_page, current_depth))
@@ -393,7 +375,9 @@ class ScrapingEngine:
                         normalized_link, options
                     )
                     if scope_reason:
-                        add_rejected("page", normalized_link, normalized_page, scope_reason)
+                        add_rejected(
+                            "page", normalized_link, normalized_page, scope_reason
+                        )
                         continue
                     if (
                         normalized_link in visited_pages
@@ -448,18 +432,28 @@ class ScrapingEngine:
                 pages_scanned = stats["pages_scanned"]
                 total_kept = stats["images_kept"] + stats["videos_kept"]
                 total_raw_found = total_kept + stats["rejected_count"]
-                
-                is_seeded = (host in domain_profiles) or (host in (options.seed_domains or []))
+
+                is_seeded = (host in domain_profiles) or (
+                    host in (options.seed_domains or [])
+                )
 
                 if not is_seeded and total_raw_found < 50:
                     if pages_scanned >= 20 and total_kept == 0:
-                        LOGGER.info("Skipping %s: early zero-yield cutoff from domain %s", page, host)
+                        LOGGER.info(
+                            "Skipping %s: early zero-yield cutoff from domain %s",
+                            page,
+                            host,
+                        )
                         return page, depth, [], [], "low_yield_skipped"
 
                     if pages_scanned >= 30:
                         yield_rate = total_kept / pages_scanned
                         if yield_rate < 0.05:
-                            LOGGER.info("Skipping %s: low yield from domain %s (<5%%)", page, host)
+                            LOGGER.info(
+                                "Skipping %s: low yield from domain %s (<5%%)",
+                                page,
+                                host,
+                            )
                             return page, depth, [], [], "low_yield_skipped"
 
                 # Per-domain max_pages hard cap (set via 'max_pages: N' in seed file)
@@ -469,17 +463,39 @@ class ScrapingEngine:
                     if max_pages_cap is not None and pages_scanned >= max_pages_cap:
                         LOGGER.info(
                             "Skipping %s: domain '%s' reached max_pages cap (%d).",
-                            page, host, max_pages_cap,
+                            page,
+                            host,
+                            max_pages_cap,
                         )
                         return page, depth, [], [], "max_pages_capped"
 
                 stats["pages_scanned"] += 1
 
-            page_images, page_videos, scrape_status = self.search_provider.scrape_page(
-                page,
-                allow_domains=options.allow_domains,
-                block_domains=options.block_domains,
-            )
+            if SpecializedExtractor.is_supported(page):
+                LOGGER.info(f"Routing {page} to specialized extractor.")
+                spec_result = SpecializedExtractor.extract(page)
+
+                # Convert the raw URLs into generic ImageItem/VideoItem so downstream works
+                from core.models import ImageItem, VideoItem
+
+                page_images = [
+                    ImageItem(url=u, source_page=page, status="pending")
+                    for u in spec_result.images
+                ]
+                page_videos = [
+                    VideoItem(url=u, source_page=page, type="direct", status="pending")
+                    for u in spec_result.videos
+                ]
+                scrape_status = "ok"
+            else:
+                page_images, page_videos, scrape_status = (
+                    self.search_provider.scrape_page(
+                        page,
+                        allow_domains=options.allow_domains,
+                        block_domains=options.block_domains,
+                    )
+                )
+
             return page, depth, page_images, page_videos, scrape_status
 
         current_concurrency = self.workers
@@ -492,7 +508,7 @@ class ScrapingEngine:
             with ThreadPoolExecutor(
                 max_workers=self.workers, thread_name_prefix="scraper"
             ) as executor:
-                
+
                 def submit_next():
                     try:
                         next_page, next_depth = next(pages_iter)
@@ -537,29 +553,40 @@ class ScrapingEngine:
                             net_latency = 0.0
                         # Fall back to wall-clock latency only when net_latency is 0 (cache
                         # hit or robots block — no real network request was made).
-                        effective_latency = net_latency if net_latency > 0.0 else latency
+                        effective_latency = (
+                            net_latency if net_latency > 0.0 else latency
+                        )
 
                         # Adjust dynamic concurrency based on health
-                        is_block = "429" in scrape_status or "403" in scrape_status or "worker_error" in scrape_status
+                        is_block = (
+                            "429" in scrape_status
+                            or "403" in scrape_status
+                            or "worker_error" in scrape_status
+                        )
                         with result_lock:
                             if is_block:
                                 current_concurrency = max(1, current_concurrency - 2)
                                 LOGGER.warning(
                                     "Dynamic Concurrency: Block/Error on %s. Reducing worker limit to %d.",
-                                    page, current_concurrency
+                                    page,
+                                    current_concurrency,
                                 )
                             elif effective_latency > 2.0:
                                 current_concurrency = max(1, current_concurrency - 1)
                                 LOGGER.info(
                                     "Dynamic Concurrency: High latency (%.2fs net) on %s. Reducing worker limit to %d.",
-                                    effective_latency, page, current_concurrency
+                                    effective_latency,
+                                    page,
+                                    current_concurrency,
                                 )
                             else:
                                 if current_concurrency < self.workers:
                                     current_concurrency += 1
                                     LOGGER.info(
                                         "Dynamic Concurrency: Fast response (%.2fs net) on %s. Scaling up worker limit to %d.",
-                                        effective_latency, page, current_concurrency
+                                        effective_latency,
+                                        page,
+                                        current_concurrency,
                                     )
 
                         with result_lock:
@@ -573,14 +600,18 @@ class ScrapingEngine:
                                     "error_429_count": 0,
                                     "error_other_count": 0,
                                 }
-                            
+
                             stats = result.domain_stats[host]
 
                             if scrape_status == "ok":
                                 pass
                             elif scrape_status == "low_yield_skipped":
                                 pass
-                            elif "429" in scrape_status or "cooldown" in scrape_status or "blacklisted" in scrape_status:
+                            elif (
+                                "429" in scrape_status
+                                or "cooldown" in scrape_status
+                                or "blacklisted" in scrape_status
+                            ):
                                 stats["error_429_count"] += 1
                             else:
                                 stats["error_other_count"] += 1
@@ -593,12 +624,18 @@ class ScrapingEngine:
                                     status="success"
                                     if scrape_status == "ok"
                                     else "skipped",
-                                    reason="" if scrape_status == "ok" else scrape_status,
-                                    discovered_links=discovered_links_counts.get(page, 0),
+                                    reason=""
+                                    if scrape_status == "ok"
+                                    else scrape_status,
+                                    discovered_links=discovered_links_counts.get(
+                                        page, 0
+                                    ),
                                     images_found=len(page_images),
                                     videos_found=len(page_videos),
                                 )
                             )
+                            if scrape_status == "ok" and self.state_cache:
+                                self.state_cache.mark_processed(normalize_url(page))
 
                             # Filtering and deduplication of page_images
                             for item in page_images:
@@ -614,10 +651,15 @@ class ScrapingEngine:
                                         )
                                         existing.url = item.url
                                     else:
-                                        if add_rejected("image", item.url, item.source_page, "duplicate"):
+                                        if add_rejected(
+                                            "image",
+                                            item.url,
+                                            item.source_page,
+                                            "duplicate",
+                                        ):
                                             stats["rejected_count"] += 1
                                     continue
-                                
+
                                 if norm_key in processed_media_urls:
                                     continue
                                 processed_media_urls.add(norm_key)
@@ -637,7 +679,9 @@ class ScrapingEngine:
                                     domain_profiles,
                                 )
                                 if reason:
-                                    parent_href = getattr(item, "parent_anchor_href", "")
+                                    parent_href = getattr(
+                                        item, "parent_anchor_href", ""
+                                    )
                                     LOGGER.debug(
                                         "Image rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
                                         item.url,
@@ -646,12 +690,27 @@ class ScrapingEngine:
                                         item.source_page,
                                         parent_href,
                                     )
-                                    if add_rejected("image", item.url, item.source_page, reason, score):
+                                    if add_rejected(
+                                        "image",
+                                        item.url,
+                                        item.source_page,
+                                        reason,
+                                        score,
+                                    ):
                                         stats["rejected_count"] += 1
                                     continue
 
-                                if max_results > 0 and len(result.images) >= max_results:
-                                    add_rejected("image", item.url, item.source_page, "max_results_limit", score)
+                                if (
+                                    max_results > 0
+                                    and len(result.images) >= max_results
+                                ):
+                                    add_rejected(
+                                        "image",
+                                        item.url,
+                                        item.source_page,
+                                        "max_results_limit",
+                                        score,
+                                    )
                                     continue
 
                                 seen_images[norm_key] = item
@@ -671,20 +730,28 @@ class ScrapingEngine:
                                     if new_res > old_res:
                                         LOGGER.debug(
                                             "Video resolution upgrade %dp→%dp: %s",
-                                            old_res, new_res, item.url,
+                                            old_res,
+                                            new_res,
+                                            item.url,
                                         )
                                         existing.url = item.url
                                     elif "?" in item.url and "?" not in existing.url:
                                         LOGGER.debug(
                                             "Video URL upgraded from tokenless to tokened: %s -> %s",
-                                            existing.url, item.url,
+                                            existing.url,
+                                            item.url,
                                         )
                                         existing.url = item.url
                                     else:
-                                        if add_rejected("video", item.url, item.source_page, "duplicate"):
+                                        if add_rejected(
+                                            "video",
+                                            item.url,
+                                            item.source_page,
+                                            "duplicate",
+                                        ):
                                             stats["rejected_count"] += 1
                                     continue
-                                
+
                                 if norm_key in processed_media_urls:
                                     continue
                                 processed_media_urls.add(norm_key)
@@ -704,7 +771,9 @@ class ScrapingEngine:
                                     domain_profiles,
                                 )
                                 if reason:
-                                    parent_href = getattr(item, "parent_anchor_href", "")
+                                    parent_href = getattr(
+                                        item, "parent_anchor_href", ""
+                                    )
                                     LOGGER.debug(
                                         "Video rejected: %s (reason: %s, score: %d, source: %s, parent_href: %s)",
                                         item.url,
@@ -713,12 +782,27 @@ class ScrapingEngine:
                                         item.source_page,
                                         parent_href,
                                     )
-                                    if add_rejected("video", item.url, item.source_page, reason, score):
+                                    if add_rejected(
+                                        "video",
+                                        item.url,
+                                        item.source_page,
+                                        reason,
+                                        score,
+                                    ):
                                         stats["rejected_count"] += 1
                                     continue
 
-                                if max_results > 0 and len(result.videos) >= max_results:
-                                    add_rejected("video", item.url, item.source_page, "max_results_limit", score)
+                                if (
+                                    max_results > 0
+                                    and len(result.videos) >= max_results
+                                ):
+                                    add_rejected(
+                                        "video",
+                                        item.url,
+                                        item.source_page,
+                                        "max_results_limit",
+                                        score,
+                                    )
                                     continue
 
                                 seen_videos[norm_key] = item
@@ -726,7 +810,9 @@ class ScrapingEngine:
                                 result.videos.append(item)
                                 stats["videos_kept"] += 1
 
-                        if max_results > 0 and _is_target_met(result, options, max_results):
+                        if max_results > 0 and _is_target_met(
+                            result, options, max_results
+                        ):
                             LOGGER.info(
                                 "Target media limits met early (%d images, %d videos). Cancelling remaining page fetches.",
                                 len(result.images),
@@ -739,7 +825,7 @@ class ScrapingEngine:
                                     f.cancel()
                             pbar.update(pbar.total - pbar.n)
                             break
-                        
+
                         pbar.update(1)
 
                     # Submit next pages to maintain target concurrency
@@ -781,7 +867,9 @@ class ScrapingEngine:
                 add_rejected("video", item.url, item.source_page, reason, score)
                 continue
             if max_results > 0 and len(result.videos) >= max_results:
-                add_rejected("video", item.url, item.source_page, "max_results_limit", score)
+                add_rejected(
+                    "video", item.url, item.source_page, "max_results_limit", score
+                )
                 continue
             seen_videos[norm_key] = item
             item.source_domain = get_domain_slug(item.source_page)
@@ -897,10 +985,26 @@ class ScrapingEngine:
                     dl_futures = {}
                     for item, directory, stem, media_kind in all_dl_tasks:
                         dl_host = urlparse(item.source_page).netloc.lower()
-                        profile = options.domain_profiles.get(dl_host) if options.domain_profiles else None
-                        min_size = getattr(profile, "min_image_size", None) if profile else None
-                        thumb_pattern = getattr(profile, "thumbnail_prefix_pattern", None) if profile else None
-                        needs_referer = getattr(profile, "requires_referer", False) if profile else False
+                        profile = (
+                            options.domain_profiles.get(dl_host)
+                            if options.domain_profiles
+                            else None
+                        )
+                        min_size = (
+                            getattr(profile, "min_image_size", None)
+                            if profile
+                            else None
+                        )
+                        thumb_pattern = (
+                            getattr(profile, "thumbnail_prefix_pattern", None)
+                            if profile
+                            else None
+                        )
+                        needs_referer = (
+                            getattr(profile, "requires_referer", False)
+                            if profile
+                            else False
+                        )
                         referer = item.source_page if needs_referer else None
 
                         fut = dl_executor.submit(
@@ -923,20 +1027,36 @@ class ScrapingEngine:
                                 item.status = "downloaded"
                                 item.file_path = download_info.get("file_path", "")
                                 item.hash = download_info.get("hash", "")
-                                item.file_size_bytes = download_info.get("file_size_bytes")
+                                item.file_size_bytes = download_info.get(
+                                    "file_size_bytes"
+                                )
                                 item.mime_type = download_info.get("mime_type", "")
                                 if download_info.get("width") is not None:
                                     item.width = download_info.get("width")
                                 if download_info.get("height") is not None:
                                     item.height = download_info.get("height")
-                                result.download_stats["downloaded"] = result.download_stats.get("downloaded", 0) + 1
+                                result.download_stats["downloaded"] = (
+                                    result.download_stats.get("downloaded", 0) + 1
+                                )
                             else:
                                 reason = download_info.get("reason", "unknown")
-                                item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
+                                item.status = (
+                                    "skipped"
+                                    if reason
+                                    in {
+                                        "low_resolution",
+                                        "unparseable_dimensions",
+                                        "duplicate",
+                                        "invalid_media_type",
+                                    }
+                                    else "failed"
+                                )
                                 item.failure_reason = reason
 
                                 key = f"download_{reason}"
-                                result.download_stats[key] = result.download_stats.get(key, 0) + 1
+                                result.download_stats[key] = (
+                                    result.download_stats.get(key, 0) + 1
+                                )
 
                                 add_rejected(
                                     media_kind,
@@ -949,9 +1069,25 @@ class ScrapingEngine:
                                 if dl_host in result.domain_stats:
                                     result.domain_stats[dl_host]["rejected_count"] += 1
                                     if media_kind == "image":
-                                        result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
+                                        result.domain_stats[dl_host]["images_kept"] = (
+                                            max(
+                                                0,
+                                                result.domain_stats[dl_host][
+                                                    "images_kept"
+                                                ]
+                                                - 1,
+                                            )
+                                        )
                                     else:
-                                        result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
+                                        result.domain_stats[dl_host]["videos_kept"] = (
+                                            max(
+                                                0,
+                                                result.domain_stats[dl_host][
+                                                    "videos_kept"
+                                                ]
+                                                - 1,
+                                            )
+                                        )
                         except Exception as exc:
                             LOGGER.warning("Download error for %s: %s", item.url, exc)
                             item.status = "failed"
@@ -968,9 +1104,15 @@ class ScrapingEngine:
                             if dl_host in result.domain_stats:
                                 result.domain_stats[dl_host]["rejected_count"] += 1
                                 if media_kind == "image":
-                                    result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
+                                    result.domain_stats[dl_host]["images_kept"] = max(
+                                        0,
+                                        result.domain_stats[dl_host]["images_kept"] - 1,
+                                    )
                                 else:
-                                    result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
+                                    result.domain_stats[dl_host]["videos_kept"] = max(
+                                        0,
+                                        result.domain_stats[dl_host]["videos_kept"] - 1,
+                                    )
 
                 LOGGER.info("Download phase complete.")
             download_duration = time.monotonic() - _download_start_time

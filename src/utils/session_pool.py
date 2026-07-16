@@ -11,6 +11,7 @@ from config import USER_AGENTS
 import json
 from pathlib import Path
 
+
 class Session:
     """Represents a virtual scraping session with sticky browser properties."""
 
@@ -41,10 +42,7 @@ class Session:
             try:
                 self._cookie_file.parent.mkdir(parents=True, exist_ok=True)
                 cookies_dict = dict(self.cookies.items())
-                data = {
-                    "user_agent": self.user_agent,
-                    "cookies": cookies_dict
-                }
+                data = {"user_agent": self.user_agent, "cookies": cookies_dict}
                 self._cookie_file.write_text(json.dumps(data), encoding="utf-8")
             except Exception:
                 pass
@@ -62,7 +60,9 @@ class Session:
         with self.lock:
             # Pick a different user agent if possible
             available_uas = [ua for ua in USER_AGENTS if ua != self.user_agent]
-            self.user_agent = random.choice(available_uas) if available_uas else self.user_agent
+            self.user_agent = (
+                random.choice(available_uas) if available_uas else self.user_agent
+            )
             self.cookies.clear()
             self.consecutive_errors = 0
             try:

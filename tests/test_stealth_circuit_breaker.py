@@ -69,10 +69,12 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
         # Return a mock HTML and mock browser cookies list
         return "<html>Clean Page</html>", [
             {"name": "cf_clearance", "value": "solved_token", "domain": host},
-            {"name": "new_session", "value": "active_val", "domain": host}
+            {"name": "new_session", "value": "active_val", "domain": host},
         ]
 
-    monkeypatch.setattr("utils.http_client._run_coroutine_sync", mock_run_coroutine_sync)
+    monkeypatch.setattr(
+        "utils.http_client._run_coroutine_sync", mock_run_coroutine_sync
+    )
 
     # Trigger directly
     html, cookies = client._get_with_crawl4ai(url)
@@ -86,10 +88,9 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
 
     # Check cookies syncing back to SessionManager and SessionPool
     import httpx
+
     # Trigger through standard get fallback (on 403)
-    mock_resp = httpx.Response(
-        status_code=403, request=httpx.Request("GET", url)
-    )
+    mock_resp = httpx.Response(status_code=403, request=httpx.Request("GET", url))
     monkeypatch.setattr(client.client, "get", MagicMock(return_value=mock_resp))
     client._rate_limiter_for(url).wait = MagicMock()
 
@@ -106,4 +107,3 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
     session = client._session_pool.get_session(host)
     assert session.cookies.get("cf_clearance") == "solved_token"
     assert session.cookies.get("new_session") == "active_val"
-

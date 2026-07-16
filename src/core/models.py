@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class ImageItem:
     url: str
     source_page: str
+    original_url: str = ""
     alt_text: str = ""
     score: int = 0
     page_title: str = ""

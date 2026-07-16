@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-python main.py --keyword <keyword> --seed <path> [options]
+python src/cli/main.py --keyword <keyword> --seed <path> [options]
 ```
 
 ## Arguments
@@ -32,22 +32,22 @@ Domain profiles are defined in `.txt` seed files. See [README.md](../README.md#s
 
 ```bash
 # Basic run
-python main.py --keyword example_subject --seed seeds/example_subject.txt
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
 
 # Targeted with extra tokens
-python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --entity-token "Entity Name" --entity-token "topic"
 
 # Production sweep (high concurrency, no confirmations)
-python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --max-results 100 --workers 16 --dl-workers 8 ^
   --page-limit 200 --crawl-depth 3 --download-media --yes
 
 # Validate seed manifest only
-python main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
 
 # Stealth mode (single worker, polite speed)
-python main.py --keyword example_subject --seed seeds/example_subject.txt ^
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --workers 1 --page-limit 20 --crawl-depth 1
 ```
 
@@ -82,7 +82,7 @@ output/{keyword_slug}/runs/{run_id}/
 ## Dry Run
 
 ```bash
-python main.py --keyword test --seed seed.txt --dry-run
+python src/cli/main.py --keyword test --seed seed.txt --dry-run
 ```
 
 Parses the seed file and prints the domain profiles without crawling.
@@ -90,7 +90,7 @@ Parses the seed file and prints the domain profiles without crawling.
 ## Interactive GUI Wizard & AI Pipeline Tools
 
 ```bash
-python cli_wizard.py
+python src/cli/cli_wizard.py
 ```
 
 The interactive terminal GUI acts as a **high-efficiency fuel pump for AI**. It guides users through configuring and running crawls, mapping entire websites with systematic BFS and Crawl4AI, and converting messy pages into clean, structured data for LLM ingestions.

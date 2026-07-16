@@ -117,7 +117,7 @@ Setting `# cloudflare: true` registers the host in a fast-fail set. When a reque
 
 ## 4. Downstream AI & RAG Integrations
 
-The interactive terminal GUI (`cli_wizard.py`) provides tools to package scrape runs directly into formats suited for model training or Retrieval-Augmented Generation (RAG):
+The interactive terminal GUI (`src/cli/cli_wizard.py`) provides tools to package scrape runs directly into formats suited for model training or Retrieval-Augmented Generation (RAG):
 
 ### 4.1 Create Structured AI Dataset (TUI Option 4)
 

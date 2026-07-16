@@ -43,15 +43,15 @@ def generate_run_summary(
         The compiled summary dictionary.
     """
     total_duration = crawl_duration_seconds + download_duration_seconds
-    
+
     # 1. Overall stats
     total_pages_scanned = len(result.scanned_pages)
     total_images_kept = len(result.images)
     total_videos_kept = len(result.videos)
     total_rejected_items = len(result.rejected_items)
-    
+
     downloaded_count = result.download_stats.get("downloaded", 0)
-    
+
     # Count download failures vs skips
     failed_downloads = 0
     skipped_downloads = 0
@@ -69,7 +69,7 @@ def generate_run_summary(
 
     # 3. Domain breakdown calculations
     domain_breakdown: dict[str, dict[str, int]] = {}
-    
+
     # Pre-populate domains from result.domain_stats
     for domain, stats in result.domain_stats.items():
         domain_breakdown[domain] = {
@@ -86,51 +86,65 @@ def generate_run_summary(
         if report.status != "completed":
             domain = urlparse(report.url).netloc.lower()
             if domain:
-                domain_breakdown.setdefault(domain, {
-                    "pages_scanned": 0,
-                    "images_kept": 0,
-                    "videos_kept": 0,
-                    "rejected_count": 0,
-                    "duplicate_hash_skips": 0,
-                    "wasted_requests": 0,
-                })
+                domain_breakdown.setdefault(
+                    domain,
+                    {
+                        "pages_scanned": 0,
+                        "images_kept": 0,
+                        "videos_kept": 0,
+                        "rejected_count": 0,
+                        "duplicate_hash_skips": 0,
+                        "wasted_requests": 0,
+                    },
+                )
                 domain_breakdown[domain]["wasted_requests"] += 1
 
     # Count duplicate hash skips and dead downloads per domain
     dead_download_urls: list[dict[str, str]] = []
     duplicate_hash_skips_by_domain: dict[str, int] = {}
-    
+
     for item in result.rejected_items:
         domain = urlparse(item.source_page).netloc.lower()
         if not domain:
             continue
-            
-        domain_breakdown.setdefault(domain, {
-            "pages_scanned": 0,
-            "images_kept": 0,
-            "videos_kept": 0,
-            "rejected_count": 0,
-            "duplicate_hash_skips": 0,
-            "wasted_requests": 0,
-        })
-        
+
+        domain_breakdown.setdefault(
+            domain,
+            {
+                "pages_scanned": 0,
+                "images_kept": 0,
+                "videos_kept": 0,
+                "rejected_count": 0,
+                "duplicate_hash_skips": 0,
+                "wasted_requests": 0,
+            },
+        )
+
         # Duplicate hash skips
         if "duplicate" in item.reason:
             domain_breakdown[domain]["duplicate_hash_skips"] += 1
-            duplicate_hash_skips_by_domain[domain] = duplicate_hash_skips_by_domain.get(domain, 0) + 1
-            
+            duplicate_hash_skips_by_domain[domain] = (
+                duplicate_hash_skips_by_domain.get(domain, 0) + 1
+            )
+
         # Dead download links (failures/exceptions)
         if item.reason.startswith("download_failed") or "exception" in item.reason:
-            dead_download_urls.append({
-                "url": item.url,
-                "source_page": item.source_page,
-                "reason": item.reason
-            })
+            dead_download_urls.append(
+                {
+                    "url": item.url,
+                    "source_page": item.source_page,
+                    "reason": item.reason,
+                }
+            )
 
     # 4. Identify Zero-Yield domains (crawled > 0 pages but yielded 0 kept items)
     zero_yield_domains: list[str] = []
     for domain, stats in domain_breakdown.items():
-        if stats["pages_scanned"] > 0 and stats["images_kept"] == 0 and stats["videos_kept"] == 0:
+        if (
+            stats["pages_scanned"] > 0
+            and stats["images_kept"] == 0
+            and stats["videos_kept"] == 0
+        ):
             zero_yield_domains.append(domain)
 
     # 5. Build final summary report
@@ -142,7 +156,11 @@ def generate_run_summary(
             "total_duration_seconds": int(total_duration),
             "crawl_duration_seconds": int(crawl_duration_seconds),
             "download_duration_seconds": int(download_duration_seconds),
-            "idle_or_other_seconds": int(max(0.0, result.duration_seconds - total_duration)) if result.duration_seconds else 0,
+            "idle_or_other_seconds": int(
+                max(0.0, result.duration_seconds - total_duration)
+            )
+            if result.duration_seconds
+            else 0,
         },
         "overall_stats": {
             "total_pages_scanned": total_pages_scanned,
@@ -171,7 +189,7 @@ def generate_run_summary(
 
     # Output clean, informative CLI/log report
     log_cli_report(summary)
-    
+
     return summary
 
 
@@ -181,7 +199,7 @@ def log_cli_report(summary: dict[str, Any]) -> None:
     LOGGER.info(sep)
     LOGGER.info("POST-RUN OBSERVABILITY SUMMARY")
     LOGGER.info(sep)
-    
+
     runtime = summary["runtime"]
     LOGGER.info(
         "Runtime Breakdown: Total: %ds | Crawl: %ds | Download: %ds | Other: %ds",
@@ -190,7 +208,7 @@ def log_cli_report(summary: dict[str, Any]) -> None:
         runtime["download_duration_seconds"],
         runtime["idle_or_other_seconds"],
     )
-    
+
     stats = summary["overall_stats"]
     LOGGER.info(
         "Overall Yield:     Pages: %d | Images Kept: %d | Videos Kept: %d | Rejections: %d",
@@ -199,7 +217,7 @@ def log_cli_report(summary: dict[str, Any]) -> None:
         stats["total_videos_kept"],
         stats["total_rejected_items"],
     )
-    
+
     LOGGER.info(
         "Download Status:   Success: %d | Failed: %d | Skipped (Low-Res/Dupes): %d",
         stats["total_downloaded_count"],
@@ -240,12 +258,17 @@ def log_cli_report(summary: dict[str, Any]) -> None:
 
     if summary["dead_download_urls"]:
         LOGGER.info(sep)
-        LOGGER.info("DEAD DOWNLOAD LINKS (%d found):", len(summary["dead_download_urls"]))
+        LOGGER.info(
+            "DEAD DOWNLOAD LINKS (%d found):", len(summary["dead_download_urls"])
+        )
         for dl in summary["dead_download_urls"][:10]:  # limit to first 10
             LOGGER.info("  - URL:    %s", dl["url"])
             LOGGER.info("    Source: %s", dl["source_page"])
             LOGGER.info("    Reason: %s", dl["reason"])
         if len(summary["dead_download_urls"]) > 10:
-            LOGGER.info("  ... and %d more (see run_summary.json)", len(summary["dead_download_urls"]) - 10)
+            LOGGER.info(
+                "  ... and %d more (see run_summary.json)",
+                len(summary["dead_download_urls"]) - 10,
+            )
 
     LOGGER.info(sep)

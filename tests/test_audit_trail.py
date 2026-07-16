@@ -1,6 +1,6 @@
 import sys
-import time
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pytest
@@ -14,13 +14,19 @@ from utils.http_client import HttpClient, ScraperBypassError
 
 def test_item_default_audit_fields():
     """Verify default audit trail fields in models."""
-    img = ImageItem(url="https://example.com/img.jpg", source_page="https://example.com")
+    img = ImageItem(
+        url="https://example.com/img.jpg", source_page="https://example.com"
+    )
     assert img.status == "pending"
     assert img.file_path == ""
     assert img.failure_reason == ""
     assert img.hash == ""
 
-    vid = VideoItem(url="https://example.com/vid.mp4", source_page="https://example.com", type="direct")
+    vid = VideoItem(
+        url="https://example.com/vid.mp4",
+        source_page="https://example.com",
+        type="direct",
+    )
     assert vid.status == "pending"
     assert vid.file_path == ""
     assert vid.failure_reason == ""
@@ -30,18 +36,34 @@ def test_item_default_audit_fields():
 def test_engine_in_place_audit_mapping():
     """Verify that the engine updates item attributes in-place during download."""
     engine = ScrapingEngine(workers=1)
-    
+
     # Prepare items to be scraped
-    img = ImageItem(url="https://example.com/img.jpg", source_page="https://example.com/page.html", alt_text="Test Alt")
-    vid = VideoItem(url="https://example.com/vid.mp4", source_page="https://example.com/page.html", type="direct", page_title="Test Video")
+    img = ImageItem(
+        url="https://example.com/img.jpg",
+        source_page="https://example.com/page.html",
+        alt_text="Test Alt",
+    )
+    vid = VideoItem(
+        url="https://example.com/vid.mp4",
+        source_page="https://example.com/page.html",
+        type="direct",
+        page_title="Test Video",
+    )
 
     # Mock page scraping to return our test items
-    engine.search_provider.scrape_page = MagicMock(
-        return_value=([img], [vid], "ok")
-    )
-    
+    engine.search_provider.scrape_page = MagicMock(return_value=([img], [vid], "ok"))
+
     # Mock downloader._download_file to simulate success for image and failure for video
-    def mock_download(url, directory, prefix, media_kind, referer=None, min_image_size=None, thumbnail_prefix_pattern=None, cdn_hosts=None):
+    def mock_download(
+        url,
+        directory,
+        prefix,
+        media_kind,
+        referer=None,
+        min_image_size=None,
+        thumbnail_prefix_pattern=None,
+        cdn_hosts=None,
+    ):
         if media_kind == "image":
             return True, {
                 "reason": "ok",
@@ -108,9 +130,13 @@ def test_stealth_timed_block_expiry():
         assert "Stealth cooldown active" in str(exc_info.value)
 
     # Verify that requesting after expiry removes the host and attempts standard flow
-    with patch("utils.http_client.time.time", return_value=3000.0), \
-         patch.object(client.client, "get") as mock_get:
-        mock_get.return_value = httpx.Response(200, text="success", request=httpx.Request("GET", url))
+    with (
+        patch("utils.http_client.time.time", return_value=3000.0),
+        patch.object(client.client, "get") as mock_get,
+    ):
+        mock_get.return_value = httpx.Response(
+            200, text="success", request=httpx.Request("GET", url)
+        )
         resp = client.get(url)
         assert resp.status_code == 200
         assert host not in HttpClient._stealth_failed_hosts
@@ -189,4 +215,3 @@ def test_csv_audit_trail_columns(tmp_path):
         assert rows[0]["file_path"] == ""
         assert rows[0]["failure_reason"] == "low_resolution"
         assert rows[0]["hash"] == ""
-

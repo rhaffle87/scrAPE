@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from urllib import robotparser
 from urllib.parse import urljoin, urlparse
 
@@ -56,4 +55,3 @@ class RobotsChecker:
         parser.parse(response.text.splitlines())
         self._parsers[netloc] = parser
         return parser
-

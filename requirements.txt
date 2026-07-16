@@ -6,3 +6,6 @@ tenacity>=8.3.0
 tqdm>=4.66.4
 DrissionPage>=4.0.0
 browser-cookie3>=0.19.1
+helium>=3.0.8
+undetected-chromedriver>=3.5.0
+yt-dlp>=2024.04.09

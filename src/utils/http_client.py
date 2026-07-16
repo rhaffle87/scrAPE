@@ -45,7 +45,6 @@ from config import (
     DEFAULT_REQUESTS_PER_SECOND,
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_TIMEOUT_SECONDS,
-    DOMAIN_COOLDOWN_SECONDS,
     DOMAIN_COOLDOWN_THRESHOLD,
     DOMAIN_REQUESTS_PER_SECOND,
     RATE_LIMIT_JITTER_SECONDS,
@@ -53,6 +52,7 @@ from config import (
     REFERER_OVERRIDES,
     ENABLE_COOKIE_HARVESTING,
     ENABLE_DRISSIONPAGE_FALLBACK,
+    ENABLE_HELIUM_FALLBACK,
     FORCE_HEADLESS,
 )
 from utils.rate_limiter import RateLimiter
@@ -68,6 +68,7 @@ from utils.session import SessionManager
 # that import it from this module continue to work.  All normalisation rules
 # live in config.URL_NORMALISATION_RULES — do not add patterns here.
 
+
 def normalise_url(url: str) -> str:
     """Canonicalise *url* by applying all rules from ``config.URL_NORMALISATION_RULES``.
 
@@ -75,6 +76,7 @@ def normalise_url(url: str) -> str:
     Add new normalisation rules to ``config.URL_NORMALISATION_RULES``, not here.
     """
     from core.filters import normalize_url
+
     return normalize_url(url)
 
 
@@ -210,26 +212,30 @@ class _DomainCooldownState:
 
 def _apply_playwright_channel_patch() -> None:
     """Patch playwright and patchright launch_persistent_context to respect BrowserConfig channel."""
-    import inspect
     from utils.logger import get_logger
 
     logger = get_logger(__name__)
 
     try:
         import playwright.async_api
+
         _orig_playwright_async = playwright.async_api.async_playwright
-        
+
         # Check if already patched to avoid double patching
         if not getattr(_orig_playwright_async, "_is_patched", False):
+
             def _patched_playwright_async(*args, **kwargs):
                 cm = _orig_playwright_async(*args, **kwargs)
                 orig_start = cm.start
+
                 async def patched_start(*args, **kwargs):
                     instance = await orig_start(*args, **kwargs)
                     _patch_playwright_instance(instance, logger)
                     return instance
+
                 cm.start = patched_start
                 return cm
+
             _patched_playwright_async._is_patched = True
             playwright.async_api.async_playwright = _patched_playwright_async
             logger.info("Successfully patched playwright.async_api.async_playwright")
@@ -238,18 +244,23 @@ def _apply_playwright_channel_patch() -> None:
 
     try:
         import patchright.async_api
+
         _orig_patchright_async = patchright.async_api.async_playwright
-        
+
         if not getattr(_orig_patchright_async, "_is_patched", False):
+
             def _patched_patchright_async(*args, **kwargs):
                 cm = _orig_patchright_async(*args, **kwargs)
                 orig_start = cm.start
+
                 async def patched_start(*args, **kwargs):
                     instance = await orig_start(*args, **kwargs)
                     _patch_playwright_instance(instance, logger)
                     return instance
+
                 cm.start = patched_start
                 return cm
+
             _patched_patchright_async._is_patched = True
             patchright.async_api.async_playwright = _patched_patchright_async
             logger.info("Successfully patched patchright.async_api.async_playwright")
@@ -260,9 +271,11 @@ def _apply_playwright_channel_patch() -> None:
 def _patch_playwright_instance(instance, logger) -> None:
     import inspect
     import sys
+
     if hasattr(instance, "chromium"):
         orig_launch_persistent = instance.chromium.launch_persistent_context
         if not getattr(orig_launch_persistent, "_is_patched", False):
+
             async def patched_launch_persistent(user_data_dir, **kwargs):
                 # Walk up stack to find BrowserManager
                 channel = None
@@ -271,21 +284,33 @@ def _patch_playwright_instance(instance, logger) -> None:
                     self_obj = frame.f_locals.get("self")
                     if self_obj and self_obj.__class__.__name__ == "BrowserManager":
                         if hasattr(self_obj, "config"):
-                            channel = getattr(self_obj.config, "chrome_channel", None) or getattr(self_obj.config, "channel", None)
+                            channel = getattr(
+                                self_obj.config, "chrome_channel", None
+                            ) or getattr(self_obj.config, "channel", None)
                         break
                 if channel and channel != "chromium":
-                    logger.info("Injecting channel='%s' into launch_persistent_context", channel)
+                    logger.info(
+                        "Injecting channel='%s' into launch_persistent_context", channel
+                    )
                     kwargs["channel"] = channel
-                
+
                 is_windows = sys.platform.startswith("win")
 
                 # Filter out anti-sandbox flags that expose automation warning banners in Chrome.
                 # On Windows, we must keep --no-sandbox to prevent GPU process crashes and rendering hangs.
                 if "args" in kwargs and isinstance(kwargs["args"], list):
                     if is_windows:
-                        kwargs["args"] = [arg for arg in kwargs["args"] if arg != "--disable-setuid-sandbox"]
+                        kwargs["args"] = [
+                            arg
+                            for arg in kwargs["args"]
+                            if arg != "--disable-setuid-sandbox"
+                        ]
                     else:
-                        kwargs["args"] = [arg for arg in kwargs["args"] if arg not in ("--no-sandbox", "--disable-setuid-sandbox")]
+                        kwargs["args"] = [
+                            arg
+                            for arg in kwargs["args"]
+                            if arg not in ("--no-sandbox", "--disable-setuid-sandbox")
+                        ]
 
                 # Exclude default flags that reveal automation or trigger Cloudflare checks.
                 # On Windows, we must NOT ignore --no-sandbox to ensure Chrome launches with sandbox disabled.
@@ -302,13 +327,14 @@ def _patch_playwright_instance(instance, logger) -> None:
 
                 logger.info("launch_persistent_context kwargs: %s", kwargs)
                 return await orig_launch_persistent(user_data_dir, **kwargs)
+
             patched_launch_persistent._is_patched = True
             instance.chromium.launch_persistent_context = patched_launch_persistent
 
 
-
 def _get_platform_user_agent() -> str:
     import sys
+
     if sys.platform.startswith("win"):
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     elif sys.platform == "darwin":
@@ -453,7 +479,6 @@ class HttpClient:
             return headers
         return {"User-Agent": random.choice(USER_AGENTS)}
 
-
     # ------------------------------------------------------------------
     # Disk cache
     # ------------------------------------------------------------------
@@ -512,6 +537,31 @@ class HttpClient:
                 return True
         return False
 
+    def _is_blocked_page(self, html: str, url: str) -> bool:
+        """Return True if the HTML indicates a Cloudflare challenge or a soft block/redirect by DuckDuckGo."""
+        if not html:
+            return True
+        if self._is_cloudflare_challenge(html):
+            return True
+        parsed = urlparse(url)
+        host = parsed.netloc or parsed.hostname or ""
+        if "duckduckgo.com" in host:
+            lower_html = html.lower()
+            if (
+                "if this persists, please email us" in lower_html
+                or "error-lite" in lower_html
+            ):
+                return True
+            if "/?q=" in url or "/html/" in url:
+                title_match = re.search(
+                    r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL
+                )
+                if title_match:
+                    title = title_match.group(1).strip()
+                    if title == "DuckDuckGo":
+                        return True
+        return False
+
     # ------------------------------------------------------------------
     # Local Cookie Harvesting & DrissionPage deep stealth fallbacks
     # ------------------------------------------------------------------
@@ -522,6 +572,7 @@ class HttpClient:
             return {}
 
         from utils.logger import get_logger
+
         logger = get_logger(__name__)
 
         try:
@@ -554,7 +605,12 @@ class HttpClient:
                     for cookie in cj:
                         harvested[cookie.name] = cookie.value
                     if harvested:
-                        logger.info("Successfully harvested %d cookies for '%s' from local %s", len(harvested), dom, b_name)
+                        logger.info(
+                            "Successfully harvested %d cookies for '%s' from local %s",
+                            len(harvested),
+                            dom,
+                            b_name,
+                        )
                         return harvested
                 except Exception:
                     pass
@@ -564,6 +620,7 @@ class HttpClient:
     def _get_with_drissionpage(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using DrissionPage to bypass Turnstile/WAF locally."""
         from utils.logger import get_logger
+
         logger = get_logger(__name__)
 
         try:
@@ -574,33 +631,34 @@ class HttpClient:
 
         # Initialize options
         co = ChromiumOptions()
-        co.set_argument('--no-sandbox')
-        co.set_argument('--disable-gpu')
-        
+        co.set_argument("--no-sandbox")
+        co.set_argument("--disable-gpu")
+
         # Determine GUI platform
         import sys
+
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
 
         headless_mode = True if FORCE_HEADLESS else (not is_local_gui)
         co.headless(headless_mode)
-        
+
         # Build persistent profile path to share cookies/history
         host = self._hostname(url)
         domain_slug = re.sub(r"[^\w\-]", "_", host)
         profile_path = Path("data/drission_profiles") / domain_slug
         profile_path.mkdir(parents=True, exist_ok=True)
         co.set_user_data_path(str(profile_path.resolve()))
-        
+
         logger.info("Launching DrissionPage for %s (headless=%s)", url, headless_mode)
-        
+
         page = None
         try:
             page = ChromiumPage(co)
             # Fetch URL and wait for redirection/challenge solving
             page.get(url, timeout=30.0)
-            
+
             # Wait for Turnstile challenge to be solved
             solve_timeout = 20.0
             start_time = time.time()
@@ -609,24 +667,26 @@ class HttpClient:
                 if not self._is_cloudflare_challenge(html):
                     break
                 time.sleep(1.0)
-            
+
             html = page.html
             if self._is_cloudflare_challenge(html):
                 raise Exception("DrissionPage hit Cloudflare challenge timeout.")
-                
+
             # Extract cookies
             cookies = page.cookies(all_info=True)
             cookies_list = []
             for c in cookies:
-                cookies_list.append({
-                    "name": c.get("name"),
-                    "value": c.get("value"),
-                    "domain": c.get("domain") or host,
-                    "path": c.get("path") or "/",
-                })
-            
+                cookies_list.append(
+                    {
+                        "name": c.get("name"),
+                        "value": c.get("value"),
+                        "domain": c.get("domain") or host,
+                        "path": c.get("path") or "/",
+                    }
+                )
+
             return html, cookies_list
-            
+
         except Exception as e:
             logger.error("DrissionPage request failed: %s", e)
             raise e
@@ -636,6 +696,168 @@ class HttpClient:
                     page.quit()
                 except Exception:
                     pass
+
+    def _get_with_helium(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using Helium as a browser fallback (supports Firefox if Chrome is missing)."""
+        from utils.logger import get_logger
+
+        logger = get_logger(__name__)
+
+        try:
+            import helium
+        except ImportError as e:
+            logger.error("Helium not installed: %s", e)
+            raise e
+
+        # Determine GUI platform
+        import sys
+
+        is_windows = sys.platform.startswith("win")
+        is_macos = sys.platform == "darwin"
+        is_local_gui = is_windows or is_macos
+        headless_mode = True if FORCE_HEADLESS else (not is_local_gui)
+
+        logger.info("Launching Helium for %s (headless=%s)", url, headless_mode)
+
+        # Try start_chrome first, then fall back to start_firefox if chrome isn't installed/working
+        started = False
+        try:
+            logger.info("Helium: Trying Chrome browser...")
+            helium.start_chrome(url, headless=headless_mode)
+            started = True
+        except Exception as chrome_err:
+            logger.warning(
+                "Helium: Chrome browser launch failed: %s. Falling back to Firefox...",
+                chrome_err,
+            )
+            try:
+                helium.start_firefox(url, headless=headless_mode)
+                started = True
+            except Exception as firefox_err:
+                logger.error("Helium: Firefox browser launch failed: %s", firefox_err)
+                raise Exception(
+                    f"Helium failed to start either Chrome or Firefox: {firefox_err}"
+                ) from chrome_err
+
+        try:
+            driver = helium.get_driver()
+            # Wait for redirection/challenge solving
+            solve_timeout = 20.0
+            start_time = time.time()
+            while time.time() - start_time < solve_timeout:
+                html = driver.page_source
+                if not self._is_cloudflare_challenge(html):
+                    break
+                time.sleep(1.0)
+
+            html = driver.page_source
+            if self._is_cloudflare_challenge(html):
+                raise Exception("Helium hit Cloudflare challenge timeout.")
+
+            # Extract cookies
+            cookies = driver.get_cookies()
+            cookies_list = []
+            host = self._hostname(url)
+            for c in cookies:
+                cookies_list.append(
+                    {
+                        "name": c.get("name"),
+                        "value": c.get("value"),
+                        "domain": c.get("domain") or host,
+                        "path": c.get("path") or "/",
+                    }
+                )
+
+            return html, cookies_list
+
+        except Exception as e:
+            logger.error("Helium request failed: %s", e)
+            raise e
+        finally:
+            if started:
+                try:
+                    helium.kill_browser()
+                except Exception:
+                    pass
+
+    def _get_with_uc(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using undetected-chromedriver as the deepest fallback tier."""
+        from utils.logger import get_logger
+
+        logger = get_logger(__name__)
+
+        try:
+            import undetected_chromedriver as uc
+        except ImportError as e:
+            logger.error("undetected-chromedriver not installed: %s", e)
+            raise e
+
+        import sys
+
+        is_windows = sys.platform.startswith("win")
+        is_macos = sys.platform == "darwin"
+        is_local_gui = is_windows or is_macos
+        headless_mode = True if FORCE_HEADLESS else (not is_local_gui)
+
+        logger.info(
+            "Launching undetected-chromedriver for %s (headless=%s)", url, headless_mode
+        )
+
+        driver = None
+        try:
+            options = uc.ChromeOptions()
+            if headless_mode:
+                options.add_argument("--headless")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+
+            driver = uc.Chrome(options=options, use_subprocess=True)
+            driver.set_page_load_timeout(30)
+            driver.get(url)
+
+            # Wait for redirection/challenge solving
+            solve_timeout = 25.0
+            start_time = time.time()
+            while time.time() - start_time < solve_timeout:
+                html = driver.page_source
+                if not self._is_cloudflare_challenge(html):
+                    break
+                time.sleep(1.0)
+
+            html = driver.page_source
+            if self._is_cloudflare_challenge(html):
+                raise Exception(
+                    "undetected-chromedriver hit Cloudflare challenge timeout."
+                )
+
+            # Extract cookies
+            cookies = driver.get_cookies()
+            cookies_list = []
+            host = self._hostname(url)
+            for c in cookies:
+                cookies_list.append(
+                    {
+                        "name": c.get("name"),
+                        "value": c.get("value"),
+                        "domain": c.get("domain") or host,
+                        "path": c.get("path") or "/",
+                    }
+                )
+
+            return html, cookies_list
+
+        except Exception as e:
+            logger.error("undetected-chromedriver request failed: %s", e)
+            raise e
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except Exception as e:
+                    logger.warning(
+                        "Failed to quit undetected-chromedriver cleanly: %s", e
+                    )
 
     # ------------------------------------------------------------------
     # Crawl4AI browser fallback (runs on the shared background event loop)
@@ -700,12 +922,9 @@ class HttpClient:
             session_cookies = self.session_manager.load_session(host) or {}
             playwright_cookies = []
             for k, v in session_cookies.items():
-                playwright_cookies.append({
-                    "name": k,
-                    "value": v,
-                    "domain": host,
-                    "path": "/"
-                })
+                playwright_cookies.append(
+                    {"name": k, "value": v, "domain": host, "path": "/"}
+                )
 
             run_config = CrawlerRunConfig(
                 word_count_threshold=0,
@@ -718,10 +937,7 @@ class HttpClient:
             )
 
             async def _run_with_chrome_fallback(
-                headless: bool,
-                enable_stealth: bool,
-                browser_adapter=None,
-                run_cfg=None
+                headless: bool, enable_stealth: bool, browser_adapter=None, run_cfg=None
             ) -> tuple[str, list[dict]]:
                 try:
                     cfg = BrowserConfig(
@@ -745,7 +961,7 @@ class HttpClient:
                 except Exception as exc:
                     logger.warning(
                         "Crawl4AI fallback run with channel='chrome' failed: %s. Retrying with default Playwright Chromium...",
-                        exc
+                        exc,
                     )
                     cfg_fallback = BrowserConfig(
                         browser_type="chromium",
@@ -773,13 +989,13 @@ class HttpClient:
                     headless=True,
                     enable_stealth=True,
                     browser_adapter=None,
-                    run_cfg=run_config
+                    run_cfg=run_config,
                 )
-                if not self._is_cloudflare_challenge(html):
+                if not self._is_blocked_page(html, url):
                     logger.info("Crawl4AI Tier 1 succeeded for %s.", url)
                     return html, cookies
                 logger.warning(
-                    "Crawl4AI Tier 1 hit Cloudflare challenge for %s. Escalating to Tier 2...",
+                    "Crawl4AI Tier 1 hit a block or challenge for %s. Escalating to Tier 2...",
                     url,
                 )
             except Exception as exc:
@@ -791,6 +1007,7 @@ class HttpClient:
 
             # --- Tier 2: UndetectedAdapter (bypasses deep fingerprinting / Turnstile) ---
             import sys
+
             is_windows = sys.platform.startswith("win")
             is_macos = sys.platform == "darwin"
             is_local_gui = is_windows or is_macos
@@ -805,12 +1022,12 @@ class HttpClient:
                     "Running Browser in HEADFUL (visible) mode for 20 seconds.\n"
                     "Please solve/click the Turnstile checkbox if prompted in the window.\n"
                     "========================================================================",
-                    url
+                    url,
                 )
             else:
                 logger.info(
                     "CLOUDFLARE TURNSTILE DETECTED ON: %s - Running browser in HEADLESS mode.",
-                    url
+                    url,
                 )
 
             run_config_2 = CrawlerRunConfig(
@@ -827,12 +1044,12 @@ class HttpClient:
                     headless=headless_mode,
                     enable_stealth=True,
                     browser_adapter=UndetectedAdapter(),
-                    run_cfg=run_config_2
+                    run_cfg=run_config_2,
                 )
-                if not self._is_cloudflare_challenge(html):
+                if not self._is_blocked_page(html, url):
                     logger.info("Crawl4AI Tier 2 succeeded for %s.", url)
                     return html, cookies
-                raise Exception("Crawl4AI Tier 2 hit Cloudflare challenge.")
+                raise Exception("Crawl4AI Tier 2 hit a block or challenge page.")
             except Exception as exc:
                 raise Exception(
                     f"All Crawl4AI fallback tiers failed for {url}: {exc}"
@@ -872,11 +1089,11 @@ class HttpClient:
         if is_blacklisted(domain):
             raise ScraperBypassError(f"Domain {domain} is blacklisted")
 
-            
         cookies = self.session_manager.load_session(domain)
         if cookies:
-            if headers is None: headers = {}
-            headers['Cookie'] = '; '.join([f'{k}={v}' for k, v in cookies.items()])
+            if headers is None:
+                headers = {}
+            headers["Cookie"] = "; ".join([f"{k}={v}" for k, v in cookies.items()])
 
         # 1. Cache
         cached = self._load_cache(url)
@@ -933,27 +1150,84 @@ class HttpClient:
                         html_content, browser_cookies = res_val
                     else:
                         html_content, browser_cookies = res_val, []
+                    if html_content and self._is_blocked_page(html_content, url):
+                        raise Exception(
+                            "Crawl4AI returned a blocked or redirected page"
+                        )
                 except Exception as crawl_exc:
                     logger.warning(
                         "Direct Crawl4AI fallback failed for %s: %s", url, crawl_exc
                     )
+                    html_content = None
+                    browser_cookies = []
+
                     if ENABLE_DRISSIONPAGE_FALLBACK:
-                        logger.info("Escalating direct stealth routing to DrissionPage fallback for %s...", url)
+                        logger.info(
+                            "Escalating direct stealth routing to DrissionPage fallback for %s...",
+                            url,
+                        )
                         try:
                             res_val = self._get_with_drissionpage(url)
                             html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                raise Exception(
+                                    "DrissionPage returned a blocked or redirected page"
+                                )
                         except Exception as drission_exc:
-                            logger.error("Direct DrissionPage fallback also failed: %s", drission_exc)
-                            with self._failed_stealth_lock:
-                                self._stealth_failed_hosts[host] = time.time() + 1800.0
-                            raise ScraperBypassError(
-                                f"Failed to fetch {url} via direct Crawl4AI/DrissionPage routing: {drission_exc}"
-                            ) from crawl_exc
-                    else:
+                            logger.error(
+                                "Direct DrissionPage fallback also failed: %s",
+                                drission_exc,
+                            )
+                            html_content = None
+                            browser_cookies = []
+
+                    if html_content is None and ENABLE_HELIUM_FALLBACK:
+                        logger.info(
+                            "Escalating direct stealth routing to Helium fallback for %s...",
+                            url,
+                        )
+                        try:
+                            res_val = self._get_with_helium(url)
+                            html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                raise Exception(
+                                    "Helium returned a blocked or redirected page"
+                                )
+                        except Exception as helium_exc:
+                            logger.error(
+                                "Direct Helium fallback also failed: %s", helium_exc
+                            )
+                            html_content = None
+                            browser_cookies = []
+
+                    if html_content is None:
+                        logger.info(
+                            "Escalating direct stealth routing to undetected-chromedriver fallback for %s...",
+                            url,
+                        )
+                        try:
+                            res_val = self._get_with_uc(url)
+                            html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                raise Exception(
+                                    "undetected-chromedriver returned a blocked or redirected page"
+                                )
+                        except Exception as uc_exc:
+                            logger.error("Direct UC fallback also failed: %s", uc_exc)
+                            html_content = None
+                            browser_cookies = []
+
+                    if html_content is None:
                         with self._failed_stealth_lock:
                             self._stealth_failed_hosts[host] = time.time() + 1800.0
                         raise ScraperBypassError(
-                            f"Failed to fetch {url} via direct Crawl4AI routing: {crawl_exc}"
+                            f"Failed to fetch {url} via direct browser routing (all fallback browsers failed)."
                         ) from crawl_exc
 
                 response = httpx.Response(
@@ -997,7 +1271,10 @@ class HttpClient:
                 # Fetch with escalating timeout
                 try:
                     response = self.client.get(
-                        url, headers=req_headers, cookies=session.cookies, timeout=current_timeout
+                        url,
+                        headers=req_headers,
+                        cookies=session.cookies,
+                        timeout=current_timeout,
                     )
                     response.raise_for_status()
                     self._thread_local.net_latency = time.monotonic() - _net_start
@@ -1061,8 +1338,8 @@ class HttpClient:
                             )
                             if cd_state.is_blacklisted:
                                 from utils.blacklist import add_to_blacklist
-                                add_to_blacklist(host, reason="consecutive_429s")
 
+                                add_to_blacklist(host, reason="consecutive_429s")
 
                     # Skip Crawl4AI fallback for direct media assets and robots.txt
                     from core.filters import looks_like_media
@@ -1072,15 +1349,22 @@ class HttpClient:
 
                     # --- NEW PHASE 1: Local Cookie Harvesting ---
                     if ENABLE_COOKIE_HARVESTING:
-                        logger.info("Attempting local cookie harvest for domain '%s'", host)
+                        logger.info(
+                            "Attempting local cookie harvest for domain '%s'", host
+                        )
                         harvested_cookies = self._harvest_local_cookies(host)
                         if harvested_cookies:
-                            logger.info("Harvested cookies: %s. Retrying httpx request with harvested cookies.", list(harvested_cookies.keys()))
+                            logger.info(
+                                "Harvested cookies: %s. Retrying httpx request with harvested cookies.",
+                                list(harvested_cookies.keys()),
+                            )
                             try:
                                 req_headers = self._headers(url)
                                 if headers:
                                     req_headers.update(headers)
-                                req_headers['Cookie'] = '; '.join([f'{k}={v}' for k, v in harvested_cookies.items()])
+                                req_headers["Cookie"] = "; ".join(
+                                    [f"{k}={v}" for k, v in harvested_cookies.items()]
+                                )
                                 retry_resp = self.client.get(
                                     url, headers=req_headers, timeout=current_timeout
                                 )
@@ -1093,10 +1377,15 @@ class HttpClient:
                                 self.session_manager.save_session(host, existing)
                                 cd_state.record_success()
                                 self._store_cache(url, retry_resp)
-                                logger.info("Harvested cookies successfully bypassed WAF for %s.", url)
+                                logger.info(
+                                    "Harvested cookies successfully bypassed WAF for %s.",
+                                    url,
+                                )
                                 return retry_resp
                             except Exception as retry_exc:
-                                logger.warning("Retry with harvested cookies failed: %s", retry_exc)
+                                logger.warning(
+                                    "Retry with harvested cookies failed: %s", retry_exc
+                                )
 
                     # BROWSER FALLBACK
                     html_content = None
@@ -1108,7 +1397,9 @@ class HttpClient:
                     # Try Crawl4AI first if not marked as cloudflare_blocked
                     if not cf_blocked:
                         logger.warning(
-                            "GET %s returned %d. Falling back to Crawl4AI...", url, status
+                            "GET %s returned %d. Falling back to Crawl4AI...",
+                            url,
+                            status,
                         )
                         try:
                             res_val = self._get_with_crawl4ai(url)
@@ -1116,20 +1407,99 @@ class HttpClient:
                                 html_content, browser_cookies = res_val
                             else:
                                 html_content, browser_cookies = res_val, []
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                logger.warning(
+                                    "Crawl4AI returned a blocked or redirected page for %s.",
+                                    url,
+                                )
+                                html_content = None
                         except Exception as crawl_exc:
-                            logger.warning("Crawl4AI fallback failed for %s: %s", url, crawl_exc)
+                            logger.warning(
+                                "Crawl4AI fallback failed for %s: %s", url, crawl_exc
+                            )
 
                     # Try DrissionPage if Crawl4AI failed or was skipped (bypassed in unit tests)
                     import sys
-                    if html_content is None and ENABLE_DRISSIONPAGE_FALLBACK and not ("pytest" in sys.modules):
+
+                    if (
+                        html_content is None
+                        and ENABLE_DRISSIONPAGE_FALLBACK
+                        and "pytest" not in sys.modules
+                    ):
                         logger.warning(
-                            "GET %s returned %d. Falling back to DrissionPage...", url, status
+                            "GET %s returned %d. Falling back to DrissionPage...",
+                            url,
+                            status,
                         )
                         try:
                             res_val = self._get_with_drissionpage(url)
                             html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                logger.warning(
+                                    "DrissionPage returned a blocked or redirected page for %s.",
+                                    url,
+                                )
+                                html_content = None
                         except Exception as drission_exc:
-                            logger.error("DrissionPage fallback failed for %s: %s", url, drission_exc)
+                            logger.error(
+                                "DrissionPage fallback failed for %s: %s",
+                                url,
+                                drission_exc,
+                            )
+
+                    # Try Helium if both failed or were skipped
+                    if (
+                        html_content is None
+                        and ENABLE_HELIUM_FALLBACK
+                        and "pytest" not in sys.modules
+                    ):
+                        logger.warning(
+                            "GET %s returned %d. Falling back to Helium...", url, status
+                        )
+                        try:
+                            res_val = self._get_with_helium(url)
+                            html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                logger.warning(
+                                    "Helium returned a blocked or redirected page for %s.",
+                                    url,
+                                )
+                                html_content = None
+                        except Exception as helium_exc:
+                            logger.error(
+                                "Helium fallback failed for %s: %s", url, helium_exc
+                            )
+
+                    # Try UC if all above failed
+                    if html_content is None and "pytest" not in sys.modules:
+                        logger.warning(
+                            "GET %s returned %d. Falling back to undetected-chromedriver...",
+                            url,
+                            status,
+                        )
+                        try:
+                            res_val = self._get_with_uc(url)
+                            html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(
+                                html_content, url
+                            ):
+                                logger.warning(
+                                    "undetected-chromedriver returned a blocked or redirected page for %s.",
+                                    url,
+                                )
+                                html_content = None
+                        except Exception as uc_exc:
+                            logger.error(
+                                "undetected-chromedriver fallback failed for %s: %s",
+                                url,
+                                uc_exc,
+                            )
 
                     if html_content is None:
                         with self._failed_stealth_lock:
@@ -1203,5 +1573,6 @@ class HttpClient:
                     )
                     if cd_state.is_blacklisted:
                         from utils.blacklist import add_to_blacklist
+
                         add_to_blacklist(host, reason="consecutive_failures")
                 raise exc

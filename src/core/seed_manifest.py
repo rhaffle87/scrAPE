@@ -191,7 +191,9 @@ _RATE_LIMIT_RE = re.compile(
 _USERNAME_RE = re.compile(r"\bUsername\s*:\s*(\S+)", re.IGNORECASE)
 _EMAIL_RE = re.compile(r"\bEmail\s*:\s*(\S+)", re.IGNORECASE)
 _PASSWORD_RE = re.compile(r"\bPassword\s*:\s*(\S+)", re.IGNORECASE)
-_MIN_SIZE_RE = re.compile(r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b", re.IGNORECASE)
+_MIN_SIZE_RE = re.compile(
+    r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b", re.IGNORECASE
+)
 _THUMB_PREFIX_RE = re.compile(r"\bthumbnail[-_]prefix\s*:\s*(\S+)\b", re.IGNORECASE)
 _REFERER_RE = re.compile(r"#\s*(requires[-_]referer|requires referer)", re.IGNORECASE)
 _CLOUDFLARE_RE = re.compile(r"\bcloudflare\s*:\s*true\b", re.IGNORECASE)

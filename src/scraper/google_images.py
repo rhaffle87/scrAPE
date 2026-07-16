@@ -132,6 +132,7 @@ class SearchProviderScraper(BaseSearchScraper):
             )
             if not images:
                 from core.semantic_selectors import extract_semantic_fallback_images
+
                 images = extract_semantic_fallback_images(
                     soup, url, page_title, allow_domains, block_domains
                 )
@@ -140,8 +141,15 @@ class SearchProviderScraper(BaseSearchScraper):
         except Exception as exc:
             exc_str = str(exc).lower()
             if "blacklisted" in exc_str or "cooldown" in exc_str:
-                status_name = "fetch_error:blacklisted" if "blacklisted" in exc_str else "fetch_error:cooldown"
-                LOGGER.info("Skipping scrape of %s: domain is in blacklisted/cooldown state", url)
+                status_name = (
+                    "fetch_error:blacklisted"
+                    if "blacklisted" in exc_str
+                    else "fetch_error:cooldown"
+                )
+                LOGGER.info(
+                    "Skipping scrape of %s: domain is in blacklisted/cooldown state",
+                    url,
+                )
                 return [], [], status_name
 
             LOGGER.warning("Failed to scrape %s: %s", url, exc)
@@ -149,7 +157,6 @@ class SearchProviderScraper(BaseSearchScraper):
             if "429" in exc_str:
                 status_name = "fetch_error:429"
             return [], [], status_name
-
 
     def _extract_page_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
         from core.filters import (
@@ -276,11 +283,13 @@ class SearchProviderScraper(BaseSearchScraper):
         except Exception as exc:
             exc_str = str(exc).lower()
             if "blacklisted" in exc_str or "cooldown" in exc_str:
-                LOGGER.info("Skipping link discovery on %s: domain is in blacklisted/cooldown state", url)
+                LOGGER.info(
+                    "Skipping link discovery on %s: domain is in blacklisted/cooldown state",
+                    url,
+                )
             else:
                 LOGGER.warning("Failed to discover links from %s: %s", url, exc)
             return []
-
 
     def _extract_images(
         self,
@@ -568,7 +577,9 @@ class SearchProviderScraper(BaseSearchScraper):
                 ):
                     try:
                         absolute = normalize_url(absolutize_url(candidate, page_url))
-                        if is_probable_image(absolute) and not is_thumbnail_url(absolute):
+                        if is_probable_image(absolute) and not is_thumbnail_url(
+                            absolute
+                        ):
                             images.append(
                                 ImageItem(
                                     url=absolute,

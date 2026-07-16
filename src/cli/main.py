@@ -6,7 +6,7 @@ import sys
 import time
 
 # Add src to python path to resolve modules
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import (
     CACHE_DIR,
@@ -158,6 +158,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--ignore-robots",
         action="store_true",
         help="Bypass robots.txt rules and fetch all URLs.",
+    )
+    parser.add_argument(
+        "--use-state-cache",
+        action="store_true",
+        help="Use a persistent SQLite state cache to prevent re-crawling URLs across runs.",
     )
     return parser
 
@@ -335,11 +340,14 @@ def main() -> None:
                 filtered_urls = []
                 for u in seed_urls:
                     from urllib.parse import urlparse
+
                     host = urlparse(u).netloc.lower()
                     if host not in disabled_domains:
                         filtered_urls.append(u)
                     else:
-                        logger.info("Skipping seed URL belonging to disabled domain: %s", u)
+                        logger.info(
+                            "Skipping seed URL belonging to disabled domain: %s", u
+                        )
                 seed_urls = filtered_urls
 
             # 1. Auto-disable broad search for speed/focus
@@ -406,6 +414,7 @@ def main() -> None:
             # Register Cloudflare-blocked domains so HttpClient skips Crawl4AI fallback
             if getattr(profile, "cloudflare_blocked", False):
                 from utils.http_client import HttpClient
+
                 HttpClient.register_cloudflare_blocked(profile.domain)
                 logger.info(
                     "Domain '%s' flagged cloudflare_blocked — Crawl4AI fallback disabled.",
@@ -416,6 +425,7 @@ def main() -> None:
         domain_delays=domain_delays or None,
         workers=args.workers,
         ignore_robots=args.ignore_robots,
+        use_state_cache=args.use_state_cache,
     )
     engine.downloader.workers = args.dl_workers
 
@@ -478,11 +488,13 @@ def main() -> None:
         write_csv(result, output_root)
 
     import json
+
     with open(output_root / "domain_report.json", "w", encoding="utf-8") as f:
         json.dump(result.domain_stats, f, indent=2)
 
     # Generate post-run summary observability report and write run_summary.json
     from core.run_summary import generate_run_summary
+
     crawl_dur = result.run_metadata.get("crawl_duration_seconds", 0.0)
     download_dur = result.run_metadata.get("download_duration_seconds", 0.0)
     generate_run_summary(result, output_root, crawl_dur, download_dur)

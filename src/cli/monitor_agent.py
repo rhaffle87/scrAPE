@@ -4,6 +4,12 @@ import subprocess
 import argparse
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
+
+# Add src to python path to resolve modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from frontend_builder.builder import build_dashboard
 
 
 def run_scraper(
@@ -12,9 +18,10 @@ def run_scraper(
     print(f"[{datetime.now().isoformat()}] Starting full scrAPE run...")
     cmd = [
         sys.executable,
-        "main.py",
+        str(Path(__file__).parent / "main.py"),
         "--keyword",
         keyword,
+        "--use-state-cache",
     ]
     if seed_file:
         cmd.extend(["--seed-file", seed_file])
@@ -58,6 +65,10 @@ def run_scraper(
                 f"[{datetime.now().isoformat()}] scrAPE run failed with exit code {return_code}."
             )
 
+        print(f"[{datetime.now().isoformat()}] Building dashboard...")
+        build_dashboard("output")
+        print(f"[{datetime.now().isoformat()}] Dashboard build complete.")
+
     except Exception as e:
         print(f"[{datetime.now().isoformat()}] Unexpected error during run: {e}")
 
@@ -98,6 +109,11 @@ def main():
         action="store_true",
         help="Enable downloading of discovered media.",
     )
+    parser.add_argument(
+        "--flush-cache",
+        action="store_true",
+        help="Flush the state cache database before starting the watchdog.",
+    )
 
     args, extra_args = parser.parse_known_args()
 
@@ -109,6 +125,11 @@ def main():
         sys.exit(1)
 
     os.environ["SCRAPE_TIMEOUT"] = str(args.timeout)
+
+    if args.flush_cache:
+        from storage.state_cache import StateCache
+
+        StateCache().flush()
 
     print(
         f"[{datetime.now().isoformat()}] Sleep Monitoring Agent (scrAPE) initialized."

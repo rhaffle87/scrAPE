@@ -3,6 +3,7 @@ import json
 
 SESSION_DIR = "data/sessions"
 
+
 class SessionManager:
     def __init__(self):
         if not os.path.exists(SESSION_DIR):

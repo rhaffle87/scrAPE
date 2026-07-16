@@ -18,15 +18,17 @@
 ## Features
 
 - **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`, `cloudflare`, `max_pages`
-- **BFS Crawler** — Breadth-first page discovery with adaptive net-only latency concurrency scaling, configurable depth, page limits, and per-domain page caps
-- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings (referer, min size, thumbnail rejection)
-- **Quality Filters** — Relevance scoring (keyword + entity tokens), low-res detection (query params & URL path patterns), archive/index page penalty, preview marker detection, CDN whitelist
-- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting (`browser-cookie3`) and full automation fallback (`DrissionPage`) to defeat Cloudflare, Turnstile, and JS-only walls.
+- **Continuous Watchdog** — Long-running agent mode (`monitor_agent.py`) with persistent URL state caching (`StateCache` via SQLite) to prevent redundant processing.
+- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings.
+- **Specialized Extractors** — Zero-DOM direct extraction for complex SPAs like YouTube, TikTok, and Reddit via `yt-dlp` bypassing rendering completely.
+- **Yield Tuning & Upscaling** — Heuristically predicts and fetches high-res origin URLs from standard thumbnail patterns (e.g. WordPress, Twitter) with automatic graceful degradation.
+- **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist.
+- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile.
+- **Aesthetic Frontend Dashboard** — Generates a lightweight, responsive HTML/JS/CSS gallery dashboard inside `output/` automatically at the end of runs.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
-- **Memory-Backed Dedup** — Inline duplicate rejection (same URL+reason suppressed) via thread-safe `add_rejected()` closure
-- **Audit Trail** — `rejected_items` list with reason + score; `run_metadata` + `duration_seconds` on each `ScrapeResult`
-- **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag
-- **Export** — JSON manifest output per run
+- **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`).
+- **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag.
+- **Export** — JSON manifest output per run, plus automated GitHub Pages deployment configuration.
 
 ---
 
@@ -37,13 +39,13 @@
 pip install -r requirements.txt
 
 # Run with keyword and seed file
-python main.py --keyword example_subject --seed seeds/example_subject.txt
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
 
 # Run with entity tokens for higher precision
-python main.py --keyword example_subject --seed seeds/example_subject.txt --entity-token "Entity Name" --entity-token "keyword"
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --entity-token "Entity Name" --entity-token "keyword"
 
 # Run with explicit output (faster, no CLI wizard)
-python main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 30 --page-limit 50 --crawl-depth 2
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 30 --page-limit 50 --crawl-depth 2
 ```
 
 See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed annotation and dynamic settings reference.
@@ -56,7 +58,8 @@ scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Tur
 
 1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests.
 2. **Crawl4AI Headless/Headful Browser** — Executes standard headless browser-based requests.
-3. **DrissionPage Automation Fallback** — A robust Chromium-based controller that bypasses Turnstile and renders JS-only pages. Reuses persistent browser profiles located in `data/drission_profiles/<domain_slug>`. On Windows/macOS, it launches in headful mode, allowing manual/interactive Turnstile completion if automatic bypass is blocked.
+3. **DrissionPage Automation Fallback** — A robust Chromium-based controller that handles light JS walls and Captchas.
+4. **Undetected-Chromedriver (UC) Fallback** — The ultimate Tier-3 stealth fallback. Specifically engineered to seamlessly bypass persistent Cloudflare Turnstile blocks with careful process-tree lifecycle management to avoid zombie chrome instances during infinite continuous runs.
 
 ### Configuration Settings
 
@@ -136,31 +139,34 @@ See [docs/QUALITY_FILTERS.md](docs/QUALITY_FILTERS.md) for full details.
 
 ```mermaid
 flowchart TD
-    MP["main.py"] --> SM["SeedManifest"]
+    MP["src/cli/main.py"] --> SM["SeedManifest"]
     SM --> DP["DomainProfile[]<br/>(rate-limit, skip,<br/>min_size, referer)"]
     SM --> EO["EngineOptions"] --> SE["ScrapingEngine"]
     DP --> SE
 
     subgraph SE["ScrapingEngine"]
-        BF["BFS Crawler<br/>(per-domain rate-limited)"]
+        BF["BFS Crawler<br/>(StateCache & Deduplication)"]
+        SPE["SpecializedExtractor<br/>(yt-dlp for heavy SPAs)"]
         AD["Asset Discovery &amp;<br/>Relevance Scoring"]
-        DLP["Download Pipeline<br/>(concurrent, profile-aware)"]
+        DLP["Download Pipeline<br/>(Resolution Upscaling)"]
     end
 
-    RC["RobotsChecker<br/>(thread-safe _parsers dict)"] -.-> C["Cache"]
+    RC["RobotsChecker"] -.-> C["Cache"]
     C -.-> RC
 
-    SR["ScrapeResult<br/>(duration_seconds,<br/>run_metadata,<br/>rejected_items)"]
+    SR["ScrapeResult & Frontend Dashboard"]
 
-    BF --> AD --> DLP --> SR
+    BF --> SPE --> AD --> DLP --> SR
 ```
 
-- `main.py` — Entry point, CLI args, run loop
+- `src/cli/main.py` / `src/cli/monitor_agent.py` — Entry points, CLI wizards, continuous watchdog loops
 - `src/core/seed_manifest.py` — Parser: SeedManifest → list[DomainProfile]
-- `src/core/engine.py` — ScrapingEngine: BFS crawl + scoring + download orchestration
-- `src/core/filters.py` — `score_image_relevance()`, `score_video_relevance()`, `rejection_reason_for_*()`, `has_low_res_*()`, `safe_join()`
-- `src/storage/file_downloader.py` — `download_file()`: HTTP fetch with retries, referer, min-size, thumbnail filtering
-- `src/utils/robots.py` — `RobotsChecker`: per-domain parser cache (thread-safe), `--ignore-robots`
+- `src/core/engine.py` — ScrapingEngine: BFS crawl + specialized routing + scoring
+- `src/scraper/specialized.py` — `SpecializedExtractor`: yt-dlp based heavy SPA extraction
+- `src/core/filters.py` — `score_image_relevance()`, `transform_to_highres()`, `rejection_reason_for_*()`
+- `src/storage/file_downloader.py` — `download_file()`: Concurrent fetching with transparent high-res fallback
+- `src/storage/state_cache.py` — Persistent URL history using SQLite
+- `src/frontend_builder/builder.py` — Aesthetic HTML/JS/CSS static dashboard generator
 
 ---
 
@@ -183,7 +189,6 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 | Limitation | Status | Workaround |
 | --- | --- | --- |
-| **Cloudflare Turnstile** | Hard block — no automated bypass exists | Mark domain `# cloudflare: true` in seed file to skip wasted fallback time |
 | **Auth-walled sources** | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
 | **JS-only pages** | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
 
@@ -204,6 +209,9 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 ```text
 output/
+  index.html            # Automatically generated static gallery dashboard
+  cache/
+    state_cache.db      # Persistent SQLite cache of processed URLs
   {keyword_slug}/
     runs/
       {run_id}/

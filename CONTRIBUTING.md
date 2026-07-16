@@ -27,7 +27,9 @@ python -m pytest -q
 
 ## Making Changes
 
-- If you add new CLI options, update `main.py`, `README.md`, and any relevant docs.
+- If you add new CLI options, update `src/cli/main.py`, `README.md`, and any relevant docs.
+- If you modify the monitoring workflow, check `src/cli/monitor_agent.py`.
+- If you change how results are visualized, ensure the `src/frontend_builder` logic is updated to reflect the new structure.
 - If you add new filters, include regression tests under `tests/`.
 - Keep output behavior stable unless the change is explicitly intended.
 

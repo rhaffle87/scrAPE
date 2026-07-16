@@ -162,6 +162,7 @@ def extract_videos_from_html(
 
     if not videos:
         from core.semantic_selectors import extract_semantic_fallback_videos
+
         fallback_videos = extract_semantic_fallback_videos(soup, page_url, page_title)
         for item in fallback_videos:
             add_video(item)

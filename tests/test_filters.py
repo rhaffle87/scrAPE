@@ -53,9 +53,7 @@ def test_should_keep_image_accepts_subject_name_in_source() -> None:
         source_page="https://example.com/alias_beta-gallery",
         alt_text="Official shoot",
     )
-    assert (
-        should_keep_image(item, "subject", entity_tokens=["alias_beta"]) is True
-    )
+    assert should_keep_image(item, "subject", entity_tokens=["alias_beta"]) is True
 
 
 def test_should_keep_video_rejects_unrelated_video() -> None:
@@ -128,8 +126,7 @@ def test_manifest_driven_media_type_gating_and_boost() -> None:
     )
     assert media_type_matches_domain_expectation(img_ok, profiles) is True
     assert (
-        rejection_reason_for_image(img_ok, "subject", domain_profiles=profiles)
-        is None
+        rejection_reason_for_image(img_ok, "subject", domain_profiles=profiles) is None
     )
 
     # Video on image domain -> Reject
@@ -163,8 +160,7 @@ def test_manifest_driven_media_type_gating_and_boost() -> None:
     )
     assert media_type_matches_domain_expectation(vid_ok, profiles) is True
     assert (
-        rejection_reason_for_video(vid_ok, "subject", domain_profiles=profiles)
-        is None
+        rejection_reason_for_video(vid_ok, "subject", domain_profiles=profiles) is None
     )
 
     # Scoring Boost check:
@@ -172,9 +168,7 @@ def test_manifest_driven_media_type_gating_and_boost() -> None:
     score_with_boost = score_image_relevance(
         img_ok, "subject", domain_profiles=profiles
     )
-    score_without_boost = score_image_relevance(
-        img_ok, "subject", domain_profiles=None
-    )
+    score_without_boost = score_image_relevance(img_ok, "subject", domain_profiles=None)
     assert score_with_boost == score_without_boost + 3
 
     # Video on video domain gets +3 boost
@@ -235,7 +229,7 @@ def test_thumbnail_prefix_pattern_filter() -> None:
             domain="thumbs.com",
             media_type="image",
             thumbnail_prefix_pattern=r"/thumbs/",
-        )
+        ),
     }
 
     # Matches pattern -> preview_or_thumbnail
@@ -243,30 +237,55 @@ def test_thumbnail_prefix_pattern_filter() -> None:
         url="https://example.live/uploads/post-320x180.jpg",
         source_page="https://example.com/page",
     )
-    assert rejection_reason_for_image(item1, "subject", domain_profiles=profiles) == "preview_or_thumbnail"
+    assert (
+        rejection_reason_for_image(item1, "subject", domain_profiles=profiles)
+        == "preview_or_thumbnail"
+    )
 
     # Does not match pattern -> not preview_or_thumbnail
     item2 = ImageItem(
         url="https://example.live/uploads/post.jpg",
         source_page="https://example.com/page",
     )
-    assert rejection_reason_for_image(item2, "subject", domain_profiles=profiles) != "preview_or_thumbnail"
+    assert (
+        rejection_reason_for_image(item2, "subject", domain_profiles=profiles)
+        != "preview_or_thumbnail"
+    )
 
     # example thumbs match -> preview_or_thumbnail
     item3 = ImageItem(
         url="https://m2.example.com/thumbs/123/subject.jpg",
         source_page="https://thumbs.com/artist/subject/",
     )
-    assert rejection_reason_for_image(item3, "subject", domain_profiles=profiles) == "preview_or_thumbnail"
+    assert (
+        rejection_reason_for_image(item3, "subject", domain_profiles=profiles)
+        == "preview_or_thumbnail"
+    )
 
 
 def test_extract_background_image() -> None:
     from core.filters import extract_background_image
 
-    assert extract_background_image("background-image: url('https://example.com/1.jpg')") == "https://example.com/1.jpg"
-    assert extract_background_image("background: transparent url(\"https://example.com/2.jpg\") no-repeat") == "https://example.com/2.jpg"
-    assert extract_background_image("background: url(https://example.com/3.jpg) no-repeat scroll 0px 0px") == "https://example.com/3.jpg"
-    assert extract_background_image("color: red; background-image: url(https://example.com/4.jpg); width: 100px;") == "https://example.com/4.jpg"
+    assert (
+        extract_background_image("background-image: url('https://example.com/1.jpg')")
+        == "https://example.com/1.jpg"
+    )
+    assert (
+        extract_background_image(
+            'background: transparent url("https://example.com/2.jpg") no-repeat'
+        )
+        == "https://example.com/2.jpg"
+    )
+    assert (
+        extract_background_image(
+            "background: url(https://example.com/3.jpg) no-repeat scroll 0px 0px"
+        )
+        == "https://example.com/3.jpg"
+    )
+    assert (
+        extract_background_image(
+            "color: red; background-image: url(https://example.com/4.jpg); width: 100px;"
+        )
+        == "https://example.com/4.jpg"
+    )
     assert extract_background_image("color: blue;") is None
-
-

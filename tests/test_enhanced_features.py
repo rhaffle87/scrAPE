@@ -433,10 +433,7 @@ def test_collage_and_preview_filtering():
         width=600,
         height=800,
     )
-    assert (
-        rejection_reason_for_image(img_collage, "subject")
-        == "preview_or_thumbnail"
-    )
+    assert rejection_reason_for_image(img_collage, "subject") == "preview_or_thumbnail"
 
     # Preview/trailer video
     video_trailer = VideoItem(
@@ -445,8 +442,7 @@ def test_collage_and_preview_filtering():
         type="direct",
     )
     assert (
-        rejection_reason_for_video(video_trailer, "subject")
-        == "preview_or_thumbnail"
+        rejection_reason_for_video(video_trailer, "subject") == "preview_or_thumbnail"
     )
 
     # Short video
@@ -455,10 +451,7 @@ def test_collage_and_preview_filtering():
         source_page="https://example.com/subject",
         type="direct",
     )
-    assert (
-        rejection_reason_for_video(video_short, "subject")
-        == "preview_or_thumbnail"
-    )
+    assert rejection_reason_for_video(video_short, "subject") == "preview_or_thumbnail"
 
 
 def test_refined_preview_markers_and_context_aware_filtering():
@@ -493,9 +486,7 @@ def test_refined_preview_markers_and_context_aware_filtering():
         type="direct",
         page_title="Subject OnlyFans Leak Preview Clip",
     )
-    assert (
-        rejection_reason_for_video(video_with_preview_in_title, "subject") is None
-    )
+    assert rejection_reason_for_video(video_with_preview_in_title, "subject") is None
 
 
 def test_http_client_crawl4ai_fallback(monkeypatch):
@@ -696,7 +687,6 @@ https://activesite.com/page
     assert manifest.all_allowed_hosts == ["activesite.com"]
 
 
-
 def test_http_client_rate_limiting_delay_conversion():
     from utils.http_client import HttpClient
 
@@ -713,7 +703,7 @@ def test_cache_disposal_and_run_id_passing(tmp_path):
     # Add project root to sys.path if not present to import main
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-    from main import dispose_unnecessary_cache
+    from src.cli.main import dispose_unnecessary_cache
     from core.engine import ScrapingEngine
     import time
     from unittest.mock import MagicMock
@@ -1058,6 +1048,7 @@ def test_http_client_escalating_timeout_and_adaptive_rate_limit(monkeypatch):
 # Search pagination & stealth registration
 # ---------------------------------------------------------------------------
 
+
 def test_search_pagination_follows_next_page_form():
     """_extract_next_page_url should return a URL when a valid DDG form is present."""
     from bs4 import BeautifulSoup
@@ -1121,3 +1112,124 @@ def test_search_provider_scraper_registers_ddg_stealth():
     _scraper = SearchProviderScraper()
     assert "duckduckgo.com" in HttpClient._stealth_required_hosts
     assert "html.duckduckgo.com" in HttpClient._stealth_required_hosts
+
+
+def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
+    """Test that when ENABLE_HELIUM_FALLBACK is True and direct crawl4ai/drissionpage fail,
+    http_client falls back to _get_with_helium.
+    """
+    from utils.http_client import HttpClient
+    import httpx
+
+    client = HttpClient()
+
+    # Disable other fallbacks or force them to raise Exception
+    monkeypatch.setattr(
+        client,
+        "_get_with_crawl4ai",
+        lambda url: exec('raise Exception("Crawl4AI failed")'),
+    )
+    monkeypatch.setattr(
+        client,
+        "_get_with_drissionpage",
+        lambda url: exec('raise Exception("DrissionPage failed")'),
+    )
+
+    # Mock _get_with_helium to return dummy content
+    helium_called = []
+
+    def mock_get_with_helium(url):
+        helium_called.append(url)
+        return "<html>Mocked Helium Page</html>", [
+            {
+                "name": "h_cookie",
+                "value": "h_val",
+                "domain": "helium-test.com",
+                "path": "/",
+            }
+        ]
+
+    monkeypatch.setattr(client, "_get_with_helium", mock_get_with_helium)
+
+    # Trigger via direct routing (e.g. mock a 429 response)
+    # Ensure hosts check behaves correctly
+    original_cf = HttpClient._cloudflare_blocked_hosts
+    HttpClient._cloudflare_blocked_hosts = set()
+
+    def mock_get_429(url, **kwargs):
+        resp = httpx.Response(429, request=httpx.Request("GET", url))
+        raise httpx.HTTPStatusError(
+            "429 Too Many Requests", request=httpx.Request("GET", url), response=resp
+        )
+
+    monkeypatch.setattr(client.client, "get", mock_get_429)
+
+    # We must mock "pytest" in sys.modules check or bypass it because we are running inside pytest.
+    # The check is: and not ("pytest" in sys.modules)
+    import sys
+
+    original_modules = sys.modules.copy()
+    try:
+
+        class MockedModules(dict):
+            def __contains__(self, item):
+                if item == "pytest":
+                    return False
+                return super().__contains__(item)
+
+        sys.modules = MockedModules(sys.modules)
+
+        resp = client.get("https://helium-test.com/path")
+        assert resp.status_code == 200
+        assert resp.text == "<html>Mocked Helium Page</html>"
+        assert len(helium_called) == 1
+    finally:
+        sys.modules = original_modules
+        HttpClient._cloudflare_blocked_hosts = original_cf
+
+
+def test_get_with_helium_launches_chrome_first_then_firefox(monkeypatch):
+    """Test that _get_with_helium attempts start_chrome, and if it fails, falls back to start_firefox."""
+    from utils.http_client import HttpClient
+
+    client = HttpClient()
+
+    # Mock helium module
+    mock_helium = MagicMock()
+    import sys
+
+    sys.modules["helium"] = mock_helium
+
+    # 1. Test both Chrome and Firefox fail
+    mock_helium.start_chrome.side_effect = Exception("Chrome missing")
+    mock_helium.start_firefox.side_effect = Exception("Firefox missing")
+
+    with pytest.raises(
+        Exception, match="Helium failed to start either Chrome or Firefox"
+    ):
+        client._get_with_helium("https://test.com")
+
+    assert mock_helium.start_chrome.call_count == 1
+    assert mock_helium.start_firefox.call_count == 1
+
+    # Reset mock counts
+    mock_helium.reset_mock()
+
+    # 2. Test Chrome fails but Firefox succeeds
+    mock_helium.start_chrome.side_effect = Exception("Chrome missing")
+    mock_helium.start_firefox.side_effect = None
+
+    mock_driver = MagicMock()
+    mock_driver.page_source = "<html>Helium Firefox</html>"
+    mock_driver.get_cookies.return_value = [{"name": "f_cookie", "value": "f_val"}]
+    mock_helium.get_driver.return_value = mock_driver
+
+    # Mock _is_cloudflare_challenge to return False
+    monkeypatch.setattr(client, "_is_cloudflare_challenge", lambda html: False)
+
+    html, cookies = client._get_with_helium("https://test.com")
+    assert html == "<html>Helium Firefox</html>"
+    assert cookies[0]["name"] == "f_cookie"
+    assert mock_helium.start_chrome.call_count == 1
+    assert mock_helium.start_firefox.call_count == 1
+    assert mock_helium.kill_browser.call_count == 1

@@ -9,37 +9,51 @@ flowchart TD
     EO["EngineOptions<br/>(keyword, entity_tokens,<br/>domain_profiles, max_results,<br/>page_limit, crawl_depth)"]
     SE["ScrapingEngine<br/>.run()"]
     BF["BFS Page Discovery<br/>(depth 0, 1, 2, …)"]
-    AS["Asset Scoring &amp; Filtering<br/>(filters.py)"]
-    DL["Download Pipeline<br/>(ThreadPool, profile-aware)"]
+    SPE["Specialized Extractors<br/>(yt-dlp for heavy SPAs)"]
+    AS["Asset Scoring & Filtering<br/>(filters.py)"]
+    DL["Download Pipeline<br/>(ThreadPool, Resolution Upscaling)"]
     SR["ScrapeResult<br/>→ manifest.json<br/>→ rejected_items<br/>→ run_metadata<br/>→ duration_secs"]
+    FB["Frontend Builder<br/>(builder.py) → index.html"]
 
     SM --> P --> EO --> SE
-    SE --> BF & AS & DL
+    SE --> BF & SPE & AS & DL
     BF --> SR
+    SPE --> SR
     AS --> SR
     DL --> SR
+    SR --> FB
 ```
 
 ## 2. Module Layout
 
 ```text
-main.py                          — CLI entry point, dry-run, run orchestration
 seed.txt                         — Default literal seed (test/demo only)
 
 src/
 ├── __init__.py
+├── cli/
+│   ├── __init__.py
+│   ├── main.py                  — CLI entry point, dry-run, run orchestration
+│   ├── monitor_agent.py         — Watchdog entry point, continuous monitoring loop
+│   └── cli_wizard.py            — Interactive wizard for standard & watchdog runs
 ├── core/
 │   ├── __init__.py
 │   ├── engine.py                — ScrapingEngine: BFS crawl, scoring, download orchestration
 │   ├── filters.py               — Relevance scoring, rejection reasons, low-res detection
 │   ├── models.py                — ScrapeResult, RejectedItem, EngineOptions, DomainProfile
 │   └── seed_manifest.py         — SeedManifest parser: annotations → DomainProfile[]
+├── scraper/
+│   ├── google_images.py         — Search provider & fallback page scraper
+│   └── specialized.py           — SpecializedExtractor for zero-DOM extraction (yt-dlp)
 ├── storage/
-│   └── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, thumbnail rejection
+│   ├── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, upscaling
+│   └── state_cache.py           — Persistent SQLite state cache to prevent redundant crawls
+├── frontend_builder/
+│   └── builder.py               — Static site generator for output/index.html
 └── utils/
     ├── __init__.py
     ├── blacklist.py             — BlacklistManager: persistent 404/403/Cloudflare domains blacklist
-    ├── http_client.py           — HttpClient: shared http connection pool, rate limiting, and cookie injection
+    ├── http_client.py           — HttpClient: connection pool, ratelimit, Crawl4AI & UC fallbacks
     ├── robots.py                — RobotsChecker: per-domain thread-safe parser cache
     └── session.py               — SessionManager: persistent session cookies cache
 
@@ -167,7 +181,7 @@ If a `DomainProfile` has `max_pages` set, `_fetch_page()` checks `pages_scanned 
 
 `RobotsChecker` maintains a per-domain parser cache (`self._parsers` dict) instead of `@lru_cache` for thread safety. To prevent temporary or transient robots.txt blocks from building up failure counts and triggering domain-wide cooldowns, a successful robots.txt fetch immediately records success on the domain's cooldown state, resetting the error count.
 
-### 3.6 Main Entry (`main.py`)
+### 3.6 Main Entry (`src/cli/main.py`)
 
 - Captures `time.monotonic()` start → end → `duration_seconds` on result
 - Stores `run_metadata` dict with: `seed_file`, `workers`, `dl_workers`, `page_limit`, `crawl_depth`, `max_results`, `entity_tokens`, `download_media`
@@ -213,13 +227,14 @@ All patterns are compiled with `re.IGNORECASE`. Backreferences use `\1`, `\2` et
 
 ### 3.11 WAF Fallback Tiers (`http_client.py`)
 
-On 403/401/429 HTTP responses, the client escalates through three tiers:
+On 403/401/429 HTTP responses, the client escalates through multiple tiers:
 
 | Tier | Method | Typical cost | Bypass condition |
 | --- | --- | --- | --- |
 | 0 (primary) | `httpx` with session cookies | ~0.5–2s | — |
 | 1 | Crawl4AI headless Chromium | ~8–15s | — |
-| 2 | Crawl4AI headful Chromium (stealth) | ~20–30s | — |
+| 2 | Crawl4AI headful Chromium | ~20–30s | — |
+| 3 (stealth) | `undetected-chromedriver` | ~30–40s | Cloudflare Turnstile blocks |
 | — | **Bypassed** | ~0s | `DomainProfile.cloudflare_blocked == True` |
 
 If a domain is registered via `HttpClient.register_cloudflare_blocked()` (triggered automatically by the `# cloudflare: true` seed annotation), Tiers 1 and 2 are skipped and `ScraperBypassError` is raised immediately.

@@ -31,6 +31,7 @@ def absolutize_url(candidate: str, base_url: str) -> str:
 def normalize_url(url: str) -> str:
     from urllib.parse import unquote, quote
     from config import URL_NORMALISATION_RULES
+
     try:
         url = url.strip()
         # Apply all domain-specific URL normalisation rules from config.
@@ -62,7 +63,6 @@ def extract_background_image(style_value: str | None) -> str | None:
     if not match:
         return None
     return match.group(2)
-
 
 
 # Compiled once: matches gallery navigation pseudo-URLs like
@@ -202,7 +202,6 @@ def looks_like_media(url: str) -> bool:
     if is_broken_media_url(url):
         return False
     return is_probable_image(url) or is_probable_video(url)
-
 
 
 def domain_matches(url: str, domain_rules: list[str]) -> bool:
@@ -396,7 +395,9 @@ def score_image_relevance(
     seed_urls: set[str] | None = None,
     domain_profiles: dict | None = None,
 ) -> int:
-    text = safe_join([item.url, item.source_page, item.alt_text, item.page_title]).lower()
+    text = safe_join(
+        [item.url, item.source_page, item.alt_text, item.page_title]
+    ).lower()
     score = weighted_subject_score(text, keyword, entity_tokens)
     if item.alt_text:
         score += 1
@@ -541,7 +542,9 @@ def has_low_res_query_param(url: str, min_size: int = 400) -> bool:
     return False
 
 
-def has_low_res_path_pattern(url: str, min_width: int = 400, min_height: int = 300) -> bool:
+def has_low_res_path_pattern(
+    url: str, min_width: int = 400, min_height: int = 300
+) -> bool:
     try:
         path = urlparse(url).path.lower()
     except Exception:
@@ -600,6 +603,41 @@ def has_low_res_path_pattern(url: str, min_width: int = 400, min_height: int = 3
 
     return False
 
+
+def transform_to_highres(url: str) -> tuple[str, str]:
+    """
+    Attempt to heuristically upscale a URL from a thumbnail to its original high-res version.
+    Returns (upscaled_url, original_url).
+    """
+    original = url
+    try:
+        parsed = urlparse(url)
+        path = parsed.path
+        query = parsed.query
+
+        # 1. WordPress style -150x150.jpg
+        wp_match = re.search(r"(-\d{2,4}x\d{2,4})(\.[a-zA-Z0-9]{3,4})$", path, re.I)
+        if wp_match:
+            path = path[: wp_match.start(1)] + wp_match.group(2)
+
+        # 2. _thumb suffix
+        thumb_match = re.search(r"(_thumb)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
+        if thumb_match:
+            path = path[: thumb_match.start(1)] + thumb_match.group(2)
+
+        # 3. Twitter name=small -> name=large
+        if "name=small" in query:
+            query = query.replace("name=small", "name=large")
+
+        # Combine
+        if path != parsed.path or query != parsed.query:
+            upscaled = urlunparse(parsed._replace(path=path, query=query))
+            return upscaled, original
+
+    except Exception:
+        pass
+
+    return url, url
 
 
 def rejection_reason_for_image(
@@ -672,7 +710,9 @@ def rejection_reason_for_image(
         return "placeholder_asset"
     if _preview_penalty(text) >= 6:
         return "preview_or_thumbnail"
-    if has_low_res_query_param(item.url, min_size=300) or has_low_res_path_pattern(item.url, min_width=300, min_height=250):
+    if has_low_res_query_param(item.url, min_size=300) or has_low_res_path_pattern(
+        item.url, min_width=300, min_height=250
+    ):
         return "low_resolution_hint"
     if not contains_subject_text(text, keyword, entity_tokens):
         return "low_subject_relevance"

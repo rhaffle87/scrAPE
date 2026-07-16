@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.11.0] — 2026-07-17
+
+### Changed & Fixed (0.11.0)
+
+- **Architectural Reorganization** (`src/cli/`, `src/config/`): Moved primary entry points (`main.py`, `cli_wizard.py`, `monitor_agent.py`) and configuration constants into dedicated packages within `src/` to formalize the project layout as a proper Python package.
+- **Dynamic Path Resolution**: Refactored module imports and `sys.path` injections across CLI scripts to use robust absolute paths derived from `__file__`, resolving module loading errors during subprocess execution.
+- **Test Suite Hardening**: Fixed infinite test hangs in `tests/test_advanced_features.py` by scoping `time.monotonic` mocks to avoid blocking `concurrent.futures.wait`. Also patched unmocked live network requests that caused rate-limiting and hanging during testing.
+- **Import Hygiene & Code Cleanup**: Resolved `E402` and `F841` linting errors across the codebase via `ruff`, removed duplicate methods in `ScrapingEngine`, and achieved a 100% pass rate for the 91-item test suite.
+- **Shell Wrapper Updates**: Updated `run.bat`, `run.sh`, `run_monitor.bat`, and `run_monitor.sh` to target the new entry points in `src/cli/`.
+
+## [0.10.0] — 2026-07-16
+
+### Added (0.10.0)
+
+- **Continuous Watchdog Agent** (`monitor_agent.py`, `state_cache.py`): Added a long-running watchdog mode for continuous scheduled monitoring. Introduced an SQLite-backed `StateCache` to persist processed URLs across runs, preventing redundant downloads and bandwidth waste.
+- **Undetected-Chromedriver (UC) Tier-3 Fallback** (`http_client.py`): Upgraded the stealth pipeline. When Cloudflare Turnstile blocks `Crawl4AI` and `DrissionPage`, the client now falls back to a fully randomized `undetected-chromedriver` instance. Includes robust process lifecycle management to avoid zombie Chrome instances.
+- **Specialized Social Media Extractors** (`specialized.py`, `engine.py`): Bypassed heavy headless browser rendering for complex SPAs (YouTube, TikTok, Reddit) by routing them directly to `yt-dlp` and API extractors. Vastly increases extraction speed and success rates on media platforms.
+- **Resolution Upscaling & Fallback** (`filters.py`, `file_downloader.py`): Implemented heuristic resolution upscaling (`transform_to_highres`) to automatically strip thumbnail parameters (e.g. WordPress, Twitter small tags) and predict the full-size origin URL. The downloader attempts the high-res link first and transparently falls back to the original scraped URL on a 404 error.
+- **Static Dashboard Generator** (`builder.py`, `cli_wizard.py`): Created a zero-dependency HTML/JS/CSS static site builder. It runs automatically at the end of scraping operations, generating a sleek, responsive visual gallery and monitoring dashboard in `output/index.html`.
+- **GitHub Pages Auto-Deployment** (`gh-pages.yml`): Added a GitHub Actions workflow to automatically publish the `output/` directory as a GitHub Pages site upon push to `main`.
+
 ## [0.9.0] — 2026-07-15
 
 ### Added (0.9.0)
