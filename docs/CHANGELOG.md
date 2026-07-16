@@ -45,7 +45,7 @@
 
 - **JSON-driven URL normalisation rules** (`data/url_normalisation_rules.json`, `config.py`): URL normalisation patterns are no longer hardcoded in any Python source file. `config.URL_NORMALISATION_RULES` is now populated at startup from `data/url_normalisation_rules.json`. Each rule is a `{ "pattern": "<regex>", "replacement": "<str>", "description": "..." }` object compiled to a `(re.Pattern, str)` tuple. Add new rules to the JSON file only.
 
-- **AsianViralHub locale-collapse normalisation** (`data/url_normalisation_rules.json`): First entry in the new rules file. Strips the 2-character locale segment (`/de/`, `/fr/`, `/zh/`, etc.) from AsianViralHub `get_file`/`contents`/`video` paths so all 9 locale variants of the same video resolve to one canonical URL before entering the crawl queue. Prevents ~72 duplicate download requests per meenfox run.
+- **Locale-collapse normalisation** (`data/url_normalisation_rules.json`): First entry in the new rules file. Strips the 2-character locale segment (`/de/`, `/fr/`, `/zh/`, etc.) from `get_file`/`contents`/`video` paths so all locale variants of the same video resolve to one canonical URL before entering the crawl queue. Prevents duplicate download requests per run.
 
 - **`normalise_url()` re-export** (`http_client.py`): Kept as a thin delegation to `core.filters.normalize_url` for backward compatibility with existing call sites. All normalisation logic is now canonically in `filters.py`.
 
@@ -55,16 +55,16 @@
 
 - **`_load_dynamic_config()` unified** (`config.py`): Merged domain config loading and URL normalisation rule loading into a single startup function. `url_normalisation_rules.json` is loaded alongside `domain_config.json`.
 
-- **Seed file overhaul — meenfox** (`seeds/meenfox.txt`):
-  - Disabled zero-yield domains: `hotleak.vip` (0/11 pages), `sorafolder.com` (CDN-only), `oneprotests.thefap.net` (dead), `e-hentai.org` (JS-only gallery)
-  - Added `cloudflare: true` + `Rate-limit: 0.1 req/s` to `cosplaythots.com`
-  - Reduced rate limit `0.3 → 0.1 req/s` for `cosplayrule34.com`
-  - Added `max_pages: 5` cap to `pornasia.net` (previously 26 pages → 2 images)
-  - Pruned 2 dead `dogestream.live` CDN URLs from `indoporn.mobi` detail seeds
+- **Seed file overhaul — Example Subject 1** (`seeds/example1.txt`):
+  - Disabled zero-yield domains: `example-leak.vip` (0/11 pages), `example-folder.com` (CDN-only), `example-dead.net` (dead), `example-gallery.org` (JS-only gallery)
+  - Added `cloudflare: true` + `Rate-limit: 0.1 req/s` to `example-protected.com`
+  - Reduced rate limit `0.3 → 0.1 req/s` for `example-slow.com`
+  - Added `max_pages: 5` cap to `example-capped.net` (previously 26 pages → 2 images)
+  - Pruned 2 dead `example-stream.live` CDN URLs from `example-mobile.mobi` detail seeds
 
-- **Seed file overhaul — eatwaffles** (`seeds/eatwaffles.txt`):
-  - Disabled auth-walled domains: `www.pixiv.net`, `eatwaffles.fanbox.cc`, `kemono.cr`, `pawchive.st`
-  - Changed crawl strategy `direct → index→detail` for `rule34.us`, `rule34.world`, `rule34.xyz`, `kusowanka.com` — listing pages serve 256px thumbnails only; detail pages contain full-res CDN links
+- **Seed file overhaul — Example Subject 2** (`seeds/example2.txt`):
+  - Disabled auth-walled domains: `www.example-art.net`, `example.fanbox.cc`, `example-kemono.cr`, `example-archive.st`
+  - Changed crawl strategy `direct → index→detail` for `example-rule.us`, `example-rule.world` — listing pages serve 256px thumbnails only; detail pages contain full-res CDN links
 
 ### System Limitations (documented)
 
