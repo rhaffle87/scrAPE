@@ -21,7 +21,6 @@ python src/cli/main.py --keyword <keyword> --seed <path> [options]
  | `--download-media` | flag | `False` | Enable actual file download |
  | `--ignore-robots` | flag | `False` | Skip robots.txt checks |
  | `--entity-token` | `str[]` | `[]` | Additional entity tokens (repeatable) |
- | `--yes` | flag | `False` | Skip confirmations (non-interactive) |
  | `--dry-run` | flag | `False` | Parse seed + validate, no crawl |
  | `--run-id` | `str` | auto | Override run ID |
  | `--keyword-slug` | `str` | auto | Override output dir slug |
@@ -44,7 +43,7 @@ python src/cli/main.py --keyword example_subject --seed seeds/example_subject.tx
 # Production sweep (high concurrency, no confirmations)
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --max-results 100 --workers 16 --dl-workers 8 ^
-  --page-limit 200 --crawl-depth 3 --download-media --yes
+  --page-limit 200 --crawl-depth 3 --download-media
 
 # Validate seed manifest only
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
@@ -115,7 +114,7 @@ In addition to launching crawls, the wizard provides built-in utilities for down
 ## Local Web GUI
 
 ```bash
-python -m src.cli.webui --port 10001
+python -m src.cli.webui --host 127.0.0.1 --port 10001
 ```
 
 The Local Web GUI provides a browser-based dashboard hosted locally. It allows you to:

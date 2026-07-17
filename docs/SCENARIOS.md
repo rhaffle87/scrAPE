@@ -24,7 +24,7 @@ Focused crawl using curated domain profiles. High precision via entity tokens.
 ```bash
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --max-results 100 --workers 16 --dl-workers 8 ^
-  --page-limit 200 --crawl-depth 3 --download-media --yes
+  --page-limit 200 --crawl-depth 3 --download-media 
 ```
 
 Maximum throughput. Multi-subject runs should use separate terminals or a shell script.
@@ -44,7 +44,7 @@ Low concurrency, shallow crawl. Minimal impact on target servers.
 ```bash
 python src/cli/main.py --keyword deep_archive_subject --seed seeds/deep_archive_subject.txt ^
   --max-results 9999 --page-limit 5000 --crawl-depth 3 ^
-  --workers 8 --dl-workers 4 --download-media --yes
+  --workers 8 --dl-workers 4 --download-media 
 ```
 
 Maximum collection for deep-archive subjects. Requires sufficient disk space. Use `--page-limit` to bound discovery.
@@ -55,7 +55,7 @@ Maximum collection for deep-archive subjects. Requires sufficient disk space. Us
 # Terminal 1 — Run the scrape
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --max-results 50 --workers 8 --dl-workers 4 ^
-  --page-limit 100 --crawl-depth 2 --download-media --yes
+  --page-limit 100 --crawl-depth 2 --download-media 
 
 # Terminal 2 — Monitor output growth
 dir /s output/example_subject/runs/
@@ -76,7 +76,7 @@ Parses and validates the seed manifest without crawling. Useful for debugging an
 ```bash
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --run-id "retry-01" --keyword-slug "subject-v2" ^
-  --workers 8 --dl-workers 6 --page-limit 100 --download-media --yes
+  --workers 8 --dl-workers 6 --page-limit 100 --download-media 
 ```
 
 Multiple runs for the same subject are stored under separate run IDs inside `runs/`.

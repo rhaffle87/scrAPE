@@ -803,6 +803,18 @@ class HttpClient:
 
         try:
             import undetected_chromedriver as uc
+            
+            # Patch uc.Chrome.quit to suppress WinError 6 during interpreter shutdown
+            if not getattr(uc.Chrome, "_patched_quit", False):
+                original_quit = uc.Chrome.quit
+                def patched_quit(self):
+                    try:
+                        original_quit(self)
+                    except OSError:
+                        pass
+                uc.Chrome.quit = patched_quit
+                uc.Chrome._patched_quit = True
+
         except ImportError as e:
             logger.error("undetected-chromedriver not installed: %s", e)
             raise e

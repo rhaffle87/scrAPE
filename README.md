@@ -191,12 +191,15 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 ---
 
-## System Limitations
+## System Limitations & Defeated Challenges
 
-| Limitation | Status | Workaround |
+| Challenge / Limitation | Status | Resolution / Workaround |
 | --- | --- | --- |
-| **Auth-walled sources** | Disabled — requires authenticated session | Pending session-cookie injection workflow; disable in seed file for now |
-| **JS-only pages** | Crawl4AI still returns empty HTML shell | Disable in seed file; no fix without a full browser session |
+| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed via the 7-Tier Fallback Chain (Crawlee Bridge, DrissionPage, and undetected-chromedriver). |
+| **JS-Only / SPA Pages** | **DEFEATED** | Fully rendered via Crawlee (Puppeteer) and `yt-dlp` specialized extractors. |
+| **Auth-Walled Sources** | **DEFEATED** | Bypassed via Local Cookie Harvesting (`browser-cookie3`) and manual `--inject-cookies` / `--login` CLI flags. |
+| **IP Rate-Limiting / Bans** | **Limitation** | The scraper runs locally on a single IP without proxy rotation. If aggressively banned, you must rotate your VPN or wait out the cooldown. |
+| **Manual CAPTCHAs** | **Limitation** | Sites requiring manual visual CAPTCHA solving (e.g., reCAPTCHA image grids) will still halt the automated browser tiers. |
 
 ---
 

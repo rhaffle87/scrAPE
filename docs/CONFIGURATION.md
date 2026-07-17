@@ -100,13 +100,17 @@ Maintained by the circuit breaker. Domains hitting consecutive 429s or HTTP erro
 
 ## 3. Web Application Firewall (WAF) & Cloudflare Bypass Tiers
 
-To bypass Cloudflare protection, the scraper employs an escalating sequence of HTTP clients:
+To bypass Cloudflare Turnstile, captchas, and WAF protection, the scraper employs an escalating 7-tier fallback chain:
 
-| Tier | Fetcher Method | Typical Cost | Cloudflare Bypass Capability |
+| Tier | Fetcher Method | Typical Cost | Bypass Capability |
 | --- | --- | --- | --- |
-| **Tier 0** | `httpx` Session Client | ~0.5s–2.0s | Low (passes standard cookies/headers only) |
-| **Tier 1** | `Crawl4AI` Headless Chromium | ~8.0s–15.0s | Moderate (stealth-configured headless browser) |
-| **Tier 2** | `Crawl4AI` Headful Chromium | ~20.0s–30.0s | High (stealth-configured visible browser) |
+| **Tier 0** | `httpx` + Local Cookie Harvesting | ~0.5s–2.0s | Low (relies on active local session cookies) |
+| **Tier 1** | `Crawlee` (Cheerio) | ~1.0s–3.0s | Moderate (spoofs standard TLS fingerprints) |
+| **Tier 2** | `Crawl4AI` (Headless/Headful) | ~8.0s–15.0s | High (stealth-configured chromium) |
+| **Tier 3** | `DrissionPage` | ~10.0s–20.0s | High (handles light JS walls and Captchas) |
+| **Tier 4** | `Crawlee` (Puppeteer) | ~15.0s–25.0s | Very High (heavy JS-rendering with stealth plugins) |
+| **Tier 5** | `Helium` | ~20.0s | Very High (high-level automation) |
+| **Tier 6** | `undetected-chromedriver` (UC) | ~25.0s–35.0s | Extreme (ultimate Turnstile & JS challenge bypass) |
 
 ### Cloudflare Block Flag (`cloudflare: true`)
 
