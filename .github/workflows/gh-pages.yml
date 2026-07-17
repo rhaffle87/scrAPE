@@ -27,23 +27,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Generate Dashboard
-        env:
-          PYTHONPATH: .
-        run: |
-          mkdir -p output
-          python -c "from src.frontend_builder.builder import build_dashboard; build_dashboard('output')"
-        
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the output directory where builder.py generated index.html
-          path: './output'
+          # Upload the root directory containing the static files
+          path: '.'
           
       - name: Deploy to GitHub Pages
         id: deployment
