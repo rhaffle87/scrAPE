@@ -111,3 +111,14 @@ In addition to launching crawls, the wizard provides built-in utilities for down
 3. **Continuous Watchdog Agent** — Polls target sites on a set scheduler to monitor changes.
 4. **Create Structured AI Dataset** — Groups and exports files from any completed run into a consolidated folder with custom layouts (Consolidated Flat, Domain-Grouped, or Media-Type Grouped).
 5. **Enterprise LLM RAG Ingestion** — Extracts page titles, alt texts, image contexts, and URLs from scraped results, outputting clean formats ready for ingestion (Single Consolidated Markdown, Chunked Page Markdown documents, or JSONL Embeddings formats).
+
+## Local Web GUI
+
+```bash
+python -m src.cli.webui --port 10001
+```
+
+The Local Web GUI provides a browser-based dashboard hosted locally. It allows you to:
+1. **View the Dashboard:** See aggregated statistics and browse all downloaded media directly at `http://localhost:10001/`.
+2. **Trigger Scrapes via API:** You can programmatically trigger a background scrape by sending a POST request to `http://localhost:10001/api/run` with a JSON payload of standard CLI arguments (`keyword`, `seed`, `max_results`, etc.).
+3. **Monitor Status:** Check `http://localhost:10001/api/status` to see if a scrape is currently running.

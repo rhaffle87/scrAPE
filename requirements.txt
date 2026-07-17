@@ -10,3 +10,7 @@ helium>=3.0.8
 undetected-chromedriver>=3.5.0
 yt-dlp>=2024.04.09
 Pillow>=10.0.0
+fastapi>=0.111.0
+uvicorn>=0.30.1
+pystray>=0.19.3
+questionary>=2.0.1

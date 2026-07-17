@@ -9,7 +9,6 @@ from pathlib import Path
 # Add src to python path to resolve modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from frontend_builder.builder import build_dashboard
 
 
 def run_scraper(
@@ -65,9 +64,7 @@ def run_scraper(
                 f"[{datetime.now().isoformat()}] scrAPE run failed with exit code {return_code}."
             )
 
-        print(f"[{datetime.now().isoformat()}] Building dashboard...")
-        build_dashboard("output")
-        print(f"[{datetime.now().isoformat()}] Dashboard build complete.")
+        print(f"[{datetime.now().isoformat()}] Scraping run complete.")
 
     except Exception as e:
         print(f"[{datetime.now().isoformat()}] Unexpected error during run: {e}")

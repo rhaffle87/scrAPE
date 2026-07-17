@@ -53,8 +53,12 @@ src/
 ├── storage/
 │   ├── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, upscaling
 │   └── state_cache.py           — Persistent SQLite state cache to prevent redundant crawls
-├── frontend_builder/
-│   └── builder.py               — Static site generator for output/index.html
+├── cli/
+│   ├── launcher.py              — Interactive launcher & system tray manager
+│   ├── webui.py                 — FastAPI backend for SPA & live logs
+│   ├── cli_wizard.py            — Terminal interface
+│   └── templates/
+│       └── index.html           — Dynamic Single Page Application frontend
 └── utils/
     ├── __init__.py
     ├── blacklist.py             — BlacklistManager: persistent 404/403/Cloudflare domains blacklist

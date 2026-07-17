@@ -8,7 +8,6 @@ from pathlib import Path
 # Add src to python path to resolve modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from frontend_builder.builder import build_dashboard
 
 # Ensure UTF-8 output encoding for block characters on Windows
 if sys.platform.startswith("win"):
@@ -183,9 +182,7 @@ def mode_general_scraping():
 
     run_command(cmd)
 
-    print(f"\n{CLR_CYAN}Building frontend dashboard...{CLR_END}")
-    build_dashboard("output")
-    print(f"{CLR_GREEN}Dashboard generated at output/index.html{CLR_END}")
+    print(f"\n{CLR_GREEN}Scraping complete.{CLR_END}")
 
 
 def mode_specified_scraping():
@@ -256,9 +253,7 @@ def mode_specified_scraping():
 
     run_command(cmd)
 
-    print(f"\n{CLR_CYAN}Building frontend dashboard...{CLR_END}")
-    build_dashboard("output")
-    print(f"{CLR_GREEN}Dashboard generated at output/index.html{CLR_END}")
+    print(f"\n{CLR_GREEN}Scraping complete.{CLR_END}")
 
 
 def mode_continuous_watchdog():
