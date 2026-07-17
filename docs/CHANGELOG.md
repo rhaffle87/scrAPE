@@ -7,6 +7,7 @@
 - **Dynamic Plugin Architecture** (`src/scraper/specialized.py`, `src/plugins/`): Refactored the core `SpecializedExtractor` into a scalable, class-based dynamic plugin architecture. Custom platform extraction logic (e.g., YouTube, Reddit) is now seamlessly loaded at runtime from independent plugin files in `src/plugins`, vastly improving maintainability and isolation.
 - **Aggressive Image Sanitization** (`src/storage/file_downloader.py`, `requirements.txt`): Integrated `Pillow` into the media downloader pipeline. All downloaded images are now intercepted in memory, parsed, and entirely re-encoded. This process automatically drops embedded EXIF metadata (GPS, device data) and explicitly guards against malicious polyglot file payloads by verifying legitimate image structure before writing to disk.
 - **Frontend Aesthetic Redesign** (`src/frontend_builder/builder.py`): Evolved the dashboard UI towards a bespoke "Primal Computation / Evolutionary Brutalism" design language. Overhauled the generated `index.html` to leverage strict monochrome contrast, heavy brutalist UI components, and wide typography.
+- **Interactive Authentication CLI** (`src/cli/auth.py`, `src/cli/main.py`): Added `--login <DOMAIN>` for launching a headful `undetected_chromedriver` browser to manually log into protected sites and save session cookies. Added `--inject-cookies <FILE> --domain <DOMAIN>` to import session cookies from JSON or Netscape `cookies.txt` formats directly into the SessionManager.
 
 ## [0.11.0] — 2026-07-17
 

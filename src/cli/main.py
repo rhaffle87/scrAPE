@@ -36,7 +36,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="scrAPE — Collect public image and video URLs for a keyword query."
     )
-    parser.add_argument("--keyword", required=True, help="Keyword query to search for.")
+    parser.add_argument("--keyword", default="", help="Keyword query to search for.")
+    parser.add_argument(
+        "--login", type=str, metavar="DOMAIN", help="Interactive headful login for the specified domain to save session cookies."
+    )
+    parser.add_argument(
+        "--inject-cookies", type=Path, metavar="FILE", help="Import a JSON or Netscape cookies.txt file."
+    )
+    parser.add_argument(
+        "--domain", type=str, help="Domain to associate with the injected cookies (required if using --inject-cookies)."
+    )
     parser.add_argument(
         "--max-results",
         type=int,
@@ -221,6 +230,23 @@ def main() -> None:
     logger.info("Logging to file: %s", log_path)
 
     args = build_parser().parse_args()
+
+    if args.login:
+        from cli.auth import perform_interactive_login
+        perform_interactive_login(args.login)
+        return
+
+    if args.inject_cookies:
+        if not args.domain:
+            logger.error("--domain is required when using --inject-cookies")
+            sys.exit(1)
+        from cli.auth import import_cookies
+        import_cookies(args.domain, args.inject_cookies)
+        return
+        
+    if not args.keyword and not args.seed_file and not args.seed_url:
+        logger.error("--keyword, --seed-file, or --seed-url must be provided.")
+        sys.exit(1)
 
     # Clear cache if requested, or automatically dispose expired cache
     if args.clear_cache:

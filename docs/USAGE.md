@@ -25,6 +25,9 @@ python src/cli/main.py --keyword <keyword> --seed <path> [options]
  | `--dry-run` | flag | `False` | Parse seed + validate, no crawl |
  | `--run-id` | `str` | auto | Override run ID |
  | `--keyword-slug` | `str` | auto | Override output dir slug |
+ | `--login` | `str` | None | Interactive headful login for a domain |
+ | `--inject-cookies` | `str` | None | Import JSON or Netscape cookies.txt file |
+ | `--domain` | `str` | None | Domain to associate with injected cookies |
 
 ## Seed Manifest
 
@@ -49,6 +52,12 @@ python src/cli/main.py --keyword example_subject --seed seeds/example_subject.tx
 # Stealth mode (single worker, polite speed)
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
   --workers 1 --page-limit 20 --crawl-depth 1
+
+# Interactive login to capture session cookies for a protected domain
+python src/cli/main.py --login example.com
+
+# Inject existing cookies from a file
+python src/cli/main.py --inject-cookies cookies.json --domain example.com
 ```
 
 ## Output Structure

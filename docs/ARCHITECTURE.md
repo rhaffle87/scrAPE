@@ -34,6 +34,7 @@ src/
 ├── cli/
 │   ├── __init__.py
 │   ├── main.py                  — CLI entry point, dry-run, run orchestration
+│   ├── auth.py                  — Interactive headful login and cookie injection
 │   ├── monitor_agent.py         — Watchdog entry point, continuous monitoring loop
 │   └── cli_wizard.py            — Interactive wizard for standard & watchdog runs
 ├── core/
@@ -197,7 +198,7 @@ Provides a system to track domains that consistently return HTTP 404, 403, or tr
 
 ### 3.8 Session Manager (`session.py`)
 
-Manages the persistence of session cookies. Cookies parsed from successful visits or browser fallbacks are serialized and loaded dynamically to ensure that future crawl workers retain valid session contexts, enhancing bypass consistency for guarded domains.
+Manages the persistence of session cookies. Cookies parsed from successful visits, browser fallbacks, or captured via the interactive CLI (`cli/auth.py`) are serialized and loaded dynamically to ensure that future crawl workers retain valid session contexts, enhancing bypass consistency for guarded domains. Users can manually populate sessions using the `--login` or `--inject-cookies` CLI flags.
 
 ### 3.9 Dynamic Domain Config (`domain_config.json`)
 
