@@ -87,11 +87,24 @@ def run_scrape(req: ScrapeRequest):
         "--crawl-depth", str(req.crawl_depth)
     ]
     if req.seed:
-        # Resolve seed path relative to ROOT_DIR if it's not absolute
-        seed_path = Path(req.seed)
-        if not seed_path.is_absolute():
-            seed_path = ROOT_DIR / req.seed
-        cmd.extend(["--seed-file", str(seed_path)])
+        import os
+        
+        # Sanitize path: do not allow directory traversal or absolute paths
+        if ".." in req.seed or os.path.isabs(req.seed):
+            raise HTTPException(status_code=400, detail="Invalid seed file path. Must be a safe relative path.")
+            
+        seed_path = ROOT_DIR / "seeds" / req.seed
+        
+        # Ensure it resolves securely inside the seeds directory
+        try:
+            resolved_seed = seed_path.resolve()
+            seeds_dir = (ROOT_DIR / "seeds").resolve()
+            if not str(resolved_seed).startswith(str(seeds_dir)):
+                raise HTTPException(status_code=400, detail="Seed path traverses outside allowed directory.")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid seed path resolution.")
+            
+        cmd.extend(["--seed-file", str(resolved_seed)])
         
     if req.download_media:
         cmd.append("--download-media")

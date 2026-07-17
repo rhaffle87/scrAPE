@@ -328,6 +328,11 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             continue  # blank lines — no action; pending survives
 
         if line.startswith("#"):
+            # Reset pending annotations on section dividers
+            if line.startswith("# ---") or line.startswith("# ==="):
+                reset_pending()
+                continue
+
             # Global subject header (first match only)
             m = _SUBJECT_RE.match(line)
             if m and not manifest.subject_name:

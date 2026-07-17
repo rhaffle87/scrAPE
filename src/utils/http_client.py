@@ -37,7 +37,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 import httpx
 
-# Tenacity imports removed in favor of internal escalative retries
+import sys
+
 
 from config import (
     CACHE_DIR,
@@ -617,6 +618,20 @@ class HttpClient:
 
         return harvested
 
+    def _get_with_crawlee_cheerio(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch URL using Crawlee Cheerio (fast parser)"""
+        from utils.crawlee_client import CrawleeClient
+        client = CrawleeClient()
+        html = client.get_with_cheerio(url)
+        return html, []
+
+    def _get_with_crawlee_puppeteer(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch URL using Crawlee Puppeteer (stealth browser)"""
+        from utils.crawlee_client import CrawleeClient
+        client = CrawleeClient()
+        html, cookies = client.get_with_puppeteer(url)
+        return html, cookies
+
     def _get_with_drissionpage(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using DrissionPage to bypass Turnstile/WAF locally."""
         from utils.logger import get_logger
@@ -688,7 +703,7 @@ class HttpClient:
             return html, cookies_list
 
         except Exception as e:
-            logger.error("DrissionPage request failed: %s", e)
+            logger.error("DrissionPage request failed: %s", repr(e))
             raise e
         finally:
             if page:
@@ -771,7 +786,7 @@ class HttpClient:
             return html, cookies_list
 
         except Exception as e:
-            logger.error("Helium request failed: %s", e)
+            logger.error("Helium request failed: %s", repr(e))
             raise e
         finally:
             if started:
@@ -802,19 +817,29 @@ class HttpClient:
         logger.info(
             "Launching undetected-chromedriver for %s (headless=%s)", url, headless_mode
         )
-
         driver = None
-        try:
-            options = uc.ChromeOptions()
-            if headless_mode:
-                options.add_argument("--headless")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
+        for attempt in range(2):
+            try:
+                options = uc.ChromeOptions()
+                if headless_mode:
+                    options.add_argument("--headless")
+                options.add_argument("--disable-gpu")
+                options.add_argument("--no-sandbox")
+                options.add_argument("--disable-dev-shm-usage")
 
-            driver = uc.Chrome(options=options, use_subprocess=True)
+                driver = uc.Chrome(options=options, use_subprocess=True, version_main=150)
+                break
+            except Exception as driver_err:
+                if "session not created" in str(driver_err).lower() and attempt == 0:
+                    logger.warning("uc.Chrome session creation failed. Retrying initialization...")
+                    time.sleep(2)
+                    continue
+                raise driver_err
+
+        try:
             driver.set_page_load_timeout(30)
             driver.get(url)
+
 
             # Wait for redirection/challenge solving
             solve_timeout = 25.0
@@ -1183,6 +1208,18 @@ class HttpClient:
                             html_content = None
                             browser_cookies = []
 
+                    if html_content is None:
+                        logger.info("Escalating direct stealth routing to Crawlee Puppeteer fallback for %s...", url)
+                        try:
+                            res_val = self._get_with_crawlee_puppeteer(url)
+                            html_content, browser_cookies = res_val
+                            if html_content and self._is_blocked_page(html_content, url):
+                                raise Exception("Crawlee Puppeteer returned a blocked page")
+                        except Exception as cp_exc:
+                            logger.error("Direct Crawlee Puppeteer fallback failed: %s", cp_exc)
+                            html_content = None
+                            browser_cookies = []
+
                     if html_content is None and ENABLE_HELIUM_FALLBACK:
                         logger.info(
                             "Escalating direct stealth routing to Helium fallback for %s...",
@@ -1307,7 +1344,7 @@ class HttpClient:
                 if status == 404:
                     raise exc
 
-                if status in {403, 401, 429}:
+                if status in {403, 401, 429, 412, 406}:
                     # Rotate the session on blocks
                     session.reset_identity()
 
@@ -1407,7 +1444,7 @@ class HttpClient:
                                 html_content, browser_cookies = res_val
                             else:
                                 html_content, browser_cookies = res_val, []
-                            if html_content and self._is_blocked_page(
+                            if not html_content or self._is_blocked_page(
                                 html_content, url
                             ):
                                 logger.warning(
@@ -1420,8 +1457,19 @@ class HttpClient:
                                 "Crawl4AI fallback failed for %s: %s", url, crawl_exc
                             )
 
-                    # Try DrissionPage if Crawl4AI failed or was skipped (bypassed in unit tests)
-                    import sys
+                    # Try Crawlee Cheerio
+                    if html_content is None and "pytest" not in sys.modules:
+                        logger.warning("GET %s returned %d. Falling back to Crawlee Cheerio...", url, status)
+                        try:
+                            res_val = self._get_with_crawlee_cheerio(url)
+                            html_content, browser_cookies = res_val
+                            if not html_content or self._is_blocked_page(html_content, url):
+                                logger.warning("Crawlee Cheerio returned a blocked or empty page for %s.", url)
+                                html_content = None
+                        except Exception as crawlee_exc:
+                            logger.error("Crawlee Cheerio failed for %s: %s", url, repr(crawlee_exc))
+
+                    # Try DrissionPage if Crawl4AI/Cheerio failed or was skipped (bypassed in unit tests)
 
                     if (
                         html_content is None
@@ -1436,7 +1484,7 @@ class HttpClient:
                         try:
                             res_val = self._get_with_drissionpage(url)
                             html_content, browser_cookies = res_val
-                            if html_content and self._is_blocked_page(
+                            if not html_content or self._is_blocked_page(
                                 html_content, url
                             ):
                                 logger.warning(
@@ -1448,8 +1496,20 @@ class HttpClient:
                             logger.error(
                                 "DrissionPage fallback failed for %s: %s",
                                 url,
-                                drission_exc,
+                                repr(drission_exc),
                             )
+
+                    # Try Crawlee Puppeteer if above failed
+                    if html_content is None and "pytest" not in sys.modules:
+                        logger.warning("GET %s returned %d. Falling back to Crawlee Puppeteer...", url, status)
+                        try:
+                            res_val = self._get_with_crawlee_puppeteer(url)
+                            html_content, browser_cookies = res_val
+                            if not html_content or self._is_blocked_page(html_content, url):
+                                logger.warning("Crawlee Puppeteer returned a blocked or empty page for %s.", url)
+                                html_content = None
+                        except Exception as crawlee_exc:
+                            logger.error("Crawlee Puppeteer failed for %s: %s", url, repr(crawlee_exc))
 
                     # Try Helium if both failed or were skipped
                     if (
@@ -1463,7 +1523,7 @@ class HttpClient:
                         try:
                             res_val = self._get_with_helium(url)
                             html_content, browser_cookies = res_val
-                            if html_content and self._is_blocked_page(
+                            if not html_content or self._is_blocked_page(
                                 html_content, url
                             ):
                                 logger.warning(
@@ -1473,7 +1533,7 @@ class HttpClient:
                                 html_content = None
                         except Exception as helium_exc:
                             logger.error(
-                                "Helium fallback failed for %s: %s", url, helium_exc
+                                "Helium fallback failed for %s: %s", url, repr(helium_exc)
                             )
 
                     # Try UC if all above failed
@@ -1486,7 +1546,7 @@ class HttpClient:
                         try:
                             res_val = self._get_with_uc(url)
                             html_content, browser_cookies = res_val
-                            if html_content and self._is_blocked_page(
+                            if not html_content or self._is_blocked_page(
                                 html_content, url
                             ):
                                 logger.warning(

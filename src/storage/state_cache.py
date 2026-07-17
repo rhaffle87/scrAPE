@@ -30,6 +30,11 @@ class StateCache:
     def _init_db(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            # Performance optimization: enable Write-Ahead Logging (WAL) and normal sync
+            # to significantly improve concurrency throughput during parallel crawling
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS processed_urls (
                     url_hash TEXT PRIMARY KEY,

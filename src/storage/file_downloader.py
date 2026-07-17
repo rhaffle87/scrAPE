@@ -536,7 +536,10 @@ class MediaDownloader:
                     )
                     time.sleep(sleep_time)
                     continue
-                LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
+                if status == 404:
+                    LOGGER.info("HTTP 404 downloading %s: %s", url, exc)
+                else:
+                    LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
                 return False, {"reason": f"http_error:{status}"}
 
             except (

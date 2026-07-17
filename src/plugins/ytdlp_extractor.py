@@ -12,6 +12,20 @@ class YtDlpExtractor(ExtractorPlugin):
         host = parsed.netloc.lower()
         if host.startswith("www."):
             host = host[4:]
+            
+        path = parsed.path.lower()
+        
+        if host == "youtube.com":
+            # Ignore generic non-video paths
+            ignored_paths = ["", "/", "/ads/", "/about/", "/creators/", "/t/terms", "/t/privacy", "/t/contact_us/", "/ads", "/about", "/creators", "/t/contact_us"]
+            if path in ignored_paths:
+                return False
+                
+        if host == "tiktok.com":
+            # Ignore tag/search pages
+            if path.startswith("/tag/"):
+                return False
+                
         return host in ["youtube.com", "youtu.be", "tiktok.com"]
 
     def extract(self, url: str) -> SpecializedResult:

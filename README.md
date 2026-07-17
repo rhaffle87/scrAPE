@@ -26,7 +26,7 @@
 - **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile.
 - **Aesthetic Frontend Dashboard** — Generates a lightweight, responsive HTML/JS/CSS gallery dashboard inside `output/` automatically at the end of runs.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
-- **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`).
+- **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`), optimized with WAL for high concurrency.
 - **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag.
 - **Export** — JSON manifest output per run, plus automated GitHub Pages deployment configuration.
 
@@ -37,6 +37,9 @@
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# The scraper uses Crawlee for stealth fallbacks. The Node.js bridge dependencies 
+# will be installed automatically on the first run, but require Node.js to be installed on your system.
 
 # Run with keyword and seed file
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
@@ -56,10 +59,13 @@ See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs
 
 scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Turnstile challenges, login walls, and JS-only rendering locally without relying on expensive cloud proxies:
 
-1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests.
-2. **Crawl4AI Headless/Headful Browser** — Executes standard headless browser-based requests.
-3. **DrissionPage Automation Fallback** — A robust Chromium-based controller that handles light JS walls and Captchas.
-4. **Undetected-Chromedriver (UC) Fallback** — The ultimate Tier-3 stealth fallback. Specifically engineered to seamlessly bypass persistent Cloudflare Turnstile blocks with careful process-tree lifecycle management to avoid zombie chrome instances during infinite continuous runs.
+1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests. Harvested session cookies are securely stored with restricted file permissions (`0o600`).
+2. **Crawlee (Cheerio)** — Fast static fallback utilizing `got-scraping` Node.js headers to perfectly spoof standard browser TLS fingerprints. (Runs securely isolated on `127.0.0.1`).
+3. **Crawl4AI Headless/Headful Browser** — Executes standard headless browser-based requests.
+4. **DrissionPage Automation Fallback** — A robust Chromium-based controller that handles light JS walls and Captchas.
+5. **Crawlee (Puppeteer)** — Heavy JS-rendering fallback powered by the `puppeteer-extra-plugin-stealth` library for maximum bot evasion.
+6. **Helium** — High-level automation fallback.
+7. **Undetected-Chromedriver (UC) Fallback** — The ultimate stealth fallback layer. Specifically engineered to seamlessly bypass persistent Cloudflare Turnstile blocks with careful process-tree lifecycle management to avoid zombie chrome instances during continuous runs.
 
 ### Configuration Settings
 

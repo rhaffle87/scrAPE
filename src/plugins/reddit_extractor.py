@@ -27,7 +27,12 @@ class RedditExtractor(ExtractorPlugin):
                 json_url = f"{json_url}.json"
 
         try:
-            resp = requests.get(json_url, headers={"User-Agent": "Mozilla/5.0 scrAPE/1.0"})
+            # Reddit aggressively blocks obvious bot User-Agents. We use a realistic one.
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+            resp = requests.get(json_url, headers=headers)
             resp.raise_for_status()
             data = resp.json()
 

@@ -14,10 +14,12 @@ src/core/filters.py         — URL classification, media detection, relevance s
 src/core/models.py          — ScrapeResult, ImageItem, VideoItem dataclasses
 src/scraper/google_images.py — Search provider + page scraper + link/media extraction
 src/storage/file_downloader.py — Concurrent media downloader with MIME/size validation
-src/utils/http_client.py    — Rate limiting, session pooling, 429 circuit breaker, Crawl4AI fallback
+src/utils/http_client.py    — Rate limiting, session pooling, 429 circuit breaker, Crawlee, Crawl4AI, DrissionPage & UC fallbacks
 src/utils/blacklist.py      — Persistent domain blacklist (data/blacklist.json)
 src/utils/session.py        — Persistent cookie cache (data/sessions/)
 src/utils/session_pool.py   — Per-domain sticky sessions with disk persistence
+src/utils/crawlee_client.py — Python bridge client for Node.js Crawlee operations
+crawlee_bridge/             — Node.js Express server running Cheerio/Puppeteer stealth modes
 data/domain_config.json     — Dynamic domain overrides (rate limits, referer, hotlink, deep scrape)
 data/url_normalisation_rules.json — URL canonicalisation rules loaded into config.URL_NORMALISATION_RULES
 src/config/subject_profiles.json — Subject profile presets (priority domains, max results)

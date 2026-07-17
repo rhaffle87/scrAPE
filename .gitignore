@@ -47,3 +47,13 @@ Thumbs.db
 # Persistent runtime data
 data/*
 src/config/*
+
+# Runtime data
+runtime_data/*
+
+# Node modules
+node_modules/
+
+# Crawlee storage directories
+**/storage/
+crawlee_bridge/storage/

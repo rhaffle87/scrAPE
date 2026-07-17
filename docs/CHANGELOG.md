@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0] — 2026-07-17
+
+### Added & Changed (0.14.0)
+
+- **SQLite WAL Concurrency Optimization** (`src/storage/state_cache.py`): Upgraded the `StateCache` SQLite connection to use Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This eliminates disk I/O lock contention during massive multi-threaded crawls, significantly increasing concurrency throughput.
+- **Secure Local Session Storage** (`src/utils/session.py`): Hardened harvested cookie storage by enforcing strict Unix file permissions (`0o600` for files, `0o700` for the `data/sessions` directory), securing authenticated sessions against local privilege escalation or unauthorized read access.
+- **Network Isolation & Path Sanitization** (`crawlee_bridge/index.mjs`, `src/cli/webui.py`): Explicitly bound the Node.js `crawlee_bridge` proxy to `127.0.0.1` to prevent exposure on local networks. Added strict path validation in the FastAPI web UI to prevent directory traversal attacks when loading seed files.
+
+## [0.13.0] — 2026-07-17
+
+### Added (0.13.0)
+
+- **Crawlee Node.js Bridge Integration** (`crawlee_bridge/index.mjs`, `src/utils/crawlee_client.py`): Integrated Apify's Crawlee via a local Express bridge server to drastically improve TLS fingerprint spoofing and stealth extraction capabilities. Added two new robust fallback tiers: `Crawlee Cheerio` (fast static TLS spoofing via `got-scraping`) and `Crawlee Puppeteer` (heavy JS-rendering with stealth plugins).
+- **Expanded 7-Tier WAF Fallback Pipeline** (`src/utils/http_client.py`): Redesigned the `HttpClient` fallback system into a comprehensive 7-tier escalation chain (`Local Cookies` -> `Crawlee Cheerio` -> `Crawl4AI` -> `DrissionPage` -> `Crawlee Puppeteer` -> `Helium` -> `undetected-chromedriver`) to systematically defeat WAFs, Cloudflare Turnstile, and heavy browser fingerprinting.
+- **Robust Empty-Page Cloudflare Detection**: Patched a critical issue where empty HTML bodies returned from 403 Cloudflare challenges were incorrectly evaluated as successful responses, ensuring the scraper always falls through to heavier browser tiers when encountering aggressive anti-bot protections.
+
 ## [0.12.0] — 2026-07-17
 
 ### Added (0.12.0)
