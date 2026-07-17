@@ -93,7 +93,7 @@ class MediaDownloader:
 
     def _is_hotlink_protected(self, url: str) -> bool:
         """Check if URL is from a domain that requires Referer header."""
-        from src.config import HOTLINK_PROTECTED_DOMAINS
+        from config import HOTLINK_PROTECTED_DOMAINS
 
         try:
             import re
@@ -477,7 +477,28 @@ class MediaDownloader:
                         return False, {"reason": "unparseable_dimensions"}
 
                 target = directory / f"{prefix}{suffix}"
-                target.write_bytes(content)
+                
+                if media_kind == "image":
+                    try:
+                        from PIL import Image
+                        import io
+                        
+                        img = Image.open(io.BytesIO(content))
+                        out_buffer = io.BytesIO()
+                        save_format = img.format if img.format else "JPEG"
+                        
+                        kwargs = {}
+                        if getattr(img, "is_animated", False):
+                            kwargs["save_all"] = True
+                            
+                        # Strip EXIF and re-encode to sanitize image
+                        img.save(out_buffer, format=save_format, **kwargs)
+                        target.write_bytes(out_buffer.getvalue())
+                    except Exception as e:
+                        LOGGER.warning("Image sanitization failed for %s: %s", url, e)
+                        return False, {"reason": "sanitization_failed"}
+                else:
+                    target.write_bytes(content)
                 LOGGER.info("Downloaded %s", target)
 
                 relative_path = ""
@@ -544,6 +565,9 @@ class MediaDownloader:
                     "Failed to download %s due to unexpected error: %s", url, exc
                 )
                 return False, {"reason": f"download_error:{type(exc).__name__}"}
+
+        # All retry attempts exhausted without a definitive return (should not happen in practice)
+        return False, {"reason": "max_retries_exceeded"}
 
     @staticmethod
     def _build_file_stem(index: int, label: str) -> str:

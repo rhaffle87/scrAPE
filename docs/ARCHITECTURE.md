@@ -44,7 +44,11 @@ src/
 │   └── seed_manifest.py         — SeedManifest parser: annotations → DomainProfile[]
 ├── scraper/
 │   ├── google_images.py         — Search provider & fallback page scraper
-│   └── specialized.py           — SpecializedExtractor for zero-DOM extraction (yt-dlp)
+│   └── specialized.py           — SpecializedExtractor plugin loader
+├── plugins/
+│   ├── base.py                  — ExtractorPlugin interface
+│   ├── reddit_extractor.py      — Reddit API extraction plugin
+│   └── ytdlp_extractor.py       — YouTube/Generic video extraction plugin
 ├── storage/
 │   ├── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, upscaling
 │   └── state_cache.py           — Persistent SQLite state cache to prevent redundant crawls
@@ -176,6 +180,7 @@ If a `DomainProfile` has `max_pages` set, `_fetch_page()` checks `pages_scanned 
 4. HTTP fetch with retry (`tenacity`).
 5. Dimension extraction (HEAD request + PIL if needed).
 6. Skip on: < configured min size, unparseable dimensions, invalid media type.
+7. **Image Sanitization:** For images, intercepts the byte stream into memory and re-encodes via Pillow to strip EXIF data (GPS, camera info) and block malformed/polyglot payloads.
 
 ### 3.5 Robots Checker (`robots.py`)
 

@@ -9,3 +9,4 @@ browser-cookie3>=0.19.1
 helium>=3.0.8
 undetected-chromedriver>=3.5.0
 yt-dlp>=2024.04.09
+Pillow>=10.0.0

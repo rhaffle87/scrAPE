@@ -459,7 +459,7 @@ class SearchProviderScraper(BaseSearchScraper):
         return images
 
     @staticmethod
-    def _is_in_layout_container(element: Tag) -> bool:
+    def _is_in_layout_container(element: Tag | None) -> bool:
         excluded_keywords = {
             "sidebar",
             "footer",
@@ -482,6 +482,8 @@ class SearchProviderScraper(BaseSearchScraper):
             "sharing",
             "social",
         }
+        if element is None:
+            return False
         for parent in element.parents:
             if parent.name in ("body", "html"):
                 break

@@ -1,3 +1,10 @@
+def _get_valid_png():
+    from PIL import Image
+    import io
+    img = Image.new('RGB', (800, 800))
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue() + b"\x00" * 20000
 import struct
 from unittest.mock import MagicMock
 import pytest
@@ -703,7 +710,7 @@ def test_cache_disposal_and_run_id_passing(tmp_path):
     # Add project root to sys.path if not present to import main
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-    from src.cli.main import dispose_unnecessary_cache
+    from cli.main import dispose_unnecessary_cache
     from core.engine import ScrapingEngine
     import time
     from unittest.mock import MagicMock
@@ -766,9 +773,7 @@ def test_media_downloader_unicode_quoting(monkeypatch):
         called_headers = kwargs.get("headers")
         resp = httpx.Response(
             status_code=200,
-            content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
-            + struct.pack(">II", 800, 800)
-            + b"\x00" * 20000,
+            content=_get_valid_png(),
             request=httpx.Request(method, url),
         )
         resp.headers["content-type"] = "image/png"
@@ -795,10 +800,12 @@ def test_media_downloader_unicode_quoting(monkeypatch):
         assert success is True
         assert reason["reason"] == "ok"
         # Check that the request URL was quoted (contains %E6%B5%8B%E8%AF%95 instead of raw 测试)
+        assert called_url is not None
         assert "%E6%B5%8B%E8%AF%95" in called_url
         assert "测试" not in called_url
 
         # Check that the Referer and Origin headers were also quoted
+        assert called_headers is not None
         assert "%E6%B5%8B%E8%AF%95" in called_headers["Referer"]
         assert "测试" not in called_headers["Referer"]
         assert called_headers["Origin"].isascii()
