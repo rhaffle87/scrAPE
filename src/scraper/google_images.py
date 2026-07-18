@@ -29,9 +29,17 @@ class SearchProviderScraper(BaseSearchScraper):
     _DDG_HOSTS = ("duckduckgo.com", "html.duckduckgo.com")
 
     def __init__(
-        self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False
+        self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False,
+        proxy: str | None = None,
+        proxy_list: str | None = None,
+        capsolver_key: str | None = None,
     ) -> None:
-        self.http = HttpClient(domain_delays=domain_delays)
+        self.http = HttpClient(
+            domain_delays=domain_delays,
+            proxy=proxy,
+            proxy_list=proxy_list,
+            capsolver_key=capsolver_key,
+        )
         self.robots = RobotsChecker(self.http, ignore_robots=ignore_robots)
         # Route all DuckDuckGo requests through browser stealth to avoid bot blocks.
         for ddg_host in self._DDG_HOSTS:

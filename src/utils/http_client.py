@@ -392,6 +392,9 @@ class HttpClient:
         self,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         domain_delays: dict[str, float] | None = None,
+        proxy: str | None = None,
+        proxy_list: str | None = None,
+        capsolver_key: str | None = None,
     ) -> None:
         """
         Args:
@@ -400,7 +403,24 @@ class HttpClient:
                            that take priority over ``DOMAIN_REQUESTS_PER_SECOND``.
         """
         self.timeout = timeout
-        self.client = httpx.Client(timeout=timeout, follow_redirects=True)
+        self.capsolver_key = capsolver_key
+        
+        self.proxy_list = []
+        if proxy_list and Path(proxy_list).exists():
+            with open(proxy_list, "r", encoding="utf-8") as f:
+                self.proxy_list = [line.strip() for line in f if line.strip()]
+        if proxy:
+            self.proxy_list.append(proxy)
+            
+        self.current_proxy_index = 0
+        self._proxy_lock = threading.Lock()
+        
+        # Configure httpx Client with proxy if available
+        client_kwargs = {"timeout": timeout, "follow_redirects": True}
+        if self.proxy_list:
+            client_kwargs["proxy"] = self.proxy_list[0]
+            
+        self.client = httpx.Client(**client_kwargs)
         self.session_manager = SessionManager()
         # Convert seconds_per_request (delays) to requests_per_second (RPS)
         converted_delays = {}
@@ -435,6 +455,26 @@ class HttpClient:
             if host not in self._domain_fallback_locks:
                 self._domain_fallback_locks[host] = threading.Lock()
             return self._domain_fallback_locks[host]
+
+    # ------------------------------------------------------------------
+    # Proxy Management
+    # ------------------------------------------------------------------
+    def get_proxy(self) -> str | None:
+        with self._proxy_lock:
+            if not self.proxy_list:
+                return None
+            return self.proxy_list[self.current_proxy_index]
+
+    def rotate_proxy(self) -> str | None:
+        with self._proxy_lock:
+            if not self.proxy_list:
+                return None
+            self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxy_list)
+            new_proxy = self.proxy_list[self.current_proxy_index]
+            
+            # Recreate httpx client with new proxy
+            self.client = httpx.Client(timeout=self.timeout, follow_redirects=True, proxy=new_proxy)
+            return new_proxy
 
     # ------------------------------------------------------------------
     # Domain helpers
@@ -622,14 +662,14 @@ class HttpClient:
         """Fetch URL using Crawlee Cheerio (fast parser)"""
         from utils.crawlee_client import CrawleeClient
         client = CrawleeClient()
-        html = client.get_with_cheerio(url)
+        html = client.get_with_cheerio(url, proxy=self.get_proxy())
         return html, []
 
     def _get_with_crawlee_puppeteer(self, url: str) -> tuple[str, list[dict]]:
         """Fetch URL using Crawlee Puppeteer (stealth browser)"""
         from utils.crawlee_client import CrawleeClient
         client = CrawleeClient()
-        html, cookies = client.get_with_puppeteer(url)
+        html, cookies = client.get_with_puppeteer(url, proxy=self.get_proxy())
         return html, cookies
 
     def _get_with_drissionpage(self, url: str) -> tuple[str, list[dict]]:
@@ -648,6 +688,10 @@ class HttpClient:
         co = ChromiumOptions()
         co.set_argument("--no-sandbox")
         co.set_argument("--disable-gpu")
+        
+        proxy = self.get_proxy()
+        if proxy:
+            co.set_proxy(proxy)
 
         # Determine GUI platform
         import sys
@@ -738,7 +782,14 @@ class HttpClient:
         started = False
         try:
             logger.info("Helium: Trying Chrome browser...")
-            helium.start_chrome(url, headless=headless_mode)
+            
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
+            chrome_options = ChromeOptions()
+            proxy = self.get_proxy()
+            if proxy:
+                chrome_options.add_argument(f"--proxy-server={proxy}")
+                
+            helium.start_chrome(url, headless=headless_mode, options=chrome_options)
             started = True
         except Exception as chrome_err:
             logger.warning(
@@ -746,7 +797,13 @@ class HttpClient:
                 chrome_err,
             )
             try:
-                helium.start_firefox(url, headless=headless_mode)
+                from selenium.webdriver.firefox.options import Options as FirefoxOptions
+                firefox_options = FirefoxOptions()
+                proxy = self.get_proxy()
+                if proxy:
+                    firefox_options.add_argument(f"--proxy-server={proxy}")
+                    
+                helium.start_firefox(url, headless=headless_mode, options=firefox_options)
                 started = True
             except Exception as firefox_err:
                 logger.error("Helium: Firefox browser launch failed: %s", firefox_err)
@@ -836,6 +893,10 @@ class HttpClient:
                 if headless_mode:
                     options.add_argument("--headless")
                 options.add_argument("--disable-gpu")
+                
+                proxy = self.get_proxy()
+                if proxy:
+                    options.add_argument(f"--proxy-server={proxy}")
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
 
@@ -856,10 +917,17 @@ class HttpClient:
             # Wait for redirection/challenge solving
             solve_timeout = 25.0
             start_time = time.time()
+            capsolver_attempted = False
             while time.time() - start_time < solve_timeout:
                 html = driver.page_source
                 if not self._is_cloudflare_challenge(html):
                     break
+                if self.capsolver_key and not capsolver_attempted:
+                    # Attempt Capsolver bypass
+                    success = self._solve_cloudflare_capsolver_uc(driver, url)
+                    capsolver_attempted = True
+                    if success:
+                        solve_timeout += 10.0  # Give it extra time to reload
                 time.sleep(1.0)
 
             html = driver.page_source
@@ -891,10 +959,92 @@ class HttpClient:
             if driver:
                 try:
                     driver.quit()
-                except Exception as e:
-                    logger.warning(
-                        "Failed to quit undetected-chromedriver cleanly: %s", e
-                    )
+                except Exception:
+                    pass
+
+    def _solve_cloudflare_capsolver_uc(self, driver, url: str) -> bool:
+        if not self.capsolver_key:
+            return False
+        import capsolver
+        from utils.logger import get_logger
+        logger = get_logger(__name__)
+        capsolver.api_key = self.capsolver_key
+        
+        html = driver.page_source
+        sitekey = None
+        
+        # Look for data-sitekey="xxx" or similar Turnstile identifiers
+        import re
+        match = re.search(r'data-sitekey=["\']([^"\']+)["\']', html)
+        if match:
+            sitekey = match.group(1)
+        if not sitekey:
+            match = re.search(r'sitekey:\s*["\']([^"\']+)["\']', html, re.IGNORECASE)
+            if match:
+                sitekey = match.group(1)
+        
+        if not sitekey:
+            logger.warning("CapSolver: Cloudflare Turnstile detected, but sitekey not found in HTML.")
+            return False
+            
+        logger.info("CapSolver: Solving Turnstile for sitekey %s...", sitekey)
+        try:
+            solution = capsolver.solve({
+                "type": "AntiCloudflareTask",
+                "websiteURL": url,
+                "websiteKey": sitekey,
+            })
+            token = solution.get("token")
+            if not token:
+                logger.warning("CapSolver: No token returned in solution.")
+                return False
+                
+            logger.info("CapSolver: Got token. Injecting into page...")
+            script = f"""
+            let input = document.querySelector('[name="cf-turnstile-response"]');
+            if (input) {{
+                input.value = "{token}";
+                let form = input.closest('form');
+                if (form) {{
+                    form.submit();
+                    return true;
+                }}
+            }}
+            
+            // Try window callback injection if form not found
+            if (window.___grecaptcha_cfg && window.___grecaptcha_cfg.clients) {{
+                for (let c in window.___grecaptcha_cfg.clients) {{
+                    let client = window.___grecaptcha_cfg.clients[c];
+                    for (let k in client) {{
+                        if (client[k] && client[k].callback) {{
+                            client[k].callback("{token}");
+                            return true;
+                        }}
+                    }}
+                }}
+            }}
+            
+            // Try explicit turnstile callback injection
+            if (window.turnstile && typeof window.turnstile.getResponse === 'function') {{
+                // Unfortunately turnstile doesn't expose a direct trigger, but we can set the input manually
+                // and hope the underlying JS picks it up if a form is present.
+                let t_input = document.querySelector('input[name="cf-turnstile-response"]');
+                if (t_input) {{
+                    t_input.value = "{token}";
+                }}
+            }}
+            return false;
+            """
+            success = driver.execute_script(script)
+            if success:
+                logger.info("CapSolver: Token injected and form submitted.")
+                return True
+            else:
+                logger.warning("CapSolver: Failed to locate cf-turnstile-response input or form to submit.")
+                return False
+        except Exception as e:
+            logger.error("CapSolver API failed: %s", repr(e))
+            return False
 
     # ------------------------------------------------------------------
     # Crawl4AI browser fallback (runs on the shared background event loop)
@@ -989,6 +1139,7 @@ class HttpClient:
                         user_data_dir=str(profile_path.resolve()),
                         use_persistent_context=True,
                         cookies=playwright_cookies,
+                        proxy=self.get_proxy(),
                     )
                     strat = AsyncPlaywrightCrawlerStrategy(
                         browser_config=cfg,
@@ -1010,6 +1161,7 @@ class HttpClient:
                         user_data_dir=str(profile_path.resolve()),
                         use_persistent_context=True,
                         cookies=playwright_cookies,
+                        proxy=self.get_proxy(),
                     )
                     strat_fallback = AsyncPlaywrightCrawlerStrategy(
                         browser_config=cfg_fallback,

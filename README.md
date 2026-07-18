@@ -55,9 +55,11 @@ See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs
 
 ---
 
-## WAF, Turnstile & JS-Only Bypass (Local Modes)
+## WAF, Turnstile & JS-Only Bypass (Local & Server Modes)
 
-scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Turnstile challenges, login walls, and JS-only rendering locally without relying on expensive cloud proxies:
+scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Turnstile challenges, login walls, and JS-only rendering locally without relying on expensive cloud proxies. It works on **Windows, macOS, and Linux**.
+
+On Linux environments without a display (headless servers), Xvfb is recommended for the deep stealth tiers, and the `--capsolver-key` flag is supported to automatically solve Turnstile blocks that cannot be bypassed via human interaction.
 
 1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests. Harvested session cookies are securely stored with restricted file permissions (`0o600`).
 2. **Crawlee (Cheerio)** — Fast static fallback utilizing `got-scraping` Node.js headers to perfectly spoof standard browser TLS fingerprints. (Runs securely isolated on `127.0.0.1`).
@@ -195,11 +197,11 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 | Challenge / Limitation | Status | Resolution / Workaround |
 | --- | --- | --- |
-| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed via the 7-Tier Fallback Chain (Crawlee Bridge, DrissionPage, and undetected-chromedriver). |
+| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed natively on Windows/Mac via headful browser spawning, or fully headless on Linux via `--capsolver-key` API integration. |
 | **JS-Only / SPA Pages** | **DEFEATED** | Fully rendered via Crawlee (Puppeteer) and `yt-dlp` specialized extractors. |
 | **Auth-Walled Sources** | **DEFEATED** | Bypassed via Local Cookie Harvesting (`browser-cookie3`) and manual `--inject-cookies` / `--login` CLI flags. |
-| **IP Rate-Limiting / Bans** | **Limitation** | The scraper runs locally on a single IP without proxy rotation. If aggressively banned, you must rotate your VPN or wait out the cooldown. |
-| **Manual CAPTCHAs** | **Limitation** | Sites requiring manual visual CAPTCHA solving (e.g., reCAPTCHA image grids) will still halt the automated browser tiers. |
+| **IP Rate-Limiting / Bans** | **Limitation** | The scraper runs locally on a single IP without proxy rotation. If aggressively banned, use `--proxy-list` to route through proxies. |
+| **Manual CAPTCHAs** | **DEFEATED (Opt-In)** | Passed automatically if `--capsolver-key` is supplied; otherwise pauses execution to allow manual interaction in GUI mode. |
 
 ---
 

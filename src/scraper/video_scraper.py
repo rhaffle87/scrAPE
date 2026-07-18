@@ -284,8 +284,14 @@ class VideoScraper:
     # DuckDuckGo host variants requiring browser-stealth routing.
     _DDG_HOSTS = ("duckduckgo.com", "html.duckduckgo.com")
 
-    def __init__(self, domain_delays: dict[str, float] | None = None) -> None:
-        self.http = HttpClient(domain_delays=domain_delays)
+    def __init__(
+        self,
+        domain_delays: dict[str, float] | None = None,
+        proxy: str | None = None,
+        proxy_list: str | None = None,
+        capsolver_key: str | None = None,
+    ) -> None:
+        self.http = HttpClient(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, capsolver_key=capsolver_key)
         # Route DDG through browser stealth to bypass bot-detection.
         for ddg_host in self._DDG_HOSTS:
             HttpClient.register_stealth_required(ddg_host)

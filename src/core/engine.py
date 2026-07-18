@@ -101,14 +101,17 @@ class ScrapingEngine:
         workers: int = CONCURRENT_PAGES_PER_BATCH,
         ignore_robots: bool = False,
         use_state_cache: bool = False,
+        proxy: str | None = None,
+        proxy_list: str | None = None,
+        capsolver_key: str | None = None,
     ) -> None:
         self.workers = max(1, workers)
         self.domain_yield = {}
 
         self.search_provider = SearchProviderScraper(
-            domain_delays=domain_delays, ignore_robots=ignore_robots
+            domain_delays=domain_delays, ignore_robots=ignore_robots, proxy=proxy, proxy_list=proxy_list, capsolver_key=capsolver_key
         )
-        self.video_scraper = VideoScraper(domain_delays=domain_delays)
+        self.video_scraper = VideoScraper(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, capsolver_key=capsolver_key)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http)
         self.state_cache = StateCache() if use_state_cache else None
