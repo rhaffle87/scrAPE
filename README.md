@@ -24,7 +24,7 @@
 - **Yield Tuning & Upscaling** — Heuristically predicts and fetches high-res origin URLs from standard thumbnail patterns (e.g. WordPress, Twitter) with automatic graceful degradation.
 - **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist.
 - **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile.
-- **Aesthetic Frontend Dashboard** — Generates a lightweight, responsive HTML/JS/CSS gallery dashboard inside `output/` automatically at the end of runs.
+- **Dynamic HTMX Frontend** — A fully decoupled, responsive live command center in `frontend/`. Monitors live OS hardware usage, offers process abort controls, and features physical file management directly inside the dashboard gallery (open local folder, delete files) via HTMX.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
 - **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`), optimized with WAL for high concurrency.
 - **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag.
@@ -37,6 +37,9 @@
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# Start the interactive WebUI Command Center
+.\run_frontend.bat
 
 # The scraper uses Crawlee for stealth fallbacks. The Node.js bridge dependencies 
 # will be installed automatically on the first run, but require Node.js to be installed on your system.
@@ -169,12 +172,13 @@ flowchart TD
 
 - `src/cli/main.py` / `src/cli/monitor_agent.py` — Entry points, CLI wizards, continuous watchdog loops
 - `src/core/seed_manifest.py` — Parser: SeedManifest → list[DomainProfile]
-- `src/core/engine.py` — ScrapingEngine: BFS crawl + specialized routing + scoring
+- `src/core/engine.py` — ScrapingEngine: Main orchestration entry point
+- `src/core/managers.py` — DomainRulesManager, MediaProcessor, CrawlOrchestrator
 - `src/scraper/specialized.py` — `SpecializedExtractor`: yt-dlp based heavy SPA extraction
 - `src/core/filters.py` — `score_image_relevance()`, `transform_to_highres()`, `rejection_reason_for_*()`
 - `src/storage/file_downloader.py` — `download_file()`: Concurrent fetching with transparent high-res fallback
 - `src/storage/state_cache.py` — Persistent URL history using SQLite
-- `src/frontend_builder/builder.py` — Aesthetic HTML/JS/CSS static dashboard generator
+- `frontend/app.py` — FastApi + HTMX WebUI dashboard and process orchestrator
 
 ---
 
@@ -220,7 +224,6 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 ```text
 output/
-  index.html            # Automatically generated static gallery dashboard
   cache/
     state_cache.db      # Persistent SQLite cache of processed URLs
   {keyword_slug}/

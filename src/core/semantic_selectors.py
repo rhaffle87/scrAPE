@@ -73,7 +73,7 @@ def extract_semantic_fallback_images(
                 score += 10
 
         # Scan all attributes for image URLs, ignoring textual/structural attributes.
-        # NOTE: 'title' MUST be excluded – sites like e-hentai use title="Page N: _N.jpg"
+        # NOTE: 'title' MUST be excluded – some gallery sites use title="Page N: _N.jpg"
         # on div thumbnails; that value would otherwise be mistaken for a .jpg URL.
         for attr, val in el.attrs.items():
             if attr.lower() in {

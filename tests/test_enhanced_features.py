@@ -1,10 +1,3 @@
-def _get_valid_png():
-    from PIL import Image
-    import io
-    img = Image.new('RGB', (800, 800))
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    return buf.getvalue() + b"\x00" * 20000
 import struct
 from unittest.mock import MagicMock
 import pytest
@@ -12,6 +5,14 @@ import pytest
 from core.models import ImageItem
 from scraper.google_images import SearchProviderScraper
 from utils.image_helper import get_image_dimensions
+
+def _get_valid_png():
+    from PIL import Image
+    import io
+    img = Image.new('RGB', (800, 800))
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue() + b"\x00" * 20000
 
 
 def test_get_image_dimensions_png():
@@ -123,7 +124,7 @@ def test_json_api_media_extraction():
                 "title": "Awesome Apple Image",
                 "image_url": "https://example.com/assets/apple_high.png",
                 "details": {
-                    "preview": "https://example.com/assets/preview.jpg",
+                    "preview": "https://example.com/assets/content.jpg",
                 },
             },
             {
@@ -140,7 +141,7 @@ def test_json_api_media_extraction():
 
     urls_found = {img.url for img in images}
     assert "https://example.com/assets/apple_high.png" in urls_found
-    assert "https://example.com/assets/preview.jpg" in urls_found
+    assert "https://example.com/assets/content.jpg" in urls_found
 
     video_urls = {vid.url for vid in videos}
     assert "https://example.com/assets/apple.mp4" in video_urls
@@ -226,7 +227,7 @@ def test_is_archive_or_index_page():
     assert (
         is_archive_or_index_page(
             "https://example.com/post/subject-photos",
-            "Subject Cosplay Eula",
+            "Subject Gallery Collection",
         )
         is False
     )
@@ -365,11 +366,11 @@ def test_dimension_based_filtering():
 
 
 def test_max_results_limit_reporting():
-    from core.engine import ScrapingEngine
+    from core.managers import MediaProcessor
     from core.models import EngineOptions, ScrapeResult, RejectedItem
     from pathlib import Path
 
-    engine = ScrapingEngine()
+    media_processor = MediaProcessor(downloader=None)
     result = ScrapeResult(keyword="subject")
     result.images = [
         ImageItem(
@@ -397,7 +398,7 @@ def test_max_results_limit_reporting():
         output_dir=Path("output"),
     )
 
-    result.images = engine._finalize_images(result, options)
+    result.images = media_processor.finalize_images(result, options)
     # Perform slice manually as engine.run would
     if len(result.images) > options.max_results:
         discarded = result.images[options.max_results :]
@@ -491,7 +492,7 @@ def test_refined_preview_markers_and_context_aware_filtering():
         url="https://example.com/subject/video/full_performance_1080p.mp4",
         source_page="https://example.com/subject",
         type="direct",
-        page_title="Subject OnlyFans Leak Preview Clip",
+        page_title="Subject Exclusive Preview Clip",
     )
     assert rejection_reason_for_video(video_with_preview_in_title, "subject") is None
 
@@ -781,9 +782,9 @@ def test_media_downloader_unicode_quoting(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "stream", mock_stream)
 
-    # Pass a url and referer with non-ASCII characters (e.g. from buondua.com)
-    unicode_url = "https://buondua.com/path/with/unicode/测试.png"
-    unicode_referer = "https://buondua.com/referer/测试"
+    # Pass a url and referer with non-ASCII characters
+    unicode_url = "https://example.com/path/with/unicode/测试.png"
+    unicode_referer = "https://example.com/referer/测试"
 
     # Create a dummy temp directory
     temp_dir = Path("output/test_unicode_dl")

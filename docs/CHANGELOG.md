@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0] — 2026-07-19
+
+### Added & Changed (0.15.0)
+
+- **Dynamic HTMX Frontend Integration** (`frontend/app.py`, `frontend/templates/`): Transformed the static output gallery into a fully live, HTMX-powered command center. Features include real-time OS hardware telemetry (CPU, RAM, Disk) via auto-polling, dynamic abort controls to forcibly kill scraping threads, and native file management (delete local files or open them in Windows Explorer) directly from the WebUI.
+- **Frontend Codebase Reorganization** (`frontend/`): Decoupled all WebUI routing, HTML templates, and interface logic from the core `src/cli/` backend engine into a pristine, top-level `frontend/` directory. Added a robust `run_frontend.bat` shortcut to rapidly launch the dashboard.
+- **Core Engine Decoupling** (`src/core/managers.py`): Extracted `DomainRulesManager`, `MediaProcessor`, and `CrawlOrchestrator` from `engine.py` into a dedicated `managers.py` module to improve separation of concerns, reduce file complexity, and fix circular import issues.
+
 ## [0.14.0] — 2026-07-17
 
 ### Added & Changed (0.14.0)

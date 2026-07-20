@@ -75,11 +75,12 @@ class CrawleeClient:
         except httpx.RequestError:
             return False
 
-    def scrape(self, url: str, mode: str) -> dict:
+    def scrape(self, url: str, mode: str, proxy: str | None = None) -> dict:
         """
         Calls the Crawlee bridge to scrape a URL.
         :param url: The URL to scrape
         :param mode: 'cheerio' or 'puppeteer'
+        :param proxy: Optional proxy URL to use
         :return: JSON response from the bridge (contains 'html', 'cookies', 'title')
         """
         if not self._is_server_running():
@@ -90,7 +91,7 @@ class CrawleeClient:
             with httpx.Client(timeout=45.0) as client:
                 res = client.post(
                     f"{self._base_url}/scrape",
-                    json={"url": url, "mode": mode}
+                    json={"url": url, "mode": mode, "proxy": proxy}
                 )
                 res.raise_for_status()
                 return res.json()
@@ -101,12 +102,12 @@ class CrawleeClient:
             logger.error("Crawlee bridge request failed: %s", repr(e))
             raise e
 
-    def get_with_cheerio(self, url: str) -> str:
+    def get_with_cheerio(self, url: str, proxy: str | None = None) -> str:
         """Returns the HTML string using Cheerio (fast)."""
-        data = self.scrape(url, "cheerio")
+        data = self.scrape(url, "cheerio", proxy=proxy)
         return data.get("html", "")
 
-    def get_with_puppeteer(self, url: str) -> tuple[str, list]:
+    def get_with_puppeteer(self, url: str, proxy: str | None = None) -> tuple[str, list]:
         """Returns the HTML string and cookies list using Puppeteer (stealth)."""
-        data = self.scrape(url, "puppeteer")
+        data = self.scrape(url, "puppeteer", proxy=proxy)
         return data.get("html", ""), data.get("cookies", [])

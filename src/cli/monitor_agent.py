@@ -3,8 +3,16 @@ import time
 import subprocess
 import argparse
 import os
+import signal
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+
+shutdown_event = threading.Event()
+
+def signal_handler(signum, frame):
+    print(f"\n[{datetime.now().isoformat()}] Received shutdown signal. Exiting gracefully...")
+    shutdown_event.set()
 
 # Add src to python path to resolve modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -138,27 +146,30 @@ def main():
     if extra_args:
         print(f"Pass-through arguments: {extra_args}")
 
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     try:
         # Initial immediate run
         run_scraper(args.keyword, args.seed_file, args.download_media, extra_args)
 
-        while True:
+        while not shutdown_event.is_set():
             next_run = datetime.now() + timedelta(seconds=args.interval)
             print(
                 f"[{datetime.now().isoformat()}] Next run scheduled at {next_run.isoformat()}. Sleeping..."
             )
 
-            # Sleep in small increments to allow responsive Ctrl+C
-            sleep_elapsed = 0
-            while sleep_elapsed < args.interval:
-                time.sleep(5)
-                sleep_elapsed += 5
+            # Sleep via event wait to allow immediate responsive exit on signal
+            if shutdown_event.wait(args.interval):
+                break
 
-            run_scraper(args.keyword, args.seed_file, args.download_media, extra_args)
+            if not shutdown_event.is_set():
+                run_scraper(args.keyword, args.seed_file, args.download_media, extra_args)
     except KeyboardInterrupt:
         print(
             f"\n[{datetime.now().isoformat()}] Sleep Monitoring Agent stopped by user request."
         )
+        shutdown_event.set()
 
 
 if __name__ == "__main__":

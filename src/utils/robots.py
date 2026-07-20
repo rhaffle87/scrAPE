@@ -29,7 +29,8 @@ class RobotsChecker:
             netloc = parsed.netloc.lower()
             if not netloc:
                 return None
-        except Exception:
+        except ValueError as exc:
+            LOGGER.debug("Failed to parse URL %s: %s", url, exc)
             return None
 
         if netloc in self._parsers:

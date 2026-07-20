@@ -13,9 +13,9 @@ def test_should_keep_image_rejects_generic_assets() -> None:
 
 def test_should_keep_image_accepts_keyword_related_image() -> None:
     item = ImageItem(
-        url="https://example.com/subject-cosplay.jpg",
+        url="https://example.com/subject-portrait.jpg",
         source_page="https://example.com/page",
-        alt_text="Subject cosplay image",
+        alt_text="Subject portrait image",
     )
     assert should_keep_image(item, "subject") is True
 

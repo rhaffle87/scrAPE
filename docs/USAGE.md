@@ -114,10 +114,12 @@ In addition to launching crawls, the wizard provides built-in utilities for down
 ## Local Web GUI
 
 ```bash
-python -m src.cli.webui --host 127.0.0.1 --port 10001
+.\run_frontend.bat
 ```
+*(Alternatively, you can run `python -m frontend.app`)*
 
-The Local Web GUI provides a browser-based dashboard hosted locally. It allows you to:
+The Local Web GUI provides a fully decoupled, HTMX-powered dynamic dashboard hosted locally. It allows you to:
 1. **View the Dashboard:** See aggregated statistics and browse all downloaded media directly at `http://localhost:10001/`.
-2. **Trigger Scrapes via API:** You can programmatically trigger a background scrape by sending a POST request to `http://localhost:10001/api/run` with a JSON payload of standard CLI arguments (`keyword`, `seed`, `max_results`, etc.).
-3. **Monitor Status:** Check `http://localhost:10001/api/status` to see if a scrape is currently running.
+2. **Interactive File Management:** Physically open the containing OS folder or securely delete files directly from the gallery UI without refreshing.
+3. **Trigger & Monitor Scrapes:** Programmatically trigger background scrapes directly from the UI, stream the live terminal output to the browser, and monitor real-time hardware telemetry (CPU, RAM, Disk space) via auto-polling HTMX widgets.
+4. **Process Abort:** Use the `[ABORT]` button to forcefully kill lingering scraper processes if they hang or if you want to stop early.

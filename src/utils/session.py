@@ -1,5 +1,8 @@
 import os
 import json
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 SESSION_DIR = "data/sessions"
 
@@ -11,8 +14,8 @@ class SessionManager:
         if os.name != 'nt':
             try:
                 os.chmod(SESSION_DIR, 0o700)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.warning("Failed to set permissions on session directory: %s", exc)
 
     def get_session_file(self, domain):
         return os.path.join(SESSION_DIR, f"{domain.replace('.', '_')}.json")
@@ -26,8 +29,8 @@ class SessionManager:
         if os.name != 'nt':
             try:
                 os.chmod(file_path, 0o600)
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.warning("Failed to set permissions on session file: %s", exc)
 
     def load_session(self, domain):
         file = self.get_session_file(domain)

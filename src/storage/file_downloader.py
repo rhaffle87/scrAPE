@@ -88,6 +88,8 @@ class MediaDownloader:
     ) -> None:
         self.http = http if http is not None else HttpClient()
         self.workers = max(1, workers)
+        self._dead_urls: set[str] = set()
+        self._dead_urls_lock = threading.Lock()
         self._seen_hashes: set[str] = set()
         self._hash_lock = threading.Lock()
 
@@ -280,6 +282,11 @@ class MediaDownloader:
           independent of the crawl limiter, preventing serialization caused by
           very slow crawl rates (e.g. 0.1 req/s) on the same hostname.
         """
+        with self._dead_urls_lock:
+            if url in self._dead_urls:
+                LOGGER.info("Skipping download of known dead URL: %s", url)
+                return False, {"reason": "404_dead_url"}
+
         if thumbnail_prefix_pattern and url.lower().startswith(
             thumbnail_prefix_pattern.lower()
         ):
@@ -312,6 +319,7 @@ class MediaDownloader:
         w, h = None, None
 
         max_attempts = 3
+        use_curl_cffi = False
         for attempt in range(1, max_attempts + 1):
             try:
                 # Rate-limit gate: skip for CDN hosts, use fast limiter otherwise.
@@ -324,10 +332,33 @@ class MediaDownloader:
 
                 content = b""
                 content_type = ""
-                with self.http.client.stream(
-                    "GET", safe_url, headers=req_headers
-                ) as response:
-                    response.raise_for_status()
+                
+                import contextlib
+                @contextlib.contextmanager
+                def _do_request():
+                    if use_curl_cffi:
+                        try:
+                            from curl_cffi import requests as c_requests
+                        except ImportError:
+                            raise RuntimeError("curl_cffi not installed")
+                        
+                        proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
+                        proxies = {"http": proxy, "https": proxy} if proxy else None
+                        session = c_requests.Session(impersonate="chrome120", proxies=proxies)
+                        resp = session.get(safe_url, headers=req_headers, stream=True, timeout=self.http.timeout)
+                        try:
+                            resp.raise_for_status()
+                            # patch iter_bytes for compatibility with httpx
+                            resp.iter_bytes = lambda chunk_size=8192: resp.iter_content(chunk_size=chunk_size)
+                            yield resp
+                        finally:
+                            resp.close()
+                    else:
+                        with self.http.client.stream("GET", safe_url, headers=req_headers) as resp:
+                            resp.raise_for_status()
+                            yield resp
+
+                with _do_request() as response:
                     content_type = response.headers.get("content-type", "")
 
                     # Check content-length early if available
@@ -354,6 +385,10 @@ class MediaDownloader:
                             return False, {"reason": "low_resolution"}
 
                     suffix = self._determine_suffix(url, content_type)
+                    target = directory / f"{prefix}{suffix}"
+
+                    import hashlib
+                    hasher = hashlib.sha256()
 
                     if media_kind == "image":
                         chunks = []
@@ -404,13 +439,26 @@ class MediaDownloader:
                                         }
                                     dimensions_checked = True
                         content = b"".join(chunks)
+                        content_length = len(content)
+                        hasher.update(content)
                     else:
-                        chunks = []
-                        for chunk in response.iter_bytes(chunk_size=65536):
-                            chunks.append(chunk)
-                        content = b"".join(chunks)
+                        temp_target = target.with_suffix(suffix + ".tmp")
+                        bytes_read = 0
+                        header_bytes = b""
+                        try:
+                            with open(temp_target, "wb") as f:
+                                for chunk in response.iter_bytes(chunk_size=65536):
+                                    if bytes_read < 1024:
+                                        header_bytes += chunk
+                                    f.write(chunk)
+                                    hasher.update(chunk)
+                                    bytes_read += len(chunk)
+                        except Exception as e:
+                            temp_target.unlink(missing_ok=True)
+                            raise e
+                        content = header_bytes
+                        content_length = bytes_read
 
-                content_length = len(content)
                 if media_kind == "image" and content_length < MIN_IMAGE_DOWNLOAD_BYTES:
                     LOGGER.info("Skipping tiny image asset %s", url)
                     return False, {"reason": "low_resolution"}
@@ -424,9 +472,10 @@ class MediaDownloader:
                         url,
                         content_length,
                     )
+                    if media_kind == "video":
+                        temp_target.unlink(missing_ok=True)
                     return False, {"reason": "low_resolution"}
 
-                suffix = self._determine_suffix(url, content_type)
                 if not self._looks_like_expected_media(
                     content, content_type, suffix, media_kind, url
                 ):
@@ -436,11 +485,10 @@ class MediaDownloader:
                         url,
                         content_type,
                     )
+                    if media_kind == "video":
+                        temp_target.unlink(missing_ok=True)
                     return False, {"reason": "invalid_media_type"}
 
-                import hashlib
-
-                hasher = hashlib.sha256(content)
                 content_hash = hasher.hexdigest()
 
                 with self._hash_lock:
@@ -450,6 +498,8 @@ class MediaDownloader:
                             content_hash,
                             url,
                         )
+                        if media_kind == "video":
+                            temp_target.unlink(missing_ok=True)
                         return False, {"reason": "duplicate"}
                     self._seen_hashes.add(content_hash)
 
@@ -476,8 +526,6 @@ class MediaDownloader:
                         )
                         return False, {"reason": "unparseable_dimensions"}
 
-                target = directory / f"{prefix}{suffix}"
-                
                 if media_kind == "image":
                     try:
                         from PIL import Image
@@ -498,7 +546,7 @@ class MediaDownloader:
                         LOGGER.warning("Image sanitization failed for %s: %s", url, e)
                         return False, {"reason": "sanitization_failed"}
                 else:
-                    target.write_bytes(content)
+                    temp_target.rename(target)
                 LOGGER.info("Downloaded %s", target)
 
                 relative_path = ""
@@ -522,36 +570,64 @@ class MediaDownloader:
                     or "",
                 }
 
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-                if status >= 500 and attempt < max_attempts:
-                    sleep_time = 2.0**attempt
-                    LOGGER.warning(
-                        "HTTP %d downloading %s (attempt %d/%d). Retrying in %.1fs...",
-                        status,
-                        url,
-                        attempt,
-                        max_attempts,
-                        sleep_time,
-                    )
-                    time.sleep(sleep_time)
-                    continue
-                if status == 404:
-                    LOGGER.info("HTTP 404 downloading %s: %s", url, exc)
-                else:
-                    LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
-                return False, {"reason": f"http_error:{status}"}
-
-            except (
-                httpx.HTTPError,
-                httpx.StreamError,
-                ConnectionError,
-                TimeoutError,
-            ) as exc:
+            except Exception as exc:
+                status = None
+                if hasattr(exc, "response") and hasattr(exc.response, "status_code"):
+                    status = exc.response.status_code
+                elif isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code
+                    
+                if status is not None:
+                    if status in (403, 401) and not use_curl_cffi and attempt < max_attempts:
+                        LOGGER.info("HTTP %d on %s. Retrying with curl_cffi TLS spoofing...", status, url)
+                        use_curl_cffi = True
+                        time.sleep(1.0)
+                        continue
+                    if status in (403, 401) and use_curl_cffi and attempt < max_attempts:
+                        from config import ENABLE_DRISSIONPAGE_FALLBACK
+                        if ENABLE_DRISSIONPAGE_FALLBACK:
+                            LOGGER.info("Tier-3 DrissionPage fallback for %s (HTTP %d)...", url, status)
+                            try:
+                                dp_success, dp_result = self._download_with_drissionpage(
+                                    url, directory, prefix, media_kind, 
+                                    min_image_size, req_headers.get("Referer")
+                                )
+                                if dp_success:
+                                    return True, dp_result
+                                else:
+                                    return False, dp_result
+                            except Exception as e:
+                                LOGGER.warning("DrissionPage download fallback failed for %s: %s", url, e)
+                    if status >= 500 and attempt < max_attempts:
+                        sleep_time = 2.0**attempt
+                        LOGGER.warning(
+                            "HTTP %d downloading %s (attempt %d/%d). Retrying in %.1fs...",
+                            status,
+                            url,
+                            attempt,
+                            max_attempts,
+                            sleep_time,
+                        )
+                        time.sleep(sleep_time)
+                        continue
+                    if status == 404:
+                        LOGGER.info("HTTP 404 downloading %s: %s", url, exc)
+                        with self._dead_urls_lock:
+                            self._dead_urls.add(url)
+                    else:
+                        LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
+                    return False, {"reason": f"http_error:{status}"}
+                
+                # Network or unexpected error
                 if attempt < max_attempts:
+                    # Cloudflare sometimes drops connections instead of 403
+                    if not use_curl_cffi and type(exc).__name__ in ("ConnectError", "ConnectionError", "ReadError", "StreamError"):
+                        LOGGER.info("Network drop on %s. Retrying with curl_cffi TLS spoofing...", url)
+                        use_curl_cffi = True
+                    
                     sleep_time = 2.0**attempt
                     LOGGER.warning(
-                        "Network error downloading %s: %s (attempt %d/%d). Retrying in %.1fs...",
+                        "Error downloading %s: %s (attempt %d/%d). Retrying in %.1fs...",
                         url,
                         exc,
                         attempt,
@@ -560,13 +636,8 @@ class MediaDownloader:
                     )
                     time.sleep(sleep_time)
                     continue
+                    
                 LOGGER.warning("Failed to download %s: %s", url, exc)
-                return False, {"reason": f"download_error:{type(exc).__name__}"}
-
-            except Exception as exc:
-                LOGGER.warning(
-                    "Failed to download %s due to unexpected error: %s", url, exc
-                )
                 return False, {"reason": f"download_error:{type(exc).__name__}"}
 
         # All retry attempts exhausted without a definitive return (should not happen in practice)
@@ -580,6 +651,7 @@ class MediaDownloader:
 
     @staticmethod
     def _determine_suffix(url: str, content_type: str) -> str:
+        import mimetypes
         url_suffix = Path(urlparse(url).path).suffix
         if url_suffix:
             return url_suffix
@@ -587,6 +659,167 @@ class MediaDownloader:
         if content_type:
             guessed = mimetypes.guess_extension(content_type.split(";")[0].strip())
         return guessed or ".bin"
+
+    def _download_with_drissionpage(
+        self,
+        url: str,
+        directory: Path,
+        prefix: str,
+        media_kind: str,
+        min_image_size: tuple[int, int] | None = None,
+        referer: str | None = None,
+    ) -> tuple[bool, dict]:
+        import re
+        import mimetypes
+        from DrissionPage import ChromiumOptions, ChromiumPage
+        from config import FORCE_HEADLESS, MIN_IMAGE_DOWNLOAD_BYTES, MIN_VIDEO_DOWNLOAD_BYTES, MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, OUTPUT_DIR
+        import sys
+
+        host = urlparse(url).netloc
+        domain_slug = re.sub(r"[^\w\-]", "_", host)
+        profile_path = Path("data/drission_profiles") / domain_slug
+
+        co = ChromiumOptions()
+        co.set_argument("--no-sandbox")
+        co.set_argument("--disable-gpu")
+        # Enforce headless mode so it doesn't bother the user
+        co.headless(True)
+
+        if profile_path.exists():
+            co.set_user_data_path(str(profile_path.resolve()))
+
+        proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
+        if proxy:
+            co.set_proxy(proxy)
+
+        page = None
+        try:
+            page = ChromiumPage(co)
+            headers = {}
+            if referer:
+                headers["Referer"] = referer
+
+            resp = page.session.get(url, stream=True, headers=headers, timeout=self.http.timeout)
+            resp.raise_for_status()
+
+            content = b""
+            content_type = resp.headers.get("content-type", "")
+            
+            # Determine suffix and target now that we have content_type
+            suffix = self._determine_suffix(url, content_type)
+            target = directory / f"{prefix}{suffix}"
+            temp_target = target.with_suffix(suffix + ".tmp")
+            
+            content_length_header = resp.headers.get("content-length")
+            
+            if content_length_header and content_length_header.isdigit():
+                cl = int(content_length_header)
+                if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
+                    return False, {"reason": "low_resolution"}
+                if media_kind == "video" and cl < MIN_VIDEO_DOWNLOAD_BYTES and not self._is_manifest_url(url):
+                    return False, {"reason": "low_resolution"}
+
+            import hashlib
+            hasher = hashlib.sha256()
+
+            if media_kind == "image":
+                chunks = []
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if chunk:
+                        chunks.append(chunk)
+                content = b"".join(chunks)
+                content_length = len(content)
+                hasher.update(content)
+            else:
+                bytes_read = 0
+                header_bytes = b""
+                try:
+                    with open(temp_target, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            if chunk:
+                                if bytes_read < 1024:
+                                    header_bytes += chunk
+                                f.write(chunk)
+                                hasher.update(chunk)
+                                bytes_read += len(chunk)
+                except Exception as e:
+                    temp_target.unlink(missing_ok=True)
+                    raise e
+                content = header_bytes
+                content_length = bytes_read
+
+            if media_kind == "image" and content_length < MIN_IMAGE_DOWNLOAD_BYTES:
+                return False, {"reason": "low_resolution"}
+            if media_kind == "video" and content_length < MIN_VIDEO_DOWNLOAD_BYTES and not self._is_manifest_url(url):
+                temp_target.unlink(missing_ok=True)
+                return False, {"reason": "low_resolution"}
+
+            if not self._looks_like_expected_media(content, content_type, suffix, media_kind, url):
+                if media_kind == "video":
+                    temp_target.unlink(missing_ok=True)
+                return False, {"reason": "invalid_media_type"}
+
+            content_hash = hasher.hexdigest()
+
+            with self._hash_lock:
+                if content_hash in self._seen_hashes:
+                    if media_kind == "video":
+                        temp_target.unlink(missing_ok=True)
+                    return False, {"reason": "duplicate"}
+                self._seen_hashes.add(content_hash)
+
+            w, h = None, None
+            if media_kind == "image":
+                from core.filters import get_image_dimensions
+                w, h = get_image_dimensions(content)
+                if w is not None and h is not None:
+                    limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
+                    limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
+                    if w < limit_w or h < limit_h:
+                        return False, {"reason": "low_resolution"}
+                elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+                    return False, {"reason": "unparseable_dimensions"}
+
+                try:
+                    from PIL import Image
+                    import io
+                    img = Image.open(io.BytesIO(content))
+                    out_buffer = io.BytesIO()
+                    save_format = img.format if img.format else "JPEG"
+                    kwargs = {}
+                    if getattr(img, "is_animated", False):
+                        kwargs["save_all"] = True
+                    img.save(out_buffer, format=save_format, **kwargs)
+                    target.write_bytes(out_buffer.getvalue())
+                except Exception:
+                    return False, {"reason": "sanitization_failed"}
+            else:
+                temp_target.rename(target)
+
+            relative_path = ""
+            try:
+                relative_path = str(target.relative_to(OUTPUT_DIR.resolve()))
+            except ValueError:
+                try:
+                    relative_path = str(target.relative_to(OUTPUT_DIR))
+                except ValueError:
+                    relative_path = str(target)
+
+            return True, {
+                "reason": "ok",
+                "file_path": relative_path,
+                "hash": content_hash,
+                "width": w,
+                "height": h,
+                "file_size_bytes": content_length,
+                "mime_type": content_type or mimetypes.guess_type(target.name)[0] or "",
+            }
+        finally:
+            if page:
+                try:
+                    page.quit()
+                except Exception:
+                    pass
 
     @staticmethod
     def _is_manifest_url(url: str) -> bool:

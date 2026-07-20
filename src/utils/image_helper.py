@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import struct
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
@@ -21,8 +24,8 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
             if len(data) >= 24:
                 w, h = struct.unpack(">II", data[16:24])
                 return w, h
-        except Exception:
-            pass
+        except (struct.error, IndexError) as exc:
+            logger.debug("Failed to parse PNG dimensions: %s", exc)
 
     # GIF
     elif data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
@@ -31,8 +34,8 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
             # width (2 bytes little-endian), height (2 bytes little-endian)
             w, h = struct.unpack("<HH", data[6:10])
             return w, h
-        except Exception:
-            pass
+        except (struct.error, IndexError) as exc:
+            logger.debug("Failed to parse GIF dimensions: %s", exc)
 
     # WebP
     elif data.startswith(b"RIFF") and data[8:12] == b"WEBP":
@@ -53,8 +56,8 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
                     w = struct.unpack("<I", data[24:27] + b"\x00")[0] + 1
                     h = struct.unpack("<I", data[27:30] + b"\x00")[0] + 1
                     return w, h
-        except Exception:
-            pass
+        except (struct.error, IndexError) as exc:
+            logger.debug("Failed to parse WebP dimensions: %s", exc)
 
     # JPEG
     elif data.startswith(b"\xff\xd8"):
@@ -102,7 +105,7 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
                             break
                 else:
                     offset += 1
-        except Exception:
-            pass
+        except (struct.error, IndexError) as exc:
+            logger.debug("Failed to parse JPEG dimensions: %s", exc)
 
     return None, None

@@ -66,7 +66,7 @@ def extract_background_image(style_value: str | None) -> str | None:
 
 
 # Compiled once: matches gallery navigation pseudo-URLs like
-# "Page 1: _1.jpg" that e-hentai injects into div title attributes.
+# "Page 1: _1.jpg" that some gallery sites inject into div title attributes.
 _PAGE_LABEL_RE = re.compile(r"page\s+\d+\s*:", re.IGNORECASE)
 
 
@@ -76,7 +76,7 @@ def is_probable_image(url: str) -> bool:
     except Exception:
         path = ""
     # Reject gallery-navigation pseudo-paths such as "Page 1: _1.jpg" that some
-    # sites (e.g. e-hentai) store in div title attributes.  These are never
+    # gallery sites store in div title attributes.  These are never
     # valid HTTP resource paths.
     if _PAGE_LABEL_RE.search(path):
         return False
@@ -94,16 +94,24 @@ def is_thumbnail_url(url: str) -> bool:
         path = urlparse(url).path.lower()
     except Exception:
         path = ""
-    # rule34-style picN thumbnails (pic256, pic512, etc.)
+    # Booru-style picN thumbnails (pic256, pic512, etc.)
     if re.search(r"\.pic\d+\.jpe?g", path):
         return True
-    # Common thumbnail patterns
-    if "/thumb" in path:
+    # WordPress/CDN dimensions suffix (e.g. -320x180.jpg)
+    if re.search(r"-\d+x\d+\.(?:jpe?g|png|gif|webp|avif)$", path):
         return True
-    if "thumbnail" in path:
+    # Common thumbnail patterns
+    if any(marker in path for marker in PREVIEW_MARKERS):
         return True
     # loading.gif placeholders
     if path.endswith("/loading.gif"):
+        return True
+    # erothots / erocdn preview thumbnails (e.g. /thumbs/ or /thumb_ in path)
+    if re.search(r"/thumbs?[_/]", path):
+        return True
+    # erocdn low-res poster images
+    url_lower = url.lower()
+    if "erocdn" in url_lower and re.search(r"_(?:poster|thumb|preview|small)\.", path):
         return True
     return False
 
@@ -410,7 +418,7 @@ def score_image_relevance(
     score -= _preview_penalty(text)
     if any(
         token in text
-        for token in {"photo", "image", "gallery", "media", "post", "cosplay"}
+        for token in {"photo", "image", "gallery", "media", "post"}
     ):
         score += 1
     if is_probable_image(item.url):

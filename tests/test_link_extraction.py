@@ -46,11 +46,13 @@ def test_extract_images_from_anchors() -> None:
 
 
 def test_is_detail_page() -> None:
-    from core.engine import ScrapingEngine
+    from core.managers import DomainRulesManager
+    
+    rules = DomainRulesManager()
 
     # Test nested path (classic detail page pattern: index listing -> individual item)
     assert (
-        ScrapingEngine._is_detail_page(
+        rules.is_detail_page(
             "https://example.com/videos/subject/123",
             "https://example.com/videos/subject",
             ["subject"],
@@ -60,8 +62,8 @@ def test_is_detail_page() -> None:
 
     # Test non-nested path with listing prefix & correct token in slug
     assert (
-        ScrapingEngine._is_detail_page(
-            "https://example.com/video/123/subject-cosplay",
+        rules.is_detail_page(
+            "https://example.com/video/123/subject-portrait",
             "https://example.com/videos/subject",
             ["subject"],
         )
@@ -70,7 +72,7 @@ def test_is_detail_page() -> None:
 
     # Test non-nested path with wrong token in listing prefix (different subject)
     assert (
-        ScrapingEngine._is_detail_page(
+        rules.is_detail_page(
             "https://example.com/videos/other-model",
             "https://example.com/videos/subject",
             ["subject"],
@@ -80,7 +82,7 @@ def test_is_detail_page() -> None:
 
     # Test pagination sibling rejection
     assert (
-        ScrapingEngine._is_detail_page(
+        rules.is_detail_page(
             "https://example.com/videos/subject/page/2",
             "https://example.com/videos/subject",
             ["subject"],
@@ -90,7 +92,7 @@ def test_is_detail_page() -> None:
 
     # Test query param pagination rejection
     assert (
-        ScrapingEngine._is_detail_page(
+        rules.is_detail_page(
             "https://example.com/videos/subject?page=3",
             "https://example.com/videos/subject",
             ["subject"],
@@ -100,7 +102,7 @@ def test_is_detail_page() -> None:
 
     # Test static pages rejection
     assert (
-        ScrapingEngine._is_detail_page(
+        rules.is_detail_page(
             "https://example.com/about",
             "https://example.com/videos/subject",
             ["subject"],

@@ -42,7 +42,7 @@ def generate_run_summary(
     dict[str, Any]
         The compiled summary dictionary.
     """
-    total_duration = crawl_duration_seconds + download_duration_seconds
+    total_duration = result.duration_seconds or (crawl_duration_seconds + download_duration_seconds)
 
     # 1. Overall stats
     total_pages_scanned = len(result.scanned_pages)
@@ -81,23 +81,24 @@ def generate_run_summary(
             "wasted_requests": 0,
         }
 
-    # Count wasted requests (non-completed statuses)
+    # Count wasted requests: pages that yielded zero kept media
     for report in result.page_reports:
-        if report.status != "completed":
-            domain = urlparse(report.url).netloc.lower()
-            if domain:
-                domain_breakdown.setdefault(
-                    domain,
-                    {
-                        "pages_scanned": 0,
-                        "images_kept": 0,
-                        "videos_kept": 0,
-                        "rejected_count": 0,
-                        "duplicate_hash_skips": 0,
-                        "wasted_requests": 0,
-                    },
-                )
-                domain_breakdown[domain]["wasted_requests"] += 1
+        domain = urlparse(report.url).netloc.lower()
+        if not domain:
+            continue
+        domain_breakdown.setdefault(
+            domain,
+            {
+                "pages_scanned": 0,
+                "images_kept": 0,
+                "videos_kept": 0,
+                "rejected_count": 0,
+                "duplicate_hash_skips": 0,
+                "wasted_requests": 0,
+            },
+        )
+        if report.images_found == 0 and report.videos_found == 0:
+            domain_breakdown[domain]["wasted_requests"] += 1
 
     # Count duplicate hash skips and dead downloads per domain
     dead_download_urls: list[dict[str, str]] = []
@@ -157,10 +158,8 @@ def generate_run_summary(
             "crawl_duration_seconds": int(crawl_duration_seconds),
             "download_duration_seconds": int(download_duration_seconds),
             "idle_or_other_seconds": int(
-                max(0.0, result.duration_seconds - total_duration)
-            )
-            if result.duration_seconds
-            else 0,
+                max(0.0, total_duration - crawl_duration_seconds - download_duration_seconds)
+            ),
         },
         "overall_stats": {
             "total_pages_scanned": total_pages_scanned,

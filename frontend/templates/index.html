@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCRAPE // WATCHDOG</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -374,6 +375,26 @@
             margin-left: 1rem;
             vertical-align: middle;
         }
+        
+        .btn-kill {
+            background-color: transparent;
+            color: red;
+            border: 2px solid red;
+            padding: 1rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            align-self: flex-start;
+            transition: all 0.2s;
+            height: 100%;
+        }
+        
+        .btn-kill:hover {
+            background-color: red;
+            color: white;
+        }
 
         .status-badge.running {
             border-color: var(--accent);
@@ -403,7 +424,7 @@
             <h1>scrAPE // WATCHDOG</h1>
             <div class="header-sub">Data Extraction Engine</div>
         </div>
-        <div class="header-sub" id="last-updated">SYS.UPDATE: <span>-</span></div>
+        <div id="sys-stats" hx-get="/htmx/stats" hx-trigger="load, every 2s"></div>
     </header>
 
     <div class="control-panel" id="control-panel">
@@ -411,26 +432,27 @@
             <div>
                 <h2>LOCAL COMMAND CENTER <span class="status-badge" id="status-badge">STATUS: IDLE</span></h2>
             </div>
-            <form id="scrape-form" class="form-row">
+            <form id="scrape-form" class="form-row" hx-post="/htmx/run" hx-target="#status-badge">
                 <div class="form-group">
                     <label>Keyword Target</label>
-                    <input type="text" id="arg-keyword" placeholder="e.g. brutalism architecture" required>
+                    <input type="text" name="keyword" placeholder="e.g. apple" required>
                 </div>
                 <div class="form-group">
                     <label>Max Results</label>
-                    <input type="number" id="arg-max-results" value="50" required>
+                    <input type="number" name="max_results" value="50" required>
                 </div>
                 <div class="form-group">
                     <label>Crawl Depth</label>
-                    <input type="number" id="arg-crawl-depth" value="2" required>
+                    <input type="number" name="crawl_depth" value="2" required>
                 </div>
                 <div class="form-group"
                     style="flex-direction: row; align-items: center; gap: 0.5rem; justify-content: flex-start; margin-top: auto; margin-bottom: 0.5rem;">
-                    <input type="checkbox" id="arg-download-media" style="width: auto;" checked>
+                    <input type="checkbox" name="download_media" id="arg-download-media" style="width: auto;" checked>
                     <label for="arg-download-media" style="margin: 0; cursor: pointer;">Download Media</label>
                 </div>
-                <div class="form-group" style="justify-content: flex-end;">
-                    <button type="submit" class="btn-run" id="btn-run">[INITIATE_SCRAPE]</button>
+                <div class="form-group" style="justify-content: flex-end; flex-direction: row; gap: 1rem;">
+                    <button type="submit" class="btn-run" id="btn-run" onclick="document.getElementById('live-terminal-wrapper').style.display='flex'; setInterval(pollLogs, 1000);">[INITIATE_SCRAPE]</button>
+                    <button type="button" class="btn-kill" hx-post="/htmx/kill" hx-target="#status-badge">[ABORT]</button>
                 </div>
             </form>
 
@@ -498,43 +520,8 @@
             }
         });
 
-        const form = document.getElementById('scrape-form');
         const btnRun = document.getElementById('btn-run');
         const statusBadge = document.getElementById('status-badge');
-
-        if (form) {
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
-                const keyword = document.getElementById('arg-keyword').value;
-                const maxResults = parseInt(document.getElementById('arg-max-results').value);
-                const crawlDepth = parseInt(document.getElementById('arg-crawl-depth').value);
-                const downloadMedia = document.getElementById('arg-download-media').checked;
-
-                btnRun.disabled = true;
-                btnRun.innerText = '[INITIALIZING...]';
-
-                try {
-                    const response = await fetch('/api/run', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            keyword: keyword,
-                            max_results: maxResults,
-                            crawl_depth: crawlDepth,
-                            download_media: downloadMedia
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const data = await response.json();
-                        alert("ERROR: " + (data.detail || response.statusText));
-                    }
-                } catch (err) {
-                    alert("ERROR: Backend API disconnected.");
-                }
-            });
-        }
 
         let logOffset = 0;
         const terminalWrapper = document.getElementById('live-terminal-wrapper');

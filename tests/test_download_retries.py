@@ -71,7 +71,17 @@ def test_download_file_retry_on_network_error(tmp_path):
         patch("time.sleep") as mock_sleep,
         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)),
         patch("storage.file_downloader._fast_limiter_for", return_value=mock_fast_rl),
+        patch("curl_cffi.requests.Session") as mock_curl_session,
     ):
+        mock_curl_resp = MagicMock()
+        mock_curl_resp.status_code = 200
+        mock_curl_resp.headers = {"content-type": "image/jpeg", "content-length": "20000"}
+        mock_curl_resp.iter_content.return_value = [_get_valid_jpeg()]
+        
+        mock_session_inst = MagicMock()
+        mock_session_inst.get.return_value = mock_curl_resp
+        mock_curl_session.return_value = mock_session_inst
+
         success, reason = downloader._download_file(
             url="https://example.com/img.jpg",
             directory=tmp_path,
@@ -82,11 +92,10 @@ def test_download_file_retry_on_network_error(tmp_path):
         # Verify it succeeded after retries
         assert success is True
         assert reason["reason"] == "ok"
-        assert len(calls) == 3
-        # Sleep should be called with exponential backoff (2^1 = 2s, 2^2 = 4s)
-        assert mock_sleep.call_count == 2
+        # It attempts httpx once, fails, switches to curl_cffi for attempt 2 and succeeds
+        assert len(calls) == 1
+        assert mock_sleep.call_count == 1
         mock_sleep.assert_any_call(2.0)
-        mock_sleep.assert_any_call(4.0)
 
 
 def test_download_file_retry_on_server_error(tmp_path):

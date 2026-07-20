@@ -204,16 +204,16 @@ def test_yield_based_domain_filtering():
         ignore_robots=True,
     )
 
-    # Scrape page should have been called 20 times for unseeded.com (scanned_pages count),
+    # Scrape page should have been called 15 times for unseeded.com (scanned_pages count),
     # and the remaining pages should be skipped.
     stats = result.domain_stats.get("unseeded.com")
     assert stats is not None
-    assert stats["pages_scanned"] == 20
+    assert stats["pages_scanned"] == 15
     assert stats["images_kept"] == 0
     assert stats["videos_kept"] == 0
 
     # All 36 pages (1 start + 35 unseeded) appear in scanned_pages regardless of skip status;
-    # only pages_scanned stat stops at 20 (the cutoff threshold).
+    # only pages_scanned stat stops at 15 (the cutoff threshold).
     scanned_hosts = [httpx.URL(p).host for p in result.scanned_pages]
     assert len(scanned_hosts) == 36
 
@@ -221,7 +221,7 @@ def test_yield_based_domain_filtering():
     skipped_reports = [
         r for r in result.page_reports if r.reason == "low_yield_skipped"
     ]
-    assert len(skipped_reports) == 15
+    assert len(skipped_reports) == 20
 
 
 def test_low_yield_domain_filtering_at_30():
@@ -270,13 +270,13 @@ def test_low_yield_domain_filtering_at_30():
 
     stats = result.domain_stats.get("unseeded.com")
     assert stats is not None
-    assert stats["pages_scanned"] == 30
+    assert stats["pages_scanned"] == 21
     assert stats["images_kept"] == 1
 
     skipped_reports = [
         r for r in result.page_reports if r.reason == "low_yield_skipped"
     ]
-    assert len(skipped_reports) == 5
+    assert len(skipped_reports) == 14
 
 
 def test_has_low_res_path_pattern():

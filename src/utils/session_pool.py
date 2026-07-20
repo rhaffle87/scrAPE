@@ -10,6 +10,21 @@ import httpx
 from config import USER_AGENTS
 import json
 from pathlib import Path
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class FlatCookies(dict):
+    """A flat dictionary representing cookies that implements a subset of httpx.Cookies.
+    
+    Prevents CookieConflictError by only maintaining a single value per cookie name.
+    """
+    def set(self, name: str, value: str, domain: str = "", path: str = "") -> None:
+        self[name] = value
+
+    def get(self, name: str, default: str | None = None) -> str | None:
+        return super().get(name, default)
 
 
 class Session:
@@ -18,7 +33,7 @@ class Session:
     def __init__(self, domain: str) -> None:
         self.domain = domain
         self.user_agent = random.choice(USER_AGENTS)
-        self.cookies = httpx.Cookies()
+        self.cookies = FlatCookies()
         self.consecutive_errors = 0
         self.lock = threading.Lock()
         self._cookie_file = Path(".cache") / "cookies" / f"{self.domain}.json"
@@ -33,19 +48,18 @@ class Session:
                         self.user_agent = data["user_agent"]
                     if "cookies" in data and isinstance(data["cookies"], dict):
                         self.cookies.update(data["cookies"])
-        except Exception:
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Failed to load session from disk: %s", exc)
 
     def save_to_disk(self) -> None:
         """Persist current cookies and user agent to disk."""
         with self.lock:
             try:
                 self._cookie_file.parent.mkdir(parents=True, exist_ok=True)
-                cookies_dict = dict(self.cookies.items())
-                data = {"user_agent": self.user_agent, "cookies": cookies_dict}
+                data = {"user_agent": self.user_agent, "cookies": self.cookies}
                 self._cookie_file.write_text(json.dumps(data), encoding="utf-8")
-            except Exception:
-                pass
+            except (OSError, TypeError) as exc:
+                logger.warning("Failed to save session to disk: %s", exc)
 
     def get_headers(self) -> dict[str, str]:
         """Return consistent headers for this session."""
@@ -68,8 +82,8 @@ class Session:
             try:
                 if self._cookie_file.exists():
                     self._cookie_file.unlink()
-            except Exception:
-                pass
+            except OSError as exc:
+                logger.warning("Failed to delete session file: %s", exc)
 
 
 class SessionPool:

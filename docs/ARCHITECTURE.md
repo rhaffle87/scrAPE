@@ -34,6 +34,10 @@ crawlee_bridge/
 ├── package.json                 — Node.js dependencies
 └── crawlee_bridge.log           — Bridge server logs
 
+frontend/
+├── app.py                       — FastAPI backend for HTMX SPA, live OS telemetry & process orchestrator
+└── templates/                   — HTMX-powered dashboard templates (index.html, gallery.html)
+
 src/
 ├── __init__.py
 ├── cli/
@@ -41,10 +45,12 @@ src/
 │   ├── main.py                  — CLI entry point, dry-run, run orchestration
 │   ├── auth.py                  — Interactive headful login and cookie injection
 │   ├── monitor_agent.py         — Watchdog entry point, continuous monitoring loop
+│   ├── launcher.py              — Interactive launcher & system tray manager
 │   └── cli_wizard.py            — Interactive wizard for standard & watchdog runs
 ├── core/
 │   ├── __init__.py
-│   ├── engine.py                — ScrapingEngine: BFS crawl, scoring, download orchestration
+│   ├── engine.py                — ScrapingEngine entry point
+│   ├── managers.py              — CrawlOrchestrator, MediaProcessor, DomainRulesManager
 │   ├── filters.py               — Relevance scoring, rejection reasons, low-res detection
 │   ├── models.py                — ScrapeResult, RejectedItem, EngineOptions, DomainProfile
 │   └── seed_manifest.py         — SeedManifest parser: annotations → DomainProfile[]
@@ -58,12 +64,6 @@ src/
 ├── storage/
 │   ├── file_downloader.py       — FileDownloader: HTTP fetch with retries, size filter, upscaling
 │   └── state_cache.py           — Persistent SQLite state cache (WAL optimized) to prevent redundant crawls
-├── cli/
-│   ├── launcher.py              — Interactive launcher & system tray manager
-│   ├── webui.py                 — FastAPI backend for SPA & live logs (sanitized path inputs)
-│   ├── cli_wizard.py            — Terminal interface
-│   └── templates/
-│       └── index.html           — Dynamic Single Page Application frontend
 └── utils/
     ├── __init__.py
     ├── blacklist.py             — BlacklistManager: persistent 404/403/Cloudflare domains blacklist
@@ -217,7 +217,7 @@ Stores all domain-specific settings dynamically rather than hardcoding them in c
 - `hotlink_protected`: domains that block hotlinking.
 - `rate_limits`: Custom requests/second configurations.
 - `deep_scrape`: List of domains targeting deep page crawler traversal.
-- `domain_handlers`: Pattern overrides used to extract links from targets (e.g. `kittykawai.com` with `/post/`).
+- `domain_handlers`: Pattern overrides used to extract links from targets (e.g. `example.com` with `/post/`).
 - `referer_overrides`: Custom HTTP request referer overrides map. Used to dynamically inject Referer and Origin headers to bypass hotlink protection on specific domains.
 
 ### 3.10 URL Normalisation Rules (`url_normalisation_rules.json`)

@@ -1,5 +1,5 @@
 import express from 'express';
-import { CheerioCrawler, PuppeteerCrawler, RequestQueue } from 'crawlee';
+import { CheerioCrawler, PuppeteerCrawler, RequestQueue, ProxyConfiguration } from 'crawlee';
 import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 app.post('/scrape', async (req, res) => {
-    const { url, mode } = req.body;
+    const { url, mode, proxy } = req.body;
     
     if (!url) {
         return res.status(400).json({ error: 'URL is required' });
@@ -17,12 +17,18 @@ app.post('/scrape', async (req, res) => {
 
     try {
         let resultData = null;
+        let proxyConfiguration = undefined;
+        
+        if (proxy) {
+            proxyConfiguration = new ProxyConfiguration({ proxyUrls: [proxy] });
+        }
 
         const uniqueId = Date.now().toString() + Math.random().toString().slice(2, 6);
         
         if (mode === 'cheerio') {
             const rq = await RequestQueue.open(uniqueId);
             const crawler = new CheerioCrawler({
+                proxyConfiguration,
                 requestQueue: rq,
                 requestHandler: async ({ $, body, request }) => {
                     resultData = {
@@ -45,6 +51,7 @@ app.post('/scrape', async (req, res) => {
         else if (mode === 'puppeteer') {
             const rq = await RequestQueue.open(uniqueId);
             const crawler = new PuppeteerCrawler({
+                proxyConfiguration,
                 requestQueue: rq,
                 launchContext: {
                     launcher: puppeteerExtra,

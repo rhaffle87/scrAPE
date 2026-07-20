@@ -8,6 +8,7 @@ ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True
 ENABLE_HELIUM_FALLBACK = True
 FORCE_HEADLESS = False
+STEALTH_HEADFUL = False
 
 DEFAULT_MAX_RESULTS = 0
 DEFAULT_OUTPUT_FORMAT = "json"
@@ -126,6 +127,14 @@ ALWAYS_BLOCK_DOMAINS = {
     "pixel.wp.com",
     "adsystem.com",
     "adservice.google.com",
+    "en.wikipedia.org",
+    "www.wikipedia.org",
+    "www.imdb.com",
+    "www.youtube.com",
+    "www.tiktok.com",
+    "onlyfans.com",
+    "linktr.ee",
+    "socialveins.com",
 }
 
 HOTLINK_PROTECTED_DOMAINS: set[str] = set()
@@ -139,9 +148,6 @@ REFERER_OVERRIDES: dict[str, str] = {}
 # by normalize_url() in core/filters.py.  Edit the JSON file to add or change
 # rules — do NOT hardcode domain patterns here or in any logic file.
 URL_NORMALISATION_RULES: list[tuple] = []
-
-
-
 
 def _load_dynamic_config() -> None:
     # ── domain_config.json ────────────────────────────────────────────────

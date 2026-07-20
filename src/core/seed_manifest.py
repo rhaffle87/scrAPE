@@ -170,6 +170,107 @@ class SeedManifest:
         text = path.read_text(encoding="utf-8")
         return _parse(path, text)
 
+    @classmethod
+    def validate(cls, path: "Path | str") -> list[str]:
+        """
+        Validate the seed file syntax, headers, and annotations.
+        Returns a list of warning/error messages.
+        """
+        path = Path(path)
+        if not path.exists():
+            return [f"File not found: {path}"]
+            
+        warnings: list[str] = []
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            return [f"Failed to read file: {exc}"]
+            
+        lines = text.splitlines()
+        if not lines:
+            return ["Seed file is empty."]
+
+        # Check for Subject header
+        has_subject = False
+        for line in lines:
+            if _SUBJECT_RE.match(line.strip()):
+                has_subject = True
+                break
+        if not has_subject:
+            warnings.append("Missing '# Subject: <Name>' header at the top of the seed file.")
+
+        urls_seen = set()
+        domains_seen = set()
+        
+        for idx, raw_line in enumerate(lines, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+                
+            if line.startswith("#"):
+                lower_line = line.lower()
+                
+                if "type:" in lower_line:
+                    val_match = re.search(r"type\s*:\s*(\w+)", lower_line)
+                    if val_match:
+                        val = val_match.group(1)
+                        if val not in {"image", "video", "mixed"}:
+                            warnings.append(f"Line {idx}: Invalid type '{val}' (must be image, video, or mixed)")
+                elif any(x in lower_line for x in ["typ:", "media-type:", "media_type:"]):
+                    warnings.append(f"Line {idx}: Possible typo in 'type' annotation. Use '# type: <image|video|mixed>'")
+                    
+                if "crawl:" in lower_line:
+                    val_match = re.search(r"crawl\s*:\s*(\S+)", lower_line)
+                    if val_match:
+                        val = val_match.group(1)
+                        if "direct" not in val and "index" not in val:
+                            warnings.append(f"Line {idx}: Invalid crawl strategy '{val}' (must be direct or index→detail)")
+                elif any(x in lower_line for x in ["crawl-strategy:", "crawl_strategy:"]):
+                    warnings.append(f"Line {idx}: Possible typo in 'crawl' annotation. Use '# crawl: <direct|index→detail>'")
+
+                if "depth:" in lower_line:
+                    val_match = re.search(r"depth\s*:\s*(\S+)", lower_line)
+                    if val_match:
+                        val = val_match.group(1)
+                        if not val.isdigit():
+                            warnings.append(f"Line {idx}: Invalid depth '{val}' (must be an integer)")
+                elif "dept:" in lower_line:
+                    warnings.append(f"Line {idx}: Possible typo in 'depth' annotation. Use '# depth: <N>'")
+
+                if any(x in lower_line for x in ["rate-limit:", "rate_limit:"]):
+                    if not _RATE_LIMIT_RE.search(line):
+                        warnings.append(f"Line {idx}: Malformed Rate-limit. Must match '# Rate-limit: <N> req/s'")
+                elif any(x in lower_line for x in ["ratelimit:", "rate limit:"]):
+                    warnings.append(f"Line {idx}: Possible typo in 'Rate-limit' annotation. Use '# Rate-limit: <N> req/s'")
+
+                if any(x in lower_line for x in ["max_pages:", "max-pages:", "maxpages:"]):
+                    if not _MAX_PAGES_RE.search(line):
+                        warnings.append(f"Line {idx}: Malformed max_pages. Must match '# max_pages: <N>'")
+                elif "max pages:" in lower_line:
+                    warnings.append(f"Line {idx}: Possible typo in 'max_pages' annotation. Use '# max_pages: <N>'")
+                if any(x in lower_line for x in ["min-image-size:", "min_image_size:"]) and not _MIN_SIZE_RE.search(line):
+                    warnings.append(f"Line {idx}: Malformed min-image-size. Must match '# min-image-size: <width>x<height>'")
+                        
+                if any(x in lower_line for x in ["thumbnail-prefix:", "thumbnail_prefix:"]) and not _THUMB_PREFIX_RE.search(line):
+                    warnings.append(f"Line {idx}: Malformed thumbnail-prefix. Must match '# thumbnail-prefix: <pattern>'")
+            else:
+                if _URL_RE.match(line):
+                    if line in urls_seen:
+                        warnings.append(f"Line {idx}: Duplicate URL '{line}'")
+                    else:
+                        urls_seen.add(line)
+                    
+                    domain = _host(line)
+                    if domain:
+                        domains_seen.add(domain)
+                else:
+                    warnings.append(f"Line {idx}: Invalid line format (neither comment nor valid URL): '{line}'")
+                    
+        if not urls_seen:
+            warnings.append("No seed URLs found in seed file.")
+            
+        return warnings
+
 
 # ---------------------------------------------------------------------------
 # Internal parser helpers

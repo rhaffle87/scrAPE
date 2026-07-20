@@ -136,6 +136,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--proxy",
+        type=str,
+        help="A single HTTP/SOCKS proxy URL to use for all requests.",
+    )
+    parser.add_argument(
+        "--proxy-list",
+        type=Path,
+        help="A text file containing one proxy URL per line. The system will rotate through them on failures.",
+    )
+    parser.add_argument(
+        "--capsolver-key",
+        type=str,
+        help="API key for CapSolver to automatically solve captchas.",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=CONCURRENT_PAGES_PER_BATCH,
@@ -172,6 +187,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--use-state-cache",
         action="store_true",
         help="Use a persistent SQLite state cache to prevent re-crawling URLs across runs.",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Force the browser to run in headless mode (overrides platform defaults).",
+    )
+    parser.add_argument(
+        "--stealth-headful",
+        action="store_true",
+        help="Run stealth browser fallbacks (DrissionPage, Helium, Crawl4AI) in headful mode (visible browser).",
+    )
+    parser.add_argument(
+        "--validate-seed",
+        type=Path,
+        metavar="FILE",
+        help="Validate the syntax and annotations of the specified seed file, then exit.",
     )
     return parser
 
@@ -231,6 +262,26 @@ def main() -> None:
 
     args = build_parser().parse_args()
 
+    if args.headless:
+        import utils.http_client
+        utils.http_client.FORCE_HEADLESS = True
+
+    if args.stealth_headful:
+        import utils.http_client
+        utils.http_client.STEALTH_HEADFUL = True
+
+    if args.validate_seed:
+        from core.seed_manifest import SeedManifest
+        warnings = SeedManifest.validate(args.validate_seed)
+        if warnings:
+            logger.error("Validation failed for seed file '%s':", args.validate_seed)
+            for w in warnings:
+                logger.error("  - %s", w)
+            sys.exit(1)
+        else:
+            logger.info("Seed file '%s' is valid!", args.validate_seed)
+            sys.exit(0)
+
     if args.login:
         from cli.auth import perform_interactive_login
         perform_interactive_login(args.login)
@@ -276,72 +327,70 @@ def main() -> None:
     active_seed_file = args.seed_file
     is_seed_context = (args.seed_file is not None) or args.skip_search
 
-    if is_seed_context:
-        if active_seed_file is None:
-            if dedicated_seed_file.exists():
-                active_seed_file = dedicated_seed_file
-                logger.info("Using dedicated seed file: %s", active_seed_file)
-            else:
-                root_template_file = Path("seed.txt")
-                if root_template_file.exists():
-                    try:
-                        template_content = root_template_file.read_text(
-                            encoding="utf-8"
-                        )
-                        q_param = quote_plus(args.keyword)
-                        path_param = re.sub(
-                            r"[^a-zA-Z0-9]+", "-", args.keyword.strip().lower()
-                        ).strip("-")
-                        keyword_title = args.keyword.title()
-
-                        lines = []
-                        for line in template_content.splitlines():
-                            if line.strip().startswith("#"):
-                                updated = line.replace("Apple", keyword_title).replace(
-                                    "apple", args.keyword.lower()
-                                )
-                                lines.append(updated)
-                            else:
-                                if not line.strip():
-                                    lines.append(line)
-                                    continue
-                                url = line.strip()
-                                if "?" in url:
-                                    parts = url.split("?", 1)
-                                    path = (
-                                        parts[0]
-                                        .replace("apple", path_param)
-                                        .replace("Apple", path_param)
-                                    )
-                                    query = (
-                                        parts[1]
-                                        .replace("apple", q_param)
-                                        .replace("Apple", q_param)
-                                    )
-                                    url = f"{path}?{query}"
-                                else:
-                                    url = url.replace("apple", path_param).replace(
-                                        "Apple", path_param
-                                    )
-                                lines.append(url)
-
-                        seeds_folder.mkdir(parents=True, exist_ok=True)
-                        dedicated_seed_file.write_text(
-                            "\n".join(lines), encoding="utf-8"
-                        )
-                        logger.info(
-                            "Created dedicated seed file: %s", dedicated_seed_file
-                        )
-                        active_seed_file = dedicated_seed_file
-                    except Exception as exc:
-                        logger.warning(
-                            "Could not auto-generate dedicated seed file: %s", exc
-                        )
-                else:
-                    logger.warning(
-                        "Root template seed.txt not found. Skipping dedicated seed file creation."
+    if is_seed_context and active_seed_file is None:
+        if dedicated_seed_file.exists():
+            active_seed_file = dedicated_seed_file
+            logger.info("Using dedicated seed file: %s", active_seed_file)
+        else:
+            root_template_file = Path("seed.txt")
+            if root_template_file.exists():
+                try:
+                    template_content = root_template_file.read_text(
+                        encoding="utf-8"
                     )
-
+                    q_param = quote_plus(args.keyword)
+                    path_param = re.sub(
+                        r"[^a-zA-Z0-9]+", "-", args.keyword.strip().lower()
+                    ).strip("-")
+                    keyword_title = args.keyword.title()
+    
+                    lines = []
+                    for line in template_content.splitlines():
+                        if line.strip().startswith("#"):
+                            updated = line.replace("Apple", keyword_title).replace(
+                                "apple", args.keyword.lower()
+                            )
+                            lines.append(updated)
+                        else:
+                            if not line.strip():
+                                lines.append(line)
+                                continue
+                            url = line.strip()
+                            if "?" in url:
+                                parts = url.split("?", 1)
+                                path = (
+                                    parts[0]
+                                    .replace("apple", path_param)
+                                    .replace("Apple", path_param)
+                                )
+                                query = (
+                                    parts[1]
+                                    .replace("apple", q_param)
+                                    .replace("Apple", q_param)
+                                )
+                                url = f"{path}?{query}"
+                            else:
+                                url = url.replace("apple", path_param).replace(
+                                    "Apple", path_param
+                                )
+                            lines.append(url)
+    
+                    seeds_folder.mkdir(parents=True, exist_ok=True)
+                    dedicated_seed_file.write_text(
+                        "\n".join(lines), encoding="utf-8"
+                    )
+                    logger.info(
+                        "Created dedicated seed file: %s", dedicated_seed_file
+                    )
+                    active_seed_file = dedicated_seed_file
+                except Exception as exc:
+                    logger.warning(
+                        "Could not auto-generate dedicated seed file: %s", exc
+                    )
+            else:
+                logger.warning(
+                    "Root template seed.txt not found. Skipping dedicated seed file creation."
+                )
     seed_urls = load_seed_urls(active_seed_file, args.seed_url)
 
     # ── Manifest-driven focused-mode ─────────────────────────────────────
@@ -355,6 +404,13 @@ def main() -> None:
     if active_seed_file is not None and active_seed_file.exists():
         try:
             from core.seed_manifest import SeedManifest
+
+            # Perform non-blocking validation of the seed file at runtime
+            seed_warnings = SeedManifest.validate(active_seed_file)
+            if seed_warnings:
+                logger.warning("Seed file '%s' has validation warnings:", active_seed_file)
+                for w in seed_warnings:
+                    logger.warning("  - %s", w)
 
             manifest = SeedManifest.from_file(active_seed_file)
             domain_profiles = manifest.domain_map
@@ -377,17 +433,17 @@ def main() -> None:
                 seed_urls = filtered_urls
 
             # 1. Auto-disable broad search for speed/focus
-            if not getattr(args, "force_search", False):
-                if manifest.domains:
-                    logger.info(
-                        "Seed manifest loaded (%d domains) — disabling DuckDuckGo broad search. "
-                        "Pass --force-search to override.",
-                        len(manifest.domains),
-                    )
-                    args.skip_search = True
+            if not getattr(args, "force_search", False) and manifest.domains:
+                logger.info(
+                    "Seed manifest loaded (%d domains) — disabling DuckDuckGo broad search. "
+                    "Pass --force-search to override.",
+                    len(manifest.domains),
+                )
+                args.skip_search = True
 
-            # 2. Auto-build allow_domains from manifest (domains + CDN hosts)
-            if not args.allow_domain:
+            # 2. Always lock allow_domains to manifest hosts (even with --force-search)
+            #    unless the user explicitly provided --allow-domain flags.
+            if manifest.domains and not args.allow_domain:
                 args.allow_domain = manifest.all_allowed_hosts
                 logger.info(
                     "Auto-locked allow_domains to %d hosts from seed manifest.",
@@ -452,6 +508,9 @@ def main() -> None:
         workers=args.workers,
         ignore_robots=args.ignore_robots,
         use_state_cache=args.use_state_cache,
+        proxy=args.proxy,
+        proxy_list=str(args.proxy_list) if args.proxy_list else None,
+        capsolver_key=args.capsolver_key,
     )
     engine.downloader.workers = args.dl_workers
 
