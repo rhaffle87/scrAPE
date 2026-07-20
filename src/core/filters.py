@@ -100,6 +100,9 @@ def is_thumbnail_url(url: str) -> bool:
     # WordPress/CDN dimensions suffix (e.g. -320x180.jpg)
     if re.search(r"-\d+x\d+\.(?:jpe?g|png|gif|webp|avif)$", path):
         return True
+    # Check for general low-resolution directory structures or query parameters
+    if has_low_res_path_pattern(url, min_width=300, min_height=300):
+        return True
     # Common thumbnail patterns
     if any(marker in path for marker in PREVIEW_MARKERS):
         return True

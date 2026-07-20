@@ -688,6 +688,8 @@ class CrawlOrchestrator:
 
         result_lock = threading.RLock()
         seen_rejected_urls: set[tuple[str, str]] = set()
+        failed_run_hosts: set[str] = set()
+        consecutive_host_failures: dict[str, int] = {}
 
         def add_rejected(
             kind: str, url: str, source_page: str, reason: str, score: int = 0
@@ -848,6 +850,14 @@ class CrawlOrchestrator:
         def _fetch_page(page: str, depth: int):
             host = urlparse(page).netloc.lower()
             with result_lock:
+                if host in failed_run_hosts:
+                    LOGGER.info(
+                        "Skipping %s: host %s is flagged as failed in this run",
+                        page,
+                        host,
+                    )
+                    return page, depth, [], [], "host_failed_skipped"
+
                 if host not in result.domain_stats:
                     result.domain_stats[host] = {
                         "pages_scanned": 0,
@@ -1036,9 +1046,16 @@ class CrawlOrchestrator:
                             stats = result.domain_stats[host]
 
                             if scrape_status == "ok":
+                                consecutive_host_failures[host] = 0
+                            elif scrape_status == "low_yield_skipped" or scrape_status == "host_failed_skipped":
                                 pass
-                            elif scrape_status == "low_yield_skipped":
-                                pass
+                            elif scrape_status == "fetch_error:login_wall":
+                                failed_run_hosts.add(host)
+                                LOGGER.warning(
+                                    "Flagging host %s as failed for the remainder of this run due to login wall redirect.",
+                                    host,
+                                )
+                                stats["error_other_count"] += 1
                             elif (
                                 "429" in scrape_status
                                 or "cooldown" in scrape_status
@@ -1047,6 +1064,19 @@ class CrawlOrchestrator:
                                 stats["error_429_count"] += 1
                             else:
                                 stats["error_other_count"] += 1
+                                if (
+                                    scrape_status.startswith("fetch_error")
+                                    or scrape_status.startswith("worker_error")
+                                ):
+                                    consecutive_host_failures[host] = (
+                                        consecutive_host_failures.get(host, 0) + 1
+                                    )
+                                    if consecutive_host_failures[host] >= 3:
+                                        failed_run_hosts.add(host)
+                                        LOGGER.warning(
+                                            "Flagging host %s as failed for the remainder of this run due to 3 consecutive failures.",
+                                            host,
+                                        )
 
                             result.scanned_pages.append(page)
                             result.page_reports.append(

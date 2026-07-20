@@ -117,6 +117,14 @@ class SearchProviderScraper(BaseSearchScraper):
 
         try:
             response = self.http.get(url)
+            
+            # Detect redirect to login wall
+            final_path = response.url.path.lower().rstrip("/")
+            login_paths = {"/login", "/signin", "/signup", "/register", "/auth", "/oauth"}
+            if final_path in login_paths or any(p in final_path for p in ["/login/", "/signin/", "/auth/"]):
+                LOGGER.warning("Redirected to login wall: %s (final URL: %s)", url, response.url)
+                return [], [], "fetch_error:login_wall"
+
             content_type = response.headers.get("content-type", "").lower()
             if (
                 "application/json" in content_type

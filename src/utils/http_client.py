@@ -536,7 +536,9 @@ class HttpClient:
         if time.time() - cache_path.stat().st_mtime > DEFAULT_CACHE_TTL_SECONDS:
             return None
         return httpx.Response(
-            status_code=200, text=cache_path.read_text(encoding="utf-8")
+            status_code=200,
+            text=cache_path.read_text(encoding="utf-8"),
+            request=httpx.Request("GET", url),
         )
 
     def _store_cache(self, url: str, response: httpx.Response) -> None:

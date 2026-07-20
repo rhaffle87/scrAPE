@@ -40,6 +40,11 @@ def test_wordpress_thumbnail_filtering():
     assert is_thumbnail_url("https://cdn.example.com/assets/example-150x150.png") is True
     assert is_thumbnail_url("https://example.com/image-404x360.webp") is True
     
+    # Directory dimension structures (like /320x180/) should match if low-res
+    assert is_thumbnail_url("https://epawg.com/contents/videos_screenshots/268000/268635/320x180/5.jpg") is True
+    # Directory dimension structures should NOT match if high-res enough (e.g. 640x360 is >= 300x300)
+    assert is_thumbnail_url("https://epawg.com/contents/videos_screenshots/268000/268635/640x360/5.jpg") is False
+
     # Normal image paths should NOT match
     assert is_thumbnail_url("http://example.com/wp-content/uploads/2026/05/img.jpg") is False
     assert is_thumbnail_url("https://cdn.example.com/assets/example-320x.png") is False
