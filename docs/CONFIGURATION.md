@@ -117,6 +117,13 @@ To bypass Cloudflare Turnstile, captchas, and WAF protection, the scraper employ
 Some WAF configurations (such as Turnstile) prompt an interactive checkbox puzzle that cannot be solved by automated Chromium instances.
 Setting `# cloudflare: true` registers the host in a fast-fail set. When a request hits a 403 or 429, the system **immediately raises an error and moves on**, preventing the worker from hanging for 30+ seconds attempting headless/headful browser loops.
 
+### WAF & Auth Wall Cutoff Circuit Breakers
+
+To protect execution performance from degenerating due to persistent crawler blocks or expired sessions, the scraper uses domain-level circuit breaker constraints:
+
+* **Consecutive Failures Threshold**: If a target domain registers **3 consecutive request errors** (including WAF challenge failures, network disconnects, or read timeouts), the engine immediately marks the domain's host as failed. Any subsequent crawl items queued for that host are skipped instantly with status `host_failed_skipped`, avoiding heavy browser fallback delays.
+* **Auth Wall Redirect Cutoff**: If a page fetch is redirected to a standard sign-in, login, signup, or authorization path (checking `/login`, `/signin`, `/signup`, or `/auth`), the engine flags the host as failed immediately, stopping further attempts.
+
 ---
 
 ## 4. Downstream AI & RAG Integrations

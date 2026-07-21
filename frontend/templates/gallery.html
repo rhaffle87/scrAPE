@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCRAPE // GALLERY</title>
+    <title>SCRAPE // VAULT</title>
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <!-- Fonts -->
@@ -26,16 +26,17 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            border-radius: 0 !important;
+            border-radius: 0 !important; /* Brutalism: no curves */
+            font-family: 'JetBrains Mono', monospace;
         }
 
         body {
-            font-family: 'JetBrains Mono', monospace;
             background-color: var(--bg-base);
             color: var(--text-primary);
-            line-height: 1.5;
-            position: relative;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
         }
 
         body::before {
@@ -73,62 +74,6 @@
             line-height: 1;
         }
 
-        .header-sub {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
-            display: block;
-        }
-
-        .controls {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        input {
-            background-color: var(--bg-surface);
-            color: var(--text-primary);
-            border: var(--border-heavy);
-            padding: 0.75rem 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
-            outline: none;
-            transition: all 0s;
-            width: 250px;
-        }
-
-        input:focus {
-            border: var(--border-accent);
-            box-shadow: 4px 4px 0 var(--accent-dim);
-        }
-
-        button {
-            background-color: var(--accent);
-            color: var(--bg-base);
-            border: 2px solid var(--accent);
-            padding: 0.75rem 2rem;
-            font-family: 'Oswald', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        button:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 4px 4px 0 var(--text-primary);
-        }
-        
-        button:active {
-            transform: translate(0, 0);
-            box-shadow: none;
-        }
-
         .nav-link {
             color: var(--text-muted);
             text-decoration: none;
@@ -136,7 +81,6 @@
             text-transform: uppercase;
             border-bottom: 1px solid transparent;
             transition: color 0.2s, border-color 0.2s;
-            margin-right: 2rem;
         }
 
         .nav-link:hover {
@@ -144,38 +88,214 @@
             border-bottom: 1px solid var(--accent);
         }
 
-        .gallery {
-            column-count: 4;
-            column-gap: 1.5rem;
-            padding: 2rem;
-            max-width: 1800px;
-            margin: 0 auto;
+        .controls-container {
+            max-width: 1400px;
+            margin: 2rem auto 0 auto;
+            width: 100%;
+            padding: 0 2rem;
         }
 
-        @media (max-width: 1400px) { .gallery { column-count: 3; } }
-        @media (max-width: 1000px) { .gallery { column-count: 2; } }
-        @media (max-width: 600px) { .gallery { column-count: 1; } }
-
-        .media-card {
-            break-inside: avoid;
-            margin-bottom: 1.5rem;
+        .glass-panel {
             background-color: var(--bg-surface);
             border: var(--border-heavy);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+        }
+
+        input, select {
+            background-color: var(--bg-base);
+            border: var(--border-heavy);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+            box-shadow: 4px 4px 0 var(--accent-dim);
+        }
+
+        .btn {
+            background-color: var(--accent);
+            color: var(--bg-base);
+            border: 2px solid var(--accent);
+            padding: 0.75rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.1s;
+            height: 48px;
+            margin-top: auto;
+        }
+
+        .btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0 var(--text-primary);
+        }
+
+        /* Tabs styling */
+        .gallery-tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .tab-btn {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: transparent;
+            border: var(--border-heavy);
+            color: var(--text-muted);
+            padding: 0.5rem 1.5rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background-color: var(--bg-surface);
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: var(--bg-base);
+            border-color: var(--accent);
+        }
+
+        /* Gallery Grid */
+        .gallery-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            width: 100%;
+            padding: 0 2rem;
+            flex: 1;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .media-card {
+            background-color: var(--bg-surface);
+            border: var(--border-heavy);
+            aspect-ratio: 1;
             position: relative;
-            transition: transform 0.1s, box-shadow 0.1s;
+            overflow: hidden;
         }
 
         .media-card:hover {
             border-color: var(--accent);
             transform: translate(-4px, -4px);
             box-shadow: 6px 6px 0 var(--accent);
-            z-index: 10;
         }
 
         .media-card img, .media-card video {
             width: 100%;
+            height: 100%;
+            object-fit: cover;
             display: block;
-            border: none;
+            filter: grayscale(100%) contrast(1.2);
+            transition: filter 0s;
+        }
+
+        .media-card:hover img, .media-card:hover video {
+            filter: grayscale(0%) contrast(1);
+        }
+
+        .media-card .overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--accent);
+            padding: 0.5rem;
+            color: var(--bg-base);
+            font-weight: 700;
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            opacity: 0;
+            transition: opacity 0s;
+            pointer-events: none;
+            height: 100%;
+        }
+
+        .media-card:hover .overlay {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .overlay-buttons {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .btn-overlay {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: var(--border-heavy);
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .btn-overlay:hover {
+            background-color: var(--bg-base);
+            color: var(--accent);
+        }
+
+        .btn-overlay.delete {
+            background-color: #ff3333;
+            color: white;
+            border-color: #ff3333;
+        }
+
+        .btn-overlay.delete:hover {
+            background-color: black;
+            color: red;
+            border-color: black;
+        }
+
+        .media-filename {
+            font-size: 0.75rem;
+            color: var(--bg-base);
+            word-break: break-all;
+            line-height: 1.4;
         }
 
         /* HTMX Indicator */
@@ -198,36 +318,91 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
     </style>
 </head>
 <body>
+
     <header>
         <div>
-            <span class="header-sub">SYS.VISUAL // DOM.GALLERY</span>
-            <h1>MEDIA_VAULT</h1>
+            <h1>SCRAPE // VAULT</h1>
         </div>
-        <div class="controls">
-            <a href="/" class="nav-link">&lt; BACK_TO_DASHBOARD</a>
-            <form id="filter-form" hx-get="/htmx/gallery" hx-target="#gallery" hx-indicator="#loading-indicator" style="display: flex; gap: 1rem;">
-                <input type="text" name="keyword" placeholder="KEYWORD (e.g. apple)" value="apple" required>
-                <input type="text" name="domain" placeholder="DOMAIN (OPTIONAL)">
-                <input type="hidden" name="page" value="1">
-                <input type="hidden" name="limit" value="20">
-                <button type="submit">EXECUTE_QUERY</button>
-            </form>
-        </div>
+        <a href="/" class="nav-link">← Command Center</a>
     </header>
 
-    <div class="gallery" id="gallery" hx-get="/htmx/gallery?keyword=apple&page=1&limit=20" hx-trigger="load">
-        <!-- Media dynamically loaded via HTMX -->
+    <div class="controls-container">
+        <div class="glass-panel">
+            <form class="search-form" onsubmit="event.preventDefault(); triggerLoad();">
+                <div class="form-group">
+                    <label>Keyword Subject</label>
+                    <input type="text" id="keyword-input" placeholder="e.g. apple" value="apple">
+                </div>
+                <div class="form-group">
+                    <label>Domain Source</label>
+                    <input type="text" id="domain-input" placeholder="e.g. erome.com">
+                </div>
+                <button type="submit" class="btn">Filter</button>
+            </form>
+
+            <div class="gallery-tabs">
+                <button class="tab-btn active" data-kind="all" onclick="switchTab('all')">ALL</button>
+                <button class="tab-btn" data-kind="images" onclick="switchTab('images')">IMAGES</button>
+                <button class="tab-btn" data-kind="videos" onclick="switchTab('videos')">VIDEOS</button>
+            </div>
+        </div>
     </div>
-    
-    <div id="loading-indicator" class="htmx-indicator">
-        FETCHING_DATA_STREAM...
+
+    <div class="gallery-container">
+        <div class="htmx-indicator" id="loader-indicator">LOADING MEDIA SECTOR...</div>
+        <div class="gallery-grid" id="gallery-grid-container">
+            <!-- HTMX-loaded items -->
+        </div>
     </div>
+
+    <script>
+        let currentMediaKind = "all";
+
+        function getKeyword() {
+            return document.getElementById('keyword-input').value.trim() || "apple";
+        }
+
+        function getDomain() {
+            return document.getElementById('domain-input').value.trim();
+        }
+
+        function switchTab(kind) {
+            currentMediaKind = kind;
+            document.querySelectorAll('.gallery-tabs .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-kind') === kind) {
+                    btn.classList.add('active');
+                }
+            });
+            triggerLoad();
+        }
+
+        function triggerLoad() {
+            const grid = document.getElementById('gallery-grid-container');
+            const kw = getKeyword();
+            const dom = getDomain();
+            
+            grid.setAttribute('hx-get', `/htmx/gallery?keyword=${kw}&domain=${dom}&media_kind=${currentMediaKind}`);
+            grid.setAttribute('hx-indicator', '#loader-indicator');
+            
+            htmx.process(grid);
+            htmx.trigger(grid, 'load');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const kwParam = urlParams.get('keyword');
+            if (kwParam) {
+                document.getElementById('keyword-input').value = kwParam;
+            }
+            triggerLoad();
+        });
+    </script>
 </body>
 </html>

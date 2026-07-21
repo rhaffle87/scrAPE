@@ -33,7 +33,51 @@ def create_icon_image():
 
 def start_server():
     """Run the uvicorn server in this thread."""
-    uvicorn.run("src.cli.webui:app", host="localhost", port=10001, reload=False, log_level="warning")
+    uvicorn.run("frontend.app:app", host="localhost", port=10001, reload=False, log_level="warning")
+
+
+def check_and_install_dependencies():
+    """Verify and automatically install system dependencies (npm, playwright)."""
+    # Only run dependency checks if we are running in an interactive terminal
+    if hasattr(sys.stdout, "isatty") and not sys.stdout.isatty():
+        return
+    if hasattr(sys.stdout, "name") and sys.stdout.name == os.devnull:
+        return
+
+    # 1. Check Node.js dependencies for crawlee_bridge
+    bridge_dir = ROOT_DIR / "crawlee_bridge"
+    node_modules = bridge_dir / "node_modules"
+    if bridge_dir.exists() and not node_modules.exists():
+        print("📦 Node.js dependencies for crawlee_bridge not found. Installing...")
+        try:
+            # Check if npm is available
+            subprocess.run(["npm", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+            # Run npm install
+            print("🚀 Running npm install in crawlee_bridge...")
+            subprocess.run(["npm", "install"], cwd=str(bridge_dir), check=True, shell=True)
+            print("✅ Node.js dependencies installed successfully!\n")
+        except Exception as e:
+            print(f"⚠️ Failed to install Node.js dependencies: {e}. Please ensure Node.js and npm are installed and in your PATH.\n")
+            time.sleep(2)
+
+    # 2. Check Playwright browser dependencies
+    try:
+        from playwright.sync_api import sync_playwright
+        # Try to launch chromium headlessly to see if binaries are present
+        with sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+            except Exception:
+                print("🎭 Playwright browser binaries not found. Installing...")
+                try:
+                    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+                    print("✅ Playwright browser binaries installed successfully!\n")
+                except Exception as e:
+                    print(f"⚠️ Failed to install Playwright browser binaries: {e}\n")
+                    time.sleep(2)
+    except ImportError:
+        pass
 
 
 def on_open_dashboard(icon, item):
@@ -73,7 +117,9 @@ def main():
         run_tray()
         return
 
-    VERSION = "v0.1.0"
+    check_and_install_dependencies()
+
+    VERSION = "v0.17.0"
     
     clear_screen()
     print("========================================")
@@ -123,12 +169,16 @@ def main():
         subprocess.call([sys.executable, "-m", "src.cli.cli_wizard"])
         
     elif choice == "Hide to Tray (Background)":
-        print("\n[INFO] Moving to system tray...")
+        print("\n⌛ Starting background process... (tray icon will appear in ~3s)")
         DETACHED_PROCESS = 0x00000008
-        subprocess.Popen(
+        proc = subprocess.Popen(
             [sys.executable.replace("python.exe", "pythonw.exe"), "-m", "src.cli.launcher"],
             creationflags=DETACHED_PROCESS
         )
+        print(f"🔔 scrAPE is now running in background (PID: {proc.pid})")
+        print("Server: http://localhost:10001\n")
+        print("💡 You can close this terminal. Right-click tray icon to quit.")
+        time.sleep(2)
         sys.exit(0)
 
 if __name__ == "__main__":

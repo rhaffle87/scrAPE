@@ -318,6 +318,9 @@ class MediaDownloader:
 
         w, h = None, None
 
+        candidate_suffix = self._determine_suffix(url, "")
+        temp_target = directory / f"{prefix}{candidate_suffix}.tmp"
+
         max_attempts = 3
         use_curl_cffi = False
         for attempt in range(1, max_attempts + 1):
@@ -326,7 +329,21 @@ class MediaDownloader:
                 if not _is_cdn:
                     _fast_limiter_for(_url_host).wait()
 
+                bytes_written = 0
+                if media_kind == "video" and temp_target.exists():
+                    bytes_written = temp_target.stat().st_size
+
                 req_headers = self._make_download_headers(safe_url, safe_referer)
+                if bytes_written > 0:
+                    req_headers["Range"] = f"bytes={bytes_written}-"
+                    LOGGER.info(
+                        "Resuming video download from byte %d (attempt %d/%d) for %s",
+                        bytes_written,
+                        attempt,
+                        max_attempts,
+                        url,
+                    )
+
                 if attempt > 1:
                     req_headers["Connection"] = "close"
 
@@ -345,7 +362,7 @@ class MediaDownloader:
                         proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
                         proxies = {"http": proxy, "https": proxy} if proxy else None
                         session = c_requests.Session(impersonate="chrome120", proxies=proxies)
-                        resp = session.get(safe_url, headers=req_headers, stream=True, timeout=self.http.timeout)
+                        resp = session.get(safe_url, headers=req_headers, stream=True, timeout=60.0)
                         try:
                             resp.raise_for_status()
                             # patch iter_bytes for compatibility with httpx
@@ -354,16 +371,17 @@ class MediaDownloader:
                         finally:
                             resp.close()
                     else:
-                        with self.http.client.stream("GET", safe_url, headers=req_headers) as resp:
+                        dl_timeout = httpx.Timeout(30.0, read=60.0, connect=15.0)
+                        with self.http.client.stream("GET", safe_url, headers=req_headers, timeout=dl_timeout) as resp:
                             resp.raise_for_status()
                             yield resp
 
                 with _do_request() as response:
                     content_type = response.headers.get("content-type", "")
 
-                    # Check content-length early if available
+                    # Check content-length early if available (only if we did not send a Range request)
                     content_length_header = response.headers.get("content-length")
-                    if content_length_header and content_length_header.isdigit():
+                    if bytes_written == 0 and content_length_header and content_length_header.isdigit():
                         cl = int(content_length_header)
                         if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
                             LOGGER.info(
@@ -386,9 +404,16 @@ class MediaDownloader:
 
                     suffix = self._determine_suffix(url, content_type)
                     target = directory / f"{prefix}{suffix}"
+                    temp_target = target.with_suffix(suffix + ".tmp")
 
-                    import hashlib
-                    hasher = hashlib.sha256()
+                    is_partial = response.status_code == 206
+                    if bytes_written > 0 and not is_partial:
+                        LOGGER.info(
+                            "Server returned HTTP %d instead of 206 for %s. Truncating temp file and downloading from scratch.",
+                            response.status_code,
+                            url,
+                        )
+                        bytes_written = 0
 
                     if media_kind == "image":
                         chunks = []
@@ -440,21 +465,19 @@ class MediaDownloader:
                                     dimensions_checked = True
                         content = b"".join(chunks)
                         content_length = len(content)
-                        hasher.update(content)
                     else:
-                        temp_target = target.with_suffix(suffix + ".tmp")
-                        bytes_read = 0
+                        write_mode = "ab" if bytes_written > 0 else "wb"
+                        bytes_read = bytes_written
                         header_bytes = b""
                         try:
-                            with open(temp_target, "wb") as f:
+                            with open(temp_target, write_mode) as f:
                                 for chunk in response.iter_bytes(chunk_size=65536):
                                     if bytes_read < 1024:
                                         header_bytes += chunk
                                     f.write(chunk)
-                                    hasher.update(chunk)
                                     bytes_read += len(chunk)
                         except Exception as e:
-                            temp_target.unlink(missing_ok=True)
+                            # Do not delete temp file on error to support resumes
                             raise e
                         content = header_bytes
                         content_length = bytes_read
@@ -489,7 +512,18 @@ class MediaDownloader:
                         temp_target.unlink(missing_ok=True)
                     return False, {"reason": "invalid_media_type"}
 
-                content_hash = hasher.hexdigest()
+                import hashlib
+                if media_kind == "image":
+                    content_hash = hashlib.sha256(content).hexdigest()
+                else:
+                    temp_target.rename(target)
+                    # Compute hash of the fully downloaded target file
+                    hasher = hashlib.sha256()
+                    with open(target, "rb") as f:
+                        for chunk in iter(lambda: f.read(65536), b""):
+                            hasher.update(chunk)
+                    content_hash = hasher.hexdigest()
+                    content_length = target.stat().st_size
 
                 with self._hash_lock:
                     if content_hash in self._seen_hashes:
@@ -499,7 +533,7 @@ class MediaDownloader:
                             url,
                         )
                         if media_kind == "video":
-                            temp_target.unlink(missing_ok=True)
+                            target.unlink(missing_ok=True)
                         return False, {"reason": "duplicate"}
                     self._seen_hashes.add(content_hash)
 
@@ -546,7 +580,8 @@ class MediaDownloader:
                         LOGGER.warning("Image sanitization failed for %s: %s", url, e)
                         return False, {"reason": "sanitization_failed"}
                 else:
-                    temp_target.rename(target)
+                    # Target is already renamed
+                    pass
                 LOGGER.info("Downloaded %s", target)
 
                 relative_path = ""
@@ -578,6 +613,11 @@ class MediaDownloader:
                     status = exc.response.status_code
                     
                 if status is not None:
+                    if status == 416:
+                        LOGGER.warning("Range not satisfiable (HTTP 416) for %s. Truncating temp file and retrying from scratch.", url)
+                        temp_target.unlink(missing_ok=True)
+                        time.sleep(1.0)
+                        continue
                     if status in (403, 401) and not use_curl_cffi and attempt < max_attempts:
                         LOGGER.info("HTTP %d on %s. Retrying with curl_cffi TLS spoofing...", status, url)
                         use_curl_cffi = True

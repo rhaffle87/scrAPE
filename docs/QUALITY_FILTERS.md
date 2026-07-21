@@ -35,6 +35,9 @@ Checks URL path for dimension patterns:
  | Single width | `_150x.jpg` | Width < 400 |
  | Single height | `_x150.jpg` | Height < 300 |
 
+### Pre-Filtering Low-Resolution Directories
+To optimize bandwidth and reduce browser fallback thread overhead, the scraper performs pre-filtering during link discovery. Inside `is_thumbnail_url()`, the crawler checks if a candidate URL matches `has_low_res_path_pattern(url, min_width=300, min_height=300)`. If a path contains a directory layout matching a low resolution (such as `/320x180/` screenshots), it is classified as a thumbnail and rejected *before* enqueueing or download. Directory layouts with acceptable dimensions (e.g. `/640x360/`) are preserved.
+
 ## Preview / Thumbnail Detection
 
 Negative markers checked in URL and context text:

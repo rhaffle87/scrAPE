@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.17.0] — 2026-07-21
+
+### Added & Changed (0.17.0)
+
+- **Interactive Brutalist WebUI & CLI Flags Integration** (`frontend/templates/index.html`, `frontend/app.py`): Rebuilt the layout dashboard with strict high-contrast brutalist aesthetics (zero border-radius, heavy dropshadows, grain textures, Oswald/JetBrains Mono fonts, and neon orange/green highlighting). Mapped all 20+ advanced scraper options (concurrency, proxy details, subtrees, force flags, state cache exclusions, cache wipe controls) into front-end fieldsets.
+- **Dynamic Help Tooltips**: Placed inline `[?]` help indicators with CSS-only hovered popup labels over all legend boxes, subsection titles, and config inputs.
+- **Sidebar & Media Gallery Routing Fixes**: Standardized sidebar items to trigger JS `selectSubject()` routes and set `hx-trigger="load"` on the gallery grid dynamically. Fixes loading bugs so that clicked subjects display their images/videos immediately. Patched glob paths to load domain-grouped folder structures recursively (`*/images/**/*.*`).
+- **Live Terminal & Telemetry Formatting**: Enabled vertical resizability on the log console. Cleans output lines by splitting on carriage returns (`\r`) to isolate tqdm download progress logs. Colors vertical borders of log lines based on severity log levels (`log-info`, `log-warning`, `log-error`, `log-debug`).
+- **Playwright Automated Testing Suite** (`tests/test_frontend_ux.py`): Built a comprehensive E2E, modular, and flow testing suite to verify styling configurations, tooltips content, active metrics polling, and run-form thread initiations.
+- **Standard Python Packaging (`pyproject.toml`)**: Added standard build configuration to compile the workspace and register the global `scrape` console script entry point.
+- **One-Click Windows Installer (`install.bat`)**: Added a global installer script that compiles the package in editable mode (`pip install -e .`) and registers `scrape` on the user's terminal path.
+- **Self-Bootstrapping CLI Launcher (`src/cli/launcher.py`)**: Added checks at launcher startup to automatically execute `npm install` for `crawlee_bridge` and `playwright install chromium` if system dependencies are not detected. Swapped broken webui imports with the new FastAPI instance (`frontend.app:app`) and added a 9Router-style status message for background tray operations.
+- **Instant Unlimited Run Preset Toggle** (`frontend/templates/index.html`): Added a Brutalist mode selector bar at the top of the form (`[ CUSTOM CONFIGURATION ]` vs `[ INSTANT UNLIMITED RUN ]`). Selecting "unlimited" automatically hides all 20+ advanced configuration options/fieldsets (hiding the visual noise) and populates the background inputs with high-performance, unlimited crawler thresholds for quick, hassle-free executions.
+
+## [0.16.0] — 2026-07-21
+
+### Added & Changed (0.16.0)
+
+- **Resumable Media Downloads (Range Retries)** (`src/storage/file_downloader.py`): Integrated HTTP `Range` request support (`bytes=X-`) for chunk-based downloads. If a download is interrupted, it checks for existing `.tmp` files and requests the remainder (HTTP 206 Partial Content). Handles standard HTTP 200 responses by truncating and re-downloading, and unlinks corrupted/invalid chunks on HTTP 416 (Range Not Satisfiable).
+- **Post-Download Integrity Verification**: Moved SHA-256 hash calculation from streaming chunk iteration in memory to post-download disk-based reading. This guarantees correct file integrity validation across multiple resume iterations.
+- **WAF & Auth Wall Cutoff Circuit Breakers** (`src/core/managers.py`, `src/utils/http_client.py`): Prevents thread hangs and wasted resources on protected domains by halting crawling on a domain after 3 consecutive worker errors or upon redirection to authentication routes (`/login`, `/signin`, `/signup`, `/auth`).
+- **Low-Resolution Path Pre-Filtering** (`src/core/filters.py`): Optimized link extraction by running `has_low_res_path_pattern` pre-filtering (checking for `/320x180/` screenshots and similar patterns) directly inside `is_thumbnail_url()`, avoiding scheduling and downloading low-resolution frame screenshots.
+- **Testing Suite Expansion** (`tests/test_resumable_downloads.py`): Created dedicated unit tests verifying append (206), overwrite (200), and invalid range retry (416) behaviors. Expanded test suite coverage to 100 tests.
+
 ## [0.15.0] — 2026-07-19
 
 ### Added & Changed (0.15.0)

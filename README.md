@@ -19,11 +19,11 @@
 
 - **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`, `cloudflare`, `max_pages`
 - **Continuous Watchdog** — Long-running agent mode (`monitor_agent.py`) with persistent URL state caching (`StateCache` via SQLite) to prevent redundant processing.
-- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings.
+- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings. Supports resumable HTTP `Range` requests (HTTP 206 Partial Content) to resume interrupted downloads of large assets, with automatic fallback for HTTP 200/416, and post-download hash verification.
 - **Specialized Extractors** — Zero-DOM direct extraction for complex SPAs like YouTube, TikTok, and Reddit via `yt-dlp` bypassing rendering completely.
 - **Yield Tuning & Upscaling** — Heuristically predicts and fetches high-res origin URLs from standard thumbnail patterns (e.g. WordPress, Twitter) with automatic graceful degradation.
-- **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist.
-- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile.
+- **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist. Includes early low-res directory structure path pre-filtering to avoid fetching thumbnails.
+- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile. Features WAF & Auth Wall Cutoff Circuit Breakers (consecutive failure/redirect thresholds) to prevent resource exhaustion.
 - **Dynamic HTMX Frontend** — A fully decoupled, responsive live command center in `frontend/`. Monitors live OS hardware usage, offers process abort controls, and features physical file management directly inside the dashboard gallery (open local folder, delete files) via HTMX.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
 - **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`), optimized with WAL for high concurrency.
@@ -34,15 +34,26 @@
 
 ## Quick Start
 
+### Global CLI Installation
+You can install scrAPE globally to run the interactive selection dashboard from any terminal window using the `scrape` command:
+
+1. **Run the One-Click Installer**:
+   - **Windows**: Double-click or run `.\install.bat` from the root of the project.
+   - **macOS/Linux**: Run `pip install -e .` from the root of the project.
+2. **Launch the CLI**:
+   Open a new terminal window and run:
+   ```bash
+   scrape
+   ```
+   *Note: On the first run, the tool will automatically check and download Node.js dependencies (`npm install` for crawlee_bridge) and Playwright browser binaries (`playwright install chromium`) if they are missing.*
+
+### Manual Execution (Without Global Install)
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
 # Start the interactive WebUI Command Center
 .\run_frontend.bat
-
-# The scraper uses Crawlee for stealth fallbacks. The Node.js bridge dependencies 
-# will be installed automatically on the first run, but require Node.js to be installed on your system.
 
 # Run with keyword and seed file
 python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt

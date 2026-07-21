@@ -12,8 +12,8 @@ flowchart TD
     SPE["Specialized Extractors<br/>(yt-dlp for heavy SPAs)"]
     AS["Asset Scoring & Filtering<br/>(filters.py)"]
     DL["Download Pipeline<br/>(ThreadPool, Resolution Upscaling)"]
-    SR["ScrapeResult<br/>→ manifest.json<br/>→ rejected_items<br/>→ run_metadata<br/>→ duration_secs"]
-    FB["Frontend Builder<br/>(builder.py) → index.html"]
+    SR["ScrapeResult<br/>→ results.json<br/>→ rejected_items<br/>→ run_metadata<br/>→ duration_secs"]
+    FD["FastAPI/HTMX Dashboard<br/>(frontend/app.py)"]
 
     SM --> P --> EO --> SE
     SE --> BF & SPE & AS & DL
@@ -21,7 +21,8 @@ flowchart TD
     SPE --> SR
     AS --> SR
     DL --> SR
-    SR --> FB
+    SR --> FD
+    FD -- Launches Scraper Subprocess --> SE
 ```
 
 ## 2. Module Layout
@@ -163,9 +164,11 @@ docs/
   - Non-CDN hosts use independent, fast (5 req/s) per-domain download limiters rather than locking on crawl-phase limits.
 - `result_lock` is an `RLock` (reentrant) — supports nested critical sections safely.
 
-**WAF Pre-registration:**
+**WAF & Auth Wall Cutoff Circuit Breakers:**
 
-- Domains flagged as Cloudflare-blocked are registered in the `HttpClient`'s fail-fast set at engine startup. When the engine encounters a 403 or 429 response from these domains during a crawl, it fails fast instead of wasting 30+ seconds attempting headless/headful browser fallback tiers.
+- **Consecutive Failure Cutoff**: Tracks crawler worker failures on a per-domain basis. If a host triggers **3 consecutive request failures** (e.g. anti-bot blocking, page read timeout, network drops), the engine flags the host as failed in the active run. Remaining queued pages for that host are skipped instantly (`host_failed_skipped`) without spawning browser workers or hitting timeouts.
+- **Auth Wall Redirect Cutoff**: If a page request gets redirected to a standard authentication path (matching `/login`, `/signin`, `/signup`, `/auth`), the engine flags the host as failed and immediately cancels further scans for that host.
+- **WAF Pre-registration**: Domains flagged as Cloudflare-blocked are registered in the `HttpClient`'s fail-fast set at engine startup. When the engine encounters a 403 or 429 response from these domains during a crawl, it fails fast instead of wasting 30+ seconds attempting headless/headful browser fallback tiers.
 
 **Domain-level page cap (`max_pages`):**
 
@@ -188,10 +191,16 @@ If a `DomainProfile` has `max_pages` set, `_fetch_page()` checks `pages_scanned 
 3. Determine rate-limiting strategy:
    - If the URL's hostname is in `cdn_hosts`, skip rate-limiting entirely.
    - Otherwise, route through the independent, fast download-phase rate limiter (5 req/s).
-4. HTTP fetch with retry (`tenacity`).
-5. Dimension extraction (HEAD request + PIL if needed).
-6. Skip on: < configured min size, unparseable dimensions, invalid media type.
-7. **Image Sanitization:** For images, intercepts the byte stream into memory and re-encodes via Pillow to strip EXIF data (GPS, camera info) and block malformed/polyglot payloads.
+4. **Resumable range requests check**: If target is a video and a corresponding `.tmp` file is present in the download directory, check `bytes_written = temp_file.stat().st_size`. If greater than zero, injects the `Range: bytes={bytes_written}-` HTTP header to resume downloading.
+5. HTTP fetch with retry (`tenacity`).
+6. **Range response handling**:
+   - If response is `206 Partial Content`, open the `.tmp` file in append binary (`"ab"`) mode and append streaming chunks.
+   - If response is `200 OK` (server doesn't support Range requests), truncate and open the `.tmp` file in write binary (`"wb"`) mode, downloading from scratch.
+   - If response is `416 Range Not Satisfiable` (corrupted or invalid offset), delete the `.tmp` file and raise a retry exception to download from scratch.
+7. Dimension extraction (HEAD request + PIL if needed).
+8. Skip on: < configured min size, unparseable dimensions, invalid media type.
+9. **Image Sanitization:** For images, intercepts the byte stream into memory and re-encodes via Pillow to strip EXIF data (GPS, camera info) and block malformed/polyglot payloads.
+10. **Post-Download Hashing**: Hashing (SHA-256) is calculated directly from the written file on disk once the stream completes successfully, ensuring correct checksum integrity regardless of connection drops and resumption points.
 
 ### 3.5 Robots Checker (`robots.py`)
 
@@ -253,7 +262,25 @@ On 403/401/429 HTTP responses, the client escalates through multiple tiers:
 | 3 (stealth) | `undetected-chromedriver` | ~30–40s | Cloudflare Turnstile blocks |
 | — | **Bypassed** | ~0s | `DomainProfile.cloudflare_blocked == True` |
 
-If a domain is registered via `HttpClient.register_cloudflare_blocked()` (triggered automatically by the `# cloudflare: true` seed annotation), Tiers 1 and 2 are skipped and `ScraperBypassError` is raised immediately.
+### 3.12 Interactive FastAPI/HTMX Dashboard (`frontend/app.py`)
+
+A dynamic, live control center built on FastAPI and HTMX that completely replaces the legacy static frontend dashboard. 
+
+Key capabilities:
+- **Scraper Orchestration**: Allows configuring all advanced CLI parameters in fieldset forms, launching scraper runs, and aborting active runs. Supports one-click preset switching (Custom vs Instant Unlimited) to hide configuration panels and automate high-performance crawler execution.
+- **Log Streaming & Telemetry**: Captures and displays color-coded terminal log feeds (with `\r` carriage return processing to cleanly parse progress bars) and polls live crawler counters alongside host OS telemetry (CPU, RAM, and Disk storage).
+- **Media Vault Gallery**: Dynamically lists and filters scraped media assets (images, videos) loaded recursively (`*/images/**/*.*`) from domain-grouped folders. Supports native folder exploration and target deletions.
+- **Automated Verification**: End-to-end user flows, views transitions, layout themes, and dynamic console streaming are verified using Playwright.
+
+### 3.13 Packaging & Global Bootstrap CLI (`pyproject.toml`)
+
+The application is structured as a standard installable Python distribution.
+
+- **Package Entry Points**: Defines a console script entry point mapping the `scrape` terminal command directly to `src.cli.launcher:main`.
+- **Windows Installer (`install.bat`)**: Registers the package locally in editable mode (`pip install -e .`), automatically copying script wrappers into Python's executable paths.
+- **Environment Self-Bootstrapping**: On the very first run of `scrape`, the launcher runs background environment inspections:
+  - Verifies presence of Node.js dependencies (`crawlee_bridge/node_modules/`), running `npm install` if absent.
+  - Verifies presence of Playwright browser binaries, running `playwright install chromium` if missing.
 
 ## 4. Concurrency Model
 
