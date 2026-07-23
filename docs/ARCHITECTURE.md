@@ -36,8 +36,8 @@ crawlee_bridge/
 └── crawlee_bridge.log           — Bridge server logs
 
 frontend/
-├── app.py                       — FastAPI backend for HTMX SPA, live OS telemetry & process orchestrator
-└── templates/                   — HTMX-powered dashboard templates (index.html, gallery.html)
+├── app.py                       — FastAPI backend for HTMX SPA, context-aware stats (/htmx/subject-stats), disk asset counter, live OS telemetry & process orchestrator
+└── templates/                   — HTMX-powered dashboard templates (index.html, gallery.html) with inline SVG vector logo and data URI favicon
 
 src/
 ├── __init__.py
@@ -46,7 +46,7 @@ src/
 │   ├── main.py                  — CLI entry point, dry-run, run orchestration
 │   ├── auth.py                  — Interactive headful login and cookie injection
 │   ├── monitor_agent.py         — Watchdog entry point, continuous monitoring loop
-│   ├── launcher.py              — Interactive launcher & system tray manager
+│   ├── launcher.py              — Interactive launcher & system tray manager (custom PIL RGBA 64x64 icon renderer)
 │   └── cli_wizard.py            — Interactive wizard for standard & watchdog runs
 ├── core/
 │   ├── __init__.py

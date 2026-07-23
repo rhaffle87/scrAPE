@@ -441,12 +441,18 @@ def main() -> None:
                 )
                 args.skip_search = True
 
-            # 2. Always lock allow_domains to manifest hosts (even with --force-search)
+            # 2. Always lock allow_domains to manifest hosts + all seed URL hostnames
             #    unless the user explicitly provided --allow-domain flags.
             if manifest.domains and not args.allow_domain:
-                args.allow_domain = manifest.all_allowed_hosts
+                extra_seed_hosts = []
+                for u in seed_urls:
+                    from urllib.parse import urlparse
+                    h = urlparse(u).netloc.lower()
+                    if h and h not in manifest.all_allowed_hosts:
+                        extra_seed_hosts.append(h)
+                args.allow_domain = list(set(manifest.all_allowed_hosts + extra_seed_hosts))
                 logger.info(
-                    "Auto-locked allow_domains to %d hosts from seed manifest.",
+                    "Auto-locked allow_domains to %d hosts from seed manifest and seed URLs.",
                     len(args.allow_domain),
                 )
 

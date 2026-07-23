@@ -950,17 +950,17 @@ class HttpClient:
         page = None
         try:
             page = ChromiumPage(co)
-            # Fetch URL and wait for redirection/challenge solving
-            page.get(url, timeout=30.0)
+            # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
+            page.get(url, timeout=12.0)
 
-            # Wait for Turnstile challenge to be solved
-            solve_timeout = 20.0
+            # Fast-fail wait for Turnstile challenge to be solved
+            solve_timeout = 8.0
             start_time = time.time()
             while time.time() - start_time < solve_timeout:
                 html = page.html
                 if not self._is_cloudflare_challenge(html):
                     break
-                time.sleep(1.0)
+                time.sleep(0.5)
 
             html = page.html
             if self._is_cloudflare_challenge(html):

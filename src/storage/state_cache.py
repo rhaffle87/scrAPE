@@ -25,7 +25,7 @@ class StateCache:
         self._cleanup_old_entries()
 
     def _get_connection(self):
-        return sqlite3.connect(str(self.db_path), timeout=10.0)
+        return sqlite3.connect(str(self.db_path), timeout=30.0)
 
     def _init_db(self):
         with self._get_connection() as conn:

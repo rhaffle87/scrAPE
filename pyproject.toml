@@ -33,3 +33,6 @@ scrape = "src.cli.launcher:main"
 
 [tool.setuptools]
 packages = ["src", "frontend"]
+
+[tool.pyright]
+extraPaths = ["src", "."]

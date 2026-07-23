@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.1] — 2026-07-22
+
+### Added & Changed (0.17.1)
+
+- **Vector Branding & System Tray Integration** (`frontend/templates/index.html`, `src/cli/launcher.py`): Integrated custom vector SVG branding across the web dashboard and CLI wizard headers. Added inline SVG data URI favicon `<head>` loading for zero-static-file dependencies, and engineered a hand-drawn, high-contrast PIL system tray icon (`create_icon_image()`, RGBA 64×64) tuned for 16px/24px Windows taskbar readability.
+- **Context-Aware Dashboard Telemetry** (`frontend/app.py`, `frontend/templates/index.html`): Upgraded top stat cards (`SUBJ.RUNS`, `ASSET.IMG`, `ASSET.VID`, `TARGETS.SCAN`) to dynamically switch between global cumulative totals on the Command Center and per-subject scoped totals on the Media Vault view (with a `/ N total` global comparison sub-line). Fixed disk-based media counting to scan actual files across `output/<subject>/runs/*/` instead of relying on missing `results.json` keys. Added `/htmx/subject-stats` endpoint.
+- **Tactical Sidebar & Navigation Overhaul**: Redesigned the left sidebar header with a centered 72×72px glowing vector logo, clean `scrAPE` text, and `v0.17.0` version badge. Re-aligned the Subjects Vault list to left-aligned cards with custom 6×6px indicator dots (`box-shadow` active glow). Upgraded the `COMMAND CENTER` button with a 4-square grid dashboard SVG icon, active state orange tint (`rgba(255, 85, 0, 0.08)`), and high-tech typography.
+- **Form Tooltips & Hardware Concurrency Warning**: Re-organized scrape configuration fields by moving verbose parameter descriptions into interactive `[?]` hover tooltips. Integrated a dynamic client-side validator (`validateSafetyThresholds()`) that alerts users when specifying concurrency settings above safe hardware limits (>16 scrapers, >24 download threads).
+- **CLI & Environment Compatibility Patches**: Replaced legacy `os.system` calls across CLI modules with `subprocess.run(..., shell=True)` for Python 3.12/3.13 deprecation compliance. Added Pillow version fallback checks for system tray icon resampling (`Image.Resampling.LANCZOS` / `Image.LANCZOS` with Pyright static type-checker compliance). Replaced ASCII banners with clean text headers in `cli_wizard.py` and `README.md`.
+
 ## [0.17.0] — 2026-07-21
 
 ### Added & Changed (0.17.0)

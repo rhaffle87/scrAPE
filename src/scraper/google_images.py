@@ -345,6 +345,40 @@ class SearchProviderScraper(BaseSearchScraper):
                 )
             )
 
+        # JSON-LD structured data media extraction
+        for script in soup.find_all("script", type=re.compile(r"ld\+json", re.I)):
+            try:
+                import json as _json_mod
+                script_text = script.get_text().strip()
+                if script_text:
+                    ld_data = _json_mod.loads(script_text)
+                    items = ld_data if isinstance(ld_data, list) else [ld_data]
+                    for item in items:
+                        if isinstance(item, dict):
+                            img_val = item.get("image") or item.get("thumbnailUrl") or item.get("contentUrl")
+                            img_urls = []
+                            if isinstance(img_val, list):
+                                img_urls = [u for u in img_val if isinstance(u, str)]
+                            elif isinstance(img_val, str):
+                                img_urls = [img_val]
+                            elif isinstance(img_val, dict) and "url" in img_val:
+                                img_urls = [str(img_val["url"])]
+                            for iu in img_urls:
+                                abs_iu = normalize_url(absolutize_url(iu, page_url))
+                                if is_http_url(abs_iu) and is_allowed_domain(
+                                    abs_iu, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
+                                ):
+                                    images.append(
+                                        ImageItem(
+                                            url=abs_iu,
+                                            source_page=page_url,
+                                            alt_text="JSON-LD metadata",
+                                            page_title=page_title,
+                                        )
+                                    )
+            except Exception:
+                pass
+
         for image in soup.find_all("img"):
             in_layout = self._is_in_layout_container(image)
             if in_layout:
@@ -361,6 +395,15 @@ class SearchProviderScraper(BaseSearchScraper):
             if not source:
                 continue
             absolute_url = normalize_url(absolutize_url(source, page_url))
+            # Apply high-resolution thumbnail transformation heuristics
+            transformed_url = re.sub(
+                r"([_\-])(?:thumb|small|thumbnail|preview|mini)\.([a-zA-Z0-9]+)$",
+                r".\2",
+                absolute_url,
+                flags=re.IGNORECASE,
+            )
+            if transformed_url != absolute_url and is_http_url(transformed_url):
+                absolute_url = transformed_url
             if not is_http_url(absolute_url):
                 continue
             if not is_allowed_domain(

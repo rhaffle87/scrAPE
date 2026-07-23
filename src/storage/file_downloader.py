@@ -40,8 +40,10 @@ LOGGER = get_logger(__name__)
 # crawl-phase limiters so that concurrent download workers are not serialized
 # by a slow crawl rate (e.g. 0.1 req/s) on the same domain.
 _FAST_DOWNLOAD_LIMITERS: dict[str, RateLimiter] = {}
+_HOST_SEMAPHORES: dict[str, threading.Semaphore] = {}
 _FAST_DL_LOCK = threading.Lock()
 DOWNLOAD_RATE_LIMIT_RPS = 5.0  # Max requests/sec for non-CDN download hosts
+MAX_CONCURRENT_PER_HOST = 4    # Max simultaneous active downloads per host domain
 
 
 def _fast_limiter_for(host: str) -> RateLimiter:
@@ -55,6 +57,14 @@ def _fast_limiter_for(host: str) -> RateLimiter:
         if host not in _FAST_DOWNLOAD_LIMITERS:
             _FAST_DOWNLOAD_LIMITERS[host] = RateLimiter(DOWNLOAD_RATE_LIMIT_RPS)
         return _FAST_DOWNLOAD_LIMITERS[host]
+
+
+def _host_semaphore_for(host: str) -> threading.Semaphore:
+    """Return (or lazily create) a per-host concurrency Semaphore (max 4 simultaneous downloads)."""
+    with _FAST_DL_LOCK:
+        if host not in _HOST_SEMAPHORES:
+            _HOST_SEMAPHORES[host] = threading.Semaphore(MAX_CONCURRENT_PER_HOST)
+        return _HOST_SEMAPHORES[host]
 
 
 IMAGE_SIGNATURES = (
@@ -329,7 +339,8 @@ class MediaDownloader:
                 if not _is_cdn:
                     _fast_limiter_for(_url_host).wait()
 
-                bytes_written = 0
+                with _host_semaphore_for(_url_host):
+                    bytes_written = 0
                 if media_kind == "video" and temp_target.exists():
                     bytes_written = temp_target.stat().st_size
 

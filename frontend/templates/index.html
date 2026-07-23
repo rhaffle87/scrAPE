@@ -8,6 +8,8 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect x='26' y='26' width='160' height='160' fill='%23ff5500'/><rect x='20' y='20' width='160' height='160' fill='%23161917' stroke='%233a3f3c' stroke-width='4'/><path d='M 40 70 L 28 100 L 40 130' stroke='%238c928e' stroke-width='4' fill='none'/><path d='M 160 70 L 172 100 L 160 130' stroke='%238c928e' stroke-width='4' fill='none'/><rect x='52' y='60' width='96' height='16' fill='%23f4f4f0'/><rect x='62' y='80' width='28' height='20' fill='%230b0d0c'/><rect x='110' y='80' width='28' height='20' fill='%230b0d0c'/><rect x='72' y='86' width='8' height='8' fill='%23ff5500'/><rect x='120' y='86' width='8' height='8' fill='%23ff5500'/><rect x='94' y='80' width='12' height='24' fill='%23f4f4f0'/><rect x='60' y='108' width='80' height='28' fill='%23ff5500'/><rect x='88' y='114' width='8' height='12' fill='%230b0d0c'/><rect x='104' y='114' width='8' height='12' fill='%230b0d0c'/><rect x='68' y='128' width='6' height='8' fill='%23f4f4f0'/><rect x='80' y='128' width='6' height='8' fill='%23f4f4f0'/><rect x='114' y='128' width='6' height='8' fill='%23f4f4f0'/><rect x='126' y='128' width='6' height='8' fill='%23f4f4f0'/><rect x='26' y='26' width='6' height='6' fill='%23ff5500'/><rect x='168' y='168' width='6' height='6' fill='%23ff5500'/></svg>">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@500;700&display=swap"
         rel="stylesheet">
@@ -69,24 +71,36 @@
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 1.75rem 1.5rem 1.5rem;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.65rem;
             border-bottom: var(--border-heavy);
         }
 
         .logo-text {
             font-family: 'Oswald', sans-serif;
-            font-size: 2rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.18em;
             color: var(--accent);
+            text-transform: uppercase;
+            text-shadow: 0 0 12px rgba(255, 85, 0, 0.5);
+        }
+
+        .logo-version {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-top: -0.35rem;
             text-transform: uppercase;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 1rem;
+            padding: 1.25rem 1rem 0.5rem;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -95,79 +109,107 @@
         .nav-item {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.65rem;
             padding: 0.75rem 1rem;
             color: var(--text-muted);
             text-decoration: none;
-            border: 2px solid transparent;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-surface);
             font-weight: 700;
             text-transform: uppercase;
             cursor: pointer;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+            transition: all 0.15s ease;
         }
 
-        .nav-item:hover,
-        .nav-item.active {
+        .nav-item:hover {
             color: var(--text-primary);
             background-color: var(--bg-base);
-            border: var(--border-heavy);
+            border-color: var(--text-muted);
         }
 
         .nav-item.active {
             border-color: var(--accent);
             color: var(--accent);
+            background: rgba(255, 85, 0, 0.08);
+            box-shadow: inset 0 0 10px rgba(255, 85, 0, 0.15);
+        }
+
+        .nav-item .nav-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: currentColor;
+            flex-shrink: 0;
         }
 
         .sidebar-section-title {
-            padding: 1rem 1.5rem 0.5rem;
-            font-size: 0.8rem;
+            padding: 1.25rem 1rem 0.5rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: var(--text-muted);
-            letter-spacing: 0.1em;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .sidebar-subjects {
             flex: 1;
             overflow-y: auto;
-            padding: 0.5rem 1rem;
+            padding: 0.25rem 1rem 1.5rem;
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.4rem;
         }
 
         .sidebar-item {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 0.75rem;
             padding: 0.65rem 1rem;
             font-size: 0.85rem;
             color: var(--text-muted);
             border: 2px solid transparent;
             cursor: pointer;
             font-weight: 700;
+            letter-spacing: 0.05em;
+            transition: all 0.15s ease;
         }
 
-        .sidebar-item:hover,
-        .sidebar-item.active {
+        .sidebar-item:hover {
             color: var(--text-primary);
             background-color: var(--bg-base);
-            border: var(--border-heavy);
+            border-color: var(--border-color);
         }
 
         .sidebar-item.active {
-            border-color: var(--accent);
             color: var(--accent);
+            background-color: var(--bg-base);
+            border: var(--border-heavy);
+            border-color: var(--accent);
         }
 
         .sub-indicator {
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent);
-            opacity: 0;
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-muted);
+            opacity: 0.3;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+        }
+
+        .sidebar-item:hover .sub-indicator {
+            background-color: var(--text-primary);
+            opacity: 0.8;
         }
 
         .sidebar-item.active .sub-indicator {
+            background-color: var(--accent);
             opacity: 1;
+            box-shadow: 0 0 6px var(--accent);
         }
 
         /* Main Content Container */
@@ -185,6 +227,8 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
+            gap: 1rem;
+            flex-wrap: wrap;
             padding-bottom: 1.5rem;
             border-bottom: var(--border-heavy);
         }
@@ -257,6 +301,14 @@
             font-weight: 700;
             color: var(--text-primary);
             line-height: 1;
+        }
+
+        .stat-card .sub-total {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+            margin-top: 0.3rem;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* Dynamic Main Section */
@@ -910,6 +962,325 @@
             color: red;
             border-color: black;
         }
+
+        /* Preset Profiles Component */
+        .preset-profiles-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: var(--border-heavy);
+        }
+
+        .preset-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preset-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
+        }
+
+        #profile-feedback {
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            transition: color 0.15s ease;
+        }
+
+        .profile-slots-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+        }
+
+        .profile-slot-btn {
+            padding: 0.5rem 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: var(--border-heavy);
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .profile-slot-btn:hover {
+            background-color: var(--bg-base);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .profile-slot-btn.active {
+            background-color: var(--accent);
+            color: var(--bg-base);
+            border-color: var(--accent);
+            box-shadow: 2px 2px 0 var(--text-primary);
+        }
+
+        .profile-slot-btn.has-data::after {
+            content: "•";
+            color: #39ff14;
+            /* neon green */
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 0.75rem;
+        }
+
+        .profile-slot-btn.active.has-data::after {
+            color: var(--bg-base);
+        }
+
+        .profile-actions-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .profile-action-btn {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: var(--border-heavy);
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+
+        .profile-action-btn:hover {
+            background-color: var(--bg-base);
+            color: var(--accent);
+        }
+
+        .profile-action-btn.save {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .profile-action-btn.save:hover {
+            background-color: var(--accent);
+            color: var(--bg-base);
+        }
+
+        .profile-action-btn.reset {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+
+        .profile-action-btn.reset:hover {
+            background-color: #ff3333;
+            color: white;
+        }
+
+        /* High-Impact OS Telemetry HUD Bar */
+        .telemetry-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: var(--bg-surface);
+            border: var(--border-heavy);
+            padding: 0.5rem 0.85rem;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.4);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .telemetry-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-right: 0.75rem;
+            border-right: 1px solid var(--border-heavy);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #00ff66;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00ff66;
+            animation: pulse-glow 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                opacity: 0.3;
+                transform: scale(0.85);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1.15);
+            }
+        }
+
+        .telemetry-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.05em;
+        }
+
+        .telemetry-metrics {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .telemetry-card {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--bg-base);
+            border: 1px solid #3a3f3c;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .telemetry-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .telemetry-meter {
+            width: 45px;
+            height: 6px;
+            background-color: #1a1d1b;
+            border: 1px solid #3a3f3c;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .telemetry-fill {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .telemetry-val {
+            font-size: 0.75rem;
+            font-weight: 700;
+            min-width: 36px;
+            text-align: right;
+        }
+
+        /* Collapsible Section Accordions */
+        .section-accordion {
+            grid-column: span 2;
+            border: var(--border-heavy);
+            background-color: rgba(22, 25, 23, 0.6);
+            overflow: hidden;
+            transition: border-color 0.2s ease;
+        }
+
+        .section-accordion[open] {
+            border-color: var(--accent);
+            background-color: var(--bg-surface);
+        }
+
+        .accordion-summary {
+            padding: 0.85rem 1.25rem;
+            font-family: 'Oswald', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            background-color: rgba(0, 0, 0, 0.2);
+            transition: background-color 0.15s ease;
+        }
+
+        .accordion-summary:hover {
+            background-color: rgba(255, 85, 0, 0.1);
+        }
+
+        .accordion-summary::marker,
+        .accordion-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .accordion-icon {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--text-muted);
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+
+        .section-accordion[open] .accordion-icon {
+            transform: rotate(90deg);
+            color: var(--accent);
+        }
+
+        .accordion-content {
+            padding: 1.25rem;
+            border-top: 1px solid var(--border-heavy);
+        }
+
+        /* Behavior Flag Cards */
+        .flag-card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        @media (max-width: 640px) {
+            .flag-card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .flag-card {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: var(--bg-base);
+            border: 1px solid #3a3f3c;
+            padding: 0.65rem 0.85rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .flag-card:hover {
+            border-color: var(--accent);
+            background-color: rgba(255, 85, 0, 0.05);
+        }
+
+        .flag-card input[type="checkbox"] {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .flag-card label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            cursor: pointer;
+            flex: 1;
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -918,14 +1289,46 @@
     <!-- Left Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="72" height="72" style="flex-shrink:0; filter: drop-shadow(0 0 10px rgba(255,85,0,0.8));">
+                <rect x="26" y="26" width="160" height="160" fill="#ff5500" />
+                <rect x="20" y="20" width="160" height="160" fill="#161917" stroke="#3a3f3c" stroke-width="4" />
+                <path d="M 40 70 L 28 100 L 40 130" stroke="#8c928e" stroke-width="4" fill="none" />
+                <path d="M 160 70 L 172 100 L 160 130" stroke="#8c928e" stroke-width="4" fill="none" />
+                <rect x="52" y="60" width="96" height="16" fill="#f4f4f0" />
+                <rect x="62" y="80" width="28" height="20" fill="#0b0d0c" />
+                <rect x="110" y="80" width="28" height="20" fill="#0b0d0c" />
+                <rect x="72" y="86" width="8" height="8" fill="#ff5500" />
+                <rect x="120" y="86" width="8" height="8" fill="#ff5500" />
+                <rect x="94" y="80" width="12" height="24" fill="#f4f4f0" />
+                <rect x="60" y="108" width="80" height="28" fill="#ff5500" />
+                <rect x="88" y="114" width="8" height="12" fill="#0b0d0c" />
+                <rect x="104" y="114" width="8" height="12" fill="#0b0d0c" />
+                <rect x="68" y="128" width="6" height="8" fill="#f4f4f0" />
+                <rect x="80" y="128" width="6" height="8" fill="#f4f4f0" />
+                <rect x="114" y="128" width="6" height="8" fill="#f4f4f0" />
+                <rect x="126" y="128" width="6" height="8" fill="#f4f4f0" />
+                <rect x="26" y="26" width="6" height="6" fill="#ff5500" />
+                <rect x="168" y="168" width="6" height="6" fill="#ff5500" />
+            </svg>
             <span class="logo-text">scrAPE</span>
+            <span class="logo-version">v0.17.0</span>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
-                <span>[COMMAND CENTER]</span>
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                </span>
+                <span>COMMAND CENTER</span>
             </div>
         </nav>
-        <div class="sidebar-section-title">SUBJECTS VAULT</div>
+        <div class="sidebar-section-title">
+            <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
+        </div>
         <div class="sidebar-subjects" hx-get="/htmx/sidebar" hx-trigger="load" id="sidebar-list">
             <!-- Loaded dynamically -->
         </div>
@@ -936,8 +1339,8 @@
         <!-- App Header telemetry bar -->
         <header class="app-header">
             <div class="title-area">
-                <h1 id="main-title">SCRAPE // COMMAND</h1>
-                <div class="header-sub" id="main-subtitle">Data Extraction</div>
+                <h1 id="main-title" style="margin: 0; line-height: 1.1;">COMMAND CENTER</h1>
+                <div class="header-sub" id="main-subtitle">DATA EXTRACTION COCKPIT</div>
             </div>
             <!-- OS Telemetry stats -->
             <div id="sys-stats" hx-get="/htmx/stats" hx-trigger="load, every 2s"></div>
@@ -962,299 +1365,263 @@
                         </span>
                         <span class="status-badge" id="status-badge">STATUS: IDLE</span>
                     </h2>
+                    <!-- Scrape Configuration Profile Preset Slots -->
+                    <div class="preset-profiles-container">
+                        <div class="preset-header-row">
+                            <span class="preset-label">PRESET PROFILE SLOTS:</span>
+                            <span id="profile-feedback">PRESETS ENGINE IDLE</span>
+                        </div>
+                        <div class="profile-slots-grid">
+                            <button type="button" id="profile-slot-1" class="profile-slot-btn"
+                                onclick="selectProfile(1)">Slot 1</button>
+                            <button type="button" id="profile-slot-2" class="profile-slot-btn"
+                                onclick="selectProfile(2)">Slot 2</button>
+                            <button type="button" id="profile-slot-3" class="profile-slot-btn"
+                                onclick="selectProfile(3)">Slot 3</button>
+                            <button type="button" id="profile-slot-4" class="profile-slot-btn"
+                                onclick="selectProfile(4)">Slot 4</button>
+                            <button type="button" id="profile-slot-5" class="profile-slot-btn"
+                                onclick="selectProfile(5)">Slot 5</button>
+                        </div>
+                        <div class="profile-actions-row">
+                            <button type="button" class="profile-action-btn save" onclick="saveCurrentProfile()">SAVE
+                                CURRENT TO SLOT</button>
+                            <button type="button" class="profile-action-btn reset" onclick="resetActiveProfile()">RESET
+                                SLOT</button>
+                        </div>
+                    </div>
 
-                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#status-badge" class="form-grid">
+                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#status-badge">
                         <!-- Mode Preset Selector -->
                         <div class="run-mode-selector">
-                            <button type="button" class="btn active" id="mode-custom" onclick="setRunMode('custom')">[ CUSTOM CONFIGURATION ]</button>
-                            <button type="button" class="btn" id="mode-unlimited" onclick="setRunMode('unlimited')">[ INSTANT UNLIMITED RUN ]</button>
+                            <button type="button" class="btn active" id="mode-custom" onclick="setRunMode('custom')">[
+                                CUSTOM CONFIGURATION ]</button>
+                            <button type="button" class="btn" id="mode-unlimited" onclick="setRunMode('unlimited')">[
+                                INSTANT UNLIMITED RUN ]</button>
                         </div>
 
-                        <!-- SECTION 1: CORE CRAWLER SETTINGS -->
-                        <div class="form-group">
-                            <label>Seed Profile Dropdown
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Select a preconfigured text seed profile from seeds/
-                                        folder containing initial crawl targets.</span>
-                                </span>
-                            </label>
-                            <select name="seed" id="seed-selector" onchange="onSeedSelected(this)">
-                                <option value="">Direct Target</option>
-                            </select>
+                        <!-- Instant Unlimited Mode Active Banner -->
+                        <div id="unlimited-mode-banner"
+                            style="display:none; background: rgba(255, 102, 0, 0.12); border: 1px solid var(--accent); color: var(--text-primary); padding: 0.8rem 1rem; border-radius: 4px; margin-bottom: 1.2rem; font-size: 0.85rem; font-family: monospace;">
+                            ⚡ <strong style="color: var(--accent);">INSTANT UNLIMITED MODE ACTIVE:</strong> Preset
+                            values applied: Max Results: 0 (Unlimited), Crawl Depth: 0 (Unlimited), Page Limit: 0
+                            (Unlimited), Workers: 16, DL Workers: 24.
                         </div>
-                        <div class="form-group">
-                            <label>Subject Keyword
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Query term used for search engine scraping and file
-                                        output naming.</span>
-                                </span>
-                            </label>
-                            <input type="text" name="keyword" id="keyword-input" placeholder="Search keyword" required>
+
+                        <!-- Dynamic Hardware & Safety Warning Banner -->
+                        <div id="safety-warning-banner"
+                            style="display:none; background: rgba(255, 102, 0, 0.15); border: 1px solid var(--accent); color: var(--text-primary); padding: 0.8rem 1rem; border-radius: 4px; margin-bottom: 1.2rem; font-size: 0.85rem; font-family: monospace;">
+                            ⚠️ <strong style="color: var(--accent);">HIGH PARAMETER CONCURRENCY WARNING:</strong> <span
+                                id="safety-warning-text"></span>
                         </div>
-                        <div class="form-group">
-                            <label>Max Results
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Limit on total downloaded files per type
-                                        (images/videos). Use 0 for unlimited.</span>
-                                </span>
-                            </label>
-                            <input type="number" name="max_results" value="50" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Crawl Depth
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Maximum link clicks away from the entry URLs to
-                                        traverse. Use 0 for unlimited.</span>
-                                </span>
-                            </label>
-                            <input type="number" name="crawl_depth" value="2" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Max Page limit
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Absolute limit on the number of crawled pages during
-                                        the run. Use 0 for unlimited.</span>
-                                </span>
-                            </label>
-                            <input type="number" name="page_limit" value="100" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Concurrency Workers
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Number of simultaneous page scrapers to run.</span>
-                                </span>
-                            </label>
-                            <input type="number" name="workers" value="8" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Concurrency DL Workers
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Number of parallel download threads for media
-                                        files.</span>
-                                </span>
-                            </label>
-                            <input type="number" name="dl_workers" value="6" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Output Format
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">File formats for saving extracted metadata
-                                        lists.</span>
-                                </span>
-                            </label>
-                            <select name="output">
-                                <option value="both">Both (JSON & CSV)</option>
-                                <option value="json">JSON only</option>
-                                <option value="csv">CSV only</option>
-                            </select>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Subject Keyword
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Primary keyword phrase used for query
+                                            matching.</span>
+                                    </span>
+                                </label>
+                                <input type="text" name="keyword" id="keyword-input" placeholder="Search keyword"
+                                    value="cosplay" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Seed Profile
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Select a pre-configured seed list from
+                                            seeds/.</span>
+                                    </span>
+                                </label>
+                                <select name="seed" id="seed-selector" onchange="onSeedSelected(this)">
+                                    <option value="">None (Custom Input Only)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Max Results
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Maximum items to collect. Use 0 for unlimited.
+                                            [Rec: 50-200]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="max_results" value="100" required
+                                    oninput="validateSafetyThresholds()">
+                            </div>
+                            <div class="form-group">
+                                <label>Crawl Depth
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Recursive link depth. Use 0 for unlimited. [Rec:
+                                            1-2]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="crawl_depth" value="2" required
+                                    oninput="validateSafetyThresholds()">
+                            </div>
+                            <div class="form-group">
+                                <label>Max Page limit
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Absolute limit on the number of crawled pages. Use
+                                            0 for unlimited. [Rec: 20-100]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="page_limit" value="100" required
+                                    oninput="validateSafetyThresholds()">
+                            </div>
+                            <div class="form-group">
+                                <label>Concurrency Workers
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Number of simultaneous page scrapers to run. High
+                                            values (>16) spike CPU/RAM. [Rec: 4-8]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="workers" value="8" required
+                                    oninput="validateSafetyThresholds()">
+                            </div>
+                            <div class="form-group">
+                                <label>Concurrency DL Workers
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Parallel download threads. High values (>24) may
+                                            cause CDN rate limits. [Rec: 8-12]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="dl_workers" value="6" required
+                                    oninput="validateSafetyThresholds()">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Output Format
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">File formats for saving extracted metadata
+                                            lists.</span>
+                                    </span>
+                                </label>
+                                <select name="output">
+                                    <option value="both">Both (JSON & CSV)</option>
+                                    <option value="json">JSON only</option>
+                                    <option value="csv">CSV only</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- SECTION 2: FILTER & SCOPE RULES -->
-                        <fieldset
-                            style="border: var(--border-heavy); padding: 1.25rem; grid-column: span 2; display: grid; gap: 1rem;">
-                            <legend
-                                style="padding: 0 0.5rem; color: var(--accent); font-weight: 700; font-family: 'Oswald', sans-serif; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                                FILTER & SCOPE RULES
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Control crawl boundaries, allowing specific domains or
-                                        blocking unwanted ones.</span>
-                                </span>
-                            </legend>
-                            <div class="form-grid">
-                                <div class="form-group full-width">
-                                    <label>Seed URLs (comma-separated)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Provide a direct comma-separated list of URLs
-                                                to crawl.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="seed_urls"
-                                        placeholder="https://example.com/page1, https://example.com/page2">
-                                </div>
-                                <div class="form-group">
-                                    <label>Allow Domains (comma-separated)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Only parse links matching these
-                                                domains.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="allow_domains" placeholder="example.com, sub.example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>Block Domains (comma-separated)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Instantly ignore any links matching these
-                                                domains.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="block_domains"
-                                        placeholder="example.com, block.example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>Entity Tokens (comma-separated)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Extra keywords to verify page content
-                                                relevance before extracting media.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="entity_tokens" placeholder="token1, token2">
-                                </div>
-                                <div class="form-group">
-                                    <label>Domain Delays (comma-separated)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Wait times between requests per domain.
-                                                Format: example.com=2.0</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="domain_delays"
-                                        placeholder="example.com=2.0, example2.com=5.0">
+                        <details class="section-accordion">
+                            <summary class="accordion-summary">
+                                <span>FILTER & SCOPE RULES</span>
+                                <span class="accordion-icon">▶</span>
+                            </summary>
+                            <div class="accordion-content">
+                                <div class="form-grid">
+                                    <div class="form-group full-width">
+                                        <label>Seed URLs (comma-separated)
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Provide a direct comma-separated list of
+                                                    URLs to crawl.</span>
+                                            </span>
+                                        </label>
+                                        <input type="text" name="seed_urls"
+                                            placeholder="https://example.com/page1, https://example.com/page2">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Allow Domains (comma-separated)</label>
+                                        <input type="text" name="allow_domains"
+                                            placeholder="example.com, sub.example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Block Domains (comma-separated)</label>
+                                        <input type="text" name="block_domains"
+                                            placeholder="example.com, block.example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Entity Tokens (comma-separated)</label>
+                                        <input type="text" name="entity_tokens" placeholder="token1, token2">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Domain Delays (comma-separated)</label>
+                                        <input type="text" name="domain_delays"
+                                            placeholder="example.com=2.0, example2.com=5.0">
+                                    </div>
                                 </div>
                             </div>
-                        </fieldset>
+                        </details>
 
                         <!-- SECTION 3: SYSTEM, PROXY & BYPASS -->
-                        <fieldset
-                            style="border: var(--border-heavy); padding: 1.25rem; grid-column: span 2; display: grid; gap: 1rem;">
-                            <legend
-                                style="padding: 0 0.5rem; color: var(--accent); font-weight: 700; font-family: 'Oswald', sans-serif; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                                NETWORK & SYSTEM
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Configure proxy connections and captcha solver
-                                        keys.</span>
-                                </span>
-                            </legend>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Proxy Connection
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Route all outgoing requests through this HTTP
-                                                or SOCKS proxy address.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="proxy" placeholder="http://proxy-host:port">
-                                </div>
-                                <div class="form-group">
-                                    <label>CapSolver API Key
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">API credential key for automatic captcha
-                                                solving.</span>
-                                        </span>
-                                    </label>
-                                    <input type="text" name="capsolver_key" placeholder="Enter API Key">
+                        <details class="section-accordion">
+                            <summary class="accordion-summary">
+                                <span>NETWORK & PROXY SYSTEM</span>
+                                <span class="accordion-icon">▶</span>
+                            </summary>
+                            <div class="accordion-content">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Proxy Connection</label>
+                                        <input type="text" name="proxy" placeholder="http://proxy-host:port">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>CapSolver API Key</label>
+                                        <input type="text" name="capsolver_key" placeholder="Enter API Key">
+                                    </div>
                                 </div>
                             </div>
-                        </fieldset>
+                        </details>
 
                         <!-- SECTION 4: TOGGLE FLAGS -->
-                        <fieldset
-                            style="border: var(--border-heavy); padding: 1.25rem; grid-column: span 2; display: grid; gap: 1rem;">
-                            <legend
-                                style="padding: 0 0.5rem; color: var(--accent); font-weight: 700; font-family: 'Oswald', sans-serif; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                                BEHAVIOR FLAGS
-                                <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Fine-tune internal crawler rules and browser
-                                        automation.</span>
-                                </span>
-                            </legend>
-                            <div
-                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="download_media" id="download_media" checked>
-                                    <label for="download_media" style="cursor: pointer;">Download Media
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Enable file downloads (images/videos) to
-                                                output directories.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="ignore_robots" id="ignore_robots">
-                                    <label for="ignore_robots" style="cursor: pointer;">Ignore robots.txt
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Ignore standard crawling constraints in site
-                                                robots.txt policies.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="skip_search" id="skip_search">
-                                    <label for="skip_search" style="cursor: pointer;">Skip Search
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Only crawl seed links directly. Skipping DDG
-                                                search.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="strict_domain" id="strict_domain">
-                                    <label for="strict_domain" style="cursor: pointer;">Strict Domain Mode
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Strictly restrict parsing to domain names
-                                                derived from input seeds.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="site_tree_only" id="site_tree_only">
-                                    <label for="site_tree_only" style="cursor: pointer;">Path Subtree Only
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Only follow links nested under the folder path
-                                                of the initial seeds.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="force_search" id="force_search">
-                                    <label for="force_search" style="cursor: pointer;">Force Search with Seeds
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Enforce duckduckgo query even if a seed
-                                                profile or direct seed URLs are defined.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="clear_cache" id="clear_cache">
-                                    <label for="clear_cache" style="cursor: pointer;">Wipe Cache First
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Clear the cache folder before initiating
-                                                scraping.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="use_state_cache" id="use_state_cache">
-                                    <label for="use_state_cache" style="cursor: pointer;">State Cache (SQLite)
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Use a SQLite cache db to remember
-                                                already-visited URLs across scraping runs.</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="headless" id="headless">
-                                    <label for="headless" style="cursor: pointer;">Force Headless Mode
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Force the automated web browser to run in
-                                                background mode (no UI).</span>
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="checkbox-group">
-                                    <input type="checkbox" name="stealth_headful" id="stealth_headful">
-                                    <label for="stealth_headful" style="cursor: pointer;">Stealth Headful Mode
-                                        <span class="tooltip-wrapper">?
-                                            <span class="tooltip-content">Run fallbacks in visible window mode to bypass
-                                                strict antibots.</span>
-                                        </span>
-                                    </label>
+                        <details class="section-accordion">
+                            <summary class="accordion-summary">
+                                <span>BEHAVIOR & AUTOMATION FLAGS</span>
+                                <span class="accordion-icon">▶</span>
+                            </summary>
+                            <div class="accordion-content">
+                                <div class="flag-card-grid">
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="download_media" id="download_media" checked>
+                                        <label for="download_media">Download Media</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="ignore_robots" id="ignore_robots">
+                                        <label for="ignore_robots">Ignore robots.txt</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="skip_search" id="skip_search">
+                                        <label for="skip_search">Skip Search</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="strict_domain" id="strict_domain">
+                                        <label for="strict_domain">Strict Domain Mode</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="site_tree_only" id="site_tree_only">
+                                        <label for="site_tree_only">Path Subtree Only</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="force_search" id="force_search">
+                                        <label for="force_search">Force Search with Seeds</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="clear_cache" id="clear_cache">
+                                        <label for="clear_cache">Wipe Cache First</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="use_state_cache" id="use_state_cache">
+                                        <label for="use_state_cache">State Cache (SQLite)</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="headless" id="headless">
+                                        <label for="headless">Force Headless Mode</label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="stealth_headful" id="stealth_headful">
+                                        <label for="stealth_headful">Stealth Headful Mode</label>
+                                    </div>
                                 </div>
                             </div>
-                        </fieldset>
+                        </details>
 
                         <div class="form-group full-width button-bar">
                             <button type="submit" class="btn btn-primary" id="btn-run"
                                 onclick="onInitiateScrape()">Initiate Scrape</button>
-                            <button type="button" class="btn btn-danger" hx-post="/htmx/kill"
+                            <button type="button" class="btn btn-danger" id="btn-abort" hx-post="/htmx/kill"
                                 hx-target="#status-badge">Abort</button>
                         </div>
                     </form>
@@ -1262,15 +1629,20 @@
 
                 <!-- Live Log Terminal -->
                 <div class="terminal-panel" id="terminal-panel">
-                    <div class="terminal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="terminal-header"
+                        style="display: flex; justify-content: space-between; align-items: center;">
                         <span>LIVE TERMINAL FEED</span>
                         <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.8rem;">
-                            <span id="progress-text" style="color: var(--text-muted); font-weight: normal; font-family: monospace; display: none;"></span>
+                            <span id="progress-text"
+                                style="color: var(--text-muted); font-weight: normal; font-family: monospace; display: none;"></span>
                             <span id="log-speed-indicator" style="color: var(--accent);">IDLE</span>
                         </div>
                     </div>
-                    <div id="progress-bar-container" style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
-                        <div id="progress-bar-fill" style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);"></div>
+                    <div id="progress-bar-container"
+                        style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
+                        <div id="progress-bar-fill"
+                            style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);">
+                        </div>
                     </div>
                     <div class="terminal-body" id="live-terminal-body">
                         <!-- Streamed lines -->
@@ -1293,493 +1665,709 @@
                     <!-- Cards here -->
                 </div>
             </div>
-    <!-- Media Preview Modal -->
-    <div id="media-preview-modal" class="modal-backdrop" onclick="onBackdropClick(event)">
-        <!-- Close button -->
-        <button class="modal-close-btn" onclick="closePreviewModal()">&times;</button>
-        
-        <!-- Prev button -->
-        <button class="modal-nav-btn prev-btn" onclick="navigatePreview(-1)">&lsaquo;</button>
-        
-        <!-- Active content wrapper -->
-        <div class="modal-content-wrapper" onclick="event.stopPropagation()">
-            <div id="modal-media-container" class="modal-media-container">
-                <!-- Rendered image or video -->
-            </div>
-            <div class="modal-footer-toolbar">
-                <span id="modal-media-filename" class="modal-filename"></span>
-                <span id="modal-media-index" class="modal-index"></span>
-                <div class="modal-actions">
-                    <button id="modal-btn-folder" class="btn-modal-action" onclick="onModalFolderClick()">FOLDER</button>
-                    <button id="modal-btn-delete" class="btn-modal-action delete" onclick="onModalDeleteClick()">DELETE</button>
+            <!-- Media Preview Modal -->
+            <div id="media-preview-modal" class="modal-backdrop" onclick="onBackdropClick(event)">
+                <!-- Close button -->
+                <button class="modal-close-btn" onclick="closePreviewModal()">&times;</button>
+
+                <!-- Prev button -->
+                <button class="modal-nav-btn prev-btn" onclick="navigatePreview(-1)">&lsaquo;</button>
+
+                <!-- Active content wrapper -->
+                <div class="modal-content-wrapper" onclick="event.stopPropagation()">
+                    <div id="modal-media-container" class="modal-media-container">
+                        <!-- Rendered image or video -->
+                    </div>
+                    <div class="modal-footer-toolbar">
+                        <span id="modal-media-filename" class="modal-filename"></span>
+                        <span id="modal-media-index" class="modal-index"></span>
+                        <div class="modal-actions">
+                            <button id="modal-btn-folder" class="btn-modal-action"
+                                onclick="onModalFolderClick()">FOLDER</button>
+                            <button id="modal-btn-delete" class="btn-modal-action delete"
+                                onclick="onModalDeleteClick()">DELETE</button>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Next button -->
+                <button class="modal-nav-btn next-btn" onclick="navigatePreview(1)">&rsaquo;</button>
             </div>
-        </div>
-        
-        <!-- Next button -->
-        <button class="modal-nav-btn next-btn" onclick="navigatePreview(1)">&rsaquo;</button>
-    </div>
 
-    <script>
-        let currentSubject = "";
-        let currentMediaKind = "all";
-        let logOffset = 0;
-        let isPollingLogs = false;
+            <script>
+                let currentSubject = "";
+                let currentMediaKind = "all";
+                let logOffset = 0;
+                let isPollingLogs = false;
 
-        // Media Preview Modal State
-        let previewCards = [];
-        let currentPreviewIndex = -1;
+                // Scrape Configuration Profile Preset States
+                let activeProfileSlot = 1;
 
-        // Event delegation to capture clicks on media cards in the grid
-        document.addEventListener('DOMContentLoaded', () => {
-            const gridContainer = document.getElementById('gallery-grid-container');
-            if (gridContainer) {
-                gridContainer.addEventListener('click', (e) => {
-                    // Ignore clicks on buttons/actions in the hover overlay
-                    if (e.target.closest('button') || e.target.closest('a')) {
-                        return;
-                    }
-                    const card = e.target.closest('.media-card');
-                    if (card) {
-                        openPreviewModal(card);
-                    }
-                });
-            }
-        });
-
-        function openPreviewModal(card) {
-            previewCards = Array.from(document.querySelectorAll('#gallery-grid-container .media-card'));
-            currentPreviewIndex = previewCards.indexOf(card);
-            if (currentPreviewIndex !== -1) {
-                document.getElementById('media-preview-modal').classList.add('active');
-                showPreviewForIndex(currentPreviewIndex);
-                document.addEventListener('keydown', handlePreviewKeyDown);
-            }
-        }
-
-        function closePreviewModal() {
-            document.getElementById('media-preview-modal').classList.remove('active');
-            document.removeEventListener('keydown', handlePreviewKeyDown);
-            const container = document.getElementById('modal-media-container');
-            container.innerHTML = '';
-            currentPreviewIndex = -1;
-        }
-
-        function handlePreviewKeyDown(e) {
-            if (e.key === 'ArrowLeft') {
-                navigatePreview(-1);
-            } else if (e.key === 'ArrowRight') {
-                navigatePreview(1);
-            } else if (e.key === 'Escape') {
-                closePreviewModal();
-            }
-        }
-
-        function navigatePreview(direction) {
-            if (previewCards.length === 0) return;
-            currentPreviewIndex += direction;
-            if (currentPreviewIndex < 0) {
-                currentPreviewIndex = previewCards.length - 1;
-            } else if (currentPreviewIndex >= previewCards.length) {
-                currentPreviewIndex = 0;
-            }
-            showPreviewForIndex(currentPreviewIndex);
-        }
-
-        function showPreviewForIndex(index) {
-            const activeCard = previewCards[index];
-            if (!activeCard) return;
-            
-            const img = activeCard.querySelector('img');
-            const video = activeCard.querySelector('video');
-            const filename = activeCard.querySelector('.media-filename').innerText;
-            
-            const container = document.getElementById('modal-media-container');
-            container.innerHTML = '';
-            
-            let mediaEl;
-            if (video) {
-                mediaEl = document.createElement('video');
-                mediaEl.src = video.getAttribute('src');
-                mediaEl.controls = true;
-                mediaEl.autoplay = true;
-            } else if (img) {
-                mediaEl = document.createElement('img');
-                mediaEl.src = img.getAttribute('src');
-            }
-            
-            if (mediaEl) {
-                container.appendChild(mediaEl);
-                // Trigger scale and opacity transition after insertion
-                setTimeout(() => {
-                    mediaEl.classList.add('loaded');
-                }, 50);
-            }
-            
-            document.getElementById('modal-media-filename').innerText = filename;
-            document.getElementById('modal-media-index').innerText = `${index + 1} / ${previewCards.length}`;
-        }
-
-        function onModalFolderClick() {
-            if (currentPreviewIndex === -1 || !previewCards[currentPreviewIndex]) return;
-            const activeCard = previewCards[currentPreviewIndex];
-            const media = activeCard.querySelector('img') || activeCard.querySelector('video');
-            if (!media) return;
-            const src = media.getAttribute('src');
-            const path = src.startsWith('/') ? src.slice(1) : src;
-            
-            fetch('/htmx/open-folder', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({ path: path })
-            });
-        }
-
-        function onModalDeleteClick() {
-            if (currentPreviewIndex === -1 || !previewCards[currentPreviewIndex]) return;
-            const activeCard = previewCards[currentPreviewIndex];
-            const media = activeCard.querySelector('img') || activeCard.querySelector('video');
-            if (!media) return;
-            const src = media.getAttribute('src');
-            const path = src.startsWith('/') ? src.slice(1) : src;
-            
-            if (confirm("Are you sure you want to delete this media file?")) {
-                fetch(`/htmx/media?path=${encodeURIComponent(path)}`, {
-                    method: 'DELETE'
-                }).then(res => {
-                    if (res.ok) {
-                        activeCard.remove();
-                        previewCards.splice(currentPreviewIndex, 1);
-                        
-                        if (previewCards.length === 0) {
-                            closePreviewModal();
-                        } else {
-                            if (currentPreviewIndex >= previewCards.length) {
-                                currentPreviewIndex = 0;
+                function serializeForm(form) {
+                    const formData = {};
+                    const inputs = form.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        if (input.name) {
+                            if (input.type === 'checkbox') {
+                                formData[input.name] = input.checked;
+                            } else {
+                                formData[input.name] = input.value;
                             }
-                            showPreviewForIndex(currentPreviewIndex);
                         }
-                    }
-                });
-            }
-        }
+                    });
+                    return formData;
+                }
 
-        function onBackdropClick(event) {
-            if (event.target.id === 'media-preview-modal') {
-                closePreviewModal();
-            }
-        }
-
-        function setRunMode(mode) {
-            const customBtn = document.getElementById('mode-custom');
-            const unlimitedBtn = document.getElementById('mode-unlimited');
-            const form = document.getElementById('scrape-form');
-            const formGroups = form.querySelectorAll('.form-group, fieldset');
-            
-            if (mode === 'unlimited') {
-                customBtn.classList.remove('active');
-                unlimitedBtn.classList.add('active');
-                
-                formGroups.forEach((el, index) => {
-                    if (index > 1 && !el.classList.contains('button-bar')) {
-                        el.style.display = 'none';
-                    }
-                });
-                
-                form.querySelector('input[name="max_results"]').value = 0;
-                form.querySelector('input[name="crawl_depth"]').value = 0;
-                form.querySelector('input[name="page_limit"]').value = 0;
-                form.querySelector('input[name="workers"]').value = 16;
-                form.querySelector('input[name="dl_workers"]').value = 24;
-                
-                form.querySelector('input[name="download_media"]').checked = true;
-                form.querySelector('input[name="ignore_robots"]').checked = true;
-                form.querySelector('input[name="use_state_cache"]').checked = true;
-                form.querySelector('input[name="headless"]').checked = true;
-            } else {
-                unlimitedBtn.classList.remove('active');
-                customBtn.classList.add('active');
-                
-                formGroups.forEach(el => {
-                    el.style.display = '';
-                });
-                
-                form.querySelector('input[name="max_results"]').value = 50;
-                form.querySelector('input[name="crawl_depth"]').value = 2;
-                form.querySelector('input[name="page_limit"]').value = 100;
-                form.querySelector('input[name="workers"]').value = 8;
-                form.querySelector('input[name="dl_workers"]').value = 12;
-                
-                form.querySelector('input[name="download_media"]').checked = true;
-                form.querySelector('input[name="ignore_robots"]').checked = false;
-                form.querySelector('input[name="use_state_cache"]').checked = true;
-                form.querySelector('input[name="headless"]').checked = true;
-            }
-        }
-
-        // Populate seeds select dropdown
-        async function loadSeeds() {
-            try {
-                const res = await fetch('/api/seeds');
-                if (res.ok) {
-                    const seeds = await res.json();
-                    const selector = document.getElementById('seed-selector');
-                    seeds.forEach(seed => {
-                        const opt = document.createElement('option');
-                        opt.value = seed;
-                        opt.textContent = seed;
-                        selector.appendChild(opt);
+                function deserializeForm(form, data) {
+                    if (!data) return;
+                    const inputs = form.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        if (input.name && input.name in data) {
+                            if (input.type === 'checkbox') {
+                                input.checked = data[input.name];
+                            } else {
+                                input.value = data[input.name];
+                            }
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
                     });
                 }
-            } catch (e) {
-                console.error("Failed to load seeds list:", e);
-            }
-        }
 
-        function onSeedSelected(select) {
-            const val = select.value;
-            const input = document.getElementById('keyword-input');
-            if (val) {
-                input.value = val.replace('.txt', '');
-            }
-        }
+                function updateSlotButtons() {
+                    for (let i = 1; i <= 5; i++) {
+                        const btn = document.getElementById(`profile-slot-${i}`);
+                        if (!btn) continue;
 
-        function selectSubject(name) {
-            currentSubject = name;
-            document.getElementById('command-center-view').style.display = 'none';
-            document.getElementById('gallery-view').style.display = 'block';
-            document.getElementById('main-title').innerText = "MEDIA VAULT";
-            document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
-            document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
+                        if (i === activeProfileSlot) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
 
-            // Set active class in sidebar items
-            document.querySelectorAll('.sidebar-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.getAttribute('data-subject') === name) {
-                    item.classList.add('active');
-                }
-            });
-            document.getElementById('nav-cmd-center').classList.remove('active');
-
-            switchGalleryTab('all');
-        }
-
-        function switchGalleryTab(kind) {
-            currentMediaKind = kind;
-            document.querySelectorAll('.gallery-tabs .tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.getAttribute('data-kind') === kind) {
-                    btn.classList.add('active');
-                }
-            });
-
-            const grid = document.getElementById('gallery-grid-container');
-            grid.setAttribute('hx-get', `/htmx/gallery?keyword=${currentSubject}&media_kind=${kind}`);
-            grid.setAttribute('hx-trigger', 'load');
-            htmx.process(grid);
-        }
-
-        function showCommandCenter() {
-            document.getElementById('command-center-view').style.display = 'grid';
-            document.getElementById('gallery-view').style.display = 'none';
-            document.getElementById('main-title').innerText = "COMMAND CENTER";
-            document.getElementById('main-subtitle').innerText = "Data Extraction cockpit";
-
-            document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
-            document.getElementById('nav-cmd-center').classList.add('active');
-        }
-
-        function onInitiateScrape() {
-            logOffset = 0;
-            document.getElementById('live-terminal-body').innerHTML = "";
-            document.getElementById('log-speed-indicator').innerText = "ACTIVE";
-            document.getElementById('progress-bar-container').style.display = "none";
-            document.getElementById('progress-bar-fill').style.width = "0%";
-            document.getElementById('progress-text').style.display = "none";
-            document.getElementById('progress-text').innerText = "";
-            if (!isPollingLogs) {
-                isPollingLogs = true;
-                pollLogsInterval = setInterval(pollLogs, 1000);
-            }
-        }
-
-        function formatLogLine(line) {
-            const parts = line.split(' | ');
-            if (parts.length >= 4) {
-                const timestampFull = parts[0].trim();
-                const timeMatch = timestampFull.match(/\d{2}:\d{2}:\d{2}/);
-                const timeStr = timeMatch ? timeMatch[0] : timestampFull;
-                
-                const level = parts[1].trim().toUpperCase();
-                const module = parts[2].trim();
-                const message = parts.slice(3).join(' | ').trim();
-                
-                let levelColor = "var(--text-muted)";
-                let cssClass = "log-debug";
-                if (level === "INFO") {
-                    levelColor = "#00ff66";
-                    cssClass = "log-info";
-                } else if (level === "WARNING" || level === "WARN") {
-                    levelColor = "#ffcc00";
-                    cssClass = "log-warning";
-                } else if (level === "ERROR" || level === "CRITICAL" || level === "FAILED") {
-                    levelColor = "#ff3333";
-                    cssClass = "log-error";
-                } else if (level === "DEBUG") {
-                    levelColor = "#5a665f";
-                    cssClass = "log-debug";
-                }
-                
-                let formattedMessage = message;
-                
-                // Escape HTML to prevent injection
-                formattedMessage = formattedMessage
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;");
-
-                // Highlight HTTP request methods and status codes
-                if (formattedMessage.includes("HTTP Request:")) {
-                    formattedMessage = formattedMessage
-                        .replace("HTTP Request:", `<span style="color: var(--accent); font-weight: 700;">HTTP REQ</span>`)
-                        .replace(/GET\s+(https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
-                        .replace(/POST\s+(https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
-                        .replace(/"HTTP\/1\.1\s+(\d{3})\s+([^"]+)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
-                        .replace(/"HTTP\/1\.1\s+([45]\d{2})\s+([^"]+)"/g, `"<span style="color: #ff3333; font-weight: 700;">$1 $2</span>"`);
-                }
-                
-                // Highlight media type rejections
-                if (formattedMessage.includes("rejected:")) {
-                    formattedMessage = formattedMessage
-                        .replace(/(Image|Video)\s+rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
-                        .replace(/\(reason:\s*([^)]+)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
-                        .replace(/(https?:\/\/[^\s()]+)/g, `<span style="color: #5a665f; font-size: 0.85em;">$1</span>`);
-                }
-                
-                // Highlight media downloaded/saved
-                if (formattedMessage.toLowerCase().includes("downloaded") || formattedMessage.toLowerCase().includes("saved")) {
-                    formattedMessage = formattedMessage
-                        .replace(/downloaded/gi, `<span style="color: #00ff66; font-weight: bold;">DOWNLOADED</span>`)
-                        .replace(/saved/gi, `<span style="color: #00ff66; font-weight: bold;">SAVED</span>`);
-                }
-                
-                // Highlight RUN START, RUN COMPLETE
-                if (formattedMessage.includes("RUN START") || formattedMessage.includes("RUN COMPLETE")) {
-                    formattedMessage = `<span style="color: var(--accent); font-weight: bold; letter-spacing: 1px;">${formattedMessage}</span>`;
-                }
-
-                const html = `<span style="color: #5a665f;">[${timeStr}]</span> <span style="color: ${levelColor}; font-weight: bold; display: inline-block; width: 65px;">[${level}]</span> <span style="color: #8c928e; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom;">[${module}]</span> <span style="margin-left: 0.5rem; word-break: break-all; color: var(--text-primary);">${formattedMessage}</span>`;
-                return { html, cssClass };
-            }
-            
-            // Fallback for other log content
-            let fallbackClass = "log-debug";
-            let fallbackColor = "var(--text-muted)";
-            let upper = line.toUpperCase();
-            if (upper.includes("ERROR") || upper.includes("FAIL") || upper.includes("EXCEPTION")) {
-                fallbackClass = "log-error";
-                fallbackColor = "#ff3333";
-            } else if (upper.includes("WARNING") || upper.includes("WARN")) {
-                fallbackClass = "log-warning";
-                fallbackColor = "#ffcc00";
-            } else if (upper.includes("INFO")) {
-                fallbackClass = "log-info";
-                fallbackColor = "#00ff66";
-            }
-            
-            return {
-                html: `<span style="color: ${fallbackColor};">${line}</span>`,
-                cssClass: fallbackClass
-            };
-        }
-
-        async function pollLogs() {
-            try {
-                const response = await fetch('/api/logs?offset=' + logOffset);
-                if (response.ok) {
-                    const data = await response.json();
-                    const body = document.getElementById('live-terminal-body');
-                    
-                    // Handle progress bar updates
-                    const barContainer = document.getElementById('progress-bar-container');
-                    const barFill = document.getElementById('progress-bar-fill');
-                    const progressText = document.getElementById('progress-text');
-                    
-                    if (data.status === "running" && data.progress && data.progress.total > 0) {
-                        barContainer.style.display = "block";
-                        progressText.style.display = "inline";
-                        const pct = data.progress.percent;
-                        barFill.style.width = pct + "%";
-                        progressText.innerText = `${data.progress.current}/${data.progress.total} (${pct}%) | ${data.progress.time_info}`;
-                    } else {
-                        barContainer.style.display = "none";
-                        progressText.style.display = "none";
+                        const saved = localStorage.getItem(`scrape_profile_${i}`);
+                        if (saved) {
+                            btn.classList.add('has-data');
+                        } else {
+                            btn.classList.remove('has-data');
+                        }
                     }
-                    
-                    if (data.lines && data.lines.length > 0) {
-                        data.lines.forEach(line => {
-                            const parsed = formatLogLine(line);
-                            const div = document.createElement('div');
-                            div.className = 'terminal-line ' + parsed.cssClass;
-                            div.innerHTML = parsed.html;
-                            body.appendChild(div);
+                }
+
+                function selectProfile(slot) {
+                    activeProfileSlot = slot;
+                    updateSlotButtons();
+
+                    const saved = localStorage.getItem(`scrape_profile_${slot}`);
+                    if (saved) {
+                        try {
+                            const data = JSON.parse(saved);
+                            const form = document.getElementById('scrape-form');
+                            deserializeForm(form, data);
+                            showProfileFeedback(`Profile Slot ${slot} loaded!`);
+                        } catch (e) {
+                            console.error("Error parsing saved profile", e);
+                        }
+                    } else {
+                        showProfileFeedback(`Slot ${slot} is empty. Configure settings and click SAVE CURRENT.`);
+                    }
+                }
+
+                function saveCurrentProfile() {
+                    const form = document.getElementById('scrape-form');
+                    const data = serializeForm(form);
+                    localStorage.setItem(`scrape_profile_${activeProfileSlot}`, JSON.stringify(data));
+                    updateSlotButtons();
+                    showProfileFeedback(`Current parameters saved to Slot ${activeProfileSlot}!`, true);
+                }
+
+                function resetActiveProfile() {
+                    if (confirm(`Reset configuration in Slot ${activeProfileSlot}?`)) {
+                        localStorage.removeItem(`scrape_profile_${activeProfileSlot}`);
+                        updateSlotButtons();
+                        showProfileFeedback(`Slot ${activeProfileSlot} cleared.`);
+                    }
+                }
+
+                function showProfileFeedback(msg, isSuccess = false) {
+                    const el = document.getElementById('profile-feedback');
+                    if (!el) return;
+                    el.innerText = msg.toUpperCase();
+                    el.style.color = isSuccess ? 'var(--accent)' : 'var(--text-muted)';
+                    setTimeout(() => {
+                        if (el.innerText === msg.toUpperCase()) {
+                            el.innerText = 'PRESETS ENGINE IDLE';
+                            el.style.color = 'var(--text-muted)';
+                        }
+                    }, 3000);
+                }
+
+                // Media Preview Modal State
+                let previewCards = [];
+                let currentPreviewIndex = -1;
+
+                // Event delegation to capture clicks on media cards in the grid
+                document.addEventListener('DOMContentLoaded', () => {
+                    // Initialize presets slots UI and select slot 1 by default
+                    updateSlotButtons();
+                    selectProfile(1);
+
+                    const gridContainer = document.getElementById('gallery-grid-container');
+                    if (gridContainer) {
+                        gridContainer.addEventListener('click', (e) => {
+                            // Ignore clicks on buttons/actions in the hover overlay
+                            if (e.target.closest('button') || e.target.closest('a')) {
+                                return;
+                            }
+                            const card = e.target.closest('.media-card');
+                            if (card) {
+                                openPreviewModal(card);
+                            }
                         });
-                        logOffset = data.next_offset;
-                        body.scrollTop = body.scrollHeight;
+                    }
+                });
+
+                function openPreviewModal(card) {
+                    previewCards = Array.from(document.querySelectorAll('#gallery-grid-container .media-card'));
+                    currentPreviewIndex = previewCards.indexOf(card);
+                    if (currentPreviewIndex !== -1) {
+                        document.getElementById('media-preview-modal').classList.add('active');
+                        showPreviewForIndex(currentPreviewIndex);
+                        document.addEventListener('keydown', handlePreviewKeyDown);
                     }
                 }
-            } catch (err) {
-                console.error("Log polling error:", err);
-            }
-        }
 
-        // Global status poller to toggle run button state
-        async function checkGlobalStatus() {
-            try {
-                const res = await fetch('/api/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    const btn = document.getElementById('btn-run');
-                    const badge = document.getElementById('status-badge');
+                function closePreviewModal() {
+                    document.getElementById('media-preview-modal').classList.remove('active');
+                    document.removeEventListener('keydown', handlePreviewKeyDown);
+                    const container = document.getElementById('modal-media-container');
+                    container.innerHTML = '';
+                    currentPreviewIndex = -1;
+                }
 
-                    if (data.status === 'running') {
-                        badge.innerText = 'STATUS: RUNNING [' + data.current_keyword + ']';
-                        badge.classList.add('running');
-                        btn.disabled = true;
-                        btn.innerText = 'Running...';
+                function handlePreviewKeyDown(e) {
+                    if (e.key === 'ArrowLeft') {
+                        navigatePreview(-1);
+                    } else if (e.key === 'ArrowRight') {
+                        navigatePreview(1);
+                    } else if (e.key === 'Escape') {
+                        closePreviewModal();
+                    }
+                }
 
-                        if (!isPollingLogs) {
-                            isPollingLogs = true;
-                            pollLogsInterval = setInterval(pollLogs, 1000);
-                        }
+                function navigatePreview(direction) {
+                    if (previewCards.length === 0) return;
+                    currentPreviewIndex += direction;
+                    if (currentPreviewIndex < 0) {
+                        currentPreviewIndex = previewCards.length - 1;
+                    } else if (currentPreviewIndex >= previewCards.length) {
+                        currentPreviewIndex = 0;
+                    }
+                    showPreviewForIndex(currentPreviewIndex);
+                }
+
+                function showPreviewForIndex(index) {
+                    const activeCard = previewCards[index];
+                    if (!activeCard) return;
+
+                    const img = activeCard.querySelector('img');
+                    const video = activeCard.querySelector('video');
+                    const filename = activeCard.querySelector('.media-filename').innerText;
+
+                    const container = document.getElementById('modal-media-container');
+                    container.innerHTML = '';
+
+                    let mediaEl;
+                    if (video) {
+                        mediaEl = document.createElement('video');
+                        mediaEl.src = video.getAttribute('src');
+                        mediaEl.controls = true;
+                        mediaEl.autoplay = true;
+                    } else if (img) {
+                        mediaEl = document.createElement('img');
+                        mediaEl.src = img.getAttribute('src');
+                    }
+
+                    if (mediaEl) {
+                        container.appendChild(mediaEl);
+                        // Trigger scale and opacity transition after insertion
+                        setTimeout(() => {
+                            mediaEl.classList.add('loaded');
+                        }, 50);
+                    }
+
+                    document.getElementById('modal-media-filename').innerText = filename;
+                    document.getElementById('modal-media-index').innerText = `${index + 1} / ${previewCards.length}`;
+                }
+
+                function onModalFolderClick() {
+                    if (currentPreviewIndex === -1 || !previewCards[currentPreviewIndex]) return;
+                    const activeCard = previewCards[currentPreviewIndex];
+                    const media = activeCard.querySelector('img') || activeCard.querySelector('video');
+                    if (!media) return;
+                    const src = media.getAttribute('src');
+                    const path = src.startsWith('/') ? src.slice(1) : src;
+
+                    fetch('/htmx/open-folder', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({ path: path })
+                    });
+                }
+
+                function onModalDeleteClick() {
+                    if (currentPreviewIndex === -1 || !previewCards[currentPreviewIndex]) return;
+                    const activeCard = previewCards[currentPreviewIndex];
+                    const media = activeCard.querySelector('img') || activeCard.querySelector('video');
+                    if (!media) return;
+                    const src = media.getAttribute('src');
+                    const path = src.startsWith('/') ? src.slice(1) : src;
+
+                    if (confirm("Are you sure you want to delete this media file?")) {
+                        fetch(`/htmx/media?path=${encodeURIComponent(path)}`, {
+                            method: 'DELETE'
+                        }).then(res => {
+                            if (res.ok) {
+                                activeCard.remove();
+                                previewCards.splice(currentPreviewIndex, 1);
+
+                                if (previewCards.length === 0) {
+                                    closePreviewModal();
+                                } else {
+                                    if (currentPreviewIndex >= previewCards.length) {
+                                        currentPreviewIndex = 0;
+                                    }
+                                    showPreviewForIndex(currentPreviewIndex);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                function onBackdropClick(event) {
+                    if (event.target.id === 'media-preview-modal') {
+                        closePreviewModal();
+                    }
+                }
+
+                function validateSafetyThresholds() {
+                    const workers = parseInt(document.querySelector('input[name="workers"]')?.value || "0");
+                    const dlWorkers = parseInt(document.querySelector('input[name="dl_workers"]')?.value || "0");
+                    const depth = parseInt(document.querySelector('input[name="crawl_depth"]')?.value || "0");
+                    const banner = document.getElementById('safety-warning-banner');
+                    const text = document.getElementById('safety-warning-text');
+
+                    const warnings = [];
+                    if (workers > 16) warnings.push(`Concurrency Workers (${workers}) exceeds safe 16 limit. High risk of CPU/RAM spikes and Chrome process stalls.`);
+                    if (dlWorkers > 24) warnings.push(`Download Workers (${dlWorkers}) exceeds safe 24 limit. High risk of CDN IP rate limiting (HTTP 429/503).`);
+                    if (depth > 4) warnings.push(`Crawl Depth (${depth}) is high. Risk of exponential link explosion.`);
+
+                    if (warnings.length > 0 && banner && text) {
+                        text.innerHTML = warnings.join("<br>⚠️ ");
+                        banner.style.display = "block";
+                    } else if (banner) {
+                        banner.style.display = "none";
+                    }
+                }
+
+                function setRunMode(mode) {
+                    const customBtn = document.getElementById('mode-custom');
+                    const unlimitedBtn = document.getElementById('mode-unlimited');
+                    const banner = document.getElementById('unlimited-mode-banner');
+                    const form = document.getElementById('scrape-form');
+                    const coreFormGroups = form.querySelectorAll('.form-grid > .form-group');
+
+                    if (mode === 'unlimited') {
+                        customBtn.classList.remove('active');
+                        unlimitedBtn.classList.add('active');
+                        if (banner) banner.style.display = 'block';
+
+                        // Hide pre-configured numerical fields (indices 2 to 7: Max Results, Depth, Limits, Workers, Output Format)
+                        coreFormGroups.forEach((el, index) => {
+                            if (index > 1) {
+                                el.style.display = 'none';
+                            } else {
+                                el.style.display = '';
+                            }
+                        });
+
+                        form.querySelector('input[name="max_results"]').value = 0;
+                        form.querySelector('input[name="crawl_depth"]').value = 0;
+                        form.querySelector('input[name="page_limit"]').value = 0;
+                        form.querySelector('input[name="workers"]').value = 16;
+                        form.querySelector('input[name="dl_workers"]').value = 24;
+
+                        form.querySelector('input[name="download_media"]').checked = true;
+                        form.querySelector('input[name="ignore_robots"]').checked = true;
+                        form.querySelector('input[name="use_state_cache"]').checked = true;
+                        form.querySelector('input[name="headless"]').checked = true;
                     } else {
-                        badge.innerText = 'STATUS: IDLE';
-                        badge.classList.remove('running');
-                        btn.disabled = false;
-                        btn.innerText = 'Initiate Scrape';
+                        unlimitedBtn.classList.remove('active');
+                        customBtn.classList.add('active');
+                        if (banner) banner.style.display = 'none';
 
-                        if (isPollingLogs) {
-                            clearInterval(pollLogsInterval);
-                            isPollingLogs = false;
-                            document.getElementById('log-speed-indicator').innerText = "IDLE";
-                            // Trigger refresh of sidebar to catch any newly created folder subjects!
-                            htmx.trigger(document.getElementById('sidebar-list'), 'load');
-                        }
+                        coreFormGroups.forEach(el => {
+                            el.style.display = '';
+                        });
+
+                        form.querySelector('input[name="max_results"]').value = 50;
+                        form.querySelector('input[name="crawl_depth"]').value = 2;
+                        form.querySelector('input[name="page_limit"]').value = 100;
+                        form.querySelector('input[name="workers"]').value = 8;
+                        form.querySelector('input[name="dl_workers"]').value = 12;
+
+                        form.querySelector('input[name="download_media"]').checked = true;
+                        form.querySelector('input[name="ignore_robots"]').checked = false;
+                        form.querySelector('input[name="use_state_cache"]').checked = true;
+                        form.querySelector('input[name="headless"]').checked = true;
+                    }
+                    if (typeof validateSafetyThresholds === 'function') {
+                        validateSafetyThresholds();
                     }
                 }
-            } catch (e) {
-                console.error("Status check failed:", e);
-            }
-        }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSeeds();
-            setInterval(checkGlobalStatus, 2000);
-            checkGlobalStatus();
-        });
-    </script>
+                // Populate seeds select dropdown
+                async function loadSeeds() {
+                    try {
+                        const res = await fetch('/api/seeds');
+                        if (res.ok) {
+                            const seeds = await res.json();
+                            const selector = document.getElementById('seed-selector');
+                            selector.innerHTML = '<option value="">None (Custom Input Only)</option>';
+                            seeds.forEach(seed => {
+                                const opt = document.createElement('option');
+                                opt.value = seed;
+                                opt.textContent = seed;
+                                selector.appendChild(opt);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Failed to load seeds list:", e);
+                    }
+                }
+
+                function onSeedSelected(select) {
+                    const val = select.value;
+                    const input = document.getElementById('keyword-input');
+                    if (val) {
+                        input.value = val.replace('.txt', '');
+                    }
+                }
+
+                function selectSubject(name) {
+                    currentSubject = name;
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'block';
+                    document.getElementById('main-title').innerText = "MEDIA VAULT";
+                    document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
+                    document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
+
+                    // Set active class in sidebar items
+                    document.querySelectorAll('.sidebar-item').forEach(item => {
+                        item.classList.remove('active');
+                        if (item.getAttribute('data-subject') === name) {
+                            item.classList.add('active');
+                        }
+                    });
+                    document.getElementById('nav-cmd-center').classList.remove('active');
+
+                    // Swap stats container to subject-scoped stats
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl) {
+                        statsEl.setAttribute('hx-get', `/htmx/subject-stats?subject=${encodeURIComponent(name)}`);
+                        statsEl.setAttribute('hx-trigger', 'load');
+                        htmx.process(statsEl);
+                    }
+
+                    switchGalleryTab('all');
+                }
+
+                function switchGalleryTab(kind) {
+                    currentMediaKind = kind;
+                    document.querySelectorAll('.gallery-tabs .tab-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                        if (btn.getAttribute('data-kind') === kind) {
+                            btn.classList.add('active');
+                        }
+                    });
+
+                    const grid = document.getElementById('gallery-grid-container');
+                    grid.setAttribute('hx-get', `/htmx/gallery?keyword=${currentSubject}&media_kind=${kind}`);
+                    grid.setAttribute('hx-trigger', 'load');
+                    htmx.process(grid);
+                }
+
+                function showCommandCenter() {
+                    document.getElementById('command-center-view').style.display = 'grid';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    document.getElementById('main-title').innerText = "COMMAND CENTER";
+                    document.getElementById('main-subtitle').innerText = "DATA EXTRACTION COCKPIT";
+
+                    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+                    document.getElementById('nav-cmd-center').classList.add('active');
+
+                    // Restore global stats and 2-second polling
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl) {
+                        statsEl.setAttribute('hx-get', '/htmx/active-stats');
+                        statsEl.setAttribute('hx-trigger', 'load, every 2s');
+                        htmx.process(statsEl);
+                    }
+                }
+
+                let isFormLocked = false;
+
+                function toggleFormLock(isLocked) {
+                    const form = document.getElementById('scrape-form');
+                    if (!form) return;
+
+                    const inputs = form.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        input.disabled = isLocked;
+                    });
+
+                    const presetBtns = document.querySelectorAll('.profile-slot-btn, .profile-action-btn');
+                    presetBtns.forEach(btn => {
+                        btn.disabled = isLocked;
+                        btn.style.pointerEvents = isLocked ? 'none' : 'auto';
+                        btn.style.opacity = isLocked ? '0.5' : '1';
+                    });
+
+                    const modeBtns = document.querySelectorAll('.run-mode-selector .btn');
+                    modeBtns.forEach(btn => {
+                        btn.disabled = isLocked;
+                        btn.style.pointerEvents = isLocked ? 'none' : 'auto';
+                        btn.style.opacity = isLocked ? '0.5' : '1';
+                    });
+
+                    const runBtn = document.getElementById('btn-run');
+                    if (runBtn) {
+                        runBtn.disabled = isLocked;
+                        runBtn.innerText = isLocked ? 'Running...' : 'Initiate Scrape';
+                    }
+                }
+
+                function onInitiateScrape() {
+                    const form = document.getElementById('scrape-form');
+                    if (form) {
+                        const activeParams = serializeForm(form);
+                        localStorage.setItem('active_scrape_params', JSON.stringify(activeParams));
+                    }
+                    logOffset = 0;
+                    document.getElementById('live-terminal-body').innerHTML = "";
+                    document.getElementById('log-speed-indicator').innerText = "ACTIVE";
+                    document.getElementById('progress-bar-container').style.display = "none";
+                    document.getElementById('progress-bar-fill').style.width = "0%";
+                    document.getElementById('progress-text').style.display = "none";
+                    document.getElementById('progress-text').innerText = "";
+                    if (!isPollingLogs) {
+                        isPollingLogs = true;
+                        pollLogsInterval = setInterval(pollLogs, 1000);
+                    }
+                }
+
+                function formatLogLine(line) {
+                    const parts = line.split(' | ');
+                    if (parts.length >= 4) {
+                        const timestampFull = parts[0].trim();
+                        const timeMatch = timestampFull.match(/\d{2}:\d{2}:\d{2}/);
+                        const timeStr = timeMatch ? timeMatch[0] : timestampFull;
+
+                        const level = parts[1].trim().toUpperCase();
+                        const module = parts[2].trim();
+                        const message = parts.slice(3).join(' | ').trim();
+
+                        let levelColor = "var(--text-muted)";
+                        let cssClass = "log-debug";
+                        if (level === "INFO") {
+                            levelColor = "#00ff66";
+                            cssClass = "log-info";
+                        } else if (level === "WARNING" || level === "WARN") {
+                            levelColor = "#ffcc00";
+                            cssClass = "log-warning";
+                        } else if (level === "ERROR" || level === "CRITICAL" || level === "FAILED") {
+                            levelColor = "#ff3333";
+                            cssClass = "log-error";
+                        } else if (level === "DEBUG") {
+                            levelColor = "#5a665f";
+                            cssClass = "log-debug";
+                        }
+
+                        let formattedMessage = message;
+
+                        // Escape HTML to prevent injection
+                        formattedMessage = formattedMessage
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;");
+
+                        // Highlight HTTP request methods and status codes
+                        if (formattedMessage.includes("HTTP Request:")) {
+                            formattedMessage = formattedMessage
+                                .replace("HTTP Request:", `<span style="color: var(--accent); font-weight: 700;">HTTP REQ</span>`)
+                                .replace(/GET\s+(https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
+                                .replace(/POST\s+(https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
+                                .replace(/"HTTP\/1\.1\s+(\d{3})\s+([^"]+)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
+                                .replace(/"HTTP\/1\.1\s+([45]\d{2})\s+([^"]+)"/g, `"<span style="color: #ff3333; font-weight: 700;">$1 $2</span>"`);
+                        }
+
+                        // Highlight media type rejections
+                        if (formattedMessage.includes("rejected:")) {
+                            formattedMessage = formattedMessage
+                                .replace(/(Image|Video)\s+rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
+                                .replace(/\(reason:\s*([^)]+)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
+                                .replace(/(https?:\/\/[^\s()]+)/g, `<span style="color: #5a665f; font-size: 0.85em;">$1</span>`);
+                        }
+
+                        // Highlight media downloaded/saved
+                        if (formattedMessage.toLowerCase().includes("downloaded") || formattedMessage.toLowerCase().includes("saved")) {
+                            formattedMessage = formattedMessage
+                                .replace(/downloaded/gi, `<span style="color: #00ff66; font-weight: bold;">DOWNLOADED</span>`)
+                                .replace(/saved/gi, `<span style="color: #00ff66; font-weight: bold;">SAVED</span>`);
+                        }
+
+                        // Highlight RUN START, RUN COMPLETE
+                        if (formattedMessage.includes("RUN START") || formattedMessage.includes("RUN COMPLETE")) {
+                            formattedMessage = `<span style="color: var(--accent); font-weight: bold; letter-spacing: 1px;">${formattedMessage}</span>`;
+                        }
+
+                        const html = `<span style="color: #5a665f;">[${timeStr}]</span> <span style="color: ${levelColor}; font-weight: bold; display: inline-block; width: 65px;">[${level}]</span> <span style="color: #8c928e; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom;">[${module}]</span> <span style="margin-left: 0.5rem; word-break: break-all; color: var(--text-primary);">${formattedMessage}</span>`;
+                        return { html, cssClass };
+                    }
+
+                    // Fallback for other log content
+                    let fallbackClass = "log-debug";
+                    let fallbackColor = "var(--text-muted)";
+                    let upper = line.toUpperCase();
+                    if (upper.includes("ERROR") || upper.includes("FAIL") || upper.includes("EXCEPTION")) {
+                        fallbackClass = "log-error";
+                        fallbackColor = "#ff3333";
+                    } else if (upper.includes("WARNING") || upper.includes("WARN")) {
+                        fallbackClass = "log-warning";
+                        fallbackColor = "#ffcc00";
+                    } else if (upper.includes("INFO")) {
+                        fallbackClass = "log-info";
+                        fallbackColor = "#00ff66";
+                    }
+
+                    return {
+                        html: `<span style="color: ${fallbackColor};">${line}</span>`,
+                        cssClass: fallbackClass
+                    };
+                }
+
+                async function pollLogs() {
+                    try {
+                        const response = await fetch('/api/logs?offset=' + logOffset);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const body = document.getElementById('live-terminal-body');
+
+                            // Handle progress bar updates
+                            const barContainer = document.getElementById('progress-bar-container');
+                            const barFill = document.getElementById('progress-bar-fill');
+                            const progressText = document.getElementById('progress-text');
+
+                            if (data.status === "running" && data.progress && data.progress.total > 0) {
+                                barContainer.style.display = "block";
+                                progressText.style.display = "inline";
+                                const pct = data.progress.percent;
+                                barFill.style.width = pct + "%";
+                                progressText.innerText = `${data.progress.current}/${data.progress.total} (${pct}%) | ${data.progress.time_info}`;
+                            } else {
+                                barContainer.style.display = "none";
+                                progressText.style.display = "none";
+                            }
+
+                            if (data.lines && data.lines.length > 0) {
+                                data.lines.forEach(line => {
+                                    const parsed = formatLogLine(line);
+                                    const div = document.createElement('div');
+                                    div.className = 'terminal-line ' + parsed.cssClass;
+                                    div.innerHTML = parsed.html;
+                                    body.appendChild(div);
+                                });
+                                logOffset = data.next_offset;
+                                body.scrollTop = body.scrollHeight;
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Log polling error:", err);
+                    }
+                }
+
+                // Global status poller to toggle run button state and lock interface while scraping
+                async function checkGlobalStatus() {
+                    try {
+                        const res = await fetch('/api/status');
+                        if (res.ok) {
+                            const data = await res.json();
+                            const badge = document.getElementById('status-badge');
+
+                            if (data.status === 'running') {
+                                badge.innerText = 'STATUS: RUNNING [' + (data.current_keyword || 'ACTIVE') + ']';
+                                badge.classList.add('running');
+
+                                if (!isFormLocked) {
+                                    isFormLocked = true;
+                                    // Attempt to restore parameters if page was reloaded during run
+                                    const activeParams = localStorage.getItem('active_scrape_params');
+                                    if (activeParams) {
+                                        try {
+                                            const form = document.getElementById('scrape-form');
+                                            deserializeForm(form, JSON.parse(activeParams));
+                                        } catch (e) {
+                                            console.error("Failed restoring active scrape parameters:", e);
+                                        }
+                                    }
+                                    toggleFormLock(true);
+                                }
+
+                                if (!isPollingLogs) {
+                                    isPollingLogs = true;
+                                    pollLogsInterval = setInterval(pollLogs, 1000);
+                                }
+                            } else {
+                                badge.innerText = 'STATUS: IDLE';
+                                badge.classList.remove('running');
+
+                                if (isFormLocked) {
+                                    isFormLocked = false;
+                                    toggleFormLock(false);
+                                    localStorage.removeItem('active_scrape_params');
+                                }
+
+                                if (isPollingLogs) {
+                                    clearInterval(pollLogsInterval);
+                                    isPollingLogs = false;
+                                    document.getElementById('log-speed-indicator').innerText = "IDLE";
+                                    // Trigger refresh of sidebar to catch any newly created folder subjects!
+                                    htmx.trigger(document.getElementById('sidebar-list'), 'load');
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Status check failed:", e);
+                    }
+                }
+
+                // Warn user before page reload/close if scraping is active
+                window.addEventListener('beforeunload', (e) => {
+                    if (isFormLocked) {
+                        e.preventDefault();
+                        e.returnValue = 'Scraping is currently in progress. Reloading will reset UI view (background process will continue). Are you sure you want to leave?';
+                        return e.returnValue;
+                    }
+                });
+
+                document.addEventListener('DOMContentLoaded', () => {
+                    loadSeeds();
+                    setInterval(checkGlobalStatus, 2000);
+                    checkGlobalStatus();
+                });
+            </script>
 </body>
 
 </html>

@@ -24,10 +24,43 @@ if sys.stderr is None:
 
 
 def create_icon_image():
-    """Create a simple generated icon for the system tray."""
-    image = Image.new('RGB', (64, 64), color=(11, 13, 12))
+    """Create a bold, high-contrast scrAPE tray icon optimized for small display sizes.
+
+    PIL-drawn icons are preferred over loading the .ico file because the .ico
+    frames at 256x256 lose all legibility when Windows scales them down to
+    the 16-24px tray display size. This hand-drawn version is tuned so that
+    the orange / dark / white contrast reads clearly at every tray size.
+    """
+    size = 64
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rectangle([16, 16, 48, 48], fill=(255, 85, 0))
+
+    # Solid orange background — immediately recognizable even at 16px
+    draw.rectangle([0, 0, size - 1, size - 1], fill=(255, 85, 0, 255))
+
+    # Dark inner card face — inset 6px on each side
+    m = 6
+    draw.rectangle([m, m, size - m - 1, size - m - 1], fill=(22, 25, 23, 255))
+
+    # Brow ridge — white thick bar across the upper face
+    draw.rectangle([m + 4, m + 8, size - m - 5, m + 17], fill=(244, 244, 240, 255))
+
+    # Left eye socket
+    draw.rectangle([m + 4, m + 19, m + 14, m + 28], fill=(0, 0, 0, 255))
+    # Right eye socket
+    draw.rectangle([size - m - 15, m + 19, size - m - 5, m + 28], fill=(0, 0, 0, 255))
+
+    # Orange pupils (acquisition nodes)
+    draw.rectangle([m + 7, m + 22, m + 11, m + 25], fill=(255, 85, 0, 255))
+    draw.rectangle([size - m - 12, m + 22, size - m - 8, m + 25], fill=(255, 85, 0, 255))
+
+    # Jaw / muzzle block — orange, lower third
+    draw.rectangle([m + 4, m + 30, size - m - 5, m + 42], fill=(255, 85, 0, 255))
+
+    # Nostril slits — small dark rectangles in jaw
+    draw.rectangle([m + 10, m + 32, m + 13, m + 38], fill=(22, 25, 23, 255))
+    draw.rectangle([size - m - 14, m + 32, size - m - 11, m + 38], fill=(22, 25, 23, 255))
+
     return image
 
 
@@ -69,12 +102,12 @@ def check_and_install_dependencies():
                 browser = p.chromium.launch(headless=True)
                 browser.close()
             except Exception:
-                print("🎭 Playwright browser binaries not found. Installing...")
+                print("Playwright browser binaries not found. Installing...")
                 try:
                     subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-                    print("✅ Playwright browser binaries installed successfully!\n")
+                    print("Playwright browser binaries installed successfully!\n")
                 except Exception as e:
-                    print(f"⚠️ Failed to install Playwright browser binaries: {e}\n")
+                    print(f"Failed to install Playwright browser binaries: {e}\n")
                     time.sleep(2)
     except ImportError:
         pass
@@ -101,12 +134,12 @@ def run_tray():
         pystray.MenuItem("Quit", on_quit)
     )
     
-    icon = pystray.Icon("scrAPE", icon_image, "scrAPE Watchdog", menu)
+    icon = pystray.Icon("scrAPE", icon_image, "scrAPE - Port 10001", menu)
     icon.run()
 
 
 def clear_screen():
-    os.system("cls" if os.name == "nt" else "clear")
+    subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
 
 
 def main():

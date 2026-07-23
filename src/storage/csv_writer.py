@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-
 from core.models import ScrapeResult
-
 
 def write_csv(result: ScrapeResult, output_root: Path) -> None:
     output_root.mkdir(parents=True, exist_ok=True)

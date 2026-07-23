@@ -24,6 +24,10 @@ log_buffer = deque(maxlen=2000)
 
 app = FastAPI(title="scrAPE Web GUI", version="1.0.0")
 
+STATIC_DIR = ROOT_DIR / "frontend" / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 class ScrapeRequest(BaseModel):
     keyword: str
     seed: Optional[str] = None
@@ -149,6 +153,10 @@ def read_subprocess_logs(proc: subprocess.Popen):
                             process_log_line(cleaned_line)
                             
         proc.stdout.close()
+    if hasattr(proc, "wait"):
+        proc.wait()
+    task_state["status"] = "idle"
+    task_state["pid"] = None
 
 @app.get("/api/logs")
 def get_logs(offset: int = 0):
@@ -293,10 +301,11 @@ def run_scrape(req: ScrapeRequest):
     return {"message": "Scrape started", "pid": _current_process.pid}
 
 import time
+from typing import Any
 
-_dashboard_cache = {
+_dashboard_cache: dict[str, Any] = {
     "data": None,
-    "last_updated": 0
+    "last_updated": 0.0
 }
 
 @app.get("/api/dashboard")
@@ -313,16 +322,34 @@ def get_dashboard():
     total_videos = 0
     total_scanned = 0
 
-    for json_file in OUTPUT_DIR.glob("*/runs/*/results.json"):
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
+    VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".ogv", ".mov"}
+
+    for run_dir in OUTPUT_DIR.glob("*/runs/*/"):
+        if not run_dir.is_dir():
+            continue
         total_runs += 1
-        try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                total_images += data.get("download_stats", {}).get("images_saved", 0)
-                total_videos += data.get("download_stats", {}).get("videos_saved", 0)
-                total_scanned += data.get("page_count", 0)
-        except Exception:
-            pass
+
+        img_dir = run_dir / "images"
+        if img_dir.is_dir():
+            total_images += sum(
+                1 for f in img_dir.rglob("*") if f.is_file() and f.suffix.lower() in IMAGE_EXTS
+            )
+
+        vid_dir = run_dir / "videos"
+        if vid_dir.is_dir():
+            total_videos += sum(
+                1 for f in vid_dir.rglob("*") if f.is_file() and f.suffix.lower() in VIDEO_EXTS
+            )
+
+        results_file = run_dir / "results.json"
+        if results_file.is_file():
+            try:
+                with open(results_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    total_scanned += data.get("page_count", 0)
+            except Exception:
+                pass
 
     images = []
     videos = []
@@ -468,19 +495,37 @@ def htmx_gallery(keyword: str = "apple", domain: str = "", page: int = 1, limit:
 @app.delete("/htmx/media")
 def delete_media(path: str):
     target = OUTPUT_DIR / path
-    if target.exists() and target.is_file():
-        # Security check
-        if str(OUTPUT_DIR.resolve()) in str(target.resolve()):
-            target.unlink()
+    try:
+        resolved_target = target.resolve()
+        resolved_output = OUTPUT_DIR.resolve()
+        if resolved_target.is_relative_to(resolved_output) and resolved_target.is_file():
+            resolved_target.unlink()
             return HTMLResponse("") # Empty response removes it from DOM
+    except Exception:
+        pass
     raise HTTPException(status_code=404)
+
+def _get_form_str(form: Any, key: str, default: str | None = None) -> str | None:
+    val = form.get(key)
+    if isinstance(val, str):
+        return val
+    return default
+
+def _get_form_int(form: Any, key: str, default: int) -> int:
+    val = form.get(key)
+    if isinstance(val, str):
+        try:
+            return int(val)
+        except ValueError:
+            pass
+    return default
 
 @app.post("/htmx/open-folder")
 async def open_folder(request: Request):
     form = await request.form()
-    path = form.get("path", "")
-    target = OUTPUT_DIR / path
-    if target.exists():
+    path_str = _get_form_str(form, "path", "") or ""
+    target = OUTPUT_DIR / path_str
+    if path_str and target.exists():
         # Windows only
         subprocess.Popen(f'explorer /select,"{target.resolve()}"')
     return HTMLResponse("")
@@ -490,11 +535,49 @@ def get_stats():
     cpu = psutil.cpu_percent()
     ram = psutil.virtual_memory().percent
     disk = psutil.disk_usage(str(OUTPUT_DIR)).percent
+    
+    def get_color(val, high_thresh=85, warn_thresh=70):
+        if val >= high_thresh:
+            return "#ff3333"
+        elif val >= warn_thresh:
+            return "var(--accent)"
+        return "#00ff66"
+
+    cpu_color = get_color(cpu)
+    ram_color = get_color(ram)
+    disk_color = get_color(disk)
+
     return HTMLResponse(f"""
-        <div style="display: flex; gap: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary);">
-            <div>SYS.CPU <span style="color: {'var(--accent)' if cpu > 80 else 'var(--text-muted)'}">{cpu}%</span></div>
-            <div>SYS.RAM <span style="color: {'var(--accent)' if ram > 80 else 'var(--text-muted)'}">{ram}%</span></div>
-            <div>SYS.DSK <span style="color: {'var(--accent)' if disk > 90 else 'var(--text-muted)'}">{disk}%</span></div>
+        <div class="telemetry-bar">
+            <div class="telemetry-badge">
+                <span class="pulse-dot"></span>
+                <span class="telemetry-title">SYS TELEMETRY</span>
+            </div>
+            <div class="telemetry-metrics">
+                <div class="telemetry-card">
+                    <div class="telemetry-label">CPU</div>
+                    <div class="telemetry-meter">
+                        <div class="telemetry-fill" style="width: {cpu}%; background-color: {cpu_color};"></div>
+                    </div>
+                    <div class="telemetry-val" style="color: {cpu_color};">{cpu:.1f}%</div>
+                </div>
+
+                <div class="telemetry-card">
+                    <div class="telemetry-label">RAM</div>
+                    <div class="telemetry-meter">
+                        <div class="telemetry-fill" style="width: {ram}%; background-color: {ram_color};"></div>
+                    </div>
+                    <div class="telemetry-val" style="color: {ram_color};">{ram:.1f}%</div>
+                </div>
+
+                <div class="telemetry-card">
+                    <div class="telemetry-label">DSK</div>
+                    <div class="telemetry-meter">
+                        <div class="telemetry-fill" style="width: {disk}%; background-color: {disk_color};"></div>
+                    </div>
+                    <div class="telemetry-val" style="color: {disk_color};">{disk:.1f}%</div>
+                </div>
+            </div>
         </div>
     """)
 
@@ -502,23 +585,24 @@ def get_stats():
 async def htmx_run(request: Request):
     form = await request.form()
     req = ScrapeRequest(
-        keyword=form.get("keyword"),
-        max_results=int(form.get("max_results", 50)),
-        workers=int(form.get("workers", 8)),
-        dl_workers=int(form.get("dl_workers", 6)),
-        page_limit=int(form.get("page_limit", 100)),
-        crawl_depth=int(form.get("crawl_depth", 2)),
-        output=form.get("output", "both"),
-        seed_urls=form.get("seed_urls"),
-        allow_domains=form.get("allow_domains"),
-        block_domains=form.get("block_domains"),
-        entity_tokens=form.get("entity_tokens"),
-        domain_delays=form.get("domain_delays"),
-        proxy=form.get("proxy"),
-        capsolver_key=form.get("capsolver_key")
+        keyword=_get_form_str(form, "keyword", "apple") or "apple",
+        max_results=_get_form_int(form, "max_results", 50),
+        workers=_get_form_int(form, "workers", 8),
+        dl_workers=_get_form_int(form, "dl_workers", 6),
+        page_limit=_get_form_int(form, "page_limit", 100),
+        crawl_depth=_get_form_int(form, "crawl_depth", 2),
+        output=_get_form_str(form, "output", "both") or "both",
+        seed_urls=_get_form_str(form, "seed_urls"),
+        allow_domains=_get_form_str(form, "allow_domains"),
+        block_domains=_get_form_str(form, "block_domains"),
+        entity_tokens=_get_form_str(form, "entity_tokens"),
+        domain_delays=_get_form_str(form, "domain_delays"),
+        proxy=_get_form_str(form, "proxy"),
+        capsolver_key=_get_form_str(form, "capsolver_key")
     )
-    if form.get("seed"):
-        req.seed = form.get("seed")
+    seed_val = _get_form_str(form, "seed")
+    if seed_val:
+        req.seed = seed_val
     if form.get("download_media") == "on":
         req.download_media = True
     if form.get("ignore_robots") == "on":
@@ -550,10 +634,21 @@ async def htmx_run(request: Request):
 def kill_scrape():
     global _current_process, task_state
     if _current_process and _current_process.poll() is None:
-        _current_process.kill()
+        try:
+            import psutil
+            parent = psutil.Process(_current_process.pid)
+            for child in parent.children(recursive=True):
+                try:
+                    child.kill()
+                except Exception:
+                    pass
+            parent.kill()
+        except Exception:
+            _current_process.kill()
+
         task_state["status"] = "idle"
         task_state["pid"] = None
-        log_buffer.append(">>> PROCESS KILLED BY USER <<<")
+        log_buffer.append(">>> PROCESS & CHILD WORKERS TERMINATED BY USER <<<")
         return HTMLResponse("<div style='color: red; margin-top: 1rem;'>PROCESS ABORTED</div>")
     return HTMLResponse("<div style='color: var(--text-muted); margin-top: 1rem;'>NO ACTIVE PROCESS</div>")
 
@@ -592,23 +687,46 @@ def htmx_sidebar(active: str = ""):
         return HTMLResponse("<div style='padding: 1rem; color: var(--text-muted); font-size: 0.8rem;'>NO SUBJECTS FOUND</div>")
     return HTMLResponse("\n".join(html))
 
-def get_historical_stats():
+def get_historical_stats(subject: str | None = None):
     total_runs = 0
     total_images = 0
     total_videos = 0
     total_scanned = 0
 
+    IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
+    VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".ogv", ".mov"}
+
+    pattern = f"{subject}/runs/*/" if subject else "*/runs/*/"
+
     if OUTPUT_DIR.exists():
-        for json_file in OUTPUT_DIR.glob("*/runs/*/results.json"):
+        for run_dir in OUTPUT_DIR.glob(pattern):
+            if not run_dir.is_dir():
+                continue
             total_runs += 1
-            try:
-                with open(json_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    total_images += data.get("download_stats", {}).get("images_saved", 0)
-                    total_videos += data.get("download_stats", {}).get("videos_saved", 0)
-                    total_scanned += data.get("page_count", 0)
-            except Exception:
-                pass
+
+            # Count actual files on disk — results.json keys are unreliable
+            img_dir = run_dir / "images"
+            if img_dir.is_dir():
+                total_images += sum(
+                    1 for f in img_dir.rglob("*") if f.is_file() and f.suffix.lower() in IMAGE_EXTS
+                )
+
+            vid_dir = run_dir / "videos"
+            if vid_dir.is_dir():
+                total_videos += sum(
+                    1 for f in vid_dir.rglob("*") if f.is_file() and f.suffix.lower() in VIDEO_EXTS
+                )
+
+            # Still read page_count from results.json for scanned pages total
+            results_file = run_dir / "results.json"
+            if results_file.is_file():
+                try:
+                    with open(results_file, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                        total_scanned += data.get("page_count", 0)
+                except Exception:
+                    pass
+
     return {
         "total_runs": total_runs,
         "total_images": total_images,
@@ -663,6 +781,37 @@ def htmx_active_stats():
                 <div class="value">{stats["total_scanned"]}</div>
             </div>
         """)
+
+@app.get("/htmx/subject-stats")
+def htmx_subject_stats(subject: str = ""):
+    global_stats = get_historical_stats()
+    if not subject:
+        subj_stats = global_stats
+    else:
+        subj_stats = get_historical_stats(subject=subject)
+
+    return HTMLResponse(f"""
+        <div class="stat-card">
+            <div class="label">SUBJ.RUNS</div>
+            <div class="value">{subj_stats["total_runs"]}</div>
+            <div class="sub-total">/ {global_stats["total_runs"]} total</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">ASSET.IMG</div>
+            <div class="value">{subj_stats["total_images"]}</div>
+            <div class="sub-total">/ {global_stats["total_images"]} total</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">ASSET.VID</div>
+            <div class="value">{subj_stats["total_videos"]}</div>
+            <div class="sub-total">/ {global_stats["total_videos"]} total</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">TARGETS.SCAN</div>
+            <div class="value">{subj_stats["total_scanned"]}</div>
+            <div class="sub-total">/ {global_stats["total_scanned"]} total</div>
+        </div>
+    """)
 
 @app.get("/gallery")
 def serve_gallery():

@@ -1,15 +1,8 @@
 # scrAPE — Scraper for Archival & Production Extraction
 
-      ██████  ▄████▄   ██▀███   ▄▄▄       ██▓███  ▓█████ 
-    ▒██    ▒ ▒██▀ ▀█  ▓██ ▒ ██▒▒████▄    ▓██░  ██▒▓█   ▀ 
-    ░ ▓██▄   ▒▓█    ▄ ▓██ ░▄█ ▒▒██  ▀█▄  ▓██░ ██▓▒▒███   
-      ▒   ██▒▒▓▓▄ ▄██▒▒██▀▀█▄  ░██▄▄▄▄██ ▒██▄█▓▒ ▒▒▓█  ▄ 
-    ▒██████▒▒▒ ▓███▀ ░░██▓ ▒██▒ ▓█   ▓██▒▒██▒ ░  ░░▒████▒
-    ▒ ▒▓▒ ▒ ░░ ░▒ ▒  ░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░▒▓▒░ ░  ░░░ ▒░ ░
-    ░ ░▒  ░ ░  ░  ▒     ░▒ ░ ▒░  ▒   ▒▒ ░░▒ ░      ░ ░  ░
-    ░  ░  ░  ░          ░░   ░   ░   ▒   ░░          ░   
-          ░  ░ ░         ░           ░  ░            ░  ░
-             ░                                           
+<p align="center">
+  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="160" height="160">
+</p>
 
 **Batch media scraper** for crawling domains, discovering image/video assets, filtering for relevance, and downloading results.
 
@@ -24,7 +17,8 @@
 - **Yield Tuning & Upscaling** — Heuristically predicts and fetches high-res origin URLs from standard thumbnail patterns (e.g. WordPress, Twitter) with automatic graceful degradation.
 - **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist. Includes early low-res directory structure path pre-filtering to avoid fetching thumbnails.
 - **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile. Features WAF & Auth Wall Cutoff Circuit Breakers (consecutive failure/redirect thresholds) to prevent resource exhaustion.
-- **Dynamic HTMX Frontend** — A fully decoupled, responsive live command center in `frontend/`. Monitors live OS hardware usage, offers process abort controls, and features physical file management directly inside the dashboard gallery (open local folder, delete files) via HTMX.
+- **Dynamic HTMX Frontend** — A fully decoupled, responsive live command center in `frontend/`. Features context-aware telemetry stat cards (switching between global totals and per-subject counts), real-time OS hardware monitoring (CPU, RAM, Disk), hardware safety threshold validation (>16 scrapers, >24 downloaders alert), interactive `[?]` tooltips, process abort controls, and physical file management (open local folder, delete files) directly inside the gallery via HTMX.
+- **Vector Branding & System Tray** — Integrated SVG vector logo branding across web and terminal interfaces, inline SVG favicon data URI loading, and a custom high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) optimized for taskbar display.
 - **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
 - **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`), optimized with WAL for high concurrency.
 - **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag.
@@ -212,11 +206,28 @@ The summary is printed to the console at the end of every run, and stored in JSO
 
 | Challenge / Limitation | Status | Resolution / Workaround |
 | --- | --- | --- |
-| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed natively on Windows/Mac via headful browser spawning, or fully headless on Linux via `--capsolver-key` API integration. |
-| **JS-Only / SPA Pages** | **DEFEATED** | Fully rendered via Crawlee (Puppeteer) and `yt-dlp` specialized extractors. |
+| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed natively on Windows/Mac via headful browser spawning, fast-fail 8s timeout, or fully headless on Linux via `--capsolver-key` API integration. |
+| **JS-Only / SPA Pages** | **DEFEATED** | Fully rendered via Crawlee (Puppeteer) and `yt-dlp` specialized extractors. Lazy-loaded media extracted via `data-src`, `srcset`, and JSON-LD metadata. |
 | **Auth-Walled Sources** | **DEFEATED** | Bypassed via Local Cookie Harvesting (`browser-cookie3`) and manual `--inject-cookies` / `--login` CLI flags. |
 | **IP Rate-Limiting / Bans** | **Limitation** | The scraper runs locally on a single IP without proxy rotation. If aggressively banned, use `--proxy-list` to route through proxies. |
 | **Manual CAPTCHAs** | **DEFEATED (Opt-In)** | Passed automatically if `--capsolver-key` is supplied; otherwise pauses execution to allow manual interaction in GUI mode. |
+| **Disabled Seed Domains** | **DEFEATED** | Dynamic Seed Whitelisting automatically registers all hostnames present in `--seed-file` so provided links are never skipped. |
+
+---
+
+## Parameter Recommendations & Safety Guardrails
+
+To ensure system stability, avoid CPU/RAM bottlenecks, and prevent CDN IP rate-limiting during large extractions:
+
+| Parameter | Recommended (Safe Baseline) | High-Performance (Heavy Run) | Over-Limit Warning Threshold | Potential Risk / System Impact |
+| :--- | :--- | :--- | :--- | :--- |
+| **Concurrency Workers** (`--workers`) | **4 – 8 workers** | **12 – 16 workers** | **> 16 workers** | High CPU/RAM utilization, Playwright Chrome process spawning stalls, browser context crashes. |
+| **Download Workers** (`--dl-workers`) | **4 – 8 workers** | **12 – 16 workers** | **> 24 workers** | Bandwidth saturation, CDN IP bans (HTTP 429/503), disk write queue contention. |
+| **Crawl Depth** (`--crawl-depth`) | **1 – 2 levels** | **3 levels** | **> 4 levels** | Exponential link explosion, memory growth, crawl graph circular loops. |
+| **Max Results** (`--max-results`) | **50 – 200 items** | **500 – 1000 items** | **0 (Unlimited)** | Unbounded disk usage (gigabytes of video data), long-running background tasks. |
+| **Page Limit** (`--page-limit`) | **20 – 50 pages** | **100 – 200 pages** | **0 (Unlimited)** | High network traffic, memory retention, extended job durations. |
+
+*The Web Cockpit UI (`run_frontend.bat`) includes real-time warning badges if worker counts exceed safe hardware thresholds.*
 
 ---
 

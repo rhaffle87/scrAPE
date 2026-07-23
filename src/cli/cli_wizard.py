@@ -11,11 +11,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Ensure UTF-8 output encoding for block characters on Windows
 if sys.platform.startswith("win"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        pass
+    if hasattr(sys.stdout, "reconfigure"):
+        getattr(sys.stdout, "reconfigure")(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        getattr(sys.stderr, "reconfigure")(encoding="utf-8")
 
 # ANSI colors for premium terminal styling
 CLR_HEADER = "\033[95m"
@@ -30,21 +29,14 @@ CLR_UNDERLINE = "\033[4m"
 
 
 def clear_screen():
-    os.system("cls" if os.name == "nt" else "clear")
+    subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
 
 
 def print_banner():
     banner = f"""{CLR_CYAN}{CLR_BOLD}
-      ██████  ▄████▄   ██▀███   ▄▄▄       ██▓███  ▓█████ 
-    ▒██    ▒ ▒██▀ ▀█  ▓██ ▒ ██▒▒████▄    ▓██░  ██▒▓█   ▀ 
-    ░ ▓██▄   ▒▓█    ▄ ▓██ ░▄█ ▒▒██  ▀█▄  ▓██░ ██▓▒▒███   
-      ▒   ██▒▒▓▓▄ ▄██▒▒██▀▀█▄  ░██▄▄▄▄██ ▒██▄█▓▒ ▒▒▓█  ▄ 
-    ▒██████▒▒▒ ▓███▀ ░░██▓ ▒██▒ ▓█   ▓██▒▒██▒ ░  ░░▒████▒
-    ▒ ▒▓▒ ▒ ░░ ░▒ ▒  ░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░▒▓▒░ ░  ░░░ ▒░ ░
-    ░ ░▒  ░ ░  ░  ▒     ░▒ ░ ▒░  ▒   ▒▒ ░░▒ ░      ░ ░  ░
-    ░  ░  ░  ░          ░░   ░   ░   ▒   ░░          ░   
-          ░  ░ ░         ░           ░  ░            ░  ░
-             ░                                           {CLR_END}"""
+  +-------------------------------------------------------------+
+  |   *  scrAPE // DATA EXTRACTION COCKPIT & MEDIA SCRAPER   |
+  +-------------------------------------------------------------+{CLR_END}"""
     print(banner)
 
 
@@ -103,16 +95,18 @@ def run_command(cmd: list[str]):
         f"\n{CLR_BLUE}{CLR_BOLD}═════════════════════ EXECUTION ═════════════════════{CLR_END}"
     )
     print(f"Executing: {CLR_GREEN}{' '.join(cmd)}{CLR_END}\n")
+    process = None
     try:
         process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
         process.wait()
     except KeyboardInterrupt:
         print(f"\n{CLR_WARNING}Execution interrupted by user.{CLR_END}")
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
 
 
 def mode_general_scraping():

@@ -119,7 +119,10 @@ In addition to launching crawls, the wizard provides built-in utilities for down
 *(Alternatively, you can run `python -m frontend.app`)*
 
 The Local Web GUI provides a fully decoupled, HTMX-powered dynamic dashboard hosted locally. It allows you to:
-1. **View the Dashboard:** See aggregated statistics and browse all downloaded media directly at `http://localhost:10001/`.
+1. **View the Dashboard & Context-Aware Telemetry:** Access global aggregated statistics on the **Command Center** view, or switch to per-subject scoped totals (`SUBJ.RUNS`, `ASSET.IMG`, `ASSET.VID`, `TARGETS.SCAN`) with global comparison sub-lines (`/ N total`) when viewing a subject in the **Media Vault**.
 2. **Interactive File Management:** Physically open the containing OS folder or securely delete files directly from the gallery UI without refreshing.
 3. **Trigger & Monitor Scrapes:** Programmatically trigger background scrapes directly from the UI, stream the live terminal output to the browser, and monitor real-time hardware telemetry (CPU, RAM, Disk space) via auto-polling HTMX widgets.
-4. **Process Abort:** Use the `[ABORT]` button to forcefully kill lingering scraper processes if they hang or if you want to stop early.
+4. **Hardware Safety Threshold Warnings:** Dynamic client-side validator (`validateSafetyThresholds()`) alerts users if concurrency parameters exceed safe hardware limits (>16 scrapers, >24 download workers).
+5. **Interactive Help Tooltips & Modes:** Hover over any `[?]` help badge for parameter documentation, or toggle between Custom Configuration and Instant Unlimited Mode.
+6. **Process Abort:** Use the `[ABORT]` button to forcefully kill lingering scraper processes if they hang or if you want to stop early.
+7. **System Tray Integration:** Runs in the background with a custom high-contrast taskbar icon (`launcher.py`) providing quick status checks and tray menu controls.
