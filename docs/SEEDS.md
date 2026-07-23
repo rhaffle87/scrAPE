@@ -1,85 +1,86 @@
-# Seed Files Specification & Guide
+# Seed Manifest Specification & Guide — scrAPE
 
-Seed files in **scrAPE** are plain text files (`.txt`) used to bootstrap and fine-tune crawls. They allow you to define structured **Domain Profiles** and seed URLs for specific search subjects without hardcoding crawler policies in Python code.
+> Complete reference for creating, annotating, validating, and managing declarative seed files (`seeds/*.txt`).
 
 ---
 
-## 1. The Syntax
+## 1. Overview
 
-Seed files are parsed line-by-line using a two-pass parser. Comment lines preceding a URL block build up annotations for that domain.
+Seed files in **scrAPE** are plain text files (`.txt`) used to bootstrap and fine-tune crawls. They define structured **Domain Profiles** and target URLs for specific subjects without hardcoding crawler policies in Python code.
 
-### Subject Header
-The very first matching `# Subject:` comment line in the file defines the scrape target name.
+---
+
+## 2. Manifest Syntax
+
+Seed files are parsed line-by-line using a two-pass parser (`src/core/seed_manifest.py`). Comment lines preceding a URL block build up annotations for that domain profile.
+
+### 2.1 Subject Header
+The first matching `# Subject:` comment line defines the target subject name and enriches the crawl with automatic entity tokens:
+
 ```text
-# Subject: Apple / Apple Inc.
+# Subject: Apple / Tech Assets
 ```
-*Normalisation*: This automatically enriches the crawl with entity tokens (e.g. `["apple", "inc"]`) used for relevance filtering.
 
-### Section Dividers
-Lines starting with `# ---` or `# ===` reset all pending domain profile annotations. Use them to separate different domains.
+### 2.2 Section Dividers
+Lines starting with `# ---` or `# ===` reset all pending domain profile annotations. Use them to cleanly partition domain blocks.
 
-### Domain Profile Annotations
-All other comment lines that precede a URL list are scanned for specific configuration keywords:
+### 2.3 Domain Profile Annotations
 
-| Keyword | Format | Description | Example |
-| :--- | :--- | :--- | :--- |
-| **Type** | `type: <image\|video\|mixed>` | Gating filter for media items kept on this domain. | `# type: image` |
-| **Crawl Strategy** | `crawl: <direct\|index→detail>` | If `direct`, only harvests media from the page. If `index→detail`, crawls nested links. | `# crawl: index→detail` |
-| **CDN Host** | `[CDN] <hostname>` | Declares valid external CDN domains that serve media assets. | `# [CDN] static.example.com` |
-| **Depth** | `depth: <N>` | Maximum depth for link traversal on this domain. | `# depth: 1` |
-| **Rate Limit** | `Rate-limit: <N> req/s` | Sets target requests per second for this host. | `# Rate-limit: 0.5 req/s` |
-| **Max Pages** | `max_pages: <N>` | Hard cap on pages fetched from this domain to avoid infinite loops. | `# max_pages: 15` |
-| **Disabled** | `disabled` | Skips this entire domain and all its seed URLs. | `# disabled` |
-| **Requires Referer** | `requires_referer` | Force requests to send the host as a `Referer` to bypass hotlinking. | `# requires_referer` |
-| **Cloudflare** | `cloudflare: true` | Skips the Crawl4AI fallback and errors out fast on WAF checks. | `# cloudflare: true` |
-| **Min Image Size** | `min-image-size: <width>x<height>` | Filters out images smaller than this threshold. | `# min-image-size: 400x400` |
-| **Thumbnail Prefix** | `thumbnail-prefix: <pattern>` | Path prefix/pattern used to identify and skip low-res thumbnails. | `# thumbnail-prefix: /thumbs/` |
-| **Credentials** | `Username: <val>`, `Password: <val>`, `Email: <val>` | Placeholder/fields for credentials (if session login required). | `# Username: user123` |
+| Keyword | Syntax / Format | Description | Example |
+|---|---|---|---|
+| **Type** | `# type: <image\|video\|mixed>` | Media gating policy for kept assets. | `# type: image` |
+| **Crawl Strategy** | `# crawl: <direct\|index→detail>` | `direct` scrapes target URLs only. `index→detail` crawls links. | `# crawl: direct` |
+| **CDN Host** | `# [CDN] <hostname>` | Whitelists external CDN domain. | `# [CDN] cdn.domain.com` |
+| **Depth** | `# depth: <N>` | BFS crawl depth limit for this domain. | `# depth: 1` |
+| **Rate Limit** | `# Rate-limit: <N> req/s` | Sets per-domain request speed ceiling. | `# Rate-limit: 0.5 req/s` |
+| **Max Pages** | `# max_pages: <N>` | Hard cap on pages crawled for this domain per run. | `# max_pages: 10` |
+| **Cloudflare** | `# cloudflare: true` | Skips light browser fallbacks fast on 403/429. | `# cloudflare: true` |
+| **Disabled** | `# disabled` | Skips this entire domain and all its URLs. | `# disabled` |
+| **Requires Referer** | `# requires_referer` | Sends page Referer header to bypass hotlink protection. | `# requires_referer` |
+| **Min Image Size** | `# min_image_size: WxH` | Filters out images smaller than threshold. | `# min_image_size: 800x600` |
+| **Thumbnail Prefix** | `# thumbnail_prefix: <pattern>` | Path prefix to reject thumbnails early. | `# thumbnail_prefix: /thumbs/` |
 
 ---
 
-## 2. Generalization & Sanitization
-
-To ensure your seed files are clean, reproducible, and ready for sharing:
-
-1. **No Sensitive Data**: Never commit real usernames, passwords, API tokens, or session IDs in your seed file. Use placeholder comments and instruct the user to configure these via the CLI cookie injection mechanisms (`--login` or `--inject-cookies`).
-2. **Use Relative Section Layouts**: Clearly partition your domains using headers and clean spacing.
-3. **Avoid Target-Specific Hacks**: Do not hardcode ad-hoc filters for specific targets. Use `domain_config.json` for custom domain handlers and use standard annotations for seed-specific settings.
-
----
-
-## 3. Normalized Example Seed File
-
-Below is a template showing a well-formed, normalized seed file:
+## 3. Normalized Seed Manifest Example
 
 ```text
-# Subject: Orange Fruit / Citrus
+# Subject: Apple / Tech Assets
 # ===========================================================================
-# Domain Profiles & Seed Configurations
+# Domain Profiles & Target Configurations
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# openverse.org
+# gallery.apple.com
 # ---------------------------------------------------------------------------
-# type: mixed | crawl: direct
-# Rate-limit: 1.0 req/s
-https://openverse.org/search?q=orange
+# type: image | crawl: direct
+# min_image_size: 1000x800
+# thumbnail_prefix: /thumbs/
+https://gallery.apple.com/iphone
 
 # ---------------------------------------------------------------------------
-# unsplash.com
+# cdn.apple-assets.org
 # ---------------------------------------------------------------------------
-# type: image | crawl: index→detail
+# type: video | crawl: index→detail
 # depth: 1
-# [CDN] images.unsplash.com
-# min-image-size: 500x500
-https://unsplash.com/s/photos/orange
+# Rate-limit: 0.5 req/s
+# max_pages: 10
+# [CDN] cdn.apple-assets.org
+# requires_referer
+https://cdn.apple-assets.org/videos
 ```
 
 ---
 
-## 4. Validating Seeds
+## 4. Validating Seed Files
 
-You can validate any seed file's syntax and annotations using the CLI:
+Validate seed file syntax and print parsed domain profiles without initiating a crawl:
+
+```bash
+python src/cli/main.py --keyword apple --seed seeds/apple.txt --dry-run
+```
+
+Or run explicit seed validation mode:
 
 ```bash
 python -m src.cli.main --validate-seed seeds/apple.txt

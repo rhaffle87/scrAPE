@@ -1,82 +1,91 @@
-# Configuration & Settings Guide — scrAPE
+# Configuration & Settings Reference — scrAPE
 
-This document provides a detailed reference for all configuration options, seed manifest annotations, dynamic configuration files, WAF bypass settings, and AI ingestion helper parameters.
+> Complete reference guide for seed manifest annotations, dynamic JSON configuration files, WAF circuit breakers, parameter safety guardrails, and AI dataset tools.
 
 ---
 
 ## 1. Seed Manifest Annotations
 
-Seed files (`seeds/*.txt`) contain target entry URLs. Annotations (formatted as `# key: value` comments) placed immediately preceding a URL apply to all URLs in that block.
+Seed files (`seeds/*.txt`) configure extraction rules per domain. Annotations are formatted as comment lines (`# key: value`) preceding a domain or URL block:
 
 | Annotation | Syntax / Values | Default | Description |
-| --- | --- | --- | --- |
-| `type` | `# type: <video \| image \| mixed>` | `mixed` | Hint to the crawler indicating the expected target media type. |
-| `crawl` | `# crawl: <direct \| index→detail>` | `index→detail` | `direct` targets the seed URLs only (BFS depth 0). `index→detail` follows discovered links. |
+|---|---|---|---|
+| `type` | `# type: <video \| image \| mixed>` | `mixed` | Expected target media type hint and extraction policy. |
+| `crawl` | `# crawl: <direct \| index→detail>` | `index→detail` | `direct` scrapes target URLs only (depth 0). `index→detail` performs BFS link discovery. |
 | `depth` | `# depth: <int>` | `None` (engine default) | BFS crawl depth limit override for the domain. |
-| `Rate-limit` | `# Rate-limit: <float> req/s` | `None` (1.0 req/s) | Limits request speed on a per-domain basis (e.g. `0.1 req/s` is 1 request every 10 seconds). |
-| `max_pages` | `# max_pages: <int>` | `None` (unlimited) | Hard ceiling on pages fetched for this domain per run to prevent over-crawling of noisy sites. |
-| `cloudflare` | `# cloudflare: true` | `false` | Instructs the crawler to skip all Crawl4AI browser fallback tiers immediately on a 403 or 429 response. |
-| `skip-link-discovery` | `# skip-link-discovery` | `false` | Disables page scanning and link discovery for matching URLs. |
-| `[CDN]` | `# [CDN] <hostname>` | `[]` | Registers a hostname as a whitelist CDN domain. Assets on these hosts bypass the archive/index page penalty. |
-| `min_image_size` | `# min_image_size: WxH` | `None` | Minimum image dimension filter (e.g. `800x600`). Files smaller than this are rejected. |
-| `thumbnail_prefix` | `# thumbnail_prefix: <pattern>` | `None` | Path prefix pattern matching to reject thumbnail URLs early. |
-| `requires_referer` | `# requires_referer` | `false` | Sets page URL as Referer header when performing file downloads to bypass hotlink protection. |
+| `Rate-limit` | `# Rate-limit: <float> req/s` | `None` (1.0 req/s) | Per-domain request speed ceiling (e.g. `0.2 req/s` = 1 req / 5 sec). |
+| `max_pages` | `# max_pages: <int>` | `None` (unlimited) | Hard ceiling on pages crawled for this domain per run. |
+| `cloudflare` | `# cloudflare: true` | `false` | Instructs engine to fail fast on 403/429, skipping light browser fallback loops. |
+| `skip-link-discovery` | `# skip-link-discovery` | `false` | Disables page scanning and link discovery entirely for this domain. |
+| `[CDN]` | `# [CDN] <hostname>` | `[]` | Whitelists hostname as a CDN domain (bypasses archive/index page penalties). |
+| `# min_image_size` | `# min_image_size: WxH` | `None` | Minimum image dimension filter (e.g. `800x600`). Smaller images are rejected. |
+| `# thumbnail_prefix` | `# thumbnail_prefix: <pattern>` | `None` | Path prefix pattern used to identify and skip thumbnail URLs early. |
+| `# requires_referer` | `# requires_referer` | `false` | Sends page URL as HTTP Referer header during file download to bypass hotlink protection. |
 
-### Example Seed Block
+### Example Seed Manifest
 
 ```text
+# Subject: Apple / Tech Assets
+# ---------------------------------------------------------------------------
+# gallery.apple.com
+# ---------------------------------------------------------------------------
+# type: image | crawl: direct
+# min_image_size: 1000x800
+# thumbnail_prefix: /thumbs/
+https://gallery.apple.com/iphone
+
+# ---------------------------------------------------------------------------
+# cdn.apple-assets.org
+# ---------------------------------------------------------------------------
 # type: video | crawl: index→detail
 # depth: 1
-# Rate-limit: 0.1 req/s
-# max_pages: 5
-# [CDN] cdn.myvideos.com
+# Rate-limit: 0.5 req/s
+# max_pages: 10
+# [CDN] cdn.apple-assets.org
 # requires_referer
-https://myvideos.com/category/subject
+https://cdn.apple-assets.org/videos
 ```
 
 ---
 
 ## 2. Dynamic JSON Configuration Files
 
-JSON configurations located in the `data/` directory are loaded at startup. This isolates environment parameters and domain settings from the application code.
+JSON files in the `data/` directory isolate domain parameters and canonicalisation rules from Python source code:
 
 ### 2.1 Domain Configuration (`data/domain_config.json`)
-
-Stores default limits, request headers, and custom scraper behaviours:
-
-* **`hotlink_protected`** (Array of string domains): Triggers automatic Referer header injection for file downloads on listed hosts.
-* **`rate_limits`** (Object mapping domain to float): Default Requests Per Second (RPS) ceiling.
-* **`deep_scrape`** (Array of string domains): Flags domains that should use deep traversal defaults.
-* **`domain_handlers`** (Object mapping domain to patterns): Specific parsing configurations (e.g. link extraction prefixes).
-* **`referer_overrides`** (Object mapping domain to URL): Custom referers used to bypass strict cross-origin hotlink protections.
 
 ```json
 {
     "hotlink_protected": [
-        "example1.com"
+        "example-cdn.com"
     ],
     "rate_limits": {
-        "example2.com": 0.1
+        "slow-domain.org": 0.2
     },
     "deep_scrape": [
-        "example3.com"
+        "archive-domain.net"
     ],
     "referer_overrides": {
-        "example4.com": "https://www.example4.com/"
+        "protected-media.com": "https://www.protected-media.com/"
     }
 }
 ```
 
+- `hotlink_protected`: Array of domains enforcing Referer header checks.
+- `rate_limits`: Default requests-per-second ceilings per domain.
+- `deep_scrape`: List of domains configured for deep traversal.
+- `referer_overrides`: Custom HTTP Referer header overrides map.
+
 ### 2.2 URL Normalisation Rules (`data/url_normalisation_rules.json`)
 
-Defines regular expression patterns used to collapse duplicate URLs (such as query params or locale prefixes) to canonical forms:
+Defines regex-based canonicalisation rules compiled into `config.URL_NORMALISATION_RULES` at startup.
 
 ```json
 {
     "rules": [
         {
-            "description": "Example locale prefix collapse",
-            "pattern": "(example\\.com)/[a-z]{2}/(get_file|contents|video)",
+            "description": "Locale path collapse",
+            "pattern": "(example\\.com)/[a-z]{2}/(media|posts|video)",
             "replacement": "\\1/\\2"
         }
     ]
@@ -85,63 +94,45 @@ Defines regular expression patterns used to collapse duplicate URLs (such as que
 
 ### 2.3 Blacklist Registry (`data/blacklist.json`)
 
-Maintained by the circuit breaker. Domains hitting consecutive 429s or HTTP error counts are written to this file and bypassed instantly on subsequent requests:
+Maintained automatically by the circuit breaker. Domains triggering persistent 429s or connection failures are blacklisted to prevent future request delays:
 
 ```json
 {
-    "example.com": {
+    "blocked-domain.com": {
         "reason": "consecutive_429s",
-        "timestamp": "2026-07-13T00:18:04.690969"
+        "timestamp": "2026-07-22T14:20:00.000000"
     }
 }
 ```
 
 ---
 
-## 3. Web Application Firewall (WAF) & Cloudflare Bypass Tiers
+## 3. Parameter Safety Guardrails & Recommendations
 
-To bypass Cloudflare Turnstile, captchas, and WAF protection, the scraper employs an escalating 7-tier fallback chain:
+To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-limiting during extractions:
 
-| Tier | Fetcher Method | Typical Cost | Bypass Capability |
-| --- | --- | --- | --- |
-| **Tier 0** | `httpx` + Local Cookie Harvesting | ~0.5s–2.0s | Low (relies on active local session cookies) |
-| **Tier 1** | `Crawlee` (Cheerio) | ~1.0s–3.0s | Moderate (spoofs standard TLS fingerprints) |
-| **Tier 2** | `Crawl4AI` (Headless/Headful) | ~8.0s–15.0s | High (stealth-configured chromium) |
-| **Tier 3** | `DrissionPage` | ~10.0s–20.0s | High (handles light JS walls and Captchas) |
-| **Tier 4** | `Crawlee` (Puppeteer) | ~15.0s–25.0s | Very High (heavy JS-rendering with stealth plugins) |
-| **Tier 5** | `Helium` | ~20.0s | Very High (high-level automation) |
-| **Tier 6** | `undetected-chromedriver` (UC) | ~25.0s–35.0s | Extreme (ultimate Turnstile & JS challenge bypass) |
+| Parameter | Safe Baseline | High-Performance | Warning Threshold | System Risk / Impact |
+|---|---|---|---|---|
+| **Scraper Workers** (`--workers`) | **4 – 8** | **12 – 16** | **> 16 workers** | CPU/RAM spikes, browser process spawning stalls |
+| **Download Workers** (`--dl-workers`) | **4 – 8** | **12 – 16** | **> 24 workers** | Bandwidth saturation, CDN IP bans (429/503) |
+| **Crawl Depth** (`--crawl-depth`) | **1 – 2** | **3 levels** | **> 4 levels** | Exponential link graph explosion |
+| **Max Results** (`--max-results`) | **50 – 200** | **500 – 1000** | **0 (Unlimited)** | Unbounded disk usage (gigabytes of media) |
+| **Page Limit** (`--page-limit`) | **20 – 50** | **100 – 200** | **0 (Unlimited)** | High network traffic, long job duration |
 
-### Cloudflare Block Flag (`cloudflare: true`)
-
-Some WAF configurations (such as Turnstile) prompt an interactive checkbox puzzle that cannot be solved by automated Chromium instances.
-Setting `# cloudflare: true` registers the host in a fast-fail set. When a request hits a 403 or 429, the system **immediately raises an error and moves on**, preventing the worker from hanging for 30+ seconds attempting headless/headful browser loops.
-
-### WAF & Auth Wall Cutoff Circuit Breakers
-
-To protect execution performance from degenerating due to persistent crawler blocks or expired sessions, the scraper uses domain-level circuit breaker constraints:
-
-* **Consecutive Failures Threshold**: If a target domain registers **3 consecutive request errors** (including WAF challenge failures, network disconnects, or read timeouts), the engine immediately marks the domain's host as failed. Any subsequent crawl items queued for that host are skipped instantly with status `host_failed_skipped`, avoiding heavy browser fallback delays.
-* **Auth Wall Redirect Cutoff**: If a page fetch is redirected to a standard sign-in, login, signup, or authorization path (checking `/login`, `/signin`, `/signup`, or `/auth`), the engine flags the host as failed immediately, stopping further attempts.
+*The WebUI Command Center includes a dynamic JavaScript validator (`validateSafetyThresholds()`) that displays warning badges if worker counts exceed safe hardware thresholds.*
 
 ---
 
-## 4. Downstream AI & RAG Integrations
+## 4. AI Ingestion & Dataset Formatting Settings
 
-The interactive terminal GUI (`src/cli/cli_wizard.py`) provides tools to package scrape runs directly into formats suited for model training or Retrieval-Augmented Generation (RAG):
+The interactive wizard (`python src/cli/cli_wizard.py`) provides export settings for AI model training:
 
-### 4.1 Create Structured AI Dataset (TUI Option 4)
+### 4.1 Structured AI Dataset Layouts (Option 4)
+- **Consolidated Flat**: Copies all images and videos into a single directory, prefixing filenames with domain names to avoid collisions.
+- **Domain-Grouped**: Subdirectories per origin domain (`/domain_com/images/`).
+- **Media-Type Grouped**: Organized into `/images` and `/videos` folders.
 
-Exposes downloaded assets with three grouping structures:
-
-1. **Consolidated Flat**: Copies all images and videos into one folder with filenames prefixed by domain to avoid name collisions.
-2. **Domain-Grouped**: Organizes assets into subfolders based on origin domain names.
-3. **Media-Type Grouped**: Splits files into `/images` and `/videos` directories.
-
-### 4.2 Enterprise LLM RAG Ingestion (TUI Option 5)
-
-Extracts page contexts, image alt text descriptions, and source metadata, exporting to:
-
-1. **Consolidated Markdown Document**: A single file summarizing the entire run.
-2. **Chunked Page-Level Documents**: One `.md` file per scraped page, perfect for vector database document splitters.
-3. **JSON-Lines (JSONL) Format**: One line per asset containing normalized text descriptions and metadata mappings for automated embedding models.
+### 4.2 LLM RAG Ingestion Formats (Option 5)
+- **Single Consolidated Markdown**: A unified `.md` file summarizing page titles, alt texts, image contexts, and source URLs.
+- **Chunked Page Markdown Documents**: Individual `.md` files per page, formatted for vector database document splitters (LangChain, LlamaIndex).
+- **JSON-Lines (JSONL) Embeddings Format**: One JSON object per line containing normalized metadata ready for vector embedding models.

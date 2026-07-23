@@ -1,82 +1,103 @@
-# Operational Scenarios — scrAPE
+# Operational Scenarios & Playbook — scrAPE
 
-## 1. Broad Search (No Seed File)
+> Practical CLI command blueprints and workflow scenarios for common scraper operations.
 
-```bash
-python src/cli/main.py --keyword example_subject --seed seed.txt --page-limit 50
-```
+---
 
-Uses the literal `seed.txt` with `example.com` URLs. Good for quick tests.
+## Scenario 1: Targeted Seed Manifest Run (Standard Flow)
 
-## 2. Targeted Seed Manifest
+Run a focused extraction using curated domain profiles and entity tokens for maximum precision:
 
 ```bash
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --entity-token "Entity Name" --entity-token "keyword" ^
-  --max-results 30 --page-limit 50 --crawl-depth 2 ^
-  --download-media --workers 8 --dl-workers 6
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --entity-token "Apple Inc" --entity-token "iPhone" ^
+  --max-results 50 --page-limit 100 --crawl-depth 2 ^
+  --workers 8 --dl-workers 6 --download-media
 ```
 
-Focused crawl using curated domain profiles. High precision via entity tokens.
+---
 
-## 3. Production Sweep (Full Run)
+## Scenario 2: High-Performance Production Sweep
+
+Maximum throughput run using elevated worker limits:
 
 ```bash
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --max-results 100 --workers 16 --dl-workers 8 ^
-  --page-limit 200 --crawl-depth 3 --download-media 
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --max-results 200 --workers 16 --dl-workers 12 ^
+  --page-limit 300 --crawl-depth 3 --download-media
 ```
 
-Maximum throughput. Multi-subject runs should use separate terminals or a shell script.
+> *Tip: Keep `--workers` $\le 16$ and `--dl-workers` $\le 24$ to avoid hardware bottlenecks.*
 
-## 4. Stealth / Minimal Footprint
+---
+
+## Scenario 3: Stealth & Low-Impact Crawl
+
+Low-concurrency, shallow crawl designed for polite scraping or fragile targets:
 
 ```bash
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --workers 2 --dl-workers 1 --crawl-depth 1 ^
-  --page-limit 20 --max-results 10
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --workers 2 --dl-workers 2 --crawl-depth 1 ^
+  --page-limit 20 --max-results 15 --download-media
 ```
 
-Low concurrency, shallow crawl. Minimal impact on target servers.
+---
 
-## 5. Uncapped Mirror Run
+## Scenario 4: Auth-Walled Domain Extraction
+
+Extract media from domains requiring user login:
 
 ```bash
-python src/cli/main.py --keyword deep_archive_subject --seed seeds/deep_archive_subject.txt ^
-  --max-results 9999 --page-limit 5000 --crawl-depth 3 ^
-  --workers 8 --dl-workers 4 --download-media 
+# Step 1: Launch interactive login browser to authenticate and save session cookies
+python src/cli/main.py --login protected-site.com
+
+# Step 2: Run crawl using saved session cookies
+python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
 ```
 
-Maximum collection for deep-archive subjects. Requires sufficient disk space. Use `--page-limit` to bound discovery.
-
-## 6. Background Watchdog
+Or inject existing cookies from a Netscape file:
 
 ```bash
-# Terminal 1 — Run the scrape
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --max-results 50 --workers 8 --dl-workers 4 ^
-  --page-limit 100 --crawl-depth 2 --download-media 
-
-# Terminal 2 — Monitor output growth
-dir /s output/example_subject/runs/
+python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 ```
 
-Use `tail` (or equivalent) on the log file for live progress. Run ID is printed at start and stored in `manifest.json`.
+---
 
-## 7. Validate Seed Only (Dry Run)
+## Scenario 5: Dry-Run Manifest Validation
+
+Parse and validate seed syntax without making HTTP requests or downloading files:
 
 ```bash
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
+python src/cli/main.py --keyword apple --seed seeds/apple.txt --dry-run
 ```
 
-Parses and validates the seed manifest without crawling. Useful for debugging annotation syntax.
+---
 
-## 8. Quick Re-Run with Custom Slug
+## Scenario 6: Continuous Watchdog Agent Mode
+
+Run continuous monitoring loops (`monitor_agent.py`) using persistent SQLite WAL caching to process target domains on a set interval:
 
 ```bash
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --run-id "retry-01" --keyword-slug "subject-v2" ^
-  --workers 8 --dl-workers 6 --page-limit 100 --download-media 
+python src/cli/monitor_agent.py --keyword apple --seed seeds/apple.txt --interval 3600
 ```
 
-Multiple runs for the same subject are stored under separate run IDs inside `runs/`.
+---
+
+## Scenario 7: WebUI Command Center & System Tray
+
+Launch the web dashboard:
+
+```bash
+.\run_frontend.bat
+```
+
+Access `http://localhost:10001` to view live hardware telemetry, switch context-aware stats, manage files, and toggle Instant Unlimited Mode.
+
+---
+
+## Scenario 8: Downstream AI Dataset & RAG Preparation
+
+Launch the interactive CLI wizard (`python src/cli/cli_wizard.py`):
+
+- **Option 4 (Create Structured AI Dataset)**: Export files into *Consolidated Flat*, *Domain-Grouped*, or *Media-Type Grouped* folders.
+- **Option 5 (Enterprise LLM RAG Ingestion)**: Export page metadata into *Consolidated Markdown*, *Chunked Page `.md` Files*, or *JSONL Embeddings*.

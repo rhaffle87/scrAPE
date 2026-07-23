@@ -1,52 +1,77 @@
-# Design System: scrAPE Dashboard
+# Design System: scrAPE Tactical Dashboard
 
-This document serves as the source of truth for the visual style and design language of the **scrAPE** web user interface.
+> Source of truth for the visual design language, component specs, typography, and UI guidelines for the **scrAPE** web user interface.
+
+---
 
 ## 1. Visual Theme & Atmosphere
-The design follows a **Utilitarian Brutalism** aesthetic. It is high-contrast, industrial, and raw, prioritizing technical density and functionality.
-- **Aesthetic Vibe**: Utilitarian, flat, raw, high-contrast, technical.
-- **Geometry**: Strictly sharp, squared-off edges with zero rounded corners (`border-radius: 0 !important`).
-- **Texture**: Features a subtle background noise/grain overlay (4% opacity SVG turbulence filter) to emulate high-contrast analog telemetry feeds.
 
-## 2. Color Palette & Roles
-The design uses a restricted, high-contrast palette of five colors:
+The design language follows **Utilitarian Brutalism**. It prioritizes extreme contrast, technical density, and unvarnished functional utility over decorative fluff.
 
-| Color Name | Hex Code | Functional Role |
-| :--- | :--- | :--- |
-| **Obsidian Dark** | `#0b0d0c` | Primary base background for pages, forms, and terminal windows. |
-| **Industrial Slate** | `#161917` | Card and component surfaces (sidebar, panels, tabs). |
-| **Stealth Grey** | `#3a3f3c` | Heavy layout borders and structural dividers. |
-| **Acquisition Orange** | `#ff5500` | Accent color, active status badges, buttons, and system warnings. |
-| **Signal White** | `#f4f4f0` | Primary readable text color. |
-| **Muted Slate** | `#8c928e` | Secondary/de-emphasized text and labels. |
+- **Aesthetic Vibe**: Industrial, high-contrast, flat, tactical, raw.
+- **Geometry**: Strictly sharp 90° corners (`border-radius: 0 !important`). Zero rounded elements across buttons, cards, tooltips, or form inputs.
+- **Analog Telemetry Overlay**: Background features a subtle SVG turbulence noise filter (4% opacity overlay) to emulate high-contrast analog telemetry feeds.
 
-## 3. Typography Rules
-- **Font Families**:
-  - **Headers (`<h1>`, `<h2>`, `.logo-text`)**: `Oswald` (sans-serif) — Uppercase, bold, uppercase tracking, and condensed to evoke high-impact military or security telemetry dashboards.
-  - **Body, Labels, Forms, Logs (`body`, `input`, `.btn`, `pre`)**: `JetBrains Mono` (monospaced) — Explicitly chosen for high technical legibility, code integrity, and terminal authenticity.
-- **Header Letter Spacing**: `0.05em` on high-level section titles.
+---
 
-## 4. Component Stylings
+## 2. Color Palette & Functional Roles
 
-### Buttons
-- **Shape**: Strictly sharp corners, square blocks.
-- **Borders**: Heavy borders matching the background or context.
-- **Hover/Interactive Behavior**: Flat, solid translation offset on hover:
-  `transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--text-primary);`
-  On click, it returns flat: `transform: translate(0, 0); box-shadow: none;`
+| Color Name | Hex Code / Variable | Functional Role |
+|---|---|---|
+| **Obsidian Dark** | `#0b0d0c` (`var(--bg-base)`) | Base page background, terminal body, and input fields |
+| **Industrial Slate** | `#161917` (`var(--bg-surface)`) | Panel background, cards, sidebar, and tab surfaces |
+| **Stealth Grey** | `#3a3f3c` (`var(--border-color)`) | Structural borders, card outlines, and dividers |
+| **Acquisition Orange** | `#ff5500` (`var(--accent)`) | Primary accent, active status badges, buttons, and warnings |
+| **Signal White** | `#f4f4f0` (`var(--text-primary)`) | Primary high-contrast text |
+| **Muted Slate** | `#8c928e` (`var(--text-muted)`) | Secondary labels, descriptions, and `/ N total` sub-lines |
+| **Alert Red** | `#ff3333` | Errors, abort buttons, and system telemetry warnings |
+| **Signal Green** | `#00ff66` | Online status pulses, success indicators, and low resource load |
 
-### Cards & Panels
-- **Shape**: Squared-off corners.
-- **Border**: `2px solid #3a3f3c` (Stealth Grey).
-- **Background**: `background-color: #161917` (Industrial Slate).
-- **Hover state**: Solid offset shadow `box-shadow: 6px 6px 0 var(--accent);` with a border accent highlight.
+---
 
-### Inputs & Selects
-- **Shape**: Square corners.
-- **Border**: `2px solid #3a3f3c` (Stealth Grey).
-- **Focus state**: Thick orange highlight border (`border-color: #ff5500`) with dim orange block shadow backdrop (`box-shadow: 4px 4px 0 rgba(255, 85, 0, 0.2)`).
+## 3. Typography Guidelines
 
-## 5. Layout Principles
-- **Sidebar Navigation**: Fixed 280px left sidebar acting as the primary navigation console (Command Center) and directory list vault (Subjects Vault).
-- **Grid Architecture**: Main section utilizes a strict 2-column layout (Dashboard parameters form on the left, live logs terminal on the right).
-- **Whitespace**: Tight, highly compact paddings (`1.5rem` to `2rem`) to maximize screen efficiency and resemble command console terminal hubs.
+- **Headers (`<h1>`, `<h2>`, `.logo-text`, `.stat-card .value`)**: `Oswald` (sans-serif) — Uppercase, bold, condensed to evoke high-impact military or security telemetry dashboards.
+- **Body, Inputs, Buttons, Tooltips, Terminal Logs (`body`, `input`, `select`, `.btn`, `pre`)**: `JetBrains Mono` (monospaced) — High technical legibility, code integrity, and terminal authenticity.
+- **Header Tracking**: `letter-spacing: 0.08em` to `0.18em` on uppercase section headers and titles.
+
+---
+
+## 4. Component Library Specification
+
+### 4.1 Telemetry Stat Cards (`.stat-card`)
+- **Container**: `background-color: var(--bg-surface); padding: 1.5rem; border: var(--border-heavy);`
+- **Label**: `font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.1em;`
+- **Value**: `font-family: 'Oswald'; font-size: 3.5rem; font-weight: 700; line-height: 1;`
+- **Option C Sub-total Annotation (`.sub-total`)**: `font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.08em; margin-top: 0.3rem;`
+- **Live Active Pulse (`.stat-card.running`)**: Pulsing orange border animation (`animation: pulse-border 1.5s infinite;`).
+
+### 4.2 Tactical Sidebar & Navigation
+- **Sidebar Container**: Fixed 280px left column (`width: 280px; height: 100vh; position: fixed; border-right: var(--border-heavy);`).
+- **Sidebar Header**: Centered column layout featuring a glowing 72×72px vector SVG logo, `scrAPE` text (`1.6rem`), and `v0.17.0` version badge.
+- **Command Center Nav Button (`.nav-item`)**:
+  - `border: 1px solid var(--border-color); background-color: var(--bg-surface); gap: 0.65rem;`
+  - SVG Grid Icon: 4-square cockpit dashboard vector icon on the left.
+  - Active State (`.nav-item.active`): `border-color: var(--accent); color: var(--accent); background: rgba(255, 85, 0, 0.08); box-shadow: inset 0 0 10px rgba(255, 85, 0, 0.15);`
+- **Subjects Vault List (`.sidebar-item`)**:
+  - Left-aligned layout (`justify-content: flex-start; gap: 0.75rem;`).
+  - Indicator Bullet (`.sub-indicator`): 6×6px square bullet on the left. Muted when inactive; glows bright orange (`box-shadow: 0 0 6px var(--accent)`) when active.
+
+### 4.3 Mode Selector Bar (`.mode-selector`)
+- High-contrast toggle bar at the top of the scrape parameters form (`[ CUSTOM CONFIGURATION ]` vs `[ INSTANT UNLIMITED RUN ]`).
+- Selecting Unlimited Mode hides configuration fieldsets to reduce visual noise while executing un-capped runs.
+
+### 4.4 Help Tooltips (`.tooltip-wrapper`)
+- Inline `[?]` help badge trigger.
+- Hovering reveals a `.tooltip-content` popup box (`background-color: var(--bg-surface); border: var(--border-heavy); box-shadow: 4px 4px 0 var(--accent); z-index: 100;`).
+
+### 4.5 Hardware Safety Alerts (`.alert-warning`)
+- Displays an alert banner (`background-color: rgba(255, 85, 0, 0.1); border: 2px solid var(--accent); color: var(--accent);`) when user input exceeds safe hardware bounds (>16 scrapers, >24 downloaders).
+
+---
+
+## 5. Layout Architecture
+
+- **Left Sidebar**: Fixed 280px navigation and subject vault console.
+- **Right Main Container**: `margin-left: 280px; padding: 2rem;`
+- **Grid View**: Command Center uses a 2-column grid (Parameters Form on left, Live Terminal Log Feed on right).

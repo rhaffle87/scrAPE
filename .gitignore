@@ -1,15 +1,16 @@
 # Python bytecode and caches
 __pycache__/
+.pycache/
 *.py[cod]
 *.pyo
 *.pyd
-
-# Virtual environments
 .venv/
 venv/
 env/
 
-# Local caches and run artifacts
+# Test & Linter Caches
+.pytest_cache/
+.ruff_cache/
 .cache/
 out/
 har/
@@ -33,17 +34,6 @@ logs/
 # Ad-hoc scratch/debug scripts (may contain private URLs or hardcoded subjects)
 scratch/
 
-# IDE/editor files
-.vscode/
-.idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-.pycache/
-
-.qodo/
-
 # Persistent runtime data
 data/*
 src/config/*
@@ -53,10 +43,9 @@ runtime_data/*
 
 # Node modules
 node_modules/
-
-# Crawlee storage directories
-**/storage/
+crawlee_bridge/node_modules/
 crawlee_bridge/storage/
+**/storage/
 storage/
 datasets/
 
@@ -64,3 +53,10 @@ datasets/
 *.egg-info/
 build/
 dist/
+
+# IDE, Editor & OS Files
+.vscode/
+.idea/
+.qodo/
+.DS_Store
+Thumbs.db

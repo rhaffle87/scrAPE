@@ -1,128 +1,158 @@
-# Usage — scrAPE CLI
+# Usage Guide — scrAPE
 
-## Synopsis
+> Comprehensive reference for the scrAPE CLI engine, Interactive Terminal Wizard, and Decoupled WebUI Dashboard.
+
+---
+
+## 1. Synopsis
 
 ```bash
 python src/cli/main.py --keyword <keyword> --seed <path> [options]
 ```
 
-## Arguments
-
- | Argument | Type | Default | Description |
- | --- | --- | --- | --- |
- | `--keyword` | `str` | **required** | Search keyword / subject name |
- | `--seed` | `str` | `seed.txt` | Path to seed manifest file |
- | `--max-results` | `int` | `50` | Max images+videos per run |
- | `--output-dir` | `str` | `./output` | Root output directory |
- | `--workers` | `int` | `8` | Page fetch concurrency |
- | `--dl-workers` | `int` | `6` | Download concurrency |
- | `--page-limit` | `int` | `100` | Max pages to crawl |
- | `--crawl-depth` | `int` | `2` | BFS max depth |
- | `--download-media` | flag | `False` | Enable actual file download |
- | `--ignore-robots` | flag | `False` | Skip robots.txt checks |
- | `--entity-token` | `str[]` | `[]` | Additional entity tokens (repeatable) |
- | `--dry-run` | flag | `False` | Parse seed + validate, no crawl |
- | `--run-id` | `str` | auto | Override run ID |
- | `--keyword-slug` | `str` | auto | Override output dir slug |
- | `--login` | `str` | None | Interactive headful login for a domain |
- | `--inject-cookies` | `str` | None | Import JSON or Netscape cookies.txt file |
- | `--domain` | `str` | None | Domain to associate with injected cookies |
-
-## Seed Manifest
-
-Domain profiles are defined in `.txt` seed files. See [README.md](../README.md#seed-manifest-format) for full annotation syntax.
+Or run via global binary wrapper:
 
 ```bash
-# Basic run
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
-
-# Targeted with extra tokens
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --entity-token "Entity Name" --entity-token "topic"
-
-# Production sweep (high concurrency, no confirmations)
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --max-results 100 --workers 16 --dl-workers 8 ^
-  --page-limit 200 --crawl-depth 3 --download-media
-
-# Validate seed manifest only
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --dry-run
-
-# Stealth mode (single worker, polite speed)
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt ^
-  --workers 1 --page-limit 20 --crawl-depth 1
-
-# Interactive login to capture session cookies for a protected domain
-python src/cli/main.py --login example.com
-
-# Inject existing cookies from a file
-python src/cli/main.py --inject-cookies cookies.json --domain example.com
+scrape
 ```
 
-## Output Structure
+---
 
-```text
-output/{keyword_slug}/runs/{run_id}/
-├── manifest.json            # Full scrape result
-└── media/                   # (if --download-media)
-    ├── images/
-    │   └── {filename}.{ext}
-    └── videos/
-        └── {filename}.{ext}
-```
+## 2. CLI Arguments Reference
 
-### manifest.json fields
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--keyword` | `str` | **required** | Primary search keyword / subject name |
+| `--seed` | `str` | `seed.txt` | Path to seed manifest file |
+| `--max-results` | `int` | `50` | Maximum kept images and videos per run |
+| `--output-dir` | `str` | `./output` | Root directory for output runs and media |
+| `--workers` | `int` | `8` | Number of concurrent page fetching crawler threads |
+| `--dl-workers` | `int` | `6` | Number of concurrent media downloading threads |
+| `--page-limit` | `int` | `100` | Hard cap on total pages scanned across all domains |
+| `--crawl-depth` | `int` | `2` | Maximum BFS link graph traversal depth |
+| `--download-media` | flag | `False` | Enables downloading files to disk (default dry metadata only) |
+| `--ignore-robots` | flag | `False` | Bypasses `robots.txt` disallow checks |
+| `--entity-token` | `str[]` | `[]` | Additional subject keywords/synonyms (repeatable) |
+| `--dry-run` | flag | `False` | Parses and validates seed manifest without crawling |
+| `--validate-seed` | flag | `False` | Validates seed manifest syntax and prints domain profiles |
+| `--run-id` | `str` | auto | Custom run identifier directory name |
+| `--keyword-slug` | `str` | auto | Custom output directory slug |
+| `--login` | `str` | `None` | Opens headful browser to log into a protected domain and save cookies |
+| `--inject-cookies` | `str` | `None` | Imports JSON or Netscape `cookies.txt` file |
+| `--domain` | `str` | `None` | Target domain to associate with injected cookies |
+| `--proxy-list` | `str` | `None` | Path to proxy file (`ip:port` or `http://user:pass@host:port`) |
 
- | Field | Description |
- | --- | --- |
- | `keyword` | Search keyword |
- | `run_id` | Unique run identifier |
- | `duration_seconds` | Total wall-clock time |
- | `run_metadata` | CLI flags used (workers, page_limit, etc.) |
- | `page_count` | Total pages scanned |
- | `scanned_pages` | List of page URLs visited |
- | `page_reports` | Per-page scan diagnostics |
- | `images` / `videos` | Kept asset items |
- | `rejected_items` | Rejected items with reason + score |
- | `domain_stats` | Per-domain stats (pages scanned, kept, rejected) |
- | `errors` | Per-domain error counts |
+---
 
-## Dry Run
+## 3. Common Execution Commands
 
+### Basic Extraction Run
 ```bash
-python src/cli/main.py --keyword test --seed seed.txt --dry-run
+python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
 ```
 
-Parses the seed file and prints the domain profiles without crawling.
+### High-Precision Multi-Token Run
+```bash
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --entity-token "Apple Inc" --entity-token "iPhone" --entity-token "MacBook" ^
+  --download-media
+```
 
-## Interactive GUI Wizard & AI Pipeline Tools
+### High-Performance Sweep
+```bash
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --max-results 200 --workers 16 --dl-workers 12 ^
+  --page-limit 300 --crawl-depth 3 --download-media
+```
+
+### Stealth Crawl (Polite Speed)
+```bash
+python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
+  --workers 2 --dl-workers 2 --page-limit 20 --crawl-depth 1 --download-media
+```
+
+### Cookie Injection & Session Authentication
+```bash
+# Capture session cookies via interactive login browser
+python src/cli/main.py --login protected-site.com
+
+# Inject existing Netscape cookies.txt
+python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
+```
+
+---
+
+## 4. Interactive Terminal Wizard & AI Fuel Tools
+
+Launch the interactive CLI wizard:
 
 ```bash
 python src/cli/cli_wizard.py
 ```
 
-The interactive terminal GUI acts as a **high-efficiency fuel pump for AI**. It guides users through configuring and running crawls, mapping entire websites with systematic BFS and Crawl4AI, and converting messy pages into clean, structured data for LLM ingestions.
+The terminal wizard provides guided menus for scraping, continuous watchdog scheduling, and downstream AI dataset preparation:
 
-In addition to launching crawls, the wizard provides built-in utilities for downstream AI ingestion:
+1. **Broad Search Scraping** — Performs automated search queries and recursive crawling.
+2. **Targeted Manifest Scraping** — Runs structured crawls against selected seed manifests.
+3. **Continuous Watchdog Agent** — Launches long-running monitoring loops (`monitor_agent.py`) using persistent SQLite WAL caching to process target sites on a set schedule.
+4. **Create Structured AI Dataset** — Packages completed run output into consolidated structures:
+   - *Consolidated Flat*: All files copied into one folder with domain prefixes.
+   - *Domain-Grouped*: Subdirectories per origin domain.
+   - *Media-Type Grouped*: Separate `/images` and `/videos` directories.
+5. **Enterprise LLM RAG Ingestion** — Extracts page titles, alt texts, image contexts, and URLs into clean formats ready for vector indexing:
+   - *Single Consolidated Markdown Document*
+   - *Chunked Page-Level `.md` Files* (ideal for RAG document splitters)
+   - *JSONL Embeddings Format*
 
-1. **General/Broad Search Scraping** — Launches automated searches and deep recursive crawling.
-2. **Specified/Targeted Scraping** — Runs targeted crawls against strict seed manifests.
-3. **Continuous Watchdog Agent** — Polls target sites on a set scheduler to monitor changes.
-4. **Create Structured AI Dataset** — Groups and exports files from any completed run into a consolidated folder with custom layouts (Consolidated Flat, Domain-Grouped, or Media-Type Grouped).
-5. **Enterprise LLM RAG Ingestion** — Extracts page titles, alt texts, image contexts, and URLs from scraped results, outputting clean formats ready for ingestion (Single Consolidated Markdown, Chunked Page Markdown documents, or JSONL Embeddings formats).
+---
 
-## Local Web GUI
+## 5. Local WebUI Command Center
+
+Launch the WebUI server:
 
 ```bash
 .\run_frontend.bat
 ```
-*(Alternatively, you can run `python -m frontend.app`)*
 
-The Local Web GUI provides a fully decoupled, HTMX-powered dynamic dashboard hosted locally. It allows you to:
-1. **View the Dashboard & Context-Aware Telemetry:** Access global aggregated statistics on the **Command Center** view, or switch to per-subject scoped totals (`SUBJ.RUNS`, `ASSET.IMG`, `ASSET.VID`, `TARGETS.SCAN`) with global comparison sub-lines (`/ N total`) when viewing a subject in the **Media Vault**.
-2. **Interactive File Management:** Physically open the containing OS folder or securely delete files directly from the gallery UI without refreshing.
-3. **Trigger & Monitor Scrapes:** Programmatically trigger background scrapes directly from the UI, stream the live terminal output to the browser, and monitor real-time hardware telemetry (CPU, RAM, Disk space) via auto-polling HTMX widgets.
-4. **Hardware Safety Threshold Warnings:** Dynamic client-side validator (`validateSafetyThresholds()`) alerts users if concurrency parameters exceed safe hardware limits (>16 scrapers, >24 download workers).
-5. **Interactive Help Tooltips & Modes:** Hover over any `[?]` help badge for parameter documentation, or toggle between Custom Configuration and Instant Unlimited Mode.
-6. **Process Abort:** Use the `[ABORT]` button to forcefully kill lingering scraper processes if they hang or if you want to stop early.
-7. **System Tray Integration:** Runs in the background with a custom high-contrast taskbar icon (`launcher.py`) providing quick status checks and tray menu controls.
+Open `http://localhost:10001` in your browser.
+
+### Key WebUI Features
+
+- **Command Center Dashboard**: Configure parameters, select preset profile slots (Slot 1–5), toggle Instant Unlimited mode, and view live OS telemetry (CPU, RAM, Disk).
+- **Option C Context-Aware Statistics**: Telemetry cards display global totals on the Command Center and automatically switch to subject-scoped counts when viewing a subject in the Media Vault (including a `/ N total` global comparison sub-line).
+- **Media Vault Gallery**: Browse downloaded assets grouped recursively by domain. Directly delete unwanted files or open their containing folder on disk via HTMX.
+- **Hardware Safety Threshold Warnings**: Client-side validator alerts users if worker settings exceed safe bounds (>16 scrapers, >24 download threads).
+- **Live Resizable Terminal Console**: Real-time progress streaming with severity color-coding and progress bar formatting.
+- **System Tray Management**: Runs as a background taskbar tray application (`launcher.py`) with status indicator menu options.
+
+---
+
+## 6. Output Directory Structure & Manifest Schema
+
+```text
+output/{keyword_slug}/runs/{run_id}/
+├── manifest.json            # Complete scrape execution result
+├── run_summary.json         # Structured post-run observability report
+├── domain_report.json       # Per-domain crawl counts
+└── media/                   # Downloaded media (if --download-media enabled)
+    ├── images/
+    │   └── {domain}/
+    │       └── {filename}.{ext}
+    └── videos/
+        └── {domain}/
+            └── {filename}.{ext}
+```
+
+### `manifest.json` Core Schema
+
+| Field | Type | Description |
+|---|---|---|
+| `keyword` | `str` | Search keyword used for extraction |
+| `run_id` | `str` | Unique run identifier timestamp |
+| `duration_seconds` | `float` | Total execution wall-clock time |
+| `run_metadata` | `dict` | Execution flags (`workers`, `dl_workers`, `page_limit`, `crawl_depth`) |
+| `page_count` | `int` | Total web pages scanned |
+| `images` | `list[dict]` | Kept image items with metadata, score, and disk paths |
+| `videos` | `list[dict]` | Kept video items with resolution hints and disk paths |
+| `rejected_items` | `list[dict]` | Items filtered out with score and rejection reasons |
+| `domain_stats` | `dict` | Per-domain stats (pages scanned, kept, rejected, error counts) |
