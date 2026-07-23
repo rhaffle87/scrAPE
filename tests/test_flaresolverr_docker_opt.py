@@ -10,16 +10,16 @@ from utils.http_client import HttpClient
 
 
 def test_is_search_page_url_query_params():
-    assert is_search_page_url("https://vimeo.com/search?q=apple") is True
-    assert is_search_page_url("https://www.flickr.com/search/?text=apple") is True
-    assert is_search_page_url("https://www.youtube.com/results?search_query=apple") is True
-    assert is_search_page_url("https://epawg.com/search/meenfox/") is True
+    assert is_search_page_url("https://example.com/search?q=subject") is True
+    assert is_search_page_url("https://www.example.com/search/?text=subject") is True
+    assert is_search_page_url("https://www.example.com/results?search_query=subject") is True
+    assert is_search_page_url("https://example.com/search/subject/") is True
     assert is_search_page_url("https://example.com/posts/123") is False
 
 
 def test_transform_to_highres_erome_and_wordpress():
     # Erome thumbnail replacement
-    erome_thumb = "https://www.erome.com/t/12345/image.jpg"
+    erome_thumb = "https://www.example.com/t/12345/image.jpg"
     upscaled_erome, _ = transform_to_highres(erome_thumb)
     assert "/v/" in upscaled_erome
 
