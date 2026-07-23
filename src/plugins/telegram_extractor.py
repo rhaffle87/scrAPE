@@ -1,10 +1,7 @@
 import logging
 import urllib.parse
 import re
-try:
-    from plugins.base import ExtractorPlugin, SpecializedResult
-except ImportError:
-    from src.plugins.base import ExtractorPlugin, SpecializedResult
+from plugins.base import ExtractorPlugin, SpecializedResult
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +41,7 @@ class TelegramExtractor(ExtractorPlugin):
 
             # Extract photo wraps
             for wrap in soup.select(".tgme_widget_message_photo_wrap"):
-                style = wrap.get("style", "")
+                style = str(wrap.get("style") or "")
                 bg_match = re.search(r"background-image:url\(['\"]?(.*?)['\"]?\)", style)
                 if bg_match:
                     images.append(bg_match.group(1))
@@ -52,7 +49,7 @@ class TelegramExtractor(ExtractorPlugin):
             # Extract video wraps
             for vid in soup.select("video.tgme_widget_message_video, video"):
                 src = vid.get("src")
-                if src:
+                if src and isinstance(src, str):
                     videos.append(src)
 
         except Exception as exc:

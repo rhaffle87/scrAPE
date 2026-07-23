@@ -1,10 +1,7 @@
 import logging
 import urllib.parse
 import re
-try:
-    from plugins.base import ExtractorPlugin, SpecializedResult
-except ImportError:
-    from src.plugins.base import ExtractorPlugin, SpecializedResult
+from plugins.base import ExtractorPlugin, SpecializedResult
 
 LOGGER = logging.getLogger(__name__)
 

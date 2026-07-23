@@ -1,10 +1,7 @@
 import logging
 import urllib.parse
 import re
-try:
-    from plugins.base import ExtractorPlugin, SpecializedResult
-except ImportError:
-    from src.plugins.base import ExtractorPlugin, SpecializedResult
+from plugins.base import ExtractorPlugin, SpecializedResult
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +44,7 @@ class TwitterExtractor(ExtractorPlugin):
                             kind = item.get("type")
                             if kind == "video":
                                 # Select highest bitrate video variant
-                                variants = item.get("variants", [])
+                                variants = item.get("variants", []) or []
                                 best_variant = None
                                 max_bitrate = -1
                                 for var in variants:
@@ -91,7 +88,7 @@ class TwitterExtractor(ExtractorPlugin):
                                 images.append(info["url"])
                         else:
                             # Pick highest quality format URL
-                            formats = info.get("formats", [])
+                            formats = info.get("formats") or []
                             best_f = None
                             max_tbr = -1
                             for f in formats:
