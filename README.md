@@ -1,114 +1,116 @@
 # scrAPE — Scraper for Archival & Production Extraction
 
 <p align="center">
-  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="160" height="160">
+  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="180" height="180">
 </p>
 
-**Batch media scraper** for crawling domains, discovering image/video assets, filtering for relevance, and downloading results.
+<p align="center">
+  <strong>FastAPI + HTMX Brutalist Media Scraper & Autonomous Archival Engine</strong>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#key-features">Key Features</a> •
+  <a href="#waf-turnstile--js-only-bypass">WAF Bypass</a> •
+  <a href="#seed-manifest-format">Seed Manifests</a> •
+  <a href="#architecture-overview">Architecture</a> •
+  <a href="#documentation">Documentation</a>
+</p>
 
 ---
 
-## Features
+## Overview
 
-- **Seed Manifest Parser** — Declarative domain profiles with `Rate-limit`, `skip-link-discovery`, `type`, `crawl`, `depth`, `min_image_size`, `thumbnail_prefix_pattern`, `requires_referer`, `cloudflare`, `max_pages`
-- **Continuous Watchdog** — Long-running agent mode (`monitor_agent.py`) with persistent URL state caching (`StateCache` via SQLite) to prevent redundant processing.
-- **Concurrent Download Pipeline** — Multi-worker download pool with parallelized CDN rate-limiting bypass, independent fast (5 req/s) non-CDN downloader limiters, and profile-aware settings. Supports resumable HTTP `Range` requests (HTTP 206 Partial Content) to resume interrupted downloads of large assets, with automatic fallback for HTTP 200/416, and post-download hash verification.
-- **Specialized Extractors** — Zero-DOM direct extraction for complex SPAs like YouTube, TikTok, and Reddit via `yt-dlp` bypassing rendering completely.
-- **Yield Tuning & Upscaling** — Heuristically predicts and fetches high-res origin URLs from standard thumbnail patterns (e.g. WordPress, Twitter) with automatic graceful degradation.
-- **Quality Filters** — Relevance scoring, low-res detection, archive/index page penalty, preview marker detection, CDN whitelist. Includes early low-res directory structure path pre-filtering to avoid fetching thumbnails.
-- **WAF & JS Challenge Bypass** — Integrated local cookie harvesting, Crawl4AI, DrissionPage, and an ultimate `undetected-chromedriver` (UC) Tier-3 fallback to decisively defeat Cloudflare Turnstile. Features WAF & Auth Wall Cutoff Circuit Breakers (consecutive failure/redirect thresholds) to prevent resource exhaustion.
-- **Dynamic HTMX Frontend** — A fully decoupled, responsive live command center in `frontend/`. Features context-aware telemetry stat cards (switching between global totals and per-subject counts), real-time OS hardware monitoring (CPU, RAM, Disk), hardware safety threshold validation (>16 scrapers, >24 downloaders alert), interactive `[?]` tooltips, process abort controls, and physical file management (open local folder, delete files) directly inside the gallery via HTMX.
-- **Vector Branding & System Tray** — Integrated SVG vector logo branding across web and terminal interfaces, inline SVG favicon data URI loading, and a custom high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) optimized for taskbar display.
-- **JSON-Driven URL Normalisation** — Domain-specific URL canonicalisation rules live in `data/url_normalisation_rules.json`. No domain patterns are hardcoded in source.
-- **Memory-Backed Dedup & Cache** — Inline duplicate rejection via thread-safe closures and persistent cross-session SQLite URL caching (`--use-state-cache`), optimized with WAL for high concurrency.
-- **Robots.txt Respect** — Thread-safe parser cache; optional `--ignore-robots` flag.
-- **Export** — JSON manifest output per run, plus automated GitHub Pages deployment configuration.
+**scrAPE** is a high-throughput, autonomous batch media scraper designed for domain crawling, image and video asset discovery, quality-based relevance filtering, and resilient asset extraction. Powered by a decoupled **FastAPI + HTMX** tactical WebUI, a 7-tier WAF fallback pipeline, and persistent SQLite WAL state caching, scrAPE handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.
 
 ---
 
 ## Quick Start
 
-### Global CLI Installation
-You can install scrAPE globally to run the interactive selection dashboard from any terminal window using the `scrape` command:
+### 1. Global CLI Installation (Recommended)
 
-1. **Run the One-Click Installer**:
-   - **Windows**: Double-click or run `.\install.bat` from the root of the project.
-   - **macOS/Linux**: Run `pip install -e .` from the root of the project.
-2. **Launch the CLI**:
-   Open a new terminal window and run:
-   ```bash
-   scrape
-   ```
-   *Note: On the first run, the tool will automatically check and download Node.js dependencies (`npm install` for crawlee_bridge) and Playwright browser binaries (`playwright install chromium`) if they are missing.*
+Run the interactive dashboard from any terminal window:
 
-### Manual Execution (Without Global Install)
+- **Windows**: Run `.\install.bat` from the root directory.
+- **macOS / Linux**: Run `pip install -e .` from the root directory.
+
+Once installed, launch from any terminal:
+
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the interactive WebUI Command Center
-.\run_frontend.bat
-
-# Run with keyword and seed file
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
-
-# Run with entity tokens for higher precision
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --entity-token "Entity Name" --entity-token "keyword"
-
-# Run with explicit output (faster, no CLI wizard)
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 30 --page-limit 50 --crawl-depth 2
+scrape
 ```
 
-See [USAGE.md](docs/USAGE.md) for full CLI reference and [CONFIGURATION.md](docs/CONFIGURATION.md) for detailed annotation and dynamic settings reference.
+> *Note: On initial launch, missing dependencies (`crawlee_bridge` Node.js modules and Playwright Chromium binaries) are detected and installed automatically.*
+
+### 2. Manual Launch (Without Global Install)
+
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Start the interactive WebUI Command Center (http://localhost:10001)
+.\run_frontend.bat
+
+# Or run via CLI with keyword and seed file
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
+
+# Run with explicit execution limits (bypasses wizard)
+python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 50 --page-limit 100 --workers 8 --dl-workers 8 --download-media
+```
 
 ---
 
-## WAF, Turnstile & JS-Only Bypass (Local & Server Modes)
+## Key Features
 
-scrAPE is equipped with a tiered fallback pipeline to defeat Cloudflare WAF, Turnstile challenges, login walls, and JS-only rendering locally without relying on expensive cloud proxies. It works on **Windows, macOS, and Linux**.
+- **Dynamic HTMX Tactical WebUI** — Fully decoupled dashboard (`frontend/`) featuring context-aware telemetry stat cards (switching between global totals and per-subject counts with `/ N total` comparisons), real-time OS hardware telemetry (CPU, RAM, Disk), process abort controls, and physical file management (open local folder, delete files) directly inside the Media Vault.
+- **Option C Context-Aware Statistics** — Telemetry stat cards dynamically adapt to your view context: global cumulative totals on the Command Center, or per-subject counts when exploring a target in the Media Vault.
+- **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for 16px/24px taskbar legibility.
+- **WAF & Turnstile 7-Tier Fallback** — Defeats Cloudflare Turnstile, Auth walls, and anti-bot protections using a 7-tier escalation chain: `Local Cookies` → `Crawlee Cheerio` → `Crawl4AI` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver`.
+- **WAF & Auth Circuit Breakers** — Halts crawling on protected domains after consecutive worker errors or authentication redirects (`/login`, `/auth`) to prevent thread hangs and resource exhaustion.
+- **Concurrent Resumable Download Pipeline** — Parallel download pool with HTTP `Range` requests (HTTP 206 Partial Content) to resume interrupted downloads of large assets, with automatic fallback for HTTP 200/416 and post-download SHA-256 hash verification.
+- **Seed Manifest Parser** — Declarative domain profiles supporting `# type`, `# crawl`, `# depth`, `# Rate-limit`, `# max_pages`, `# cloudflare`, `# min_image_size`, `# thumbnail_prefix`, `# requires_referer`, and `# [CDN]` annotations.
+- **Continuous Watchdog Agent** — Long-running agent mode (`src/cli/monitor_agent.py`) with persistent SQLite WAL state caching (`StateCache`) to eliminate redundant crawling across runs.
+- **Specialized Extractors** — Zero-DOM direct extraction for complex media SPAs like YouTube, TikTok, and Reddit via `yt-dlp`.
+- **Quality & Upscaling Filters** — Heuristic origin URL prediction from thumbnail patterns (WordPress, Twitter, etc.), relevance scoring, archive/index penalties, and early path pre-filtering to reject thumbnail directories before fetching.
+- **Hardware Safety Threshold Warnings** — Client-side validator (`validateSafetyThresholds()`) alerts users when setting concurrency limits above safe hardware bounds (>16 scrapers, >24 download threads).
 
-On Linux environments without a display (headless servers), Xvfb is recommended for the deep stealth tiers, and the `--capsolver-key` flag is supported to automatically solve Turnstile blocks that cannot be bypassed via human interaction.
+---
 
-1. **Local Cookie Harvesting** (`browser-cookie3`) — Reads active login and session cookies from local profiles of Chrome, Firefox, Edge, Brave, and Opera. Reuses them to authenticate direct `httpx` client requests. Harvested session cookies are securely stored with restricted file permissions (`0o600`).
-2. **Crawlee (Cheerio)** — Fast static fallback utilizing `got-scraping` Node.js headers to perfectly spoof standard browser TLS fingerprints. (Runs securely isolated on `127.0.0.1`).
-3. **Crawl4AI Headless/Headful Browser** — Executes standard headless browser-based requests.
-4. **DrissionPage Automation Fallback** — A robust Chromium-based controller that handles light JS walls and Captchas.
-5. **Crawlee (Puppeteer)** — Heavy JS-rendering fallback powered by the `puppeteer-extra-plugin-stealth` library for maximum bot evasion.
-6. **Helium** — High-level automation fallback.
-7. **Undetected-Chromedriver (UC) Fallback** — The ultimate stealth fallback layer. Specifically engineered to seamlessly bypass persistent Cloudflare Turnstile blocks with careful process-tree lifecycle management to avoid zombie chrome instances during continuous runs.
+## WAF, Turnstile & JS-Only Bypass
 
-### Configuration Settings
+scrAPE features a 7-tier escalation pipeline to defeat Cloudflare WAF, Turnstile challenges, and JS-only rendering without expensive cloud proxy subscriptions:
 
-These features can be controlled globally in `src/config.py`:
-
-- `ENABLE_COOKIE_HARVESTING = True`
-- `ENABLE_DRISSIONPAGE_FALLBACK = True`
+| Tier | Engine / Method | Best Used For |
+|---|---|---|
+| **Tier 1** | **Local Cookie Harvesting** (`browser-cookie3`) | Reusing active browser session cookies from Chrome, Firefox, Edge, Brave |
+| **Tier 2** | **Crawlee (Cheerio)** | Fast static extraction with Node.js `got-scraping` TLS fingerprint spoofing |
+| **Tier 3** | **Crawl4AI** | Standard headless browser page evaluation |
+| **Tier 4** | **DrissionPage** | Light JS challenges and basic Captcha bypass |
+| **Tier 5** | **Crawlee (Puppeteer)** | Heavy JS-rendering with `puppeteer-extra-plugin-stealth` |
+| **Tier 6** | **Helium** | High-level browser control fallback |
+| **Tier 7** | **Undetected-Chromedriver (UC)** | Ultimate stealth layer for persistent Cloudflare Turnstile challenges |
 
 ---
 
 ## Seed Manifest Format
 
-Each `.txt` seed file defines one subject with per-domain profiles. Annotations before a URL line apply to that domain.
-
-### Supported Annotations
-
-Comment-style annotations (`# <key>: <value>`) immediately preceding a domain/URL block configure that domain's extraction rules:
+Each `.txt` seed file defines extraction rules per domain using comment annotations (`# <key>: <value>`):
 
 | Annotation | Example | Description |
-| --- | --- | --- |
-| `# type: <video\|image\|mixed>` | `# type: image` | Media type hint + crawl strategy |
-| `# crawl: <direct\|index→detail>` | `# crawl: direct` | Use `direct` to skip link discovery and scrape matching URLs only |
+|---|---|---|
+| `# type: <video\|image\|mixed>` | `# type: image` | Media type hint & extraction strategy |
+| `# crawl: <direct\|index→detail>` | `# crawl: direct` | Use `direct` to skip link discovery and scrape target URLs only |
 | `# depth: <int>` | `# depth: 1` | BFS crawl depth override (default 1 for index, 0 for direct) |
-| `# Rate-limit: <float> req/s` | `# Rate-limit: 0.5 req/s` | Requests per second throttle for this domain |
-| `# max_pages: <int>` | `# max_pages: 5` | Hard cap on pages crawled for this domain per run. Skips excess pages before any HTTP request. |
-| `# cloudflare: true` | `# cloudflare: true` | Marks domain as Cloudflare Turnstile-protected. Skips all Crawl4AI fallback tiers immediately on 403/429. |
+| `# Rate-limit: <float> req/s` | `# Rate-limit: 0.5 req/s` | Requests-per-second throttle for domain |
+| `# max_pages: <int>` | `# max_pages: 10` | Hard cap on pages crawled per domain per run |
+| `# cloudflare: true` | `# cloudflare: true` | Skips light tiers on 403/429, escalating directly to stealth browsers |
 | `# skip-link-discovery` | `# skip-link-discovery` | Skip crawling/link discovery entirely |
 | `# [CDN] <hostname>` | `# [CDN] cdn.domain.com` | Whitelist CDN domain (bypasses page-level penalties) |
-| `# min_image_size: WxH` | `# min_image_size: 800x600` | Minimum accepted image dimensions (width x height) |
+| `# min_image_size: WxH` | `# min_image_size: 1000x800` | Minimum accepted image dimensions |
 | `# thumbnail_prefix: <pattern>` | `# thumbnail_prefix: /thumbs/` | String pattern to reject thumbnail URLs early |
-| `# requires_referer` | `# requires_referer` | Send page referer header during download to bypass hotlinking protection |
+| `# requires_referer` | `# requires_referer` | Send page Referer header to bypass hotlinking protection |
 
-### Example
+### Example Manifest (`seeds/example_subject.txt`)
 
 ```text
 # Subject: Example Subject
@@ -136,18 +138,17 @@ https://videos.example.org/subject
 
 ---
 
-## Quality Filter Pipeline
+## Parameter Recommendations & Safety Guardrails
 
-Assets discovered during crawling pass through a multi-stage filter before being kept or rejected:
+To preserve system responsiveness and avoid CDN IP rate limits (HTTP 429/503):
 
-1. **Relevance scoring** — Weighted against keyword + entity tokens via `weighted_subject_score()`
-2. **Low-resolution detection** — `has_low_res_query_param()` (query params) + `has_low_res_path_pattern()` (URL path dims, resizer paths, single-dim suffixes)
-3. **Archive/index page penalty** — Assets on archive/index pages are penalized (low-info pages)
-4. **Preview marker penalty** — URL/context containing thumbnail preview markers (e.g., `_th`, `thumb`, `preview`)
-5. **Placeholder asset rejection** — Generic placeholder paths (/media/, /uploads/) with no subject keywords
-6. **CDN bypass** — Assets on registered CDN domains bypass page-level penalties
-
-See [docs/QUALITY_FILTERS.md](docs/QUALITY_FILTERS.md) for full details.
+| Parameter | Recommended (Safe) | High-Performance | Over-Limit Warning | Risk / System Impact |
+|---|---|---|---|---|
+| **Scraper Workers** (`--workers`) | **4 – 8** | **12 – 16** | **> 16 workers** | High CPU/RAM utilization, browser process stalls |
+| **Download Workers** (`--dl-workers`) | **4 – 8** | **12 – 16** | **> 24 workers** | Bandwidth saturation, CDN IP bans (429/503) |
+| **Crawl Depth** (`--crawl-depth`) | **1 – 2** | **3 levels** | **> 4 levels** | Exponential link graph explosion |
+| **Max Results** (`--max-results`) | **50 – 200** | **500 – 1000** | **0 (Unlimited)** | High disk usage (GBs of video storage) |
+| **Page Limit** (`--page-limit`) | **20 – 50** | **100 – 200** | **0 (Unlimited)** | Unbounded network traffic, extended job duration |
 
 ---
 
@@ -155,105 +156,86 @@ See [docs/QUALITY_FILTERS.md](docs/QUALITY_FILTERS.md) for full details.
 
 ```mermaid
 flowchart TD
-    MP["src/cli/main.py"] --> SM["SeedManifest"]
-    SM --> DP["DomainProfile[]<br/>(rate-limit, skip,<br/>min_size, referer)"]
+    CLI["src/cli/main.py / launcher.py"] --> SM["SeedManifest Parser"]
+    SM --> DP["DomainProfile[]<br/>(Rate-limit, depth, min_size)"]
     SM --> EO["EngineOptions"] --> SE["ScrapingEngine"]
     DP --> SE
 
-    subgraph SE["ScrapingEngine"]
-        BF["BFS Crawler<br/>(StateCache & Deduplication)"]
-        SPE["SpecializedExtractor<br/>(yt-dlp for heavy SPAs)"]
-        AD["Asset Discovery &amp;<br/>Relevance Scoring"]
-        DLP["Download Pipeline<br/>(Resolution Upscaling)"]
+    subgraph SE["ScrapingEngine (Engine Core)"]
+        BF["BFS Crawler &amp; StateCache"]
+        SPE["SpecializedExtractor (yt-dlp)"]
+        AS["Asset Relevance &amp; Quality Scoring"]
+        DLP["Download Pipeline &amp; Range Resumption"]
     end
 
-    RC["RobotsChecker"] -.-> C["Cache"]
+    RC["RobotsChecker"] -.-> C["SQLite WAL Cache"]
     C -.-> RC
 
-    SR["ScrapeResult & Frontend Dashboard"]
-
-    BF --> SPE --> AD --> DLP --> SR
+    FD["FastAPI/HTMX Dashboard (frontend/app.py)"]
+    SE --> SR["ScrapeResult &amp; Observability"] --> FD
+    FD -- Triggers Background Run --> SE
 ```
 
-- `src/cli/main.py` / `src/cli/monitor_agent.py` — Entry points, CLI wizards, continuous watchdog loops
-- `src/core/seed_manifest.py` — Parser: SeedManifest → list[DomainProfile]
-- `src/core/engine.py` — ScrapingEngine: Main orchestration entry point
-- `src/core/managers.py` — DomainRulesManager, MediaProcessor, CrawlOrchestrator
-- `src/scraper/specialized.py` — `SpecializedExtractor`: yt-dlp based heavy SPA extraction
-- `src/core/filters.py` — `score_image_relevance()`, `transform_to_highres()`, `rejection_reason_for_*()`
-- `src/storage/file_downloader.py` — `download_file()`: Concurrent fetching with transparent high-res fallback
-- `src/storage/state_cache.py` — Persistent URL history using SQLite
-- `frontend/app.py` — FastApi + HTMX WebUI dashboard and process orchestrator
+### Module Layout
+
+| Directory / File | Description |
+|---|---|
+| `frontend/app.py` | FastAPI backend for HTMX WebUI, context-aware stats (`/htmx/subject-stats`), disk asset counter, live OS telemetry & process orchestrator |
+| `frontend/templates/` | Brutalist HTMX dashboard templates (`index.html`, `gallery.html`) with inline SVG vector logo and data URI favicon |
+| `crawlee_bridge/` | Express.js bridge running Crawlee Cheerio and Puppeteer stealth tiers |
+| `src/cli/launcher.py` | Interactive CLI launcher & system tray manager (custom PIL RGBA 64×64 icon renderer) |
+| `src/cli/cli_wizard.py` | Interactive wizard for standard crawls, watchdog runs, and dataset formatting |
+| `src/core/engine.py` | Core `ScrapingEngine` orchestration entry point |
+| `src/core/managers.py` | Decoupled `CrawlOrchestrator`, `MediaProcessor`, and `DomainRulesManager` |
+| `src/core/filters.py` | Relevance scoring, low-res detection, and rejection reason algorithms |
+| `src/storage/file_downloader.py` | Multi-threaded media fetcher with Range resumption and Pillow image sanitization |
+| `src/storage/state_cache.py` | Persistent URL history using SQLite in WAL journal mode |
 
 ---
 
 ## Post-Run Observability
 
-Every crawl run generates an automated post-run metrics summary at `output/{keyword_slug}/runs/{run_id}/run_summary.json`. This provides detailed visibility into crawler performance, yield, and failures:
+Every crawl generates an automated observability report at `output/{keyword_slug}/runs/{run_id}/run_summary.json`:
 
-- **Runtime Breakdown** — Exact timing of the BFS crawl phase vs the media download phase.
-- **Yield Stats** — Total pages scanned, images/videos kept, rejections, and download success/fail/skip counts.
-- **Domain Breakdown** — Granular per-domain counters for pages scanned, media kept, rejected items, duplicate hash skips, and wasted (failed) requests.
-- **Top Rejection Reasons** — Frequency counts of why URLs were rejected (e.g. low resolution, duplicates, etc.).
-- **Zero-Yield Domain List** — Allowed/scanned domains that had $>0$ pages crawled but 0 kept images or videos.
-- **Dead Download Links** — Listing of specific media URLs that failed to download, including source pages and exact failure reasons (e.g. 404, HTTP error).
-
-The summary is printed to the console at the end of every run, and stored in JSON format for easy programmatic ingestion.
+- **Phase Timing Breakdown** — BFS crawl duration vs media download duration.
+- **Yield Statistics** — Pages scanned, kept assets, rejected items, download success/fail/skip counts.
+- **Domain Metrics** — Granular per-domain counters for pages scanned, media kept, rejected items, and duplicate hash skips.
+- **Rejection Diagnostics** — Frequency table of rejection reasons (e.g. `low_resolution`, `archive_penalty`, `duplicate_hash`).
+- **Zero-Yield Domain Tracking** — Identifies domains with $>0$ scanned pages but 0 kept assets.
+- **Failed Link Audit** — Exact list of failed download URLs with HTTP status codes and error tracebacks.
 
 ---
 
-## System Limitations & Defeated Challenges
-
-| Challenge / Limitation | Status | Resolution / Workaround |
-| --- | --- | --- |
-| **Cloudflare Turnstile & WAFs** | **DEFEATED** | Bypassed natively on Windows/Mac via headful browser spawning, fast-fail 8s timeout, or fully headless on Linux via `--capsolver-key` API integration. |
-| **JS-Only / SPA Pages** | **DEFEATED** | Fully rendered via Crawlee (Puppeteer) and `yt-dlp` specialized extractors. Lazy-loaded media extracted via `data-src`, `srcset`, and JSON-LD metadata. |
-| **Auth-Walled Sources** | **DEFEATED** | Bypassed via Local Cookie Harvesting (`browser-cookie3`) and manual `--inject-cookies` / `--login` CLI flags. |
-| **IP Rate-Limiting / Bans** | **Limitation** | The scraper runs locally on a single IP without proxy rotation. If aggressively banned, use `--proxy-list` to route through proxies. |
-| **Manual CAPTCHAs** | **DEFEATED (Opt-In)** | Passed automatically if `--capsolver-key` is supplied; otherwise pauses execution to allow manual interaction in GUI mode. |
-| **Disabled Seed Domains** | **DEFEATED** | Dynamic Seed Whitelisting automatically registers all hostnames present in `--seed-file` so provided links are never skipped. |
-
----
-
-## Parameter Recommendations & Safety Guardrails
-
-To ensure system stability, avoid CPU/RAM bottlenecks, and prevent CDN IP rate-limiting during large extractions:
-
-| Parameter | Recommended (Safe Baseline) | High-Performance (Heavy Run) | Over-Limit Warning Threshold | Potential Risk / System Impact |
-| :--- | :--- | :--- | :--- | :--- |
-| **Concurrency Workers** (`--workers`) | **4 – 8 workers** | **12 – 16 workers** | **> 16 workers** | High CPU/RAM utilization, Playwright Chrome process spawning stalls, browser context crashes. |
-| **Download Workers** (`--dl-workers`) | **4 – 8 workers** | **12 – 16 workers** | **> 24 workers** | Bandwidth saturation, CDN IP bans (HTTP 429/503), disk write queue contention. |
-| **Crawl Depth** (`--crawl-depth`) | **1 – 2 levels** | **3 levels** | **> 4 levels** | Exponential link explosion, memory growth, crawl graph circular loops. |
-| **Max Results** (`--max-results`) | **50 – 200 items** | **500 – 1000 items** | **0 (Unlimited)** | Unbounded disk usage (gigabytes of video data), long-running background tasks. |
-| **Page Limit** (`--page-limit`) | **20 – 50 pages** | **100 – 200 pages** | **0 (Unlimited)** | High network traffic, memory retention, extended job durations. |
-
-*The Web Cockpit UI (`run_frontend.bat`) includes real-time warning badges if worker counts exceed safe hardware thresholds.*
-
----
-
-## Data Files
-
-| File | Purpose |
-| --- | --- |
-| `data/domain_config.json` | Rate limits, hotlink-protected domains, referer overrides, deep-scrape targets |
-| `data/url_normalisation_rules.json` | URL canonicalisation rules (regex → replacement). Loaded at startup into `config.URL_NORMALISATION_RULES`. Add new domain-specific URL collapse rules here. |
-| `data/blacklist.json` | Domains auto-banned by the circuit breaker. Review after each run — remove false positives. |
-| `data/sessions/` | Persisted cookie jars per domain. Usually leave untouched. |
-
----
-
-## Output Structure
+## Output Directory Structure
 
 ```text
 output/
-  cache/
-    state_cache.db      # Persistent SQLite cache of processed URLs
-  {keyword_slug}/
-    runs/
-      {run_id}/
-        results.json          # Full scrape result (scanned pages, assets, rejected list, metadata)
-        run_summary.json      # Structured post-run observability metrics and summaries
-        domain_report.json    # Per-domain crawl count dictionary
-        images/               # Downloaded image files grouped by domain
-        videos/               # Downloaded video files grouped by domain
+├── cache/
+│   └── state_cache.db           # Persistent SQLite WAL cache of processed URLs
+└── {keyword_slug}/
+    └── runs/
+        └── {run_id}/
+            ├── results.json     # Complete scrape result manifest
+            ├── run_summary.json # Observability metrics & execution summary
+            ├── domain_report.json
+            ├── images/          # Downloaded image assets
+            └── videos/          # Downloaded video assets
 ```
+
+---
+
+## Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) directory:
+
+- [Usage Guide](docs/USAGE.md) — CLI options, WebUI controls, and AI dataset tools
+- [Architecture Guide](docs/ARCHITECTURE.md) — Internal data flow, dynamic plugins, and thread models
+- [Configuration Reference](docs/CONFIGURATION.md) — Seed annotations, `config.py` settings, and normalisation rules
+- [Quality Filters Reference](docs/QUALITY_FILTERS.md) — Scoring formulas, low-res patterns, and rejection rules
+- [Changelog](docs/CHANGELOG.md) — Complete version release history
+
+---
+
+## License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
