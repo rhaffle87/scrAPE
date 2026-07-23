@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 import re
 import threading
 import time
@@ -10,9 +11,11 @@ from tqdm import tqdm
 
 from core.models import (
     EngineOptions,
+    ImageItem,
     PageReport,
     ScrapeResult,
     RejectedItem,
+    VideoItem,
 )
 from core.engine import _video_resolution_hint
 from utils.logger import get_logger
@@ -601,6 +604,7 @@ class CrawlOrchestrator:
         self.state_cache = state_cache
         self.workers = workers
         self.rules_manager = rules_manager
+        self.media_processor: Any = None
 
     def _build_candidate_pages(
         self,
@@ -834,8 +838,8 @@ class CrawlOrchestrator:
         # domains proceed in parallel while same-domain calls are naturally queued.
 
         # Deduplication maps: norm_key → item (allows URL upgrading from tokenless → tokened)
-        seen_images: dict[str, object] = {}
-        seen_videos: dict[str, object] = {}
+        seen_images: dict[str, ImageItem] = {}
+        seen_videos: dict[str, VideoItem] = {}
         processed_media_urls: set[str] = set()
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}

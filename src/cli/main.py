@@ -36,15 +36,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="scrAPE — Collect public image and video URLs for a keyword query."
     )
-    parser.add_argument("--keyword", default="", help="Keyword query to search for.")
     parser.add_argument(
-        "--login", type=str, metavar="DOMAIN", help="Interactive headful login for the specified domain to save session cookies."
+        "--keyword",
+        default="",
+        help="Keyword query to search for."
     )
     parser.add_argument(
-        "--inject-cookies", type=Path, metavar="FILE", help="Import a JSON or Netscape cookies.txt file."
+        "--login",
+        type=str, 
+        metavar="DOMAIN",
+        help="Interactive headful login for the specified domain to save session cookies."
     )
     parser.add_argument(
-        "--domain", type=str, help="Domain to associate with the injected cookies (required if using --inject-cookies)."
+        "--inject-cookies", 
+        type=Path,
+        metavar="FILE", 
+        help="Import a JSON or Netscape cookies.txt file."
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        help="Domain to associate with the injected cookies (required if using --inject-cookies)."
     )
     parser.add_argument(
         "--max-results",
@@ -163,6 +175,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=CONCURRENT_DOWNLOADS,
         metavar="N",
         help=f"Number of media files to download concurrently (default: {CONCURRENT_DOWNLOADS}).",
+    )
+    parser.add_argument(
+        "--dl-speed-limit",
+        type=int,
+        default=0,
+        metavar="KBPS",
+        help="Maximum total media download bandwidth limit in KB/s (default: 0 = unlimited).",
+    )
+    parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=0.0,
+        metavar="RPS",
+        help="Maximum global page request rate limit in req/sec (default: 0.0 = unlimited).",
     )
     parser.add_argument(
         "--force-search",
@@ -517,6 +543,8 @@ def main() -> None:
         proxy=args.proxy,
         proxy_list=str(args.proxy_list) if args.proxy_list else None,
         capsolver_key=args.capsolver_key,
+        dl_speed_limit_kbps=getattr(args, "dl_speed_limit", 0),
+        global_rate_limit_rps=getattr(args, "rate_limit", 0.0),
     )
     engine.downloader.workers = args.dl_workers
 

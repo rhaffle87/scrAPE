@@ -75,3 +75,20 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 - **Left Sidebar**: Fixed 280px navigation and subject vault console.
 - **Right Main Container**: `margin-left: 280px; padding: 2rem;`
 - **Grid View**: Command Center uses a 2-column grid (Parameters Form on left, Live Terminal Log Feed on right).
+
+---
+
+## 6. System Architecture & Performance Controls
+
+### 6.1 Dual Speed Limiter UI & Controls
+- **Page Request Rate Limit (`--rate-limit` / `RPS`)**: Token-Bucket throttle controlling outgoing page requests per second. Prevents site ban risks and HTTP 429/503 responses.
+- **Media Download Speed Limit (`--dl-speed-limit` / `KBPS`)**: Throttles media chunk transfers across active downloader threads to preserve local bandwidth during high-concurrency downloads.
+
+### 6.2 FlareSolverr Docker Integration Architecture
+- Native binding to `http://127.0.0.1:8191/v1` with dual-stack fallback (`localhost:8191`).
+- Automatic background container launch (`docker start flaresolverr`) when port 8191 is unreachable.
+- Domain session persistence (`session_id`) to harvest WAF bypass cookies for downstream media downloads.
+
+### 6.3 Downloader Semaphore & Range Resume Design
+- **Host Semaphore (`_host_semaphore_for`)**: Wraps active HTTP streaming connections to limit concurrency per domain host.
+- **HTTP Range Resumption**: Sends `Range: bytes={written}-` for partial video files (`.tmp`), resuming HTTP 206 partial content transfers seamlessly.

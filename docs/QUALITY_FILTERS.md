@@ -75,8 +75,17 @@ Scans URL path strings for dimension regex patterns:
 | **Single Width Suffix** | `_150x.jpg` | Width < 400px |
 | **Single Height Suffix** | `_x150.jpg` | Height < 300px |
 
-### 3.3 Early Link Discovery Pre-Filtering
-Inside `is_thumbnail_url()`, candidate links matching low-resolution path patterns (e.g. `/320x180/` frame screenshots) are rejected **during link discovery** before enqueueing or initiating HTTP requests. Path layouts with acceptable dimensions (e.g. `/640x360/`) are preserved for crawling.
+### 3.3 Search Query Page Pre-Filtering (`is_search_page_url`)
+`is_search_page_url(url)` checks whether a URL points to an un-crawlable search query endpoint (`/search?q=`, `?text=`, `search_query=`, `/results?`) on Google, Vimeo, Flickr, or YouTube. Matching query URLs are skipped during link discovery before requesting or enqueueing.
+
+### 3.4 Early Link Discovery & High-Res Upscaling (`transform_to_highres`)
+Inside `is_thumbnail_url()`, candidate links matching low-resolution path patterns (e.g. `/320x180/` frame screenshots) are rejected **during link discovery**.
+
+When valid thumbnails are enqueued, `transform_to_highres(url)` predicts the original high-resolution asset URL using heuristic path rules:
+- **Erome**: Replaces thumbnail directories `/t/` or `/th/` with high-res `/v/`.
+- **WordPress**: Strips `-scaled.jpg` / `-scaled.png` and dimension patterns (`-1024x768.png`).
+- **Twitter**: Replaces `name=small` or `name=medium` with `name=large`.
+- **Generic Thumbnails**: Replaces `/thumbs/` $\rightarrow$ `/images/` and `/video_thumbs/` $\rightarrow$ `/video_sources/`.
 
 ---
 

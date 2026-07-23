@@ -56,6 +56,8 @@ class ScrapeRequest(BaseModel):
     use_state_cache: Optional[bool] = False
     headless: Optional[bool] = False
     stealth_headful: Optional[bool] = False
+    dl_speed_limit: Optional[int] = 0
+    rate_limit: Optional[float] = 0.0
 
 task_state: Dict[str, Any] = {
     "status": "idle",
@@ -253,6 +255,10 @@ def run_scrape(req: ScrapeRequest):
         cmd.extend(["--proxy", req.proxy])
     if req.capsolver_key:
         cmd.extend(["--capsolver-key", req.capsolver_key])
+    if req.dl_speed_limit and req.dl_speed_limit > 0:
+        cmd.extend(["--dl-speed-limit", str(req.dl_speed_limit)])
+    if req.rate_limit and req.rate_limit > 0.0:
+        cmd.extend(["--rate-limit", str(req.rate_limit)])
         
     if req.download_media:
         cmd.append("--download-media")
@@ -623,7 +629,9 @@ async def htmx_run(request: Request):
         entity_tokens=_get_form_str(form, "entity_tokens"),
         domain_delays=_get_form_str(form, "domain_delays"),
         proxy=_get_form_str(form, "proxy"),
-        capsolver_key=_get_form_str(form, "capsolver_key")
+        capsolver_key=_get_form_str(form, "capsolver_key"),
+        dl_speed_limit=_get_form_int(form, "dl_speed_limit", 0),
+        rate_limit=float(_get_form_str(form, "rate_limit", "0.0") or "0.0"),
     )
     seed_val = _get_form_str(form, "seed")
     if seed_val:

@@ -28,6 +28,21 @@ def absolutize_url(candidate: str, base_url: str) -> str:
     return urljoin(base_url, candidate.strip())
 
 
+def is_search_page_url(url: str) -> bool:
+    """Return True if the URL is a generic search results page endpoint (e.g. /search?q=...)."""
+    try:
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        query = parsed.query.lower()
+        if re.search(r"/(?:search|find|query)(?:/|\?|$)", path):
+            return True
+        if ("search?" in query or "q=" in query or "text=" in query) and ("search" in path or "flickr.com" in parsed.netloc or "vimeo.com" in parsed.netloc):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def normalize_url(url: str) -> str:
     from urllib.parse import unquote, quote
     from config import URL_NORMALISATION_RULES
@@ -615,6 +630,25 @@ def has_low_res_path_pattern(
     return False
 
 
+def is_search_page_url(url: str) -> bool:
+    """Check if URL points to a search/query results endpoint that should not be crawled as a content page."""
+    try:
+        parsed = urlparse(url.lower())
+        path = parsed.path
+        query = parsed.query
+        host = parsed.netloc
+
+        if any(sp in path for sp in ["/search", "/results", "/query"]):
+            return True
+        if any(qp in query for qp in ["q=", "query=", "text=", "search_query=", "search="]):
+            return True
+        if any(sh in host for sh in ["google.com", "vimeo.com", "flickr.com", "youtube.com"]) and ("search" in path or "results" in path or "q=" in query):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def transform_to_highres(url: str) -> tuple[str, str]:
     """
     Attempt to heuristically upscale a URL from a thumbnail to its original high-res version.
@@ -625,20 +659,31 @@ def transform_to_highres(url: str) -> tuple[str, str]:
         parsed = urlparse(url)
         path = parsed.path
         query = parsed.query
+        host = parsed.netloc.lower()
 
-        # 1. WordPress style -150x150.jpg
-        wp_match = re.search(r"(-\d{2,4}x\d{2,4})(\.[a-zA-Z0-9]{3,4})$", path, re.I)
+        # 1. WordPress / generic style dimension pattern e.g. -150x150.jpg, -300x200.jpg, -1024x768.png, -scaled.jpg
+        wp_match = re.search(r"(-\d{2,4}x\d{2,4}|-scaled)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
         if wp_match:
             path = path[: wp_match.start(1)] + wp_match.group(2)
 
-        # 2. _thumb suffix
-        thumb_match = re.search(r"(_thumb)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
+        # 2. _thumb or .thumb suffix
+        thumb_match = re.search(r"([._-]thumb(?:nail)?s?|\.thumb)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
         if thumb_match:
             path = path[: thumb_match.start(1)] + thumb_match.group(2)
 
-        # 3. Twitter name=small -> name=large
+        # 3. Erome image thumbnail replacement (/t/ or /th/ -> /v/ or /)
+        if "erome.com" in host:
+            path = re.sub(r"/(?:t|th)/", "/v/", path)
+
+        # 4. Path directory replacements
+        path = re.sub(r"/(?:thumbs|preview|previews|thumbnails)/", "/images/", path, flags=re.I)
+        path = re.sub(r"/video_thumbs/", "/video_sources/", path, flags=re.I)
+
+        # 5. Twitter name=small / name=medium -> name=large
         if "name=small" in query:
             query = query.replace("name=small", "name=large")
+        elif "name=medium" in query:
+            query = query.replace("name=medium", "name=large")
 
         # Combine
         if path != parsed.path or query != parsed.query:

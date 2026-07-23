@@ -49,7 +49,7 @@ This document provides project-scoped instructions and architectural rules for A
 
 ## 4. Verification Requirements
 
-- Always run `pytest` after completing code edits to verify that all 103+ unit and integration tests pass cleanly before declaring completion.
+- Always run `pytest` after completing code edits to verify that all 131+ unit and integration tests pass cleanly before declaring completion.
 - When modifying WebUI templates, verify HTML rendering and HTMX routes.
 
 ---

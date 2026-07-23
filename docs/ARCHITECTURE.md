@@ -128,19 +128,23 @@ flowchart LR
 - **Seed Manifest Annotations**: `# engine: <name>` (e.g. `# engine: camoufox`) forces a specific fallback engine to run first.
 - **Host Engine Memory**: Successful solver choices are automatically cached per host (`HttpClient._preferred_engine_by_host`) and prioritized on subsequent requests.
 - **Camoufox Fingerprint Tuning**: Matches host OS platform (`win`/`mac`/`lin`), enables humanized cursor/scrolling (`humanize=True`), 1920x1080 viewport, and escalates to visible headful mode for 20s if Turnstile challenge is detected on a GUI system.
-- **FlareSolverr Service Integration**: Automatically forwards proxies (`self.get_proxy()`), reuses domain-keyed browser sessions (`session_domain_slug`), and performs startup health-checks. If FlareSolverr is offline, it auto-disables for the run to avoid connection timeout overhead.
+- **FlareSolverr Service Integration**: Binds natively to `http://127.0.0.1:8191/v1` with dual-stack fallback (`localhost:8191`). If port 8191 is unreachable, executes background Docker auto-start (`docker start flaresolverr`) and waits 3.5s before re-pinging. Automatically forwards proxies (`self.get_proxy()`), reuses domain-keyed browser sessions (`session_domain_slug`), and enriches downstream CDN streaming media requests with session cookies. If FlareSolverr is offline, auto-disables for the run to avoid connection timeout overhead.
 
 #### Circuit Breakers & Fast-Fail Triggers
 - **Consecutive Error Cutoff**: If a host triggers **3 consecutive request errors**, the domain is marked as failed for the run. Remaining queued items for that domain are skipped instantly with status `host_failed_skipped`.
 - **Auth Wall Redirect Cutoff**: Redirects to authentication paths (`/login`, `/signin`, `/signup`, `/auth`) trigger an immediate domain cutoff.
 - **Cloudflare Fast-Fail Pre-Registration**: Domains annotated with `# cloudflare: true` skip browser fallback loops instantly on 403/429.
 
-### 3.3 Download Pipeline & Range Resumption (`src/storage/file_downloader.py`)
+### 3.3 Download Pipeline, Speed Limiters & Range Resumption (`src/storage/file_downloader.py`)
 
-The download pipeline provides high-throughput, resilient asset fetching:
+The download pipeline provides high-throughput, resilient asset fetching with bandwidth throttling:
 
 - **Independent Downloader Pool**: Separate thread pool (`--dl-workers`) decoupled from crawler thread limits.
-- **CDN Rate-Limit Bypass**: Whitelisted CDN hosts bypass downloader rate limiting entirely; non-CDN hosts execute against a dedicated 5 req/s download limiter.
+- **Dual Token-Bucket Speed Limiters**:
+  - **Page Rate Limiter (`--rate-limit` / `RPS`)**: Regulates outgoing page requests per second.
+  - **Download Speed Limiter (`--dl-speed-limit` / `KBPS`)**: Throttles network throughput across active asset download streams.
+- **Per-Host Download Semaphore (`_host_semaphore_for`)**: Wraps active HTTP streaming requests to enforce host-level concurrency caps during download transfers.
+- **CDN Rate-Limit Bypass**: Whitelisted CDN hosts bypass downloader rate limiting entirely; non-CDN hosts execute against a dedicated download limiter.
 - **HTTP Range Resumption**: Checks for existing `.tmp` files. If present, requests remaining bytes using `Range: bytes=N-`:
   - **HTTP 206 Partial Content**: Appends streaming bytes (`"ab"` mode).
   - **HTTP 200 OK**: Truncates and downloads from scratch.

@@ -1,11 +1,34 @@
 # Changelog
 
+## [0.19.0] — 2026-07-23
+
+### Added & Changed (0.19.0)
+
+- **FlareSolverr 127.0.0.1 Binding & Docker Auto-Start** (`src/config/__init__.py`, `src/utils/http_client.py`):
+  - Updated default `FLARESOLVERR_URL` to `"http://127.0.0.1:8191/v1"` with dual-stack fallback (`localhost:8191`), eliminating Windows IPv6 DNS resolution latency.
+  - Added background Docker container auto-start (`docker start flaresolverr`) when port 8191 is unreachable on initial health checks.
+  - Enriched downstream CDN streaming media requests with harvested domain session cookies (`session_id`).
+- **Dual Speed & Rate Limiting System** (`src/cli/main.py`, `src/storage/file_downloader.py`, `frontend/app.py`):
+  - Integrated Token-Bucket page request rate limiting (`--rate-limit` / `RPS`) and download bandwidth throttling (`--dl-speed-limit` / `KBPS`) across WebUI, Engine, and Downloader.
+- **Expanded High-Resolution URL Transformations** (`src/core/filters.py`):
+  - Added regular expression transformations for **Erome** image thumbnails (`/t/` / `/th/` $\rightarrow$ `/v/`) and **WordPress** scaled assets (`-scaled.jpg` / `-scaled.png` stripping).
+- **Search Query Page Pre-Filtering** (`src/core/filters.py`):
+  - Added `is_search_page_url()` to detect and skip query endpoints (`/search?q=`, `?text=`, `search_query=`) on Google, Vimeo, Flickr, and YouTube before request allocation.
+- **Downloader Per-Host Concurrency Semaphore** (`src/storage/file_downloader.py`):
+  - Wrapped active HTTP download streams inside `_host_semaphore_for` to enforce per-domain concurrency limits during file transfers.
+- **Test Suite Expansion**:
+  - Added `tests/test_flaresolverr_docker_opt.py` and `tests/test_speed_limiter.py`, bringing the test suite to **131 unit and integration tests passing 100% cleanly**.
+
 ## [0.18.0] — 2026-07-23
 
 ### Added & Changed (0.18.0)
 
 - **8-Tier WAF Anti-Bot Bypass Pipeline** (`src/utils/http_client.py`): Integrated **Camoufox** (Tier 7, stealth Firefox engine with host OS fingerprint matching, `humanize=True` cursor movement, 1920x1080 viewport, and 20s headful Turnstile escalation) and **FlareSolverr** (Tier 8, service integration with domain session reuse and proxy forwarding). Enforced a **60.0s total fallback timeout budget**.
-- **Seed Engine Overrides & Host Memory Caching** (`src/core/seed_manifest.py`, `src/utils/http_client.py`): Added `# engine: <name>` annotations (e.g. `# engine: camoufox`) to force specific WAF engines per domain. Added `HttpClient._preferred_engine_by_host` host memory caching to remember and prioritize successful solver engines automatically.
+- **Headless FlareSolverr Auto-Escalation** (`src/utils/http_client.py`): Added automatic safety-net escalation to FlareSolverr API when `--headless` mode prevents visible headful windows and browser fallbacks hit Cloudflare Turnstile challenge timeouts.
+- **Dynamic Download Host Concurrency Scaling** (`src/storage/file_downloader.py`): Updated `_host_semaphore_for` to scale per-host download concurrency ceiling dynamically (`max(8, dl_workers)`) to resolve the download phase bottleneck on high-volume asset hosts.
+- **Extended High-Resolution Upscaling Rules** (`src/core/filters.py`): Extended `transform_to_highres(url)` with regular expressions for WordPress image dimension suffixes (`-150x150`, `-300x200`), thumbnail subpath replacements (`/thumbs/` → `/images/`, `/video_thumbs/` → `/video_sources/`), and Twitter image quality parameters (`name=large`).
+- **502/503 Exponential Backoff Retries** (`src/utils/http_client.py`): Replaced rapid 1-second retries with exponential backoff (`[4s, 8s, 16s]`) on 502 Bad Gateway and 503 Service Unavailable HTTP status errors to prevent premature domain cutoffs during transient server glitches.
+- **Search Query Endpoint Detection** (`src/core/filters.py`): Added `is_search_page_url()` to detect un-crawlable search query endpoints (`/search?q=...`, `/search/`).
 - **Multi-Platform Extractor Plugins** (`src/plugins/`):
   - `CivitaiExtractor`: Direct JSON API extraction for high-res images, prompt, negative prompt, sampler, seed, and model metadata tags (`civitai.com/images/...`, `civitai.com/models/...`).
   - `BooruExtractor`: Danbooru, Gelbooru, and Safebooru JSON API extraction for original `file_url` assets and tag lists.
@@ -15,7 +38,7 @@
 - **Resumable Crawl & Download Checkpointing** (`src/storage/checkpoint_db.py`, `src/storage/file_downloader.py`): Thread-safe SQLite database (`output/.crawl_state.sqlite`) storing `visited_urls`, `frontier_queue`, and `download_checkpoints`. HTTP `Range: bytes={existing_size}-` byte download resumption on HTTP 206 Partial Content.
 - **AI Dataset Curation & Perceptual Hashing** (`src/utils/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
 - **WebUI WAF Telemetry & Badges** (`frontend/app.py`): Added `_waf_solve_counts` telemetry counters to `HttpClient`. Rendered live WAF engine badges (`CAMOUFOX`, `FLARESOLVERR`, `CRAWL4AI`) inside the WebUI Command Center telemetry bar (`/htmx/stats`).
-- **Comprehensive Test Suite Expansion**: Added `tests/test_camoufox_flaresolverr.py`, `tests/test_flaresolverr_advanced.py`, `tests/test_stream_ytdlp_escalation.py`, `tests/test_multi_platform_extractors.py`, `tests/test_checkpoint_and_range_resume.py`, and `tests/test_phash_and_dataset_exporter.py` (totaling 120 test cases passing cleanly).
+- **Comprehensive Test Suite Expansion**: Added `tests/test_system_optimizations.py`, `tests/test_camoufox_flaresolverr.py`, `tests/test_flaresolverr_advanced.py`, `tests/test_stream_ytdlp_escalation.py`, `tests/test_multi_platform_extractors.py`, `tests/test_checkpoint_and_range_resume.py`, and `tests/test_phash_and_dataset_exporter.py` (totaling **124 test cases** passing cleanly).
 
 ## [0.17.1] — 2026-07-22
 

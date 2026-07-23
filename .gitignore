@@ -44,9 +44,8 @@ runtime_data/*
 # Node modules
 node_modules/
 crawlee_bridge/node_modules/
+/storage/
 crawlee_bridge/storage/
-**/storage/
-storage/
 datasets/
 
 # Python packaging builds

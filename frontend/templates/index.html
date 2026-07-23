@@ -1491,6 +1491,23 @@
                             </div>
 
                             <div class="form-group">
+                                <label>DL Bandwidth Limit (KB/s)
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for unlimited bandwidth. [Rec: 500-5000]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="dl_speed_limit" value="0" min="0" step="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Crawl Rate Limit (req/s)
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0 for unlimited. [Rec: 0.5-5.0]</span>
+                                    </span>
+                                </label>
+                                <input type="number" name="rate_limit" value="0.0" min="0.0" step="0.5">
+                            </div>
+
+                            <div class="form-group">
                                 <label>Output Format
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">File formats for saving extracted metadata

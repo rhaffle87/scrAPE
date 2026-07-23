@@ -59,11 +59,11 @@ def _fast_limiter_for(host: str) -> RateLimiter:
         return _FAST_DOWNLOAD_LIMITERS[host]
 
 
-def _host_semaphore_for(host: str) -> threading.Semaphore:
-    """Return (or lazily create) a per-host concurrency Semaphore (max 4 simultaneous downloads)."""
+def _host_semaphore_for(host: str, max_concurrent: int = 8) -> threading.Semaphore:
+    """Return (or lazily create) a per-host concurrency Semaphore."""
     with _FAST_DL_LOCK:
         if host not in _HOST_SEMAPHORES:
-            _HOST_SEMAPHORES[host] = threading.Semaphore(MAX_CONCURRENT_PER_HOST)
+            _HOST_SEMAPHORES[host] = threading.Semaphore(max(8, max_concurrent))
         return _HOST_SEMAPHORES[host]
 
 
@@ -95,9 +95,13 @@ class MediaDownloader:
         self,
         http: HttpClient | None = None,
         workers: int = CONCURRENT_DOWNLOADS,
+        speed_limit_kbps: int = 0,
     ) -> None:
+        from utils.bandwidth_limiter import BandwidthLimiter
+
         self.http = http if http is not None else HttpClient()
         self.workers = max(1, workers)
+        self.bandwidth_limiter = BandwidthLimiter(speed_limit_kbps)
         self._dead_urls: set[str] = set()
         self._dead_urls_lock = threading.Lock()
         self._seen_hashes: set[str] = set()
@@ -333,14 +337,14 @@ class MediaDownloader:
 
         max_attempts = 3
         use_curl_cffi = False
+        req_headers: dict[str, str] = {}
         for attempt in range(1, max_attempts + 1):
             try:
                 # Rate-limit gate: skip for CDN hosts, use fast limiter otherwise.
                 if not _is_cdn:
                     _fast_limiter_for(_url_host).wait()
 
-                with _host_semaphore_for(_url_host):
-                    bytes_written = 0
+                bytes_written = 0
                 if media_kind == "video" and temp_target.exists():
                     bytes_written = temp_target.stat().st_size
 
@@ -371,14 +375,19 @@ class MediaDownloader:
                             raise RuntimeError("curl_cffi not installed")
                         
                         proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
-                        proxies = {"http": proxy, "https": proxy} if proxy else None
-                        session = c_requests.Session(impersonate="chrome120", proxies=proxies)
+                        proxy_dict = {"http": proxy, "https": proxy} if proxy else None
+                        session = c_requests.Session(impersonate="chrome120", proxies=proxy_dict)  # type: ignore[arg-type]
                         resp = session.get(safe_url, headers=req_headers, stream=True, timeout=60.0)
                         try:
                             resp.raise_for_status()
-                            # patch iter_bytes for compatibility with httpx
-                            resp.iter_bytes = lambda chunk_size=8192: resp.iter_content(chunk_size=chunk_size)
-                            yield resp
+                            class CurlRespWrapper:
+                                def __init__(self, r):
+                                    self._r = r
+                                    self.headers = r.headers
+                                    self.status_code = r.status_code
+                                def iter_bytes(self, chunk_size=8192):
+                                    return self._r.iter_content(chunk_size=chunk_size)
+                            yield CurlRespWrapper(resp)
                         finally:
                             resp.close()
                     else:
@@ -387,111 +396,114 @@ class MediaDownloader:
                             resp.raise_for_status()
                             yield resp
 
-                with _do_request() as response:
-                    content_type = response.headers.get("content-type", "")
+                with _host_semaphore_for(_url_host, max_concurrent=self.workers):
+                    with _do_request() as response:
+                        content_type = response.headers.get("content-type", "")
 
-                    # Check content-length early if available (only if we did not send a Range request)
-                    content_length_header = response.headers.get("content-length")
-                    if bytes_written == 0 and content_length_header and content_length_header.isdigit():
-                        cl = int(content_length_header)
-                        if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
+                        # Check content-length early if available (only if we did not send a Range request)
+                        content_length_header = response.headers.get("content-length")
+                        if bytes_written == 0 and content_length_header and content_length_header.isdigit():
+                            cl = int(content_length_header)
+                            if media_kind == "image" and cl < MIN_IMAGE_DOWNLOAD_BYTES:
+                                LOGGER.info(
+                                    "Skipping tiny image asset %s (Content-Length=%d)",
+                                    url,
+                                    cl,
+                                )
+                                return False, {"reason": "low_resolution"}
+                            if (
+                                media_kind == "video"
+                                and cl < MIN_VIDEO_DOWNLOAD_BYTES
+                                and not self._is_manifest_url(url)
+                            ):
+                                LOGGER.info(
+                                    "Skipping tiny video asset %s (Content-Length=%d)",
+                                    url,
+                                    cl,
+                                )
+                                return False, {"reason": "low_resolution"}
+
+                        suffix = self._determine_suffix(url, content_type)
+                        target = directory / f"{prefix}{suffix}"
+                        temp_target = target.with_suffix(suffix + ".tmp")
+
+                        is_partial = response.status_code == 206
+                        if bytes_written > 0 and not is_partial:
                             LOGGER.info(
-                                "Skipping tiny image asset %s (Content-Length=%d)",
+                                "Server returned HTTP %d instead of 206 for %s. Truncating temp file and downloading from scratch.",
+                                response.status_code,
                                 url,
-                                cl,
                             )
-                            return False, {"reason": "low_resolution"}
-                        if (
-                            media_kind == "video"
-                            and cl < MIN_VIDEO_DOWNLOAD_BYTES
-                            and not self._is_manifest_url(url)
-                        ):
-                            LOGGER.info(
-                                "Skipping tiny video asset %s (Content-Length=%d)",
-                                url,
-                                cl,
-                            )
-                            return False, {"reason": "low_resolution"}
+                            bytes_written = 0
 
-                    suffix = self._determine_suffix(url, content_type)
-                    target = directory / f"{prefix}{suffix}"
-                    temp_target = target.with_suffix(suffix + ".tmp")
+                        if media_kind == "image":
+                            chunks = []
+                            bytes_read = 0
+                            dimensions_checked = False
+                            for chunk in response.iter_bytes(chunk_size=8192):
+                                self.bandwidth_limiter.throttle(len(chunk))
+                                chunks.append(chunk)
+                                bytes_read += len(chunk)
 
-                    is_partial = response.status_code == 206
-                    if bytes_written > 0 and not is_partial:
-                        LOGGER.info(
-                            "Server returned HTTP %d instead of 206 for %s. Truncating temp file and downloading from scratch.",
-                            response.status_code,
-                            url,
-                        )
-                        bytes_written = 0
-
-                    if media_kind == "image":
-                        chunks = []
-                        bytes_read = 0
-                        dimensions_checked = False
-                        for chunk in response.iter_bytes(chunk_size=8192):
-                            chunks.append(chunk)
-                            bytes_read += len(chunk)
-
-                            if not dimensions_checked:
-                                # Try parsing dimensions early on the accumulated bytes
-                                current_bytes = b"".join(chunks)
-                                w, h = get_image_dimensions(current_bytes)
-                                if w is not None and h is not None:
-                                    limit_w = (
-                                        min_image_size[0]
-                                        if min_image_size
-                                        else MIN_IMAGE_WIDTH
-                                    )
-                                    limit_h = (
-                                        min_image_size[1]
-                                        if min_image_size
-                                        else MIN_IMAGE_HEIGHT
-                                    )
-                                    if w < limit_w or h < limit_h:
-                                        LOGGER.info(
-                                            "Skipping low-resolution image asset %s (%dx%d)",
-                                            url,
-                                            w,
-                                            h,
+                                if not dimensions_checked:
+                                    # Try parsing dimensions early on the accumulated bytes
+                                    current_bytes = b"".join(chunks)
+                                    w, h = get_image_dimensions(current_bytes)
+                                    if w is not None and h is not None:
+                                        limit_w = (
+                                            min_image_size[0]
+                                            if min_image_size
+                                            else MIN_IMAGE_WIDTH
                                         )
-                                        return False, {"reason": "low_resolution"}
-                                    dimensions_checked = True
-                                elif bytes_read >= 65536:
-                                    if suffix.lower() in {
-                                        ".jpg",
-                                        ".jpeg",
-                                        ".png",
-                                        ".webp",
-                                        ".gif",
-                                    }:
-                                        LOGGER.info(
-                                            "Skipping image with unparseable dimensions %s",
-                                            url,
+                                        limit_h = (
+                                            min_image_size[1]
+                                            if min_image_size
+                                            else MIN_IMAGE_HEIGHT
                                         )
-                                        return False, {
-                                            "reason": "unparseable_dimensions"
-                                        }
-                                    dimensions_checked = True
-                        content = b"".join(chunks)
-                        content_length = len(content)
-                    else:
-                        write_mode = "ab" if bytes_written > 0 else "wb"
-                        bytes_read = bytes_written
-                        header_bytes = b""
-                        try:
-                            with open(temp_target, write_mode) as f:
-                                for chunk in response.iter_bytes(chunk_size=65536):
-                                    if bytes_read < 1024:
-                                        header_bytes += chunk
-                                    f.write(chunk)
-                                    bytes_read += len(chunk)
-                        except Exception as e:
-                            # Do not delete temp file on error to support resumes
-                            raise e
-                        content = header_bytes
-                        content_length = bytes_read
+                                        if w < limit_w or h < limit_h:
+                                            LOGGER.info(
+                                                "Skipping low-resolution image asset %s (%dx%d)",
+                                                url,
+                                                w,
+                                                h,
+                                            )
+                                            return False, {"reason": "low_resolution"}
+                                        dimensions_checked = True
+                                    elif bytes_read >= 65536:
+                                        if suffix.lower() in {
+                                            ".jpg",
+                                            ".jpeg",
+                                            ".png",
+                                            ".webp",
+                                            ".gif",
+                                        }:
+                                            LOGGER.info(
+                                                "Skipping image with unparseable dimensions %s",
+                                                url,
+                                            )
+                                            return False, {
+                                                "reason": "unparseable_dimensions"
+                                            }
+                                        dimensions_checked = True
+                            content = b"".join(chunks)
+                            content_length = len(content)
+                        else:
+                            write_mode = "ab" if bytes_written > 0 else "wb"
+                            bytes_read = bytes_written
+                            header_bytes = b""
+                            try:
+                                with open(temp_target, write_mode) as f:
+                                    for chunk in response.iter_bytes(chunk_size=65536):
+                                        self.bandwidth_limiter.throttle(len(chunk))
+                                        if bytes_read < 1024:
+                                            header_bytes += chunk
+                                        f.write(chunk)
+                                        bytes_read += len(chunk)
+                            except Exception as e:
+                                # Do not delete temp file on error to support resumes
+                                raise e
+                            content = header_bytes
+                            content_length = bytes_read
 
                 if media_kind == "image" and content_length < MIN_IMAGE_DOWNLOAD_BYTES:
                     LOGGER.info("Skipping tiny image asset %s", url)
@@ -821,7 +833,7 @@ class MediaDownloader:
 
             w, h = None, None
             if media_kind == "image":
-                from core.filters import get_image_dimensions
+                from utils.image_helper import get_image_dimensions
                 w, h = get_image_dimensions(content)
                 if w is not None and h is not None:
                     limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH

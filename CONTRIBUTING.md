@@ -82,7 +82,9 @@ pytest tests/test_filters.py
 
 ### Key Test Categories
 - `tests/test_filters.py` — Relevance scoring, low-res path patterns, and rejection rules.
-- `tests/test_downloader.py` — Multi-threaded downloader, Range request resumptions, and Pillow sanitization.
+- `tests/test_downloader_stream.py` & `tests/test_resumable_downloads.py` — Multi-threaded downloader, Range request resumptions, and Pillow sanitization.
+- `tests/test_flaresolverr_docker_opt.py` — FlareSolverr 127.0.0.1 Docker container auto-start & session reuse.
+- `tests/test_speed_limiter.py` — Dual Token-Bucket rate and bandwidth limiting validation.
 - `tests/test_cli.py` & `tests/test_seed_validation.py` — Seed manifest parsing and annotation validation.
 - `tests/test_frontend_ux.py` — Playwright E2E WebUI tests, telemetry polling, and view routing.
 
@@ -107,7 +109,7 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 
 Before submitting your pull request:
 
-- [ ] All 103+ unit and integration tests pass cleanly (`pytest`).
+- [ ] All 131+ unit and integration tests pass cleanly (`pytest`).
 - [ ] Code is formatted cleanly and adheres to Python 3.10+ conventions.
 - [ ] No hardcoded domain rules in Python source files (used `data/url_normalisation_rules.json`).
 - [ ] Updated relevant documentation files (`README.md`, `docs/`, `CHANGELOG.md`).

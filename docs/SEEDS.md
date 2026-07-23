@@ -34,6 +34,7 @@ Lines starting with `# ---` or `# ===` reset all pending domain profile annotati
 | **Depth** | `# depth: <N>` | BFS crawl depth limit for this domain. | `# depth: 1` |
 | **Rate Limit** | `# Rate-limit: <N> req/s` | Sets per-domain request speed ceiling. | `# Rate-limit: 0.5 req/s` |
 | **Max Pages** | `# max_pages: <N>` | Hard cap on pages crawled for this domain per run. | `# max_pages: 10` |
+| **Engine** | `# engine: <camoufox\|flaresolverr\|uc\|crawl4ai>` | Forces specific WAF fallback engine for this domain. | `# engine: flaresolverr` |
 | **Cloudflare** | `# cloudflare: true` | Skips light browser fallbacks fast on 403/429. | `# cloudflare: true` |
 | **Disabled** | `# disabled` | Skips this entire domain and all its URLs. | `# disabled` |
 | **Requires Referer** | `# requires_referer` | Sends page Referer header to bypass hotlink protection. | `# requires_referer` |

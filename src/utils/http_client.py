@@ -66,7 +66,8 @@ from utils.session_pool import SessionPool
 from utils.blacklist import is_blacklisted
 from utils.session import SessionManager
 
-STEALTH_HEADFUL = False
+FORCE_HEADLESS: bool = False
+STEALTH_HEADFUL: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -415,15 +416,18 @@ class HttpClient:
         proxy: str | None = None,
         proxy_list: str | None = None,
         capsolver_key: str | None = None,
+        global_rate_limit_rps: float = 0.0,
     ) -> None:
         """
         Args:
             timeout: Per-request timeout in seconds.
             domain_delays: Optional ``{hostname: seconds_per_request}`` overrides
                            that take priority over ``DOMAIN_REQUESTS_PER_SECOND``.
+            global_rate_limit_rps: Maximum global page request rate limit in req/s (0.0 = unlimited).
         """
         self.timeout = timeout
         self.capsolver_key = capsolver_key
+        self.global_rate_limit_rps = max(0.0, global_rate_limit_rps)
         
         self.proxy_list = []
         if proxy_list and Path(proxy_list).exists():
@@ -510,6 +514,8 @@ class HttpClient:
         with self._rl_lock:
             if host not in self._rate_limiters:
                 rps = self._domain_rps_overrides.get(host, DEFAULT_REQUESTS_PER_SECOND)
+                if self.global_rate_limit_rps > 0.0:
+                    rps = min(rps, self.global_rate_limit_rps)
                 self._rate_limiters[host] = RateLimiter(
                     rps, jitter=RATE_LIMIT_JITTER_SECONDS
                 )
@@ -1429,7 +1435,7 @@ class HttpClient:
         from utils.logger import get_logger
         logger = get_logger(__name__)
 
-        fs_url = FLARESOLVERR_URL or "http://localhost:8191/v1"
+        fs_url = FLARESOLVERR_URL or "http://127.0.0.1:8191/v1"
 
         # 1. Health-check ping if state is unknown
         with self.__class__._flaresolverr_lock:
@@ -1457,17 +1463,53 @@ class HttpClient:
             with httpx.Client(timeout=65.0) as client:
                 # Perform initial health-check if needed
                 if self.__class__._flaresolverr_online is None:
-                    try:
-                        base_url = fs_url.rsplit("/v1", 1)[0]
-                        ping_res = client.get(base_url or fs_url, timeout=3.0)
-                        ping_res.raise_for_status()
+                    ping_urls = [fs_url, "http://localhost:8191/v1", "http://127.0.0.1:8191/v1"]
+                    ping_success = False
+                    active_url = fs_url
+                    for p_url in dict.fromkeys(ping_urls):
+                        try:
+                            base_url = p_url.rsplit("/v1", 1)[0]
+                            ping_res = client.get(base_url or p_url, timeout=3.0)
+                            ping_res.raise_for_status()
+                            ping_success = True
+                            active_url = p_url
+                            break
+                        except Exception:
+                            continue
+
+                    if not ping_success:
+                        # Attempt to auto-start Docker container if unreachable
+                        try:
+                            import subprocess
+                            logger.info("FlareSolverr unreachable. Attempting background docker start flaresolverr...")
+                            subprocess.Popen(
+                                ["docker", "start", "flaresolverr"],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                            )
+                            time.sleep(3.5)
+                            for p_url in dict.fromkeys(ping_urls):
+                                try:
+                                    base_url = p_url.rsplit("/v1", 1)[0]
+                                    ping_res = client.get(base_url or p_url, timeout=3.0)
+                                    ping_res.raise_for_status()
+                                    ping_success = True
+                                    active_url = p_url
+                                    break
+                                except Exception:
+                                    continue
+                        except Exception as docker_err:
+                            logger.debug("Auto-starting FlareSolverr container failed: %s", docker_err)
+
+                    if ping_success:
+                        fs_url = active_url
                         with self.__class__._flaresolverr_lock:
                             self.__class__._flaresolverr_online = True
-                    except Exception as ping_err:
+                    else:
                         with self.__class__._flaresolverr_lock:
                             self.__class__._flaresolverr_online = False
-                        logger.warning("FlareSolverr health-check failed at %s: %s. Disabling FlareSolverr.", fs_url, ping_err)
-                        raise Exception(f"FlareSolverr health-check failed: {ping_err}") from ping_err
+                        logger.warning("FlareSolverr health-check failed at %s. Disabling FlareSolverr.", fs_url)
+                        raise Exception("FlareSolverr health-check failed")
 
                 res = client.post(fs_url, json=payload)
                 res.raise_for_status()
@@ -1810,8 +1852,19 @@ class HttpClient:
                     html_content = None
             except Exception as exc:
                 logger.error("%s fallback failed for %s: %s", name, url, repr(exc))
-                html_content = None
-                browser_cookies = []
+        if html_content is None and ENABLE_FLARESOLVERR_FALLBACK and self.__class__._flaresolverr_online is not False and ("pytest" not in sys.modules or preferred_engine):
+            try:
+                logger.info("Attempting automatic FlareSolverr Turnstile escalation for %s...", url)
+                res_val = self._get_with_flaresolverr(url)
+                html_content, browser_cookies = res_val
+                if html_content and not self._is_blocked_page(html_content, url):
+                    with self.__class__._waf_solve_lock:
+                        self.__class__._waf_solve_counts["flaresolverr"] = (
+                            self.__class__._waf_solve_counts.get("flaresolverr", 0) + 1
+                        )
+                    return html_content, browser_cookies
+            except Exception as fs_exc:
+                logger.debug("Automatic FlareSolverr escalation failed for %s: %s", url, fs_exc)
 
         return None, []
 
@@ -1984,6 +2037,19 @@ class HttpClient:
                 status = exc.response.status_code
 
                 if status == 404:
+                    raise exc
+
+                if status in {502, 503}:
+                    logger.warning(
+                        "HTTPStatusError %d fetching %s (attempt %d/%d). Applying exponential backoff...",
+                        status,
+                        url,
+                        attempt,
+                        DEFAULT_RETRY_ATTEMPTS,
+                    )
+                    if attempt < DEFAULT_RETRY_ATTEMPTS:
+                        time.sleep(2.0 ** (attempt + 1))
+                        continue
                     raise exc
 
                 if status in {403, 401, 429, 412, 406}:

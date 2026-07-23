@@ -28,6 +28,8 @@ scrape
 | `--output-dir` | `str` | `./output` | Root directory for output runs and media |
 | `--workers` | `int` | `8` | Number of concurrent page fetching crawler threads |
 | `--dl-workers` | `int` | `6` | Number of concurrent media downloading threads |
+| `--rate-limit` | `float` | `0.0` | Token-Bucket rate limit on outgoing page requests (RPS) |
+| `--dl-speed-limit` | `int` | `0` | Network download speed throttling ceiling (KB/s) |
 | `--page-limit` | `int` | `100` | Hard cap on total pages scanned across all domains |
 | `--crawl-depth` | `int` | `2` | Maximum BFS link graph traversal depth |
 | `--download-media` | flag | `False` | Enables downloading files to disk (default dry metadata only) |

@@ -172,8 +172,8 @@ Changes you can make, ordered by where they live:
 Before doing another full run:
 
 ```powershell
-# Run all backend tests
-python -m pytest tests/ -v
+# Run all backend & unit tests (131+ tests)
+pytest -v
 
 # Run frontend Playwright UX tests (E2E & transitions)
 pytest tests/test_frontend_ux.py -v -s

@@ -120,7 +120,16 @@ When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile
 | **Helium** | `ENABLE_HELIUM_FALLBACK` | High-level web automation fallback. |
 | **undetected-chromedriver** | Default | Patched Chrome binary bypassing bot detection. |
 | **Camoufox** | `ENABLE_CAMOUFOX_FALLBACK` | Custom Firefox C++ anti-fingerprint browser engine. |
-| **FlareSolverr** | `ENABLE_FLARESOLVERR_FALLBACK`, `FLARESOLVERR_URL` | Local proxy server solving Cloudflare challenges (`http://localhost:8191/v1`). |
+| **FlareSolverr** | `ENABLE_FLARESOLVERR_FALLBACK`, `FLARESOLVERR_URL` | Local proxy server solving Cloudflare challenges (`http://127.0.0.1:8191/v1`) with background Docker container auto-start (`docker start flaresolverr`). |
+
+---
+
+## 4. Dual Speed & Rate Limiting System
+
+| Option | CLI Flag | WebUI Input | Default | Purpose |
+|---|---|---|---|---|
+| **Page Rate Limit** | `--rate-limit` | `rate_limit` (RPS) | `0` (Uncapped) | Token-Bucket rate limiter controlling outgoing page HTTP request rate per second. |
+| **Download Speed Limit** | `--dl-speed-limit` | `dl_speed_limit` (KBPS) | `0` (Uncapped) | Network bandwidth throttle limiting media chunk download transfer rate in KB/s. |
 
 ---
 
