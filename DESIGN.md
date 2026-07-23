@@ -48,7 +48,7 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 
 ### 4.2 Tactical Sidebar & Navigation
 - **Sidebar Container**: Fixed 280px left column (`width: 280px; height: 100vh; position: fixed; border-right: var(--border-heavy);`).
-- **Sidebar Header**: Centered column layout featuring a glowing 72×72px vector SVG logo, `scrAPE` text (`1.6rem`), and `v0.17.0` version badge.
+- **Sidebar Header**: Centered column layout featuring a glowing 72×72px vector SVG logo, `scrAPE` text (`1.6rem`), and `v0.18.0` version badge.
 - **Command Center Nav Button (`.nav-item`)**:
   - `border: 1px solid var(--border-color); background-color: var(--bg-surface); gap: 0.65rem;`
   - SVG Grid Icon: 4-square cockpit dashboard vector icon on the left.

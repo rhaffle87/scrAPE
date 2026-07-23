@@ -65,30 +65,29 @@ python src/cli/main.py --keyword example_subject --seed seeds/example_subject.tx
 - **Dynamic HTMX Tactical WebUI** — Fully decoupled dashboard (`frontend/`) featuring context-aware telemetry stat cards (switching between global totals and per-subject counts with `/ N total` comparisons), real-time OS hardware telemetry (CPU, RAM, Disk), process abort controls, and physical file management (open local folder, delete files) directly inside the Media Vault.
 - **Option C Context-Aware Statistics** — Telemetry stat cards dynamically adapt to your view context: global cumulative totals on the Command Center, or per-subject counts when exploring a target in the Media Vault.
 - **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for 16px/24px taskbar legibility.
-- **WAF & Turnstile 7-Tier Fallback** — Defeats Cloudflare Turnstile, Auth walls, and anti-bot protections using a 7-tier escalation chain: `Local Cookies` → `Crawlee Cheerio` → `Crawl4AI` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver`.
-- **WAF & Auth Circuit Breakers** — Halts crawling on protected domains after consecutive worker errors or authentication redirects (`/login`, `/auth`) to prevent thread hangs and resource exhaustion.
-- **Concurrent Resumable Download Pipeline** — Parallel download pool with HTTP `Range` requests (HTTP 206 Partial Content) to resume interrupted downloads of large assets, with automatic fallback for HTTP 200/416 and post-download SHA-256 hash verification.
-- **Seed Manifest Parser** — Declarative domain profiles supporting `# type`, `# crawl`, `# depth`, `# Rate-limit`, `# max_pages`, `# cloudflare`, `# min_image_size`, `# thumbnail_prefix`, `# requires_referer`, and `# [CDN]` annotations.
-- **Continuous Watchdog Agent** — Long-running agent mode (`src/cli/monitor_agent.py`) with persistent SQLite WAL state caching (`StateCache`) to eliminate redundant crawling across runs.
-- **Specialized Extractors** — Zero-DOM direct extraction for complex media SPAs like YouTube, TikTok, and Reddit via `yt-dlp`.
-- **Quality & Upscaling Filters** — Heuristic origin URL prediction from thumbnail patterns (WordPress, Twitter, etc.), relevance scoring, archive/index penalties, and early path pre-filtering to reject thumbnail directories before fetching.
-- **Hardware Safety Threshold Warnings** — Client-side validator (`validateSafetyThresholds()`) alerts users when setting concurrency limits above safe hardware bounds (>16 scrapers, >24 download threads).
+- **WAF & Turnstile 8-Tier Fallback** — Defeats Cloudflare Turnstile, Auth walls, and anti-bot protections using an 8-tier escalation chain: `Local Cookies` → `Crawl4AI` → `Crawlee Cheerio` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver` → `Camoufox` → `FlareSolverr`.
+- **Seed Manifest Engine Overrides & Memory Caching** — Force specific WAF engines per domain via `# engine: <name>` annotations; successful solvers are cached per host (`HttpClient._preferred_engine_by_host`) and prioritized automatically.
+- **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) to resume interrupted large media downloads.
+- **AI Dataset Curation & Perceptual Deduplication** — Calculates 64-bit difference hashes (`dHash`) to reject visually identical or resized images (Hamming distance $\le 4$), generating `dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training pipelines.
+- **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, and ArtStation.
 
 ---
 
 ## WAF, Turnstile & JS-Only Bypass
 
-scrAPE features a 7-tier escalation pipeline to defeat Cloudflare WAF, Turnstile challenges, and JS-only rendering without expensive cloud proxy subscriptions:
+scrAPE features an 8-tier escalation pipeline to defeat Cloudflare WAF, Turnstile challenges, and JS-only rendering without expensive cloud proxy subscriptions:
 
 | Tier | Engine / Method | Best Used For |
 |---|---|---|
-| **Tier 1** | **Local Cookie Harvesting** (`browser-cookie3`) | Reusing active browser session cookies from Chrome, Firefox, Edge, Brave |
+| **Tier 0** | **Local Cookie Harvesting** (`browser-cookie3`) | Reusing active browser session cookies from Chrome, Firefox, Edge, Brave |
+| **Tier 1** | **Crawl4AI** | Standard headless browser page evaluation |
 | **Tier 2** | **Crawlee (Cheerio)** | Fast static extraction with Node.js `got-scraping` TLS fingerprint spoofing |
-| **Tier 3** | **Crawl4AI** | Standard headless browser page evaluation |
-| **Tier 4** | **DrissionPage** | Light JS challenges and basic Captcha bypass |
-| **Tier 5** | **Crawlee (Puppeteer)** | Heavy JS-rendering with `puppeteer-extra-plugin-stealth` |
-| **Tier 6** | **Helium** | High-level browser control fallback |
-| **Tier 7** | **Undetected-Chromedriver (UC)** | Ultimate stealth layer for persistent Cloudflare Turnstile challenges |
+| **Tier 3** | **DrissionPage** | Light JS challenges and basic Captcha bypass |
+| **Tier 4** | **Crawlee (Puppeteer)** | Heavy JS-rendering with `puppeteer-extra-plugin-stealth` |
+| **Tier 5** | **Helium** | High-level browser control fallback |
+| **Tier 6** | **Undetected-Chromedriver (UC)** | Stealth layer for persistent Cloudflare challenges |
+| **Tier 7** | **Camoufox** | C++ stealth Firefox engine with OS fingerprint matching & 20s Turnstile escalation |
+| **Tier 8** | **FlareSolverr** | Dedicated solver service integration with domain session reuse & proxy forwarding |
 
 ---
 

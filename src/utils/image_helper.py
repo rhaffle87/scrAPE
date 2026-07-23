@@ -109,3 +109,40 @@ def get_image_dimensions(data: bytes) -> tuple[int | None, int | None]:
             logger.debug("Failed to parse JPEG dimensions: %s", exc)
 
     return None, None
+
+
+def compute_dhash(image_bytes: bytes, hash_size: int = 8) -> int | None:
+    """Compute a 64-bit difference hash (dHash) for raw image bytes.
+
+    Returns:
+        64-bit integer hash or None if hashing fails.
+    """
+    try:
+        from io import BytesIO
+        from PIL import Image
+
+        img = Image.open(BytesIO(image_bytes)).convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
+        pixels = list(img.getdata())
+
+        difference = []
+        for row in range(hash_size):
+            for col in range(hash_size):
+                pixel_left = pixels[row * (hash_size + 1) + col]
+                pixel_right = pixels[row * (hash_size + 1) + col + 1]
+                difference.append(pixel_left > pixel_right)
+
+        decimal_value = 0
+        for index, value in enumerate(difference):
+            if value:
+                decimal_value += 1 << index
+
+        return decimal_value
+    except Exception as exc:
+        logger.debug("Failed to compute dHash: %s", exc)
+        return None
+
+
+def hamming_distance(hash1: int, hash2: int) -> int:
+    """Calculate the Hamming distance (number of differing bits) between two 64-bit hashes."""
+    return bin(hash1 ^ hash2).count("1")
+

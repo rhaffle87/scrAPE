@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.18.0] — 2026-07-23
+
+### Added & Changed (0.18.0)
+
+- **8-Tier WAF Anti-Bot Bypass Pipeline** (`src/utils/http_client.py`): Integrated **Camoufox** (Tier 7, stealth Firefox engine with host OS fingerprint matching, `humanize=True` cursor movement, 1920x1080 viewport, and 20s headful Turnstile escalation) and **FlareSolverr** (Tier 8, service integration with domain session reuse and proxy forwarding). Enforced a **60.0s total fallback timeout budget**.
+- **Seed Engine Overrides & Host Memory Caching** (`src/core/seed_manifest.py`, `src/utils/http_client.py`): Added `# engine: <name>` annotations (e.g. `# engine: camoufox`) to force specific WAF engines per domain. Added `HttpClient._preferred_engine_by_host` host memory caching to remember and prioritize successful solver engines automatically.
+- **Multi-Platform Extractor Plugins** (`src/plugins/`):
+  - `CivitaiExtractor`: Direct JSON API extraction for high-res images, prompt, negative prompt, sampler, seed, and model metadata tags (`civitai.com/images/...`, `civitai.com/models/...`).
+  - `BooruExtractor`: Danbooru, Gelbooru, and Safebooru JSON API extraction for original `file_url` assets and tag lists.
+  - `PinterestExtractor`: Pins and board extraction, decoding embedded `__PWS_DATA__` JSON for `i.pinimg.com/originals/` images.
+  - `ArtStationExtractor`: ArtStation portfolio projects API extraction for full-res artwork assets.
+  - `YtDlpExtractor`: Added `DEFAULT_VIDEO_QUALITY = "best"` format selection and auto-escalation for `.m3u8` master playlists and `.mpd` manifests.
+- **Resumable Crawl & Download Checkpointing** (`src/storage/checkpoint_db.py`, `src/storage/file_downloader.py`): Thread-safe SQLite database (`output/.crawl_state.sqlite`) storing `visited_urls`, `frontier_queue`, and `download_checkpoints`. HTTP `Range: bytes={existing_size}-` byte download resumption on HTTP 206 Partial Content.
+- **AI Dataset Curation & Perceptual Hashing** (`src/utils/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
+- **WebUI WAF Telemetry & Badges** (`frontend/app.py`): Added `_waf_solve_counts` telemetry counters to `HttpClient`. Rendered live WAF engine badges (`CAMOUFOX`, `FLARESOLVERR`, `CRAWL4AI`) inside the WebUI Command Center telemetry bar (`/htmx/stats`).
+- **Comprehensive Test Suite Expansion**: Added `tests/test_camoufox_flaresolverr.py`, `tests/test_flaresolverr_advanced.py`, `tests/test_stream_ytdlp_escalation.py`, `tests/test_multi_platform_extractors.py`, `tests/test_checkpoint_and_range_resume.py`, and `tests/test_phash_and_dataset_exporter.py` (totaling 120 test cases passing cleanly).
+
 ## [0.17.1] — 2026-07-22
 
 ### Added & Changed (0.17.1)

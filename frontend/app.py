@@ -24,7 +24,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # Global log buffer for streaming to the web UI
 log_buffer = deque(maxlen=2000)
 
-app = FastAPI(title="scrAPE Web GUI", version="1.0.0")
+app = FastAPI(title="scrAPE Web GUI", version="0.18.0")
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)

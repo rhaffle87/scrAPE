@@ -78,7 +78,8 @@ scrape-dashboard/
 │   └── utils/
 │       ├── blacklist.py         — Circuit breaker persistent domain blacklist
 │       ├── crawlee_client.py    — Python client for Crawlee Express bridge
-│       ├── http_client.py       — 7-tier WAF fallback pipeline & circuit breaker tracking
+│       ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
+│       ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
 │       ├── robots.py            — Thread-safe RobotsChecker parser cache
 │       └── session.py           — Secure session cookie store (0o600 permissions)
 │
@@ -107,19 +108,27 @@ The core architecture is decoupled across specialized managers inside `src/core/
 - **`MediaProcessor`**: Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
 - **`DomainRulesManager`**: Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
 
-### 3.2 7-Tier WAF & Challenge Escalation Pipeline (`src/utils/http_client.py`)
+### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/utils/http_client.py`)
 
-When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through a 7-tier fallback chain:
+When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching:
 
 ```mermaid
 flowchart LR
-    T0["Tier 0<br/>httpx + Cookies"] --> T1["Tier 1<br/>Crawlee Cheerio"]
-    T1 --> T2["Tier 2<br/>Crawl4AI Headless"]
+    T0["Tier 0<br/>httpx + Cookies"] --> T1["Tier 1<br/>Crawl4AI"]
+    T1 --> T2["Tier 2<br/>Crawlee Cheerio"]
     T2 --> T3["Tier 3<br/>DrissionPage"]
-    T3 --> T4["Tier 4<br/>Crawlee Puppeteer Stealth"]
+    T3 --> T4["Tier 4<br/>Crawlee Puppeteer"]
     T4 --> T5["Tier 5<br/>Helium"]
     T5 --> T6["Tier 6<br/>Undetected Chromedriver"]
+    T6 --> T7["Tier 7<br/>Camoufox"]
+    T7 --> T8["Tier 8<br/>FlareSolverr"]
 ```
+
+#### WAF Engine Overrides & Host Memory
+- **Seed Manifest Annotations**: `# engine: <name>` (e.g. `# engine: camoufox`) forces a specific fallback engine to run first.
+- **Host Engine Memory**: Successful solver choices are automatically cached per host (`HttpClient._preferred_engine_by_host`) and prioritized on subsequent requests.
+- **Camoufox Fingerprint Tuning**: Matches host OS platform (`win`/`mac`/`lin`), enables humanized cursor/scrolling (`humanize=True`), 1920x1080 viewport, and escalates to visible headful mode for 20s if Turnstile challenge is detected on a GUI system.
+- **FlareSolverr Service Integration**: Automatically forwards proxies (`self.get_proxy()`), reuses domain-keyed browser sessions (`session_domain_slug`), and performs startup health-checks. If FlareSolverr is offline, it auto-disables for the run to avoid connection timeout overhead.
 
 #### Circuit Breakers & Fast-Fail Triggers
 - **Consecutive Error Cutoff**: If a host triggers **3 consecutive request errors**, the domain is marked as failed for the run. Remaining queued items for that domain are skipped instantly with status `host_failed_skipped`.
