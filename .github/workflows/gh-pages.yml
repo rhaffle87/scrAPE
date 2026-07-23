@@ -1,4 +1,4 @@
-name: Deploy Watchdog Dashboard to GitHub Pages
+name: Deploy Dashboard & Docs to GitHub Pages
 
 on:
   push:
@@ -21,18 +21,30 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Build Static Site Artifacts
+        run: |
+          mkdir -p _site/static _site/docs
+          cp -r frontend/static/* _site/static/ 2>/dev/null || true
+          cp frontend/templates/index.html _site/index.html
+          cp README.md _site/docs/index.md
+          cp docs/* _site/docs/ 2>/dev/null || true
+
+      - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the root directory containing the static files
-          path: '.'
-          
+          path: '_site'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
