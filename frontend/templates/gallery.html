@@ -90,7 +90,7 @@
 
         .controls-container {
             max-width: 1400px;
-            margin: 2rem auto 0 auto;
+            margin: 2rem auto;
             width: 100%;
             padding: 0 2rem;
         }
@@ -98,12 +98,29 @@
         .glass-panel {
             background-color: var(--bg-surface);
             border: var(--border-heavy);
-            padding: 1.5rem 2rem;
+            padding: 2rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 1.5rem;
+        }
+
+        .glass-panel h2 {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .search-form {
@@ -234,6 +251,19 @@
             filter: grayscale(0%) contrast(1);
         }
 
+        /* Suppress IDM (Internet Download Manager) download button overlay.
+           IDM works by injecting <img> nodes sourced from its own browser
+           extension URL (chrome-extension:// or moz-extension://) directly
+           into the page DOM. Hiding those by src prefix covers any injections
+           that land before the MutationObserver fires. */
+        img[src^="chrome-extension://"],
+        img[src^="moz-extension://"],
+        img[src^="safari-extension://"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
         .media-card .overlay {
             position: absolute;
             bottom: 0;
@@ -251,6 +281,7 @@
             transition: opacity 0s;
             pointer-events: none;
             height: 100%;
+            z-index: 2;
         }
 
         .media-card:hover .overlay {
@@ -334,23 +365,24 @@
 
     <div class="controls-container">
         <div class="glass-panel">
-            <form class="search-form" onsubmit="event.preventDefault(); triggerLoad();">
+            <h2>MEDIA VAULT
+                <div class="gallery-tabs">
+                    <button class="tab-btn active" data-kind="all" onclick="switchTab('all')">ALL</button>
+                    <button class="tab-btn" data-kind="images" onclick="switchTab('images')">IMAGES</button>
+                    <button class="tab-btn" data-kind="videos" onclick="switchTab('videos')">VIDEOS</button>
+                </div>
+            </h2>
+            <form class="controls-row" onsubmit="event.preventDefault(); triggerLoad();">
                 <div class="form-group">
-                    <label>Keyword Subject</label>
-                    <input type="text" id="keyword-input" placeholder="e.g. apple" value="apple">
+                    <label>Keyword</label>
+                    <input type="text" id="keyword-input" placeholder="keyword" value="apple">
                 </div>
                 <div class="form-group">
-                    <label>Domain Source</label>
-                    <input type="text" id="domain-input" placeholder="e.g. erome.com">
+                    <label>Domain</label>
+                    <input type="text" id="domain-input" placeholder="domain.com">
                 </div>
-                <button type="submit" class="btn">Filter</button>
+                <button type="submit" class="btn" style="margin-top: auto;">Filter</button>
             </form>
-
-            <div class="gallery-tabs">
-                <button class="tab-btn active" data-kind="all" onclick="switchTab('all')">ALL</button>
-                <button class="tab-btn" data-kind="images" onclick="switchTab('images')">IMAGES</button>
-                <button class="tab-btn" data-kind="videos" onclick="switchTab('videos')">VIDEOS</button>
-            </div>
         </div>
     </div>
 
@@ -403,6 +435,45 @@
             }
             triggerLoad();
         });
+        // Remove IDM-injected download overlay nodes as soon as they appear.
+        // IDM's browser extension appends <img> elements whose src begins with
+        // a browser extension URL directly into the page body or card elements.
+        // This observer catches those insertions immediately and removes them,
+        // covering HTMX-rendered cards that load after DOMContentLoaded.
+        (function suppressIDMIcons() {
+            const isIDMNode = (node) => {
+                if (node.nodeType !== 1) return false;
+                const src = node.getAttribute('src') || '';
+                return (
+                    src.startsWith('chrome-extension://') ||
+                    src.startsWith('moz-extension://') ||
+                    src.startsWith('safari-extension://')
+                );
+            };
+
+            const purge = (root) => {
+                root.querySelectorAll(
+                    'img[src^="chrome-extension://"], img[src^="moz-extension://"], img[src^="safari-extension://"]'
+                ).forEach(el => el.remove());
+            };
+
+            const observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes) {
+                        if (isIDMNode(node)) {
+                            node.remove();
+                        } else if (node.nodeType === 1) {
+                            purge(node);
+                        }
+                    }
+                }
+            });
+
+            document.addEventListener('DOMContentLoaded', () => {
+                observer.observe(document.body, { childList: true, subtree: true });
+                purge(document.body);
+            });
+        })();
     </script>
 </body>
 </html>

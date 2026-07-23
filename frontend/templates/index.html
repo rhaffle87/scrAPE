@@ -1325,6 +1325,14 @@
                 </span>
                 <span>COMMAND CENTER</span>
             </div>
+            <div class="nav-item" id="nav-seed-studio" onclick="showSeedStudio()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <path d="M12 2v10M12 12l4-4M12 12l-4-4M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path>
+                    </svg>
+                </span>
+                <span>SEED STUDIO</span>
+            </div>
         </nav>
         <div class="sidebar-section-title">
             <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
@@ -1424,7 +1432,7 @@
                                     </span>
                                 </label>
                                 <input type="text" name="keyword" id="keyword-input" placeholder="Search keyword"
-                                    value="cosplay" required>
+                                    value="" required>
                             </div>
 
                             <div class="form-group">
@@ -1680,6 +1688,101 @@
                 <!-- Swapped grid container -->
                 <div class="gallery-grid" id="gallery-grid-container">
                     <!-- Cards here -->
+                </div>
+            </div>
+            
+            <!-- Seed Studio View Grid -->
+            <div class="seed-studio-view" id="seed-studio-view" style="display: none;">
+                <div class="seed-studio-header glass-panel">
+                    <!-- Title row: mirrors SCRAPE PARAMETERS h2 + status-badge -->
+                    <h2>SEED MANIFEST STUDIO
+                        <span id="studio-status-indicator" class="status-badge">STATUS: IDLE</span>
+                    </h2>
+
+                    <!-- Manifest selector row: mirrors preset-header-row -->
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                        <span style="font-weight: 700; color: var(--accent); font-family: monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT MANIFEST:</span>
+                        <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)" style="min-width: 260px; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 0.4rem; font-family: monospace;">
+                            <option value="">+ Create New Seed</option>
+                        </select>
+                    </div>
+
+                    <!-- Action buttons row: mirrors profile-actions-row -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" class="btn active" id="studio-btn-builder-mode" onclick="setStudioMode('builder')">[ VISUAL BUILDER ]</button>
+                        <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')">[ RAW CODE ]</button>
+                        <button type="button" class="btn" style="border-color: var(--accent); color: var(--accent); display: inline-flex; align-items: center; gap: 0.4rem;" onclick="openAutoDiscoveryModal()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            DISCOVER SEARCH URLS
+                        </button>
+                        <button type="button" class="btn" style="background: var(--accent); color: #000; font-weight: 700;" onclick="saveStudioSeed()">SAVE</button>
+                        <button type="button" class="btn delete" style="border-color: #ff3333; color: #ff3333;" onclick="deleteStudioSeed()">DELETE</button>
+                        <button type="button" class="btn" style="background: #00ff66; color: #000; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="launchStudioSeedScrape()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            QUICK RUN
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Studio Dual Pane Body -->
+                <div class="studio-body-container">
+                    <!-- Visual Builder Mode -->
+                    <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem;">
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT NAME / TITLE</label>
+                            <input type="text" id="studio-subject-input" placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                        </div>
+                        <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Domain cards rendered dynamically -->
+                        </div>
+                        <button type="button" class="btn" style="margin-top: 1rem; width: 100%; border-style: dashed; padding: 0.75rem; color: var(--accent);" onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
+                    </div>
+
+                    <!-- Raw Code Mode -->
+                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 1.5rem;">
+                        <textarea id="studio-code-editor" class="code-editor" style="width: 100%; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem;" oninput="onStudioCodeEditorChanged()"></textarea>
+                    </div>
+                </div>
+
+                <!-- Floating Line-Jump Validation Console -->
+                <div id="studio-validation-console" style="margin-top: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem; font-family: monospace; font-size: 0.85rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: var(--accent); font-weight: 700;">SYNTAX & MANIFEST VALIDATION:</span>
+                        <span id="studio-validation-status" style="color: #00ff66;">✓ MANIFEST VALID</span>
+                    </div>
+                    <div id="studio-validation-warnings" style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
+                        No syntax warnings detected.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tactical Auto-Discovery Modal -->
+            <div id="auto-discovery-modal" class="modal-backdrop" onclick="if(event.target===this) closeAutoDiscoveryModal()">
+                <div class="glass-panel" style="width: 700px; max-width: 90vw; background: rgba(10, 10, 15, 0.98); border: 2px solid var(--accent); padding: 1.5rem;" onclick="event.stopPropagation()">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: var(--border-heavy); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; color: var(--accent); font-family: monospace;">UNIVERSAL SEARCH URL AUTO-DISCOVERY</h3>
+                        <button type="button" class="btn" onclick="closeAutoDiscoveryModal()" style="padding: 0.2rem 0.6rem;">&times;</button>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 700; font-family: monospace;">DISCOVERY SEARCH QUERY / KEYWORD</label>
+                        <input type="text" id="discovery-query-input" placeholder="Enter target search query or keyword" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                    </div>
+                    <div class="form-group" style="margin-top: 0.75rem;">
+                        <label style="font-weight: 700; font-family: monospace;">TARGET DOMAIN HOSTNAMES (COMMA SEPARATED)</label>
+                        <input type="text" id="discovery-domains-input" placeholder="Enter domain hostnames (comma-separated, e.g. domain1.com, domain2.com)" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                    </div>
+                    <button type="button" id="btn-run-discovery" class="btn" style="width: 100%; margin-top: 1rem; background: var(--accent); color: #000; font-weight: 700; padding: 0.75rem;" onclick="runAutoDiscoveryProbe()">
+                        EXECUTE PARALLEL DOMAIN MATRIX PROBE
+                    </button>
+                    <div id="discovery-progress-bar" style="height: 4px; background: var(--bg-base); margin-top: 1rem; display: none;">
+                        <div id="discovery-progress-fill" style="height: 100%; width: 100%; background: var(--accent);"></div>
+                    </div>
+                    <div id="discovery-results-container" style="margin-top: 1rem; max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; border: var(--border-heavy); padding: 0.75rem; background: var(--bg-surface);">
+                        Enter search query and target domains to probe candidate search URLs.
+                    </div>
+                    <button type="button" id="btn-add-discovered" class="btn" style="width: 100%; margin-top: 1rem; display: none; background: #00ff66; color: #000; font-weight: 700; padding: 0.75rem;" onclick="addDiscoveredUrlsToStudio()">
+                        ADD DISCOVERED VALID URLS TO SEED MANIFEST
+                    </button>
                 </div>
             </div>
             <!-- Media Preview Modal -->
@@ -2050,15 +2153,20 @@
                     try {
                         const res = await fetch('/api/seeds');
                         if (res.ok) {
-                            const seeds = await res.json();
+                            const data = await res.json();
+                            const seedList = Array.isArray(data) ? data : (data.seeds || []);
                             const selector = document.getElementById('seed-selector');
-                            selector.innerHTML = '<option value="">None (Custom Input Only)</option>';
-                            seeds.forEach(seed => {
-                                const opt = document.createElement('option');
-                                opt.value = seed;
-                                opt.textContent = seed;
-                                selector.appendChild(opt);
-                            });
+                            if (selector) {
+                                selector.innerHTML = '<option value="">None (Custom Input Only)</option>';
+                                seedList.forEach(seed => {
+                                    const fname = typeof seed === 'object' ? seed.filename : seed;
+                                    const subj = typeof seed === 'object' ? (seed.subject_name || seed.filename) : seed;
+                                    const opt = document.createElement('option');
+                                    opt.value = fname;
+                                    opt.textContent = `${fname} [${subj}]`;
+                                    selector.appendChild(opt);
+                                });
+                            }
                         }
                     } catch (e) {
                         console.error("Failed to load seeds list:", e);
@@ -2077,18 +2185,19 @@
                     currentSubject = name;
                     document.getElementById('command-center-view').style.display = 'none';
                     document.getElementById('gallery-view').style.display = 'block';
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'none';
                     document.getElementById('main-title').innerText = "MEDIA VAULT";
                     document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
                     document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
 
                     // Set active class in sidebar items
-                    document.querySelectorAll('.sidebar-item').forEach(item => {
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => {
                         item.classList.remove('active');
                         if (item.getAttribute('data-subject') === name) {
                             item.classList.add('active');
                         }
                     });
-                    document.getElementById('nav-cmd-center').classList.remove('active');
 
                     // Swap stats container to subject-scoped stats
                     const statsEl = document.getElementById('active-stats-container');
@@ -2116,16 +2225,447 @@
                     htmx.process(grid);
                 }
 
+                let currentStudioFilename = "";
+                let currentStudioMode = "builder"; // "builder" | "code"
+                let discoveredUrlsBuffer = [];
+
+                function showSeedStudio() {
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    document.getElementById('seed-studio-view').style.display = 'block';
+                    document.getElementById('main-title').innerText = "SEED STUDIO";
+                    document.getElementById('main-subtitle').innerText = "UNIVERSAL SEED MANIFEST EDITOR & AUTO-DISCOVERY";
+
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    document.getElementById('nav-seed-studio').classList.add('active');
+
+                    loadStudioSeedsList();
+                }
+
+                async function loadStudioSeedsList() {
+                    try {
+                        const res = await fetch('/api/seeds');
+                        if (res.ok) {
+                            const data = await res.json();
+                            const seedList = Array.isArray(data) ? data : (data.seeds || []);
+                            const select = document.getElementById('studio-seed-select');
+                            select.innerHTML = '<option value="">+ Create New Seed</option>';
+                            seedList.forEach(seed => {
+                                const fname = typeof seed === 'object' ? seed.filename : seed;
+                                const subj = typeof seed === 'object' ? (seed.subject_name || seed.filename) : seed;
+                                const opt = document.createElement('option');
+                                opt.value = fname;
+                                opt.textContent = `${fname} [${subj}]`;
+                                select.appendChild(opt);
+                            });
+
+                            if (currentStudioFilename) {
+                                select.value = currentStudioFilename;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed loading studio seeds list:", e);
+                    }
+                }
+
+                async function onStudioSeedSelectChange(select) {
+                    currentStudioFilename = select.value;
+                    const statusEl = document.getElementById('studio-status-indicator');
+
+                    if (!currentStudioFilename) {
+                        document.getElementById('studio-subject-input').value = "";
+                        document.getElementById('studio-domains-container').innerHTML = "";
+                        document.getElementById('studio-code-editor').value = "# Subject : New Subject\n\n# type: mixed | crawl: index→detail\n";
+                        addStudioDomainCard();
+                        validateStudioManifestContent(document.getElementById('studio-code-editor').value);
+                        statusEl.innerText = "[ NEW SEED DRAFT ]";
+                        return;
+                    }
+
+                    statusEl.innerText = `[ LOADING ${currentStudioFilename} ]`;
+                    try {
+                        const res = await fetch(`/api/seeds/${encodeURIComponent(currentStudioFilename)}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            document.getElementById('studio-subject-input').value = data.subject_name || "";
+                            document.getElementById('studio-code-editor').value = data.content || "";
+                            
+                            const container = document.getElementById('studio-domains-container');
+                            container.innerHTML = "";
+                            if (data.domains && data.domains.length > 0) {
+                                data.domains.forEach(d => addStudioDomainCard(d));
+                            } else {
+                                addStudioDomainCard();
+                            }
+
+                            validateStudioManifestContent(data.content || "");
+                            statusEl.innerText = `[ LOADED ${currentStudioFilename} ]`;
+                        }
+                    } catch (e) {
+                        console.error("Failed reading seed details:", e);
+                        statusEl.innerText = "[ LOAD ERROR ]";
+                    }
+                }
+
+                function setStudioMode(mode) {
+                    currentStudioMode = mode;
+                    const builderBtn = document.getElementById('studio-btn-builder-mode');
+                    const codeBtn = document.getElementById('studio-btn-code-mode');
+                    const builderPanel = document.getElementById('studio-builder-panel');
+                    const codePanel = document.getElementById('studio-code-panel');
+
+                    if (mode === 'builder') {
+                        builderBtn.classList.add('active');
+                        codeBtn.classList.remove('active');
+                        builderPanel.style.display = 'block';
+                        codePanel.style.display = 'none';
+                    } else {
+                        codeBtn.classList.add('active');
+                        builderBtn.classList.remove('active');
+                        codePanel.style.display = 'block';
+                        builderPanel.style.display = 'none';
+                        document.getElementById('studio-code-editor').value = buildManifestContentFromBuilder();
+                    }
+                }
+
+                function addStudioDomainCard(dData = null) {
+                    const container = document.getElementById('studio-domains-container');
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel studio-domain-card';
+                    card.style.padding = '1rem';
+                    card.style.background = 'var(--bg-surface)';
+                    card.style.border = 'var(--border-heavy)';
+
+                    const dom = dData ? dData.domain : "";
+                    const media = dData ? dData.media_type : "mixed";
+                    const strategy = dData ? dData.crawl_strategy : "index→detail";
+                    const engine = dData && dData.preferred_engine ? dData.preferred_engine : "auto";
+                    const cf = dData && dData.cloudflare_blocked ? "checked" : "";
+                    const ref = dData && dData.requires_referer ? "checked" : "";
+                    const urls = dData && dData.seed_urls ? dData.seed_urls.join('\n') : "";
+
+                    card.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="font-weight: 700; font-family: monospace; color: var(--accent);">TARGET DOMAIN BLOCK</span>
+                            <button type="button" class="btn delete" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; border-color: #ff3333; color: #ff3333;" onclick="removeStudioDomainCard(this)">&times; REMOVE</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
+                            <div class="form-group">
+                                <label style="font-size: 0.8rem;">DOMAIN HOSTNAME</label>
+                                <input type="text" class="card-domain-input" value="${dom}" placeholder="Enter domain hostname" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.8rem;">MEDIA TYPE</label>
+                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <option value="mixed" ${media==='mixed'?'selected':''}>mixed</option>
+                                    <option value="image" ${media==='image'?'selected':''}>image</option>
+                                    <option value="video" ${media==='video'?'selected':''}>video</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.8rem;">CRAWL STRATEGY</label>
+                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <option value="index→detail" ${strategy.includes('index')?'selected':''}>index→detail</option>
+                                    <option value="direct" ${strategy==='direct'?'selected':''}>direct</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-size: 0.8rem;">PREFERRED ENGINE</label>
+                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <option value="auto" ${engine==='auto'?'selected':''}>auto</option>
+                                    <option value="camoufox" ${engine==='camoufox'?'selected':''}>camoufox</option>
+                                    <option value="flaresolverr" ${engine==='flaresolverr'?'selected':''}>flaresolverr</option>
+                                    <option value="crawl4ai" ${engine==='crawl4ai'?'selected':''}>crawl4ai</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem; font-family: monospace;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                                <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()"> CLOUDFLARE PROTECTED
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                                <input type="checkbox" class="card-ref-check" ${ref} onchange="onStudioFormChanged()"> REQUIRES REFERER
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem;">SEED URLS (ONE PER LINE)</label>
+                            <textarea class="card-urls-textarea" placeholder="Enter target seed URLs (one per line)" oninput="onStudioFormChanged()" style="width: 100%; height: 100px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.5rem;"></textarea>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                    card.querySelector('.card-urls-textarea').value = urls;
+                }
+
+                function removeStudioDomainCard(btn) {
+                    const card = btn.closest('.studio-domain-card');
+                    if (card) {
+                        card.remove();
+                        onStudioFormChanged();
+                    }
+                }
+
+                function buildManifestContentFromBuilder() {
+                    const subject = document.getElementById('studio-subject-input').value.trim() || "New Subject";
+                    let content = `# Subject : ${subject}\n\n`;
+
+                    const cards = document.querySelectorAll('.studio-domain-card');
+                    cards.forEach(card => {
+                        const dom = card.querySelector('.card-domain-input').value.trim();
+                        const media = card.querySelector('.card-media-select').value;
+                        const strategy = card.querySelector('.card-crawl-select').value;
+                        const engine = card.querySelector('.card-engine-select').value;
+                        const cf = card.querySelector('.card-cf-check').checked;
+                        const ref = card.querySelector('.card-ref-check').checked;
+                        const urlsRaw = card.querySelector('.card-urls-textarea').value.trim();
+
+                        if (dom || urlsRaw) {
+                            content += `# --- ${dom || 'Domain Block'} ---\n`;
+                            content += `# type: ${media}  |  crawl: ${strategy}\n`;
+                            if (engine && engine !== 'auto') {
+                                content += `# engine: ${engine}\n`;
+                            }
+                            if (cf) content += `# cloudflare: true\n`;
+                            if (ref) content += `# requires_referer\n`;
+
+                            if (urlsRaw) {
+                                content += urlsRaw + "\n";
+                            }
+                            content += "\n";
+                        }
+                    });
+
+                    return content;
+                }
+
+                function onStudioFormChanged() {
+                    if (currentStudioMode === 'builder') {
+                        const content = buildManifestContentFromBuilder();
+                        document.getElementById('studio-code-editor').value = content;
+                        validateStudioManifestContent(content);
+                    }
+                }
+
+                function onStudioCodeEditorChanged() {
+                    if (currentStudioMode === 'code') {
+                        const content = document.getElementById('studio-code-editor').value;
+                        validateStudioManifestContent(content);
+                    }
+                }
+
+                async function validateStudioManifestContent(content) {
+                    try {
+                        const res = await fetch('/api/seeds/validate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: content })
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const statusEl = document.getElementById('studio-validation-status');
+                            const warningsEl = document.getElementById('studio-validation-warnings');
+
+                            if (data.is_valid) {
+                                statusEl.innerText = "✓ MANIFEST VALID";
+                                statusEl.style.color = "#00ff66";
+                                warningsEl.innerHTML = "<span style='color: #00ff66;'>No syntax warnings detected.</span>";
+                            } else {
+                                statusEl.innerText = `⚠ ${data.warnings.length} SYNTAX WARNING(S)`;
+                                statusEl.style.color = "#ffcc00";
+                                warningsEl.innerHTML = data.warnings.map(w => {
+                                    const match = w.match(/Line (\d+):/);
+                                    const lineNum = match ? match[1] : 1;
+                                    return `<div style="cursor: pointer; margin-bottom: 0.2rem; color: #ffcc00;" onclick="jumpToStudioValidationError(${lineNum})">✦ ${w} (click to jump)</div>`;
+                                }).join('');
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Validation failed:", e);
+                    }
+                }
+
+                function jumpToStudioValidationError(lineNum) {
+                    setStudioMode('code');
+                    const textarea = document.getElementById('studio-code-editor');
+                    textarea.focus();
+                    const lines = textarea.value.split('\n');
+                    let pos = 0;
+                    for (let i = 0; i < Math.min(lineNum - 1, lines.length); i++) {
+                        pos += lines[i].length + 1;
+                    }
+                    textarea.setSelectionRange(pos, pos + (lines[lineNum - 1] ? lines[lineNum - 1].length : 0));
+                }
+
+                async function saveStudioSeed() {
+                    let filename = currentStudioFilename;
+                    if (!filename) {
+                        const subj = document.getElementById('studio-subject-input').value.trim() || "new_seed";
+                        filename = prompt("Enter seed file name:", `${subj.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}.txt`);
+                        if (!filename) return;
+                    }
+
+                    if (!filename.endsWith('.txt')) filename += '.txt';
+
+                    const content = document.getElementById('studio-code-editor').value;
+                    try {
+                        const res = await fetch('/api/seeds', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ filename: filename, content: content, overwrite: true })
+                        });
+                        if (res.ok) {
+                            currentStudioFilename = filename;
+                            await loadStudioSeedsList();
+                            await loadSeeds(); // Sync Command Center dropdown
+                            document.getElementById('studio-status-indicator').innerText = `[ SAVED ${filename} ]`;
+                            alert(`Seed manifest '${filename}' saved successfully!`);
+                        }
+                    } catch (e) {
+                        alert("Failed saving seed file: " + e.message);
+                    }
+                }
+
+                async function deleteStudioSeed() {
+                    if (!currentStudioFilename) {
+                        alert("No saved seed file selected.");
+                        return;
+                    }
+                    if (confirm(`Are you sure you want to hard-delete 'seeds/${currentStudioFilename}'?`)) {
+                        try {
+                            const res = await fetch(`/api/seeds/${encodeURIComponent(currentStudioFilename)}`, { method: 'DELETE' });
+                            if (res.ok) {
+                                currentStudioFilename = "";
+                                await loadStudioSeedsList();
+                                await loadSeeds();
+                                onStudioSeedSelectChange(document.getElementById('studio-seed-select'));
+                                alert("Seed file deleted.");
+                            }
+                        } catch (e) {
+                            alert("Failed deleting seed file: " + e.message);
+                        }
+                    }
+                }
+
+                function launchStudioSeedScrape() {
+                    if (!currentStudioFilename) {
+                        alert("Please save the seed manifest before initiating Quick Run.");
+                        return;
+                    }
+                    showCommandCenter();
+                    const selector = document.getElementById('seed-selector');
+                    if (selector) {
+                        selector.value = currentStudioFilename;
+                        onSeedSelected(selector);
+                    }
+                }
+
+                function openAutoDiscoveryModal() {
+                    const subj = document.getElementById('studio-subject-input').value.trim();
+                    document.getElementById('discovery-query-input').value = subj;
+                    
+                    const domains = [];
+                    document.querySelectorAll('.card-domain-input').forEach(i => {
+                        if (i.value.trim()) domains.push(i.value.trim());
+                    });
+                    document.getElementById('discovery-domains-input').value = domains.join(', ');
+
+                    document.getElementById('auto-discovery-modal').classList.add('active');
+                }
+
+                function closeAutoDiscoveryModal() {
+                    document.getElementById('auto-discovery-modal').classList.remove('active');
+                }
+
+                async function runAutoDiscoveryProbe() {
+                    const query = document.getElementById('discovery-query-input').value.trim();
+                    const domainsRaw = document.getElementById('discovery-domains-input').value.trim();
+                    const domains = domainsRaw.split(',').map(d => d.trim()).filter(Boolean);
+
+                    if (!query || domains.length === 0) {
+                        alert("Please enter a query and at least one target domain hostname.");
+                        return;
+                    }
+
+                    const progress = document.getElementById('discovery-progress-bar');
+                    const resultsEl = document.getElementById('discovery-results-container');
+                    const addBtn = document.getElementById('btn-add-discovered');
+
+                    progress.style.display = 'block';
+                    resultsEl.innerHTML = "<div style='color: var(--accent);'>PROBING PARALLEL DOMAIN SEARCH MATRIX... PLEASE WAIT...</div>";
+                    addBtn.style.display = 'none';
+
+                    try {
+                        const res = await fetch('/api/seeds/discover', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: query, domains: domains })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            discoveredUrlsBuffer = data.discovered_urls || [];
+
+                            if (discoveredUrlsBuffer.length > 0) {
+                                resultsEl.innerHTML = `<div style="color: #00ff66; font-weight: 700; margin-bottom: 0.5rem;">SUCCESS // DISCOVERED ${data.valid_count} VALID URLS (TESTED ${data.tested_count}):</div>` +
+                                    discoveredUrlsBuffer.map(item => `
+                                        <div style="margin-bottom: 0.2rem; display: flex; align-items: center; justify-content: space-between;">
+                                            <span style="word-break: break-all;">✦ ${item.url}</span>
+                                            <span style="color: #00ff66; background: rgba(0,255,102,0.1); padding: 0.1rem 0.4rem; font-size: 0.75rem;">200 OK</span>
+                                        </div>
+                                    `).join('');
+                                addBtn.style.display = 'block';
+                            } else {
+                                resultsEl.innerHTML = `<div style="color: #ffcc00;">TESTED ${data.tested_count} CANDIDATE URLS. NO LIVE 200 OK SEARCH ENDPOINTS DISCOVERED FOR QUERY '${query}'.</div>`;
+                            }
+                        }
+                    } catch (e) {
+                        resultsEl.innerHTML = `<div style="color: #ff3333;">PROBE FAILED: ${e.message}</div>`;
+                    } finally {
+                        progress.style.display = 'none';
+                    }
+                }
+
+                function addDiscoveredUrlsToStudio() {
+                    if (discoveredUrlsBuffer.length === 0) return;
+
+                    discoveredUrlsBuffer.forEach(item => {
+                        const url = item.url;
+                        const domain = new URL(url).hostname.replace(/^www\./, '');
+
+                        let matchedCard = null;
+                        document.querySelectorAll('.studio-domain-card').forEach(card => {
+                            const domVal = card.querySelector('.card-domain-input').value.trim();
+                            if (domVal.toLowerCase() === domain.toLowerCase()) {
+                                matchedCard = card;
+                            }
+                        });
+
+                        if (!matchedCard) {
+                            addStudioDomainCard({ domain: domain, seed_urls: [url], media_type: 'mixed', crawl_strategy: 'index→detail' });
+                        } else {
+                            const textarea = matchedCard.querySelector('.card-urls-textarea');
+                            const existing = textarea.value.trim();
+                            if (!existing.includes(url)) {
+                                textarea.value = existing ? `${existing}\n${url}` : url;
+                            }
+                        }
+                    });
+
+                    onStudioFormChanged();
+                    closeAutoDiscoveryModal();
+                    alert(`Added ${discoveredUrlsBuffer.length} discovered URLs to Seed Studio manifest!`);
+                }
+
                 function showCommandCenter() {
                     document.getElementById('command-center-view').style.display = 'grid';
                     document.getElementById('gallery-view').style.display = 'none';
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'none';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
                     document.getElementById('main-subtitle').innerText = "DATA EXTRACTION COCKPIT";
 
-                    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     document.getElementById('nav-cmd-center').classList.add('active');
 
-                    // Restore global stats and 2-second polling
                     const statsEl = document.getElementById('active-stats-container');
                     if (statsEl) {
                         statsEl.setAttribute('hx-get', '/htmx/active-stats');

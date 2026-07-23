@@ -3,7 +3,7 @@ import subprocess
 import threading
 from collections import deque
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
@@ -479,7 +479,7 @@ def htmx_gallery(keyword: str = "apple", domain: str = "", page: int = 1, limit:
         card_html = []
         card_html.append(f'<div class="media-card"{htmx_attrs}>')
         if f.suffix.lower() in [".mp4", ".webm", ".mkv", ".ogv"]:
-            card_html.append(f'<video src="/{rel_path}" controls preload="metadata"></video>')
+            card_html.append(f'<video src="/{rel_path}" controls preload="metadata" controlsList="nodownload" disablePictureInPicture></video>')
         else:
             card_html.append(f'<img src="/{rel_path}" loading="lazy" />')
             
@@ -685,12 +685,7 @@ def kill_scrape():
         return HTMLResponse("<div style='color: red; margin-top: 1rem;'>PROCESS ABORTED</div>")
     return HTMLResponse("<div style='color: var(--text-muted); margin-top: 1rem;'>NO ACTIVE PROCESS</div>")
 
-@app.get("/api/seeds")
-def get_seeds():
-    seeds_dir = ROOT_DIR / "seeds"
-    if not seeds_dir.exists():
-        return []
-    return sorted([f.name for f in seeds_dir.glob("*.txt")])
+# Seed Studio endpoints defined below
 
 @app.get("/api/subjects")
 def get_subjects():
@@ -857,6 +852,181 @@ def serve_gallery():
 def serve_index():
     template_path = ROOT_DIR / "frontend" / "templates" / "index.html"
     return FileResponse(template_path)
+
+# ---------------------------------------------------------------------------
+# Seed Studio REST API Endpoints
+# ---------------------------------------------------------------------------
+
+SEEDS_DIR = ROOT_DIR / "seeds"
+SEEDS_DIR.mkdir(parents=True, exist_ok=True)
+
+class SaveSeedPayload(BaseModel):
+    filename: str
+    content: str
+    overwrite: bool = True
+
+class ValidateSeedPayload(BaseModel):
+    content: str
+
+class DiscoverSeedPayload(BaseModel):
+    query: str
+    domains: List[str]
+
+@app.get("/api/seeds")
+def list_seeds():
+    from src.core.seed_manifest import SeedManifest
+    seeds = []
+    for p in sorted(SEEDS_DIR.glob("*.txt")):
+        try:
+            manifest = SeedManifest.from_file(p)
+            seeds.append({
+                "filename": p.name,
+                "subject_name": manifest.subject_name or p.stem,
+                "domain_count": len(manifest.domains),
+                "url_count": len(manifest.all_seed_urls),
+                "domains": [d.domain for d in manifest.domains]
+            })
+        except Exception:
+            seeds.append({
+                "filename": p.name,
+                "subject_name": p.stem,
+                "domain_count": 0,
+                "url_count": 0,
+                "domains": []
+            })
+    return {"seeds": seeds}
+
+@app.get("/api/seeds/{filename}")
+def get_seed(filename: str):
+    from src.core.seed_manifest import SeedManifest
+    target = SEEDS_DIR / filename
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="Seed file not found")
+    content = target.read_text(encoding="utf-8")
+    try:
+        manifest = SeedManifest.from_file(target)
+        profiles = []
+        for d in manifest.domains:
+            profiles.append({
+                "domain": d.domain,
+                "seed_urls": d.seed_urls,
+                "media_type": d.media_type,
+                "crawl_strategy": d.crawl_strategy,
+                "crawl_depth": d.crawl_depth,
+                "rate_limit": d.rate_limit,
+                "preferred_engine": d.preferred_engine,
+                "cloudflare_blocked": d.cloudflare_blocked,
+                "requires_referer": d.requires_referer,
+                "disabled": d.disabled
+            })
+        return {
+            "filename": filename,
+            "content": content,
+            "subject_name": manifest.subject_name,
+            "domains": profiles
+        }
+    except Exception:
+        return {
+            "filename": filename,
+            "content": content,
+            "subject_name": target.stem,
+            "domains": []
+        }
+
+@app.post("/api/seeds")
+def save_seed(payload: SaveSeedPayload):
+    filename = payload.filename.strip()
+    if not filename.endswith(".txt"):
+        filename = f"{filename}.txt"
+    target = SEEDS_DIR / filename
+    if target.exists() and not payload.overwrite:
+        raise HTTPException(status_code=409, detail="File already exists")
+    
+    target.write_text(payload.content, encoding="utf-8")
+    return {"success": True, "filename": filename, "message": "Seed file saved successfully"}
+
+@app.delete("/api/seeds/{filename}")
+def delete_seed(filename: str):
+    target = SEEDS_DIR / filename
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="Seed file not found")
+    target.unlink()
+    return {"success": True, "filename": filename, "message": "Seed file deleted"}
+
+@app.post("/api/seeds/validate")
+def validate_seed(payload: ValidateSeedPayload):
+    from src.core.seed_manifest import SeedManifest
+    temp_file = SEEDS_DIR / "_temp_val.txt"
+    try:
+        temp_file.write_text(payload.content, encoding="utf-8")
+        warnings = SeedManifest.validate(temp_file)
+        return {"warnings": warnings, "is_valid": len(warnings) == 0}
+    finally:
+        if temp_file.exists():
+            temp_file.unlink()
+
+@app.post("/api/seeds/discover")
+async def discover_search_urls(payload: DiscoverSeedPayload):
+    import urllib.parse
+    import asyncio
+    from src.utils.http_client import HttpClient
+    
+    query = payload.query.strip()
+    if not query:
+        return {"discovered_urls": [], "tested_count": 0, "valid_count": 0}
+        
+    encoded_q = urllib.parse.quote(query)
+    candidate_urls = []
+    
+    for dom in payload.domains:
+        dom = dom.strip()
+        if not dom:
+            continue
+        if not dom.startswith("http://") and not dom.startswith("https://"):
+            base_url = f"https://{dom}"
+        else:
+            base_url = dom
+            
+        base_url = base_url.rstrip("/")
+        
+        candidates = [
+            f"{base_url}/?f_search={encoded_q}",
+            f"{base_url}/posts?tags={encoded_q}",
+            f"{base_url}/tags/{encoded_q}",
+            f"{base_url}/m/{encoded_q}",
+            f"{base_url}/user/{encoded_q}",
+            f"{base_url}/search/{encoded_q}",
+            f"{base_url}/search?q={encoded_q}",
+            f"{base_url}/?s={encoded_q}",
+            f"{base_url}/t/{encoded_q}",
+            f"{base_url}/category/{encoded_q}"
+        ]
+        candidate_urls.extend(candidates)
+        
+    candidate_urls = list(dict.fromkeys(candidate_urls))
+    
+    client = HttpClient(timeout=5.0)
+    valid_results = []
+    
+    async def probe_url(url: str):
+        try:
+            loop = asyncio.get_event_loop()
+            res = await loop.run_in_executor(None, lambda: client.get(url))
+            if res and res.status_code == 200 and len(res.content) > 500:
+                return {"url": url, "status": 200, "valid": True}
+        except Exception:
+            pass
+        return {"url": url, "status": 404, "valid": False}
+        
+    tasks = [probe_url(u) for u in candidate_urls]
+    results = await asyncio.gather(*tasks)
+    
+    valid_urls = [r for r in results if r["valid"]]
+    return {
+        "discovered_urls": valid_urls,
+        "tested_count": len(candidate_urls),
+        "valid_count": len(valid_urls)
+    }
 
 # Mount static files at the root to serve all media assets.
 # This MUST be declared last so it doesn't swallow API routes.

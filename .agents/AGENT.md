@@ -30,6 +30,7 @@ frontend/templates/index.html — Brutalist WebUI dashboard template
 run_frontend.bat            — Startup script for the interactive dashboard
 output/cache/state_cache.db — SQLite database persisting processed URLs across watchdog runs
 logs/run_<run_id>.log       — Full structured log per run
+scratch/                    — Test scripts, scratch validation scripts, and diagnostic tools
 ```
 
 ## The Loop

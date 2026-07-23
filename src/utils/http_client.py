@@ -1882,6 +1882,7 @@ class HttpClient:
         url: str,
         headers: dict[str, str] | None = None,
         preferred_engine: str | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         """Fetch *url*, using the disk cache and WAF fallback as needed.
 
@@ -1981,7 +1982,7 @@ class HttpClient:
 
                 return response
 
-        current_timeout = self.timeout
+        current_timeout = timeout if timeout is not None else self.timeout
         session = self._session_pool.get_session(host)
 
         for attempt in range(1, DEFAULT_RETRY_ATTEMPTS + 1):

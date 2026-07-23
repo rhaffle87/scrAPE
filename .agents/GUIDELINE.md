@@ -26,10 +26,10 @@ This document provides project-scoped instructions and architectural rules for A
    - Always use `filters.safe_join(items)` when concatenating string tokens to prevent `TypeError` when processing items with `None` fields (e.g. missing alt text or page titles).
 
 4. **Preserve API Contracts & Backward Compatibility**:
-   - Do not alter function signatures or return types without updating all invocation sites across `src/`, `frontend/`, and `tests/`.
+   - Do not alter function signatures or return types without updating all invocation sites across `src/`, `frontend/`, and `scratch/`.
 
 5. **No Superficial Symptom Patches**:
-   - Never resolve errors by masking symptoms, swallowing exceptions, returning dummy fallbacks, or deleting failing unit tests.
+   - Never resolve errors by masking symptoms, swallowing exceptions, returning dummy fallbacks, or deleting failing test scripts in `scratch/`.
 
 ---
 
@@ -49,7 +49,8 @@ This document provides project-scoped instructions and architectural rules for A
 
 ## 4. Verification Requirements
 
-- Always run `pytest` after completing code edits to verify that all 131+ unit and integration tests pass cleanly before declaring completion.
+- All testing and test scripts are maintained exclusively inside `scratch/` (the `tests/` directory is not used).
+- Always run `pytest scratch/` (or specific `pytest scratch/test_*.py` scripts) after completing code edits to verify that test scripts pass cleanly before declaring completion.
 - When modifying WebUI templates, verify HTML rendering and HTMX routes.
 
 ---
