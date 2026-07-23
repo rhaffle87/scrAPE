@@ -38,6 +38,7 @@ from urllib.parse import urlparse
 import httpx
 
 import sys
+import typing
 
 
 from config import (
@@ -54,7 +55,11 @@ from config import (
     ENABLE_COOKIE_HARVESTING,
     ENABLE_DRISSIONPAGE_FALLBACK,
     ENABLE_HELIUM_FALLBACK,
+    ENABLE_CAMOUFOX_FALLBACK,
+    ENABLE_FLARESOLVERR_FALLBACK,
+    FLARESOLVERR_URL,
     FORCE_HEADLESS,
+    STEALTH_HEADFUL,
 )
 from utils.rate_limiter import RateLimiter
 from utils.session_pool import SessionPool
@@ -239,7 +244,7 @@ def _apply_playwright_channel_patch() -> None:
                 cm.start = patched_start
                 return cm
 
-            _patched_playwright_async._is_patched = True
+            setattr(_patched_playwright_async, "_is_patched", True)
             playwright.async_api.async_playwright = _patched_playwright_async
             logger.info("Successfully patched playwright.async_api.async_playwright")
     except Exception as e:
@@ -264,7 +269,7 @@ def _apply_playwright_channel_patch() -> None:
                 cm.start = patched_start
                 return cm
 
-            _patched_patchright_async._is_patched = True
+            setattr(_patched_patchright_async, "_is_patched", True)
             patchright.async_api.async_playwright = _patched_patchright_async
             logger.info("Successfully patched patchright.async_api.async_playwright")
     except Exception as e:
@@ -330,7 +335,7 @@ def _patch_playwright_instance(instance, logger) -> None:
                 logger.info("launch_persistent_context kwargs: %s", kwargs)
                 return await orig_launch_persistent(user_data_dir, **kwargs)
 
-            patched_launch_persistent._is_patched = True
+            setattr(patched_launch_persistent, "_is_patched", True)
             instance.chromium.launch_persistent_context = patched_launch_persistent
 
 
@@ -363,6 +368,21 @@ class HttpClient:
     _failed_stealth_lock = threading.Lock()
     _cloudflare_blocked_hosts: set[str] = set()
     _cf_blocked_lock = threading.Lock()
+    _preferred_engine_by_host: dict[str, str] = {}
+    _preferred_engine_lock = threading.Lock()
+    _flaresolverr_online: bool | None = None
+    _flaresolverr_lock = threading.Lock()
+    _waf_solve_counts: dict[str, int] = {
+        "crawl4ai": 0,
+        "camoufox": 0,
+        "flaresolverr": 0,
+        "uc": 0,
+        "cheerio": 0,
+        "puppeteer": 0,
+        "drissionpage": 0,
+        "helium": 0,
+    }
+    _waf_solve_lock = threading.Lock()
 
     @classmethod
     def register_cloudflare_blocked(cls, hostname: str) -> None:
@@ -1173,6 +1193,9 @@ class HttpClient:
                     continue
                 raise driver_err
 
+        if driver is None:
+            raise RuntimeError("Failed to initialize undetected-chromedriver driver instance.")
+
         try:
             driver.set_page_load_timeout(30)
             driver.get(url)
@@ -1325,6 +1348,154 @@ class HttpClient:
             logger.error("CapSolver API failed: %s", repr(e))
             return False
 
+    def _get_with_camoufox(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using Camoufox stealth browser with fingerprint & headful escalation tuning."""
+        from utils.logger import get_logger
+        logger = get_logger(__name__)
+
+        try:
+            from camoufox.sync_api import Camoufox
+        except ImportError:
+            logger.warning("Camoufox library is not installed.")
+            raise Exception("Camoufox library is not installed")
+
+        is_windows = sys.platform.startswith("win")
+        is_macos = sys.platform == "darwin"
+        is_local_gui = is_windows or is_macos
+        headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+
+        camou_os = "win" if is_windows else ("mac" if is_macos else "lin")
+
+        def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
+            logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
+            kwargs = {
+                "headless": is_headless,
+                "os": camou_os,
+                "humanize": True,
+                "window_size": (1920, 1080),
+            }
+            with Camoufox(**kwargs) as browser:
+                page = browser.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+
+                if is_headless and self._is_cloudflare_challenge(page.content()):
+                    raise TimeoutError("Camoufox headless hit Cloudflare Turnstile challenge.")
+
+                try:
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(2000)
+                except Exception:
+                    pass
+
+                html = page.content()
+                cookies = page.context.cookies()
+
+                cookie_list = []
+                host = self._hostname(url)
+                for c in cookies:
+                    cookie_list.append(
+                        {
+                            "name": c.get("name"),
+                            "value": c.get("value"),
+                            "domain": c.get("domain") or host,
+                            "path": c.get("path") or "/",
+                        }
+                    )
+                return html, cookie_list
+
+        try:
+            return _fetch_camou(headless_mode)
+        except Exception as exc:
+            if headless_mode and is_local_gui and not FORCE_HEADLESS:
+                logger.warning(
+                    "\n"
+                    "========================================================================\n"
+                    "CAMOUFOX HEADLESS WAF CHALLENGE ON: %s\n"
+                    "Escalating Camoufox to HEADFUL (visible) mode for 20 seconds.\n"
+                    "Please solve/click the Turnstile checkbox if prompted in the window.\n"
+                    "========================================================================",
+                    url,
+                )
+                try:
+                    return _fetch_camou(False)
+                except Exception as headful_exc:
+                    logger.error("Camoufox headful escalation failed for %s: %s", url, repr(headful_exc))
+                    raise headful_exc
+            logger.error("Camoufox request failed: %s", repr(exc))
+            raise exc
+
+    def _get_with_flaresolverr(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using FlareSolverr proxy service with session reuse & proxy forwarding."""
+        from utils.logger import get_logger
+        logger = get_logger(__name__)
+
+        fs_url = FLARESOLVERR_URL or "http://localhost:8191/v1"
+
+        # 1. Health-check ping if state is unknown
+        with self.__class__._flaresolverr_lock:
+            if self.__class__._flaresolverr_online is False:
+                logger.warning("FlareSolverr service is offline (previous ping failed). Skipping FlareSolverr fallback.")
+                raise Exception("FlareSolverr service is offline")
+
+        host = self._hostname(url)
+        domain_slug = re.sub(r"[^\w\-]", "_", host)
+        session_id = f"session_{domain_slug}"
+
+        proxy = self.get_proxy()
+        payload: dict[str, typing.Any] = {
+            "cmd": "request.get",
+            "url": url,
+            "maxTimeout": 60000,
+            "session": session_id,
+        }
+        if proxy:
+            payload["proxy"] = {"url": proxy}
+
+        logger.info("Sending request to FlareSolverr at %s for %s (session=%s)", fs_url, url, session_id)
+
+        try:
+            with httpx.Client(timeout=65.0) as client:
+                # Perform initial health-check if needed
+                if self.__class__._flaresolverr_online is None:
+                    try:
+                        base_url = fs_url.rsplit("/v1", 1)[0]
+                        ping_res = client.get(base_url or fs_url, timeout=3.0)
+                        ping_res.raise_for_status()
+                        with self.__class__._flaresolverr_lock:
+                            self.__class__._flaresolverr_online = True
+                    except Exception as ping_err:
+                        with self.__class__._flaresolverr_lock:
+                            self.__class__._flaresolverr_online = False
+                        logger.warning("FlareSolverr health-check failed at %s: %s. Disabling FlareSolverr.", fs_url, ping_err)
+                        raise Exception(f"FlareSolverr health-check failed: {ping_err}") from ping_err
+
+                res = client.post(fs_url, json=payload)
+                res.raise_for_status()
+                data = res.json()
+
+                if data.get("status") == "ok":
+                    sol = data.get("solution", {})
+                    html = sol.get("response", "")
+                    raw_cookies = sol.get("cookies", [])
+                    cookie_list = []
+                    for c in raw_cookies:
+                        cookie_list.append(
+                            {
+                                "name": c.get("name"),
+                                "value": c.get("value"),
+                                "domain": c.get("domain") or host,
+                                "path": c.get("path") or "/",
+                            }
+                        )
+                    return html, cookie_list
+                else:
+                    msg = data.get("message", "Unknown FlareSolverr error")
+                    logger.warning("FlareSolverr returned status '%s': %s", data.get("status"), msg)
+                    raise Exception(f"FlareSolverr error: {msg}")
+        except Exception as exc:
+            logger.error("FlareSolverr request failed: %s", repr(exc))
+            raise exc
+
     # ------------------------------------------------------------------
     # Crawl4AI browser fallback (runs on the shared background event loop)
     # ------------------------------------------------------------------
@@ -1343,7 +1514,7 @@ class HttpClient:
         import crawl4ai.async_webcrawler
 
         # Disable crawl4ai's built-in block detector — we detect Cloudflare ourselves.
-        crawl4ai.async_webcrawler.is_blocked = lambda status_code, html: (False, "")
+        crawl4ai.async_webcrawler.is_blocked = lambda status_code, html, error_message=None: (False, "")
 
         from crawl4ai import (
             AsyncWebCrawler,
@@ -1419,47 +1590,44 @@ class HttpClient:
             async def _run_with_chrome_fallback(
                 headless: bool, enable_stealth: bool, browser_adapter=None, run_cfg=None
             ) -> tuple[str, list[dict]]:
+                proxy_val = self.get_proxy()
+
+                def _make_browser_cfg(channel_opt=None):
+                    kwargs = {
+                        "browser_type": "chromium",
+                        "headless": headless,
+                        "verbose": False,
+                        "enable_stealth": enable_stealth,
+                        "user_agent": _get_platform_user_agent(),
+                        "extra_args": ["--disable-gpu"] if headless else [],
+                        "user_data_dir": str(profile_path.resolve()),
+                        "use_persistent_context": True,
+                        "cookies": playwright_cookies,
+                    }
+                    if channel_opt:
+                        kwargs["channel"] = channel_opt
+                        kwargs["chrome_channel"] = channel_opt
+                    if proxy_val:
+                        kwargs["proxy"] = proxy_val
+                    return BrowserConfig(**kwargs)
+
+                def _make_strategy(b_cfg):
+                    kwargs = {"browser_config": b_cfg}
+                    if browser_adapter is not None:
+                        kwargs["browser_adapter"] = browser_adapter
+                    return AsyncPlaywrightCrawlerStrategy(**kwargs)
+
                 try:
-                    cfg = BrowserConfig(
-                        browser_type="chromium",
-                        channel="chrome",
-                        chrome_channel="chrome",
-                        headless=headless,
-                        verbose=False,
-                        enable_stealth=enable_stealth,
-                        user_agent=_get_platform_user_agent(),
-                        extra_args=["--disable-gpu"] if headless else [],
-                        user_data_dir=str(profile_path.resolve()),
-                        use_persistent_context=True,
-                        cookies=playwright_cookies,
-                        proxy=self.get_proxy(),
-                    )
-                    strat = AsyncPlaywrightCrawlerStrategy(
-                        browser_config=cfg,
-                        browser_adapter=browser_adapter,
-                    )
+                    cfg = _make_browser_cfg("chrome")
+                    strat = _make_strategy(cfg)
                     return await _run_tier(strat, run_cfg)
                 except Exception as exc:
                     logger.warning(
                         "Crawl4AI fallback run with channel='chrome' failed: %s. Retrying with default Playwright Chromium...",
                         exc,
                     )
-                    cfg_fallback = BrowserConfig(
-                        browser_type="chromium",
-                        headless=headless,
-                        verbose=False,
-                        enable_stealth=enable_stealth,
-                        user_agent=_get_platform_user_agent(),
-                        extra_args=["--disable-gpu"] if headless else [],
-                        user_data_dir=str(profile_path.resolve()),
-                        use_persistent_context=True,
-                        cookies=playwright_cookies,
-                        proxy=self.get_proxy(),
-                    )
-                    strat_fallback = AsyncPlaywrightCrawlerStrategy(
-                        browser_config=cfg_fallback,
-                        browser_adapter=browser_adapter,
-                    )
+                    cfg_fallback = _make_browser_cfg()
+                    strat_fallback = _make_strategy(cfg_fallback)
                     return await _run_tier(strat_fallback, run_cfg)
 
             # --- Tier 1: Standard stealth Playwright ---
@@ -1552,30 +1720,70 @@ class HttpClient:
     # Public interface
     # ------------------------------------------------------------------
 
-    def _execute_fallbacks(self, url: str, skip_crawl4ai: bool = False) -> tuple[str | None, list[dict]]:
+    def _execute_fallbacks(
+        self, url: str, skip_crawl4ai: bool = False, preferred_engine: str | None = None
+    ) -> tuple[str | None, list[dict]]:
         from utils.logger import get_logger
         logger = get_logger(__name__)
 
-        strategies = [
-            ("Crawl4AI", self._get_with_crawl4ai),
-            ("Crawlee Cheerio", self._get_with_crawlee_cheerio),
-            ("DrissionPage", self._get_with_drissionpage if ENABLE_DRISSIONPAGE_FALLBACK else None),
-            ("Crawlee Puppeteer", self._get_with_crawlee_puppeteer),
-            ("Helium", self._get_with_helium if ENABLE_HELIUM_FALLBACK else None),
-            ("undetected-chromedriver", self._get_with_uc),
+        host = self._hostname(url)
+
+        # Check for host engine memory cache if no seed manifest override is provided
+        if not preferred_engine:
+            with self.__class__._preferred_engine_lock:
+                preferred_engine = self.__class__._preferred_engine_by_host.get(host)
+
+        strategy_map = {
+            "crawl4ai": ("Crawl4AI", self._get_with_crawl4ai),
+            "cheerio": ("Crawlee Cheerio", self._get_with_crawlee_cheerio),
+            "drissionpage": ("DrissionPage", self._get_with_drissionpage if ENABLE_DRISSIONPAGE_FALLBACK else None),
+            "puppeteer": ("Crawlee Puppeteer", self._get_with_crawlee_puppeteer),
+            "helium": ("Helium", self._get_with_helium if ENABLE_HELIUM_FALLBACK else None),
+            "uc": ("undetected-chromedriver", self._get_with_uc),
+            "camoufox": ("Camoufox", self._get_with_camoufox if ENABLE_CAMOUFOX_FALLBACK else None),
+            "flaresolverr": ("FlareSolverr", self._get_with_flaresolverr if ENABLE_FLARESOLVERR_FALLBACK else None),
+        }
+
+        default_order = [
+            "crawl4ai",
+            "cheerio",
+            "drissionpage",
+            "puppeteer",
+            "helium",
+            "uc",
+            "camoufox",
+            "flaresolverr",
         ]
+
+        ordered_keys = []
+        if preferred_engine and preferred_engine.lower() in strategy_map:
+            pref_key = preferred_engine.lower()
+            ordered_keys.append(pref_key)
+            for k in default_order:
+                if k != pref_key:
+                    ordered_keys.append(k)
+        else:
+            ordered_keys = default_order
+
+        strategies = [strategy_map[k] for k in ordered_keys]
 
         html_content = None
         browser_cookies = []
+        start_time = time.monotonic()
+        timeout_budget = 60.0  # 60 seconds total deadline for all fallbacks
 
         for name, strategy_func in strategies:
+            if time.monotonic() - start_time > timeout_budget:
+                logger.warning("WAF fallback sequence exceeded 60s total timeout budget for %s.", url)
+                break
+
             if strategy_func is None:
                 continue
 
             if name == "Crawl4AI" and skip_crawl4ai:
                 continue
 
-            if name != "Crawl4AI" and "pytest" in sys.modules:
+            if name != "Crawl4AI" and "pytest" in sys.modules and not preferred_engine:
                 continue
 
             logger.info("Escalating stealth routing to %s fallback for %s...", name, url)
@@ -1585,8 +1793,17 @@ class HttpClient:
                     html_content, browser_cookies = res_val
                 else:
                     html_content, browser_cookies = res_val, []
-                
+
                 if html_content and not self._is_blocked_page(html_content, url):
+                    # Cache successful engine choice in host memory & increment telemetry counter
+                    engine_key = next((k for k, (n, f) in strategy_map.items() if n == name), None)
+                    if engine_key:
+                        with self.__class__._preferred_engine_lock:
+                            self.__class__._preferred_engine_by_host[host] = engine_key
+                        with self.__class__._waf_solve_lock:
+                            self.__class__._waf_solve_counts[engine_key] = (
+                                self.__class__._waf_solve_counts.get(engine_key, 0) + 1
+                            )
                     return html_content, browser_cookies
                 else:
                     logger.warning("%s returned a blocked or redirected page for %s.", name, url)
@@ -1607,7 +1824,12 @@ class HttpClient:
         """
         return getattr(self._thread_local, "net_latency", 0.0)
 
-    def get(self, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
+    def get(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        preferred_engine: str | None = None,
+    ) -> httpx.Response:
         """Fetch *url*, using the disk cache and WAF fallback as needed.
 
         Retried up to ``DEFAULT_RETRY_ATTEMPTS`` times on transient
@@ -1676,7 +1898,9 @@ class HttpClient:
                 )
                 # Apply rate limiting before direct fallback
                 self._rate_limiter_for(url).wait()
-                html_content, browser_cookies = self._execute_fallbacks(url)
+                html_content, browser_cookies = self._execute_fallbacks(
+                    url, preferred_engine=preferred_engine
+                )
 
                 if html_content is None:
                     with self._failed_stealth_lock:
@@ -1808,9 +2032,12 @@ class HttpClient:
                         logger.info("Attempting curl_cffi TLS spoofing for %s", url)
                         
                         proxy = self.get_proxy()
-                        proxies = {"http": proxy, "https": proxy} if proxy else None
-                        
-                        c_session = c_requests.Session(impersonate="chrome120", proxies=proxies)
+                        proxy_dict = {"http": proxy, "https": proxy} if proxy else None
+                        impersonate_val: typing.Literal["chrome120"] = "chrome120"
+                        c_session = c_requests.Session(
+                            impersonate=impersonate_val,
+                            proxies=proxy_dict,  # type: ignore[arg-type]
+                        )
                         
                         c_req_headers = self._headers(url)
                         if headers:
@@ -1895,7 +2122,9 @@ class HttpClient:
 
                     # Try fallbacks
                     logger.warning("GET %s returned %d. Initiating fallback sequence...", url, status)
-                    html_content, browser_cookies = self._execute_fallbacks(url, skip_crawl4ai=cf_blocked)
+                    html_content, browser_cookies = self._execute_fallbacks(
+                        url, skip_crawl4ai=cf_blocked, preferred_engine=preferred_engine
+                    )
 
                     if html_content is None:
                         with self._failed_stealth_lock:
@@ -1972,3 +2201,5 @@ class HttpClient:
 
                         add_to_blacklist(host, reason="consecutive_failures")
                 raise exc
+
+        raise ScraperBypassError(f"Failed to fetch {url}: retry limit reached")

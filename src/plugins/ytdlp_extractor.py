@@ -26,7 +26,10 @@ class YtDlpExtractor(ExtractorPlugin):
             if path.startswith("/tag/"):
                 return False
                 
-        return host in ["youtube.com", "youtu.be", "tiktok.com"]
+        if path.endswith(".m3u8") or path.endswith(".mpd"):
+            return True
+
+        return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com"]
 
     def extract(self, url: str) -> SpecializedResult:
         try:
@@ -35,12 +38,23 @@ class YtDlpExtractor(ExtractorPlugin):
             LOGGER.warning("yt-dlp is not installed. Skipping specialized extraction for %s", url)
             return SpecializedResult([], [])
 
+        import config
+        quality = getattr(config, "DEFAULT_VIDEO_QUALITY", "best")
+        format_spec = "bv*+ba/b"
+        if quality == "1080p":
+            format_spec = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
+        elif quality == "720p":
+            format_spec = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+        elif quality == "480p":
+            format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": "in_playlist",
             "skip_download": True,
             "dumpjson": True,
+            "format": format_spec,
         }
 
         try:

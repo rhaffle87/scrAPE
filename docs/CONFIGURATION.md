@@ -15,6 +15,7 @@ Seed files (`seeds/*.txt`) configure extraction rules per domain. Annotations ar
 | `depth` | `# depth: <int>` | `None` (engine default) | BFS crawl depth limit override for the domain. |
 | `Rate-limit` | `# Rate-limit: <float> req/s` | `None` (1.0 req/s) | Per-domain request speed ceiling (e.g. `0.2 req/s` = 1 req / 5 sec). |
 | `max_pages` | `# max_pages: <int>` | `None` (unlimited) | Hard ceiling on pages crawled for this domain per run. |
+| `engine` | `# engine: <camoufox \| flaresolverr \| uc \| crawl4ai>` | `None` | Prioritizes a specific WAF fallback engine for this domain. |
 | `cloudflare` | `# cloudflare: true` | `false` | Instructs engine to fail fast on 403/429, skipping light browser fallback loops. |
 | `skip-link-discovery` | `# skip-link-discovery` | `false` | Disables page scanning and link discovery entirely for this domain. |
 | `[CDN]` | `# [CDN] <hostname>` | `[]` | Whitelists hostname as a CDN domain (bypasses archive/index page penalties). |
@@ -107,7 +108,23 @@ Maintained automatically by the circuit breaker. Domains triggering persistent 4
 
 ---
 
-## 3. Parameter Safety Guardrails & Recommendations
+## 3. WAF & Stealth Browser Fallback Tiers
+
+When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile, DataDome), `HttpClient` escalates through stealth browser and proxy fallbacks:
+
+| Tier / Strategy | Flag / Setting | Description |
+|---|---|---|
+| **Crawl4AI (Playwright)** | Default | Headless Playwright browser with stealth scripts. |
+| **Crawlee Cheerio / Puppeteer** | Default | Node.js bridge browser rendering fallback. |
+| **DrissionPage** | `ENABLE_DRISSIONPAGE_FALLBACK` | Chrome DP protocol automation fallback. |
+| **Helium** | `ENABLE_HELIUM_FALLBACK` | High-level web automation fallback. |
+| **undetected-chromedriver** | Default | Patched Chrome binary bypassing bot detection. |
+| **Camoufox** | `ENABLE_CAMOUFOX_FALLBACK` | Custom Firefox C++ anti-fingerprint browser engine. |
+| **FlareSolverr** | `ENABLE_FLARESOLVERR_FALLBACK`, `FLARESOLVERR_URL` | Local proxy server solving Cloudflare challenges (`http://localhost:8191/v1`). |
+
+---
+
+## 4. Parameter Safety Guardrails & Recommendations
 
 To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-limiting during extractions:
 

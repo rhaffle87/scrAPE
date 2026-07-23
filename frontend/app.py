@@ -15,6 +15,8 @@ import psutil
 import os
 from fastapi import Request, Form
 
+from utils.http_client import HttpClient
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT_DIR / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -547,6 +549,14 @@ def get_stats():
     ram_color = get_color(ram)
     disk_color = get_color(disk)
 
+    with HttpClient._waf_solve_lock:
+        waf_counts = dict(HttpClient._waf_solve_counts)
+
+    camou_cnt = waf_counts.get("camoufox", 0)
+    fs_cnt = waf_counts.get("flaresolverr", 0)
+    c4ai_cnt = waf_counts.get("crawl4ai", 0)
+    uc_cnt = waf_counts.get("uc", 0)
+
     return HTMLResponse(f"""
         <div class="telemetry-bar">
             <div class="telemetry-badge">
@@ -576,6 +586,21 @@ def get_stats():
                         <div class="telemetry-fill" style="width: {disk}%; background-color: {disk_color};"></div>
                     </div>
                     <div class="telemetry-val" style="color: {disk_color};">{disk:.1f}%</div>
+                </div>
+
+                <div class="telemetry-card" style="border-left: 2px solid #00ffff;">
+                    <div class="telemetry-label" style="color: #00ffff;">CAMOUFOX</div>
+                    <div class="telemetry-val" style="color: #00ffff;">{camou_cnt}</div>
+                </div>
+
+                <div class="telemetry-card" style="border-left: 2px solid #ffcc00;">
+                    <div class="telemetry-label" style="color: #ffcc00;">FLARESOLVERR</div>
+                    <div class="telemetry-val" style="color: #ffcc00;">{fs_cnt}</div>
+                </div>
+
+                <div class="telemetry-card" style="border-left: 2px solid #ff00ff;">
+                    <div class="telemetry-label" style="color: #ff00ff;">CRAWL4AI</div>
+                    <div class="telemetry-val" style="color: #ff00ff;">{c4ai_cnt}</div>
                 </div>
             </div>
         </div>

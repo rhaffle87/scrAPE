@@ -98,6 +98,12 @@ class DomainProfile:
     The engine will skip further pages from a domain once this limit is reached.
     """
 
+    preferred_engine: str | None = None
+    """
+    Optional preferred WAF fallback engine name (e.g. 'camoufox', 'flaresolverr', 'uc', 'crawl4ai').
+    When set, the HttpClient prioritizes this engine during WAF escalation.
+    """
+
     disabled: bool = False
     """When True, this domain profile is disabled and its seed URLs should be ignored."""
 
@@ -296,6 +302,7 @@ _MIN_SIZE_RE = re.compile(
     r"\bmin[-_]image[-_]size\s*:\s*(\d+)\s*[xX]\s*(\d+)\b", re.IGNORECASE
 )
 _THUMB_PREFIX_RE = re.compile(r"\bthumbnail[-_]prefix\s*:\s*(\S+)\b", re.IGNORECASE)
+_ENGINE_RE = re.compile(r"\bengine\s*:\s*(\S+)\b", re.IGNORECASE)
 _REFERER_RE = re.compile(r"#\s*(requires[-_]referer|requires referer)", re.IGNORECASE)
 _CLOUDFLARE_RE = re.compile(r"\bcloudflare\s*:\s*true\b", re.IGNORECASE)
 _DISABLED_RE = re.compile(r"\bdisabled\b", re.IGNORECASE)
@@ -369,6 +376,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_password: str | None = None
     pend_min_size: tuple[int, int] | None = None
     pend_thumb_prefix: str | None = None
+    pend_engine: str | None = None
     pend_referer: bool = False
     pend_cloudflare: bool = False
     pend_disabled: bool = False
@@ -378,7 +386,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     def reset_pending() -> None:
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
         nonlocal pend_rate_limit, pend_username, pend_email, pend_password
-        nonlocal pend_min_size, pend_thumb_prefix, pend_referer
+        nonlocal pend_min_size, pend_thumb_prefix, pend_engine, pend_referer
         nonlocal pend_cloudflare, pend_max_pages, pend_disabled
         pend_media = "mixed"
         pend_crawl = "index\u2192detail"
@@ -391,6 +399,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_password = None
         pend_min_size = None
         pend_thumb_prefix = None
+        pend_engine = None
         pend_referer = False
         pend_cloudflare = False
         pend_disabled = False
@@ -411,6 +420,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             password=pend_password,
             min_image_size=pend_min_size,
             thumbnail_prefix_pattern=pend_thumb_prefix,
+            preferred_engine=pend_engine,
             requires_referer=pend_referer,
             cloudflare_blocked=pend_cloudflare,
             disabled=pend_disabled,
@@ -497,6 +507,11 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             m = _THUMB_PREFIX_RE.search(line)
             if m:
                 pend_thumb_prefix = m.group(1).strip()
+
+            # Annotation: preferred_engine
+            m = _ENGINE_RE.search(line)
+            if m:
+                pend_engine = m.group(1).strip().lower()
 
             # Flag: requires referer
             if _REFERER_RE.search(line):
