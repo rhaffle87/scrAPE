@@ -152,7 +152,7 @@ def main():
 
     check_and_install_dependencies()
 
-    VERSION = "v0.18.0"
+    VERSION = "v0.19.0"
     
     clear_screen()
     print("========================================")
