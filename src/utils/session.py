@@ -38,3 +38,11 @@ class SessionManager:
             return None
         with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    def evict_session(self, domain):
+        file = self.get_session_file(domain)
+        if os.path.exists(file):
+            try:
+                os.remove(file)
+            except OSError as exc:
+                logger.warning("Failed to remove session file: %s", exc)

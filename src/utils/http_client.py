@@ -1846,6 +1846,12 @@ class HttpClient:
                             self.__class__._waf_solve_counts[engine_key] = (
                                 self.__class__._waf_solve_counts.get(engine_key, 0) + 1
                             )
+                    if browser_cookies:
+                        try:
+                            self.session_manager.save_session(host, browser_cookies)
+                            logger.info("Persisted %d solved WAF cookies for domain %s", len(browser_cookies), host)
+                        except Exception as save_err:
+                            logger.warning("Failed saving WAF session cookies for %s: %s", host, save_err)
                     return html_content, browser_cookies
                 else:
                     logger.warning("%s returned a blocked or redirected page for %s.", name, url)
@@ -1862,6 +1868,12 @@ class HttpClient:
                         self.__class__._waf_solve_counts["flaresolverr"] = (
                             self.__class__._waf_solve_counts.get("flaresolverr", 0) + 1
                         )
+                    if browser_cookies:
+                        try:
+                            self.session_manager.save_session(host, browser_cookies)
+                            logger.info("Persisted %d solved FlareSolverr WAF cookies for domain %s", len(browser_cookies), host)
+                        except Exception as save_err:
+                            logger.warning("Failed saving WAF session cookies for %s: %s", host, save_err)
                     return html_content, browser_cookies
             except Exception as fs_exc:
                 logger.debug("Automatic FlareSolverr escalation failed for %s: %s", url, fs_exc)
@@ -1901,7 +1913,14 @@ class HttpClient:
         if cookies:
             if headers is None:
                 headers = {}
-            headers["Cookie"] = "; ".join([f"{k}={v}" for k, v in cookies.items()])
+            if isinstance(cookies, list):
+                cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies if isinstance(c, dict) and "name" in c and "value" in c])
+            elif isinstance(cookies, dict):
+                cookie_str = "; ".join([f"{k}={v}" for k, v in cookies.items()])
+            else:
+                cookie_str = ""
+            if cookie_str:
+                headers["Cookie"] = cookie_str
 
         # 1. Cache
         cached = self._load_cache(url)
@@ -2054,8 +2073,10 @@ class HttpClient:
                     raise exc
 
                 if status in {403, 401, 429, 412, 406}:
-                    # Rotate the session on blocks
+                    # Rotate the session and evict disk session cache on auth blocks
                     session.reset_identity()
+                    if status in {401, 403}:
+                        self.session_manager.evict_session(host)
 
                     # 4a. Track 429 consecutive hits for circuit-breaker
                     if status == 429:
@@ -2133,9 +2154,8 @@ class HttpClient:
                                 cookies_dict = {c.name: c.value for c in c_resp.cookies.jar}
                                 session.cookies.update(cookies_dict)
                                 session.save_to_disk()
-                                existing = self.session_manager.load_session(host) or {}
-                                existing.update(cookies_dict)
-                                self.session_manager.save_session(host, existing)
+                                cookie_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in cookies_dict.items()]
+                                self.session_manager.save_session(host, cookie_list)
                                 
                             return response
                         else:
@@ -2168,9 +2188,8 @@ class HttpClient:
                                 # Success!
                                 session.cookies.update(harvested_cookies)
                                 session.save_to_disk()
-                                existing = self.session_manager.load_session(host) or {}
-                                existing.update(harvested_cookies)
-                                self.session_manager.save_session(host, existing)
+                                harvested_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in harvested_cookies.items()]
+                                self.session_manager.save_session(host, harvested_list)
                                 cd_state.record_success()
                                 self._store_cache(url, retry_resp)
                                 logger.info(
@@ -2221,12 +2240,18 @@ class HttpClient:
                         self._stealth_required_hosts.add(host)
 
                     if browser_cookies:
-                        cookies_dict = {c["name"]: c["value"] for c in browser_cookies}
-                        existing = self.session_manager.load_session(host) or {}
-                        existing.update(cookies_dict)
-                        self.session_manager.save_session(host, existing)
-                        session.cookies.update(cookies_dict)
-                        session.save_to_disk()
+                        try:
+                            self.session_manager.save_session(host, browser_cookies)
+                            cookies_dict = {}
+                            if isinstance(browser_cookies, list):
+                                cookies_dict = {c["name"]: c["value"] for c in browser_cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                            elif isinstance(browser_cookies, dict):
+                                cookies_dict = browser_cookies
+                            if cookies_dict:
+                                session.cookies.update(cookies_dict)
+                                session.save_to_disk()
+                        except Exception as cookie_err:
+                            logger.warning("Failed updating session cookies for %s: %s", host, cookie_err)
 
                     return response
 

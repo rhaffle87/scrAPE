@@ -27,7 +27,7 @@ from config import (
 )
 from core.filters import should_keep_image, should_keep_video
 from core.models import ScrapeResult
-from utils.image_helper import get_image_dimensions
+from utils.image_helper import get_image_dimensions, compute_dhash, hamming_distance
 from utils.http_client import HttpClient
 from utils.logger import get_logger
 from utils.rate_limiter import RateLimiter
@@ -105,6 +105,7 @@ class MediaDownloader:
         self._dead_urls: set[str] = set()
         self._dead_urls_lock = threading.Lock()
         self._seen_hashes: set[str] = set()
+        self._seen_phashes: set[int] = set()
         self._hash_lock = threading.Lock()
 
     def _is_hotlink_protected(self, url: str) -> bool:
@@ -125,6 +126,7 @@ class MediaDownloader:
         """Download all accepted images and videos in parallel."""
         with self._hash_lock:
             self._seen_hashes.clear()
+            self._seen_phashes.clear()
 
         image_dir = output_root / DEFAULT_DOWNLOAD_IMAGES_SUBDIR
         video_dir = output_root / DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
@@ -584,6 +586,18 @@ class MediaDownloader:
                         return False, {"reason": "unparseable_dimensions"}
 
                 if media_kind == "image":
+                    dhash_val = compute_dhash(content)
+                    if dhash_val is not None:
+                        with self._hash_lock:
+                            for prev_hash in self._seen_phashes:
+                                if hamming_distance(dhash_val, prev_hash) <= 4:
+                                    LOGGER.info(
+                                        "Skipping perceptual duplicate image asset %s (dHash distance <= 4)",
+                                        url,
+                                    )
+                                    return False, {"reason": "perceptual_duplicate"}
+                            self._seen_phashes.add(dhash_val)
+
                     try:
                         from PIL import Image
                         import io

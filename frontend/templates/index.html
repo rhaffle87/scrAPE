@@ -404,7 +404,8 @@
 
         input[type="text"],
         input[type="number"],
-        select {
+        select,
+        textarea {
             background-color: var(--bg-base);
             border: var(--border-heavy);
             color: var(--text-primary);
@@ -412,12 +413,16 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 1rem;
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             outline: none;
+            resize: vertical;
         }
 
         input[type="text"]:focus,
         input[type="number"]:focus,
-        select:focus {
+        select:focus,
+        textarea:focus {
             border-color: var(--accent);
             box-shadow: 4px 4px 0 var(--accent-dim);
         }
@@ -1732,15 +1737,25 @@
                             <label style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT NAME / TITLE</label>
                             <input type="text" id="studio-subject-input" placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
                         </div>
+                        <!-- Quick Domain Preset Templates Bar -->
+                        <div style="margin-bottom: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem;">
+                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: monospace; text-transform: uppercase; margin-bottom: 0.5rem;">QUICK DOMAIN PRESET TEMPLATES:</div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Gallery Index Block</button>
+                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Direct Search Block</button>
+                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Stealth Protected Block</button>
+                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Video Stream Block</button>
+                            </div>
+                        </div>
                         <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1rem;">
                             <!-- Domain cards rendered dynamically -->
                         </div>
-                        <button type="button" class="btn" style="margin-top: 1rem; width: 100%; border-style: dashed; padding: 0.75rem; color: var(--accent);" onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
+                        <button type="button" class="btn" style="margin-top: 1.5rem; width: 100%; background: transparent !important; color: var(--accent) !important; border: 2px dashed var(--accent) !important; padding: 0.85rem; font-family: monospace; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; cursor: pointer;" onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
                     </div>
 
                     <!-- Raw Code Mode -->
-                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 1.5rem;">
-                        <textarea id="studio-code-editor" class="code-editor" style="width: 100%; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem;" oninput="onStudioCodeEditorChanged()"></textarea>
+                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 1.5rem; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+                        <textarea id="studio-code-editor" class="code-editor" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem; resize: vertical; outline: none; overflow-y: auto;" oninput="onStudioCodeEditorChanged()"></textarea>
                     </div>
                 </div>
 
@@ -2328,13 +2343,25 @@
                     }
                 }
 
+                function updateDomainBlockNumbers() {
+                    const cards = document.querySelectorAll('.studio-domain-card');
+                    cards.forEach((card, idx) => {
+                        const titleEl = card.querySelector('.block-title-text');
+                        if (titleEl) {
+                            titleEl.innerText = `TARGET DOMAIN BLOCK #${idx + 1}`;
+                        }
+                    });
+                }
+
                 function addStudioDomainCard(dData = null) {
                     const container = document.getElementById('studio-domains-container');
+                    const blockIndex = container.children.length + 1;
                     const card = document.createElement('div');
                     card.className = 'glass-panel studio-domain-card';
-                    card.style.padding = '1rem';
+                    card.style.padding = '1.25rem';
                     card.style.background = 'var(--bg-surface)';
-                    card.style.border = 'var(--border-heavy)';
+                    card.style.border = '2px solid var(--accent)';
+                    card.style.marginBottom = '1rem';
 
                     const dom = dData ? dData.domain : "";
                     const media = dData ? dData.media_type : "mixed";
@@ -2345,33 +2372,36 @@
                     const urls = dData && dData.seed_urls ? dData.seed_urls.join('\n') : "";
 
                     card.innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                            <span style="font-weight: 700; font-family: monospace; color: var(--accent);">TARGET DOMAIN BLOCK</span>
-                            <button type="button" class="btn delete" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; border-color: #ff3333; color: #ff3333;" onclick="removeStudioDomainCard(this)">&times; REMOVE</button>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid #2a2f2c; padding-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <span class="block-title-text" style="font-weight: 700; font-family: monospace; color: var(--accent); letter-spacing: 0.05em;">TARGET DOMAIN BLOCK #${blockIndex}</span>
+                                <span class="badge" style="background: rgba(255, 85, 0, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 0.15rem 0.5rem; font-size: 0.7rem; font-family: monospace; text-transform: uppercase;">${media.toUpperCase()}</span>
+                            </div>
+                            <button type="button" class="btn delete" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border-color: #ff3333; color: #ff3333; background: transparent;" onclick="removeStudioDomainCard(this)">[ X REMOVE BLOCK ]</button>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
                             <div class="form-group">
-                                <label style="font-size: 0.8rem;">DOMAIN HOSTNAME</label>
-                                <input type="text" class="card-domain-input" value="${dom}" placeholder="Enter domain hostname" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">DOMAIN HOSTNAME</label>
+                                <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem;">MEDIA TYPE</label>
-                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">MEDIA TYPE</label>
+                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="mixed" ${media==='mixed'?'selected':''}>mixed</option>
                                     <option value="image" ${media==='image'?'selected':''}>image</option>
                                     <option value="video" ${media==='video'?'selected':''}>video</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem;">CRAWL STRATEGY</label>
-                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">CRAWL STRATEGY</label>
+                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="index→detail" ${strategy.includes('index')?'selected':''}>index→detail</option>
                                     <option value="direct" ${strategy==='direct'?'selected':''}>direct</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem;">PREFERRED ENGINE</label>
-                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.4rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">PREFERRED ENGINE</label>
+                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="auto" ${engine==='auto'?'selected':''}>auto</option>
                                     <option value="camoufox" ${engine==='camoufox'?'selected':''}>camoufox</option>
                                     <option value="flaresolverr" ${engine==='flaresolverr'?'selected':''}>flaresolverr</option>
@@ -2379,7 +2409,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.85rem; font-family: monospace;">
+                        <div style="display: flex; gap: 1.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; font-family: monospace;">
                             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                                 <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()"> CLOUDFLARE PROTECTED
                             </label>
@@ -2388,18 +2418,37 @@
                             </label>
                         </div>
                         <div class="form-group">
-                            <label style="font-size: 0.8rem;">SEED URLS (ONE PER LINE)</label>
-                            <textarea class="card-urls-textarea" placeholder="Enter target seed URLs (one per line)" oninput="onStudioFormChanged()" style="width: 100%; height: 100px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.5rem;"></textarea>
+                            <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">SEED URLS (ONE PER LINE)</label>
+                            <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 110px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.6rem; resize: vertical; outline: none;"></textarea>
                         </div>
                     `;
                     container.appendChild(card);
                     card.querySelector('.card-urls-textarea').value = urls;
+                    updateDomainBlockNumbers();
                 }
 
                 function removeStudioDomainCard(btn) {
                     const card = btn.closest('.studio-domain-card');
                     if (card) {
                         card.remove();
+                        updateDomainBlockNumbers();
+                        onStudioFormChanged();
+                    }
+                }
+
+                function addPresetDomainBlock(type) {
+                    const templates = {
+                        'gallery': { domain: 'domain.com', media_type: 'mixed', crawl_strategy: 'index→detail', preferred_engine: 'auto', seed_urls: ['https://domain.com/category/{subject}/'] },
+                        'direct': { domain: 'domain.com', media_type: 'image', crawl_strategy: 'direct', preferred_engine: 'auto', seed_urls: ['https://domain.com/search?q={subject}'] },
+                        'stealth': { domain: 'domain.com', media_type: 'image', crawl_strategy: 'direct', preferred_engine: 'camoufox', cloudflare_blocked: true, seed_urls: ['https://domain.com/user/{subject}/'] },
+                        'video': { domain: 'domain.com', media_type: 'video', crawl_strategy: 'index→detail', preferred_engine: 'auto', seed_urls: ['https://domain.com/videos/{subject}'] },
+                    };
+                    const subj = document.getElementById('studio-subject-input').value.trim() || 'target_subject';
+                    const tpl = templates[type];
+                    if (tpl) {
+                        const formattedSubj = subj.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+                        const formattedUrls = tpl.seed_urls.map(u => u.replace('{subject}', formattedSubj));
+                        addStudioDomainCard({ ...tpl, seed_urls: formattedUrls });
                         onStudioFormChanged();
                     }
                 }
@@ -2918,6 +2967,44 @@
                         return e.returnValue;
                     }
                 });
+
+                async function exportAIDataset() {
+                    const keyword = document.getElementById('keyword-input').value.trim() || 'latest';
+                    try {
+                        const res = await fetch('/api/export/dataset', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({subject: keyword, run_id: 'latest', layout: '1'})
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert(`SUCCESS: AI Dataset Exported!\nPath: ${data.export_path}\nFiles Copied: ${data.exported_count}`);
+                        } else {
+                            alert(`NOTICE: Export Info: ${data.detail}`);
+                        }
+                    } catch (e) {
+                        alert(`Export Error: ${e}`);
+                    }
+                }
+
+                async function exportRAGMarkdown() {
+                    const keyword = document.getElementById('keyword-input').value.trim() || 'latest';
+                    try {
+                        const res = await fetch('/api/export/rag', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({subject: keyword, run_id: 'latest'})
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert(`SUCCESS: RAG Markdown Documents Generated!\nDocs Extracted: ${data.extracted_documents}\nPath: ${data.export_path}`);
+                        } else {
+                            alert(`NOTICE: RAG Info: ${data.detail}`);
+                        }
+                    } catch (e) {
+                        alert(`RAG Export Error: ${e}`);
+                    }
+                }
 
                 document.addEventListener('DOMContentLoaded', () => {
                     loadSeeds();

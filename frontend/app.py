@@ -4,9 +4,10 @@ import threading
 from collections import deque
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+import re
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
@@ -555,14 +556,6 @@ def get_stats():
     ram_color = get_color(ram)
     disk_color = get_color(disk)
 
-    with HttpClient._waf_solve_lock:
-        waf_counts = dict(HttpClient._waf_solve_counts)
-
-    camou_cnt = waf_counts.get("camoufox", 0)
-    fs_cnt = waf_counts.get("flaresolverr", 0)
-    c4ai_cnt = waf_counts.get("crawl4ai", 0)
-    uc_cnt = waf_counts.get("uc", 0)
-
     return HTMLResponse(f"""
         <div class="telemetry-bar">
             <div class="telemetry-badge">
@@ -593,24 +586,27 @@ def get_stats():
                     </div>
                     <div class="telemetry-val" style="color: {disk_color};">{disk:.1f}%</div>
                 </div>
-
-                <div class="telemetry-card" style="border-left: 2px solid #00ffff;">
-                    <div class="telemetry-label" style="color: #00ffff;">CAMOUFOX</div>
-                    <div class="telemetry-val" style="color: #00ffff;">{camou_cnt}</div>
-                </div>
-
-                <div class="telemetry-card" style="border-left: 2px solid #ffcc00;">
-                    <div class="telemetry-label" style="color: #ffcc00;">FLARESOLVERR</div>
-                    <div class="telemetry-val" style="color: #ffcc00;">{fs_cnt}</div>
-                </div>
-
-                <div class="telemetry-card" style="border-left: 2px solid #ff00ff;">
-                    <div class="telemetry-label" style="color: #ff00ff;">CRAWL4AI</div>
-                    <div class="telemetry-val" style="color: #ff00ff;">{c4ai_cnt}</div>
-                </div>
             </div>
         </div>
     """)
+
+@app.get("/api/engine/metrics")
+async def get_engine_metrics():
+    """Return real-time engine telemetry metrics."""
+    with HttpClient._waf_solve_lock:
+        waf_counts = dict(HttpClient._waf_solve_counts)
+    
+    session_files = [f for f in os.listdir("data/sessions") if f.endswith(".json")] if os.path.exists("data/sessions") else []
+    
+    return JSONResponse({
+        "status": task_state.get("status", "idle"),
+        "cpu_percent": psutil.cpu_percent(interval=None),
+        "ram_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage("/").percent if hasattr(psutil, "disk_usage") else 0.0,
+        "waf_solves": waf_counts,
+        "active_sessions_count": len(session_files),
+        "active_threads": threading.active_count()
+    })
 
 @app.post("/htmx/run")
 async def htmx_run(request: Request):
@@ -969,6 +965,7 @@ def validate_seed(payload: ValidateSeedPayload):
 async def discover_search_urls(payload: DiscoverSeedPayload):
     import urllib.parse
     import asyncio
+    import random
     from src.utils.http_client import HttpClient
     
     query = payload.query.strip()
@@ -977,6 +974,14 @@ async def discover_search_urls(payload: DiscoverSeedPayload):
         
     encoded_q = urllib.parse.quote(query)
     candidate_urls = []
+    
+    # 1. Multi-Engine Search Probes (SafeSearch disabled kp=-2)
+    search_probes = [
+        f"https://html.duckduckgo.com/html/?q={encoded_q}&kp=-2",
+        f"https://duckduckgo.com/html/?q={encoded_q}&kp=-2",
+        f"https://www.google.com/search?q={encoded_q}&tbm=isch",
+    ]
+    candidate_urls.extend(search_probes)
     
     for dom in payload.domains:
         dom = dom.strip()
@@ -1005,18 +1010,38 @@ async def discover_search_urls(payload: DiscoverSeedPayload):
         
     candidate_urls = list(dict.fromkeys(candidate_urls))
     
-    client = HttpClient(timeout=5.0)
-    valid_results = []
+    client = HttpClient(timeout=6.0)
     
     async def probe_url(url: str):
+        # Apply slight jitter to prevent thundering herd IP rate limits
+        await asyncio.sleep(random.uniform(0.05, 0.25))
         try:
             loop = asyncio.get_event_loop()
             res = await loop.run_in_executor(None, lambda: client.get(url))
-            if res and res.status_code == 200 and len(res.content) > 500:
-                return {"url": url, "status": 200, "valid": True}
+            if res is not None:
+                headers_lower = {k.lower(): v.lower() for k, v in res.headers.items()}
+                is_cf = "cloudflare" in headers_lower.get("server", "") or "cf-ray" in headers_lower
+                is_403_429 = res.status_code in (403, 429)
+                
+                status_code = res.status_code
+                is_valid = status_code == 200 and len(res.content) > 300
+                
+                annotations = {
+                    "cloudflare_blocked": is_cf or is_403_429,
+                    "preferred_engine": "camoufox" if (is_cf or is_403_429) else "auto",
+                    "requires_referer": status_code in (403, 401)
+                }
+                
+                if is_valid or is_cf or is_403_429:
+                    return {
+                        "url": url,
+                        "status": status_code,
+                        "valid": is_valid,
+                        "annotations": annotations
+                    }
         except Exception:
             pass
-        return {"url": url, "status": 404, "valid": False}
+        return {"url": url, "status": 404, "valid": False, "annotations": {}}
         
     tasks = [probe_url(u) for u in candidate_urls]
     results = await asyncio.gather(*tasks)
@@ -1027,6 +1052,152 @@ async def discover_search_urls(payload: DiscoverSeedPayload):
         "tested_count": len(candidate_urls),
         "valid_count": len(valid_urls)
     }
+
+
+# ---------------------------------------------------------------------------
+# Data Export, AI Ingestion & Run Summary Endpoints
+# ---------------------------------------------------------------------------
+
+class ExportDatasetPayload(BaseModel):
+    subject: str
+    run_id: str
+    layout: str = "1"  # "1" = flat, "2" = domain, "3" = media_type
+
+class ExportRAGPayload(BaseModel):
+    subject: str
+    run_id: str
+
+@app.get("/api/runs/{subject}/{run_id}/summary")
+def get_run_summary(subject: str, run_id: str):
+    summary_path = OUTPUT_DIR / subject / "runs" / run_id / "run_summary.json"
+    if summary_path.exists():
+        try:
+            with open(summary_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to read run summary: {exc}")
+    raise HTTPException(status_code=404, detail="Run summary not found")
+
+@app.post("/api/export/dataset")
+def export_ai_dataset(payload: ExportDatasetPayload):
+    import shutil
+    from urllib.parse import urlparse
+
+    run_dir = OUTPUT_DIR / payload.subject / "runs" / payload.run_id
+    if not run_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Run directory {run_dir} not found")
+
+    image_src = run_dir / "images"
+    video_src = run_dir / "videos"
+
+    has_images = image_src.exists() and any(image_src.iterdir())
+    has_videos = video_src.exists() and any(video_src.iterdir())
+
+    if not has_images and not has_videos:
+        raise HTTPException(status_code=400, detail="No media files found in this run to export")
+
+    target_root = ROOT_DIR / "datasets" / f"{payload.subject}_{payload.run_id}_dataset"
+    target_root.mkdir(parents=True, exist_ok=True)
+
+    results_path = run_dir / "results.json"
+    url_to_domain = {}
+    if results_path.exists():
+        try:
+            with open(results_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for img in data.get("images", []):
+                url_to_domain[img.get("file_path")] = (
+                    img.get("source_domain") or urlparse(img.get("url")).netloc
+                )
+            for vid in data.get("videos", []):
+                url_to_domain[vid.get("file_path")] = (
+                    vid.get("source_domain") or urlparse(vid.get("url")).netloc
+                )
+        except Exception:
+            pass
+
+    copied_count = 0
+    for src_dir, kind in [(image_src, "images"), (video_src, "videos")]:
+        if not src_dir.exists():
+            continue
+        for file_path in src_dir.rglob("*"):
+            if not file_path.is_file():
+                continue
+
+            rel_path_in_run = file_path.relative_to(run_dir).as_posix()
+            domain = url_to_domain.get(rel_path_in_run) or file_path.parent.name
+            domain_clean = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", domain)
+
+            if payload.layout == "1":
+                new_name = f"{domain_clean}_{file_path.name}"
+                dest = target_root / new_name
+            elif payload.layout == "2":
+                domain_dir = target_root / domain_clean
+                domain_dir.mkdir(exist_ok=True)
+                dest = domain_dir / file_path.name
+            else:
+                kind_dir = target_root / kind
+                kind_dir.mkdir(exist_ok=True)
+                dest = kind_dir / file_path.name
+
+            shutil.copy2(file_path, dest)
+            copied_count += 1
+
+    return {
+        "status": "success",
+        "exported_count": copied_count,
+        "export_path": str(target_root.resolve()),
+    }
+
+@app.post("/api/export/rag")
+def export_rag_markdown(payload: ExportRAGPayload):
+    from urllib.parse import urlparse
+
+    run_dir = OUTPUT_DIR / payload.subject / "runs" / payload.run_id
+    results_path = run_dir / "results.json"
+    if not results_path.exists():
+        raise HTTPException(status_code=404, detail=f"results.json not found for run {payload.run_id}")
+
+    try:
+        with open(results_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load results.json: {exc}")
+
+    target_root = ROOT_DIR / "rag_ingestion" / f"{payload.subject}_{payload.run_id}_rag"
+    target_root.mkdir(parents=True, exist_ok=True)
+
+    page_reports = data.get("page_reports", [])
+    extracted_docs = 0
+
+    for idx, page in enumerate(page_reports, start=1):
+        page_url = page.get("url", "")
+        title = page.get("title", "") or f"Document {idx}"
+        domain = page.get("domain") or urlparse(page_url).netloc
+        media_count = page.get("media_found", 0)
+
+        clean_slug = re.sub(r"[^a-zA-Z0-9_]", "_", f"{domain}_{idx}")
+        doc_path = target_root / f"{clean_slug}.md"
+
+        content = f"""# {title}
+
+- **Source Domain**: `{domain}`
+- **Source URL**: [{page_url}]({page_url})
+- **Media Count**: {media_count}
+- **Subject Identifier**: `{payload.subject}`
+
+## Summary & Extracted Tokens
+Target page analyzed during automated scrape run `{payload.run_id}` for subject `{payload.subject}`. Found {media_count} media assets across domain `{domain}`.
+"""
+        doc_path.write_text(content, encoding="utf-8")
+        extracted_docs += 1
+
+    return {
+        "status": "success",
+        "extracted_documents": extracted_docs,
+        "export_path": str(target_root.resolve()),
+    }
+
 
 # Mount static files at the root to serve all media assets.
 # This MUST be declared last so it doesn't swallow API routes.

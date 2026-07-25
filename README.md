@@ -1,12 +1,20 @@
 # scrAPE — Scraper for Archival & Production Extraction
 
 <p align="center">
-  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="180" height="180">
+  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="160" height="160">
 </p>
 
 <p align="center">
-  <strong>FastAPI + HTMX Brutalist Media Scraper & Autonomous Archival Engine</strong>
+  <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
+  <img src="https://img.shields.io/badge/RELEASE-V0.19.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
+  <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
+  <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
+
+**scrAPE** is an *autonomous media extraction & stealth crawl engine* that runs locally on your machine — built for domain crawling, high-throughput asset discovery, WAF bypass, and AI dataset curation. Powered by a decoupled **FastAPI + HTMX** tactical WebUI, an 8-tier WAF fallback pipeline, and persistent SQLite WAL state caching, scrAPE handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.
+
+If you want a local, fast, stealth-resilient web scraper that feels responsive, controllable, and always-on, this is it.
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
@@ -19,20 +27,14 @@
 
 ---
 
-## Overview
-
-**scrAPE** is a high-throughput, autonomous batch media scraper designed for domain crawling, image and video asset discovery, quality-based relevance filtering, and resilient asset extraction. Powered by a decoupled **FastAPI + HTMX** tactical WebUI, a 7-tier WAF fallback pipeline, and persistent SQLite WAL state caching, scrAPE handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.
-
----
-
 ## Quick Start
 
 ### 1. Global CLI Installation (Recommended)
 
-Run the interactive dashboard from any terminal window:
+Install scrAPE globally so you can launch the dashboard or runs from any terminal:
 
-- **Windows**: Run `.\install.bat` from the root directory.
-- **macOS / Linux**: Run `pip install -e .` from the root directory.
+- **Windows**: Run `.\install.bat` from the repository root.
+- **macOS / Linux**: Run `pip install -e .` from the repository root.
 
 Once installed, launch from any terminal:
 
@@ -42,7 +44,7 @@ scrape
 
 > *Note: On initial launch, missing dependencies (`crawlee_bridge` Node.js modules and Playwright Chromium binaries) are detected and installed automatically.*
 
-### 2. Manual Launch (Without Global Install)
+### 2. Standalone Terminal Launch
 
 ```bash
 # Install Python dependencies
@@ -51,26 +53,26 @@ pip install -r requirements.txt
 # Start the interactive WebUI Command Center (http://localhost:10001)
 .\run_frontend.bat
 
-# Or run via CLI with keyword and seed file
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt
+# Or run via CLI with a keyword and seed file
+python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt
 
-# Run with explicit execution limits (bypasses wizard)
-python src/cli/main.py --keyword example_subject --seed seeds/example_subject.txt --max-results 50 --page-limit 100 --workers 8 --dl-workers 8 --download-media
+# Production run with custom concurrency & downloading
+python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt --max-results 0 --page-limit 0 --workers 12 --dl-workers 16 --download-media --headless
 ```
 
 ---
 
 ## Key Features
 
-- **Dynamic HTMX Tactical WebUI** — Fully decoupled dashboard (`frontend/`) featuring context-aware telemetry stat cards (switching between global totals and per-subject counts with `/ N total` comparisons), real-time OS hardware telemetry (CPU, RAM, Disk), process abort controls, dual speed limiters, and physical file management (open local folder, delete files) directly inside the Media Vault.
-- **Dual Speed & Rate Limiting System** — Precise Token-Bucket rate-limiting on outgoing page requests (`--rate-limit` / `RPS`) paired with network bandwidth throttling on media asset downloads (`--dl-speed-limit` / `KBPS`), accessible via WebUI and CLI.
-- **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for 16px/24px taskbar legibility.
+- **Dynamic HTMX Tactical WebUI** — Fully decoupled dashboard (`frontend/`) featuring context-aware telemetry stat cards (switching between global totals and per-subject counts with `/ N total` comparisons), real-time OS hardware telemetry (CPU, RAM, Disk), process abort controls, dual speed limiters, and physical file management directly inside the Media Vault.
+- **Dual Speed & Rate Limiting System** — Token-Bucket rate-limiting on outgoing page requests (`--rate-limit` / `RPS`) paired with network bandwidth throttling on media asset downloads (`--dl-speed-limit` / `KBPS`), accessible via WebUI and CLI.
+- **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for taskbar legibility.
 - **WAF & Turnstile 8-Tier Fallback** — Defeats Cloudflare Turnstile, Auth walls, and anti-bot protections using an 8-tier escalation chain: `Local Cookies` → `Crawl4AI` → `Crawlee Cheerio` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver` → `Camoufox` → `FlareSolverr`.
 - **FlareSolverr Docker Auto-Start & Session Reuse** — Native binding to `http://127.0.0.1:8191/v1` with automatic background Docker container launch (`docker start flaresolverr`) and host session cookie enrichment for downstream CDN streaming media.
 - **High-Resolution URL Transformation Heuristics** — Automatic path transformations for Erome (`/t/` / `/th/` → `/v/`), WordPress (`-scaled.jpg` stripping), Twitter (`name=large`), and WordPress dimension patterns (`-1024x768.png`).
 - **Low & Zero-Yield Domain Cutoff Policy** — Automated host filtering that halts crawling on unseeded external domains hitting 15 pages with 0 yield, 20+ pages with <5% yield, or 3 consecutive WAF errors.
 - **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) and per-host download semaphores (`_host_semaphore_for`).
-- **AI Dataset Curation & Perceptual Deduplication** — Calculates 64-bit difference hashes (`dHash`) to reject visually identical or resized images (Hamming distance $\le 4$), generating `dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training pipelines.
+- **AI Dataset Curation & Perceptual Deduplication** — Calculates 64-bit difference hashes (`dHash`) to reject visually identical or resized images (Hamming distance <= 4), generating `dataset.jsonl` manifests + individual caption sidecar files for direct LoRA/SD training pipelines.
 - **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, and ArtStation.
 
 ---
@@ -110,32 +112,6 @@ Each `.txt` seed file defines extraction rules per domain using comment annotati
 | `# min_image_size: WxH` | `# min_image_size: 1000x800` | Minimum accepted image dimensions |
 | `# thumbnail_prefix: <pattern>` | `# thumbnail_prefix: /thumbs/` | String pattern to reject thumbnail URLs early |
 | `# requires_referer` | `# requires_referer` | Send page Referer header to bypass hotlinking protection |
-
-### Example Manifest (`seeds/example_subject.txt`)
-
-```text
-# Subject: Example Subject
-# Alt-Subject: Example / Subject Alt
-
-# ---------------------------------------------------------------------------
-# gallery.example.com
-# ---------------------------------------------------------------------------
-# type: image | crawl: direct
-# min_image_size: 1000x800
-# thumbnail_prefix: /thumbs/
-https://gallery.example.com/subject
-https://gallery.example.com/search?q=subject
-
-# ---------------------------------------------------------------------------
-# videos.example.org
-# ---------------------------------------------------------------------------
-# type: video | crawl: index→detail
-# depth: 1
-# Rate-limit: 0.4 req/s
-# [CDN] cdn.example.org
-# requires_referer
-https://videos.example.org/subject
-```
 
 ---
 
@@ -181,8 +157,8 @@ flowchart TD
 
 | Directory / File | Description |
 |---|---|
-| `frontend/app.py` | FastAPI backend for HTMX WebUI, context-aware stats (`/htmx/subject-stats`), disk asset counter, live OS telemetry & process orchestrator |
-| `frontend/templates/` | Brutalist HTMX dashboard templates (`index.html`, `gallery.html`) with inline SVG vector logo and data URI favicon |
+| `frontend/app.py` | FastAPI backend for HTMX WebUI, context-aware stats, disk asset counter, live OS telemetry & process orchestrator |
+| `frontend/templates/` | Brutalist HTMX dashboard templates (`index.html`, `gallery.html`) with vector logo and inline SVG favicon |
 | `crawlee_bridge/` | Express.js bridge running Crawlee Cheerio and Puppeteer stealth tiers |
 | `src/cli/launcher.py` | Interactive CLI launcher & system tray manager (custom PIL RGBA 64×64 icon renderer) |
 | `src/cli/cli_wizard.py` | Interactive wizard for standard crawls, watchdog runs, and dataset formatting |
@@ -202,7 +178,7 @@ Every crawl generates an automated observability report at `output/{keyword_slug
 - **Yield Statistics** — Pages scanned, kept assets, rejected items, download success/fail/skip counts.
 - **Domain Metrics** — Granular per-domain counters for pages scanned, media kept, rejected items, and duplicate hash skips.
 - **Rejection Diagnostics** — Frequency table of rejection reasons (e.g. `low_resolution`, `archive_penalty`, `duplicate_hash`).
-- **Zero-Yield Domain Tracking** — Identifies domains with $>0$ scanned pages but 0 kept assets.
+- **Zero-Yield Domain Tracking** — Identifies domains with >0 scanned pages but 0 kept assets.
 - **Failed Link Audit** — Exact list of failed download URLs with HTTP status codes and error tracebacks.
 
 ---

@@ -34,9 +34,36 @@ def clear_screen():
 
 def print_banner():
     banner = f"""{CLR_CYAN}{CLR_BOLD}
-  +-------------------------------------------------------------+
-  |   *  scrAPE // DATA EXTRACTION COCKPIT & MEDIA SCRAPER   |
-  +-------------------------------------------------------------+{CLR_END}"""
+         +-------------------------------------------------------------+
+         |              *  scrAPE // DATA & MEDIA SCRAPER              |
+         +-------------------------------------------------------------+
+
+       ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+       t!:l!I:::::::::::::::::::::::::::::::::::::::::::::::::::::;ii:ltcc
+       t!:ncr:::::::::::::::::::::::::::::::::::::::::::::::::::::lt!:ltcc
+       t!:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!tcc
+       tl:::::::::::vooooooooooooooooooooooooooooooooooooav:::::::::::!tcc
+       tl:::::::::::vooooooooooooooooooooooooooooooooooooov:::::::::::!tcc
+       tl:::::fXf:::vooooooooooooooooooooooooooooooooooooov:::fXf:::::ltcc
+       t!::::!zu::::i!!!ll!llll!!!!ll!l!l!!lll!!!!!l!llllli::::uzl::::!tcc
+       tl:::inz:::::::::,....,.....,:aoooa:,.......,..,:::::::::zn;:::ltcc
+       tl:::FzI:::::::::,,..lfTl..,,:aoooa:,...lTfl...,:::::::::iXF:::ltcc
+       tl::iYf::::::::::,...fccF...,:aoooa:,,..Fccf...,::::::::::fXi::ltcc
+       tl:iXx:::::::::::,..,..,.,..,:aoooh:,.,..,.....,:::::::::::nX;:ltcc
+       tl:vz;::::::::::::,,,,,,,,,,::hoooh::,,,,,,,,,,::::::::::::;zv:ltcc
+       tl:;Xx::::::::::::::::::::::::ttttt::::::::::::::::::::::::xX;:ltcc
+       tl::IXf:::::::::lcccccccccccccccccccccccccccccccl:::::::::fYi::ltcc
+       tl:::FzI::::::::lccccccccccuTTfcccTfTuccccccccccl::::::::IXF:::ltcc
+       tl:::;nz::::::::lccccccccccn...ccc...nccccccccccl::::::::zn;:::ltcc
+       tl::::!zu:::::::lccccccccccn...ccc...nccccccccccl:::::::uzl::::ltcc
+       tl:::::fXf::::::lcccQQzcYQQccjfffffjccQQYczQQcccl::::::fXf:::::ltcc
+       tl::::::::::::::lcczooYcLooccI....,lccooLcYoozccl::::::::::::::!tcc
+       t!:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::ltcc
+       t!:!tl:::::::::::::::::::::::::::::::::::::::::::::::::::::rcn:ltcc
+       tl:;i;:::::::::::::::::::::::::::::::::::::::::::::::::::::Ill:ltcc
+       tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttcc
+          cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  {CLR_END}"""
     print(banner)
 
 
@@ -187,16 +214,29 @@ def mode_specified_scraping():
         "Enter keyword identifier (e.g. 'apple')", val_fn=validate_not_empty
     )
 
-    slug = re.sub(r"[^a-zA-Z0-9]+", "_", keyword.lower()).strip("_")
-    default_seed = f"seeds/{slug}.txt"
-    if not Path(default_seed).exists():
-        default_seed = ""
+    seed_files = sorted(Path("seeds").glob("*.txt"))
+    seed_file = ""
+    if seed_files:
+        print("\nAvailable Seed Manifest Files in seeds/:")
+        for idx, sfile in enumerate(seed_files, start=1):
+            print(f"  {idx}) {CLR_GREEN}{sfile.name}{CLR_END}")
+        print(f"  {len(seed_files)+1}) Enter custom path manually")
 
-    seed_file = get_input(
-        "Enter path to seed manifest file",
-        default=default_seed,
-        val_fn=validate_seed_file,
-    )
+        sel = get_input(f"Select seed file (1-{len(seed_files)+1})", default="1")
+        if sel.isdigit() and 1 <= int(sel) <= len(seed_files):
+            seed_file = str(seed_files[int(sel)-1])
+
+    if not seed_file:
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", keyword.lower()).strip("_")
+        default_seed = f"seeds/{slug}.txt"
+        if not Path(default_seed).exists():
+            default_seed = ""
+
+        seed_file = get_input(
+            "Enter path to seed manifest file",
+            default=default_seed,
+            val_fn=validate_seed_file,
+        )
 
     print("\nChoose a scraping profile:")
     print(

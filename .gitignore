@@ -47,6 +47,7 @@ crawlee_bridge/node_modules/
 /storage/
 crawlee_bridge/storage/
 datasets/
+rag_ingestion/
 
 # Python packaging builds
 *.egg-info/
@@ -59,3 +60,5 @@ dist/
 .qodo/
 .DS_Store
 Thumbs.db
+
+tasks/*

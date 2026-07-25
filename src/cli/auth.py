@@ -14,14 +14,52 @@ def perform_interactive_login(domain: str) -> None:
         return
 
     logger.info("Launching headful browser for %s...", domain)
-    options = uc.ChromeOptions()
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    
+    def make_options():
+        opt = uc.ChromeOptions()
+        opt.add_argument("--disable-gpu")
+        opt.add_argument("--no-sandbox")
+        opt.add_argument("--disable-dev-shm-usage")
+        return opt
+
     driver = None
     try:
-        driver = uc.Chrome(options=options, use_subprocess=True)
+        import re
+        try:
+            driver = uc.Chrome(options=make_options(), use_subprocess=True)
+        except Exception as exc:
+            err_msg = str(exc)
+            match = re.search(r"Current browser version is (\d+)", err_msg)
+            if match:
+                major_ver = int(match.group(1))
+                logger.info("Detected Chrome version mismatch. Retrying with version_main=%d...", major_ver)
+                driver = uc.Chrome(options=make_options(), version_main=major_ver, use_subprocess=True)
+            else:
+                # Try DrissionPage fallback for headful login
+                logger.warning("undetected-chromedriver launch failed (%s). Falling back to DrissionPage...", exc)
+                from DrissionPage import ChromiumPage
+                dp = ChromiumPage()
+                dp.get(f"https://{domain}")
+                print("\n" + "="*80)
+                print(f" INTERACTIVE LOGIN (DrissionPage): {domain}")
+                print(" 1. Please log in to the website in the opened browser window.")
+                print(" 2. Complete any captchas or 2FA if required.")
+                print(" 3. When you are fully logged in, return to this terminal and press ENTER.")
+                print("="*80 + "\n")
+                input("Press ENTER to save cookies and exit...")
+                dp_cookies = dp.cookies()
+                cookies_dict = {c["name"]: c["value"] for c in dp_cookies if "name" in c and "value" in c}
+                if cookies_dict:
+                    manager = SessionManager()
+                    manager.save_session(domain, cookies_dict)
+                    logger.info("Successfully saved %d cookies for %s via DrissionPage.", len(cookies_dict), domain)
+                else:
+                    logger.warning("No cookies captured via DrissionPage.")
+                try:
+                    dp.quit()
+                except Exception:
+                    pass
+                return
+
         driver.get(f"https://{domain}")
         
         print("\n" + "="*80)
@@ -42,8 +80,12 @@ def perform_interactive_login(domain: str) -> None:
         else:
             manager = SessionManager()
             existing = manager.load_session(domain) or {}
-            existing.update(cookies_dict)
-            manager.save_session(domain, existing)
+            if isinstance(existing, list):
+                existing_dict = {c["name"]: c["value"] for c in existing if isinstance(c, dict)}
+            else:
+                existing_dict = existing or {}
+            existing_dict.update(cookies_dict)
+            manager.save_session(domain, existing_dict)
             logger.info("Successfully saved %d cookies for %s.", len(cookies_dict), domain)
         
     except Exception as e:
