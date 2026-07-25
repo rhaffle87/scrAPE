@@ -1,7 +1,7 @@
 # scrAPE — Scraper for Archival & Production Extraction
 
 <p align="center">
-  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="200" height="200">
+  <img src="frontend/static/logo.svg" alt="scrAPE Logo" width="250" height="250">
 </p>
 
 <p align="center">
