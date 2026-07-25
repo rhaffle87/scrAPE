@@ -1958,8 +1958,10 @@ class HttpClient:
                     del self._stealth_failed_hosts[host]
 
         # Check if the domain is known to require stealth
+        from config import STEALTH_REQUIRED_DOMAINS
+
         with self._stealth_lock:
-            requires_stealth = host in self._stealth_required_hosts
+            requires_stealth = (host in self._stealth_required_hosts) or (host in STEALTH_REQUIRED_DOMAINS)
 
         if requires_stealth and not is_robots_txt:
             from core.filters import looks_like_media
@@ -2250,6 +2252,8 @@ class HttpClient:
                             if cookies_dict:
                                 session.cookies.update(cookies_dict)
                                 session.save_to_disk()
+                                for ck, cv in cookies_dict.items():
+                                    self.client.cookies.set(ck, cv, domain=host)
                         except Exception as cookie_err:
                             logger.warning("Failed updating session cookies for %s: %s", host, cookie_err)
 

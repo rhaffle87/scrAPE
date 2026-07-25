@@ -145,6 +145,8 @@ ALWAYS_BLOCK_DOMAINS = {
 
 HOTLINK_PROTECTED_DOMAINS: set[str] = set()
 REFERER_OVERRIDES: dict[str, str] = {}
+STEALTH_REQUIRED_DOMAINS: set[str] = set()
+AUTH_GATED_DOMAINS: set[str] = set()
 
 # ---------------------------------------------------------------------------
 # URL Normalisation Rules
@@ -163,6 +165,8 @@ def _load_dynamic_config() -> None:
             DOMAIN_REQUESTS_PER_SECOND.update(cfg.get("rate_limits", {}))
             HOTLINK_PROTECTED_DOMAINS.update(cfg.get("hotlink_protected", []))
             REFERER_OVERRIDES.update(cfg.get("referer_overrides", {}))
+            STEALTH_REQUIRED_DOMAINS.update(cfg.get("stealth_required", []))
+            AUTH_GATED_DOMAINS.update(cfg.get("auth_gated", []))
     except Exception:
         pass
 

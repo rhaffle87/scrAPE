@@ -22,8 +22,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT_DIR / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Global log buffer for streaming to the web UI
-log_buffer = deque(maxlen=2000)
+# Global log buffer for streaming to the web UI (capped to 1,000 lines to prevent DOM bloat)
+log_buffer = deque(maxlen=1000)
 
 app = FastAPI(title="scrAPE Web GUI", version="0.19.0")
 

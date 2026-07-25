@@ -250,10 +250,15 @@ def log_cli_report(summary: dict[str, Any]) -> None:
         )
 
     if summary["zero_yield_domains"]:
+        from config import AUTH_GATED_DOMAINS
+
         LOGGER.info(sep)
         LOGGER.info("ZERO-YIELD DOMAINS:")
         for domain in summary["zero_yield_domains"]:
-            LOGGER.info("  - %s", domain)
+            if any(ag in domain for ag in AUTH_GATED_DOMAINS):
+                LOGGER.warning("  - %s [AUTH_REQUIRED: Run 'scrape --login %s' or use '--inject-cookies']", domain, domain)
+            else:
+                LOGGER.info("  - %s", domain)
 
     if summary["dead_download_urls"]:
         LOGGER.info(sep)

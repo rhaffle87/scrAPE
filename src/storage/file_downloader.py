@@ -697,9 +697,11 @@ class MediaDownloader:
                 
                 # Network or unexpected error
                 if attempt < max_attempts:
-                    # Cloudflare sometimes drops connections instead of 403
-                    if not use_curl_cffi and type(exc).__name__ in ("ConnectError", "ConnectionError", "ReadError", "StreamError"):
-                        LOGGER.info("Network drop on %s. Retrying with curl_cffi TLS spoofing...", url)
+                    # Cloudflare or CDN drops connection mid-stream (e.g. RemoteProtocolError)
+                    if not use_curl_cffi and type(exc).__name__ in (
+                        "ConnectError", "ConnectionError", "ReadError", "StreamError", "RemoteProtocolError", "ReadTimeout"
+                    ):
+                        LOGGER.info("Network stream drop on %s (%s). Retrying with Range request resumption...", url, type(exc).__name__)
                         use_curl_cffi = True
                     
                     sleep_time = 2.0**attempt
