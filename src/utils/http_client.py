@@ -1901,128 +1901,14 @@ class HttpClient:
     # Public interface
     # ------------------------------------------------------------------
 
-    def _execute_fallbacks(
-        self, url: str, skip_crawl4ai: bool = False, preferred_engine: str | None = None
-    ) -> tuple[str | None, list[dict]]:
-        from utils.logger import get_logger
-        logger = get_logger(__name__)
-
-        host = self._hostname(url)
-
-        # Check for host engine memory cache if no seed manifest override is provided
-        if not preferred_engine:
-            with self.__class__._preferred_engine_lock:
-                preferred_engine = self.__class__._preferred_engine_by_host.get(host)
-
-        strategy_map = {
-            "crawl4ai": ("Crawl4AI", self._get_with_crawl4ai),
-            "cheerio": ("Crawlee Cheerio", self._get_with_crawlee_cheerio),
-            "drissionpage": ("DrissionPage", self._get_with_drissionpage if ENABLE_DRISSIONPAGE_FALLBACK else None),
-            "puppeteer": ("Crawlee Puppeteer", self._get_with_crawlee_puppeteer),
-            "helium": ("Helium", self._get_with_helium if ENABLE_HELIUM_FALLBACK else None),
-            "uc": ("undetected-chromedriver", self._get_with_uc),
-            "camoufox": ("Camoufox", self._get_with_camoufox if ENABLE_CAMOUFOX_FALLBACK else None),
-            "flaresolverr": ("FlareSolverr", self._get_with_flaresolverr if ENABLE_FLARESOLVERR_FALLBACK else None),
-        }
-
-        default_order = [
-            "crawl4ai",
-            "cheerio",
-            "drissionpage",
-            "puppeteer",
-            "helium",
-            "uc",
-            "camoufox",
-            "flaresolverr",
-        ]
-
-        ordered_keys = []
-        if preferred_engine and preferred_engine.lower() in strategy_map:
-            pref_key = preferred_engine.lower()
-            ordered_keys.append(pref_key)
-            for k in default_order:
-                if k != pref_key:
-                    ordered_keys.append(k)
-        else:
-            ordered_keys = default_order
-
-        strategies = [(k, strategy_map[k]) for k in ordered_keys]
-
-        html_content = None
-        browser_cookies = []
-        start_time = time.monotonic()
-        timeout_budget = 60.0  # 60 seconds total deadline for all fallbacks
-
-        for key, (name, strategy_func) in strategies:
-            if time.monotonic() - start_time > timeout_budget:
-                logger.warning("WAF fallback sequence exceeded 60s total timeout budget for %s.", url)
-                break
-
-            if strategy_func is None:
-                continue
-
-            if name == "Crawl4AI" and skip_crawl4ai:
-                continue
-
-            if name != "Crawl4AI" and "pytest" in sys.modules and not preferred_engine:
-                continue
-
-            if hasattr(self, "stealth_pipeline") and self.stealth_pipeline.circuit_breaker.is_cooling_down(key, host):
-                logger.debug("Skipping strategy '%s' for host '%s' due to active strategy circuit breaker", key, host)
-                continue
-
-            logger.info("Escalating stealth routing to %s fallback for %s...", name, url)
-            try:
-                res_val = strategy_func(url)
-                if isinstance(res_val, tuple):
-                    html_content, browser_cookies = res_val
-                else:
-                    html_content, browser_cookies = res_val, []
-
-                if html_content and not self._is_blocked_page(html_content, url):
-                    if hasattr(self, "stealth_pipeline"):
-                        self.stealth_pipeline.circuit_breaker.record_success(key, host)
-                    # Cache successful engine choice in host memory & increment telemetry counter
-                    engine_key = next((k for k, (n, f) in strategy_map.items() if n == name), None)
-                    if engine_key:
-                        with self.__class__._preferred_engine_lock:
-                            self.__class__._preferred_engine_by_host[host] = engine_key
-                        with self.__class__._waf_solve_lock:
-                            self.__class__._waf_solve_counts[engine_key] = (
-                                self.__class__._waf_solve_counts.get(engine_key, 0) + 1
-                            )
-                    if browser_cookies:
-                        try:
-                            self._session_pool.update_cookies(host, browser_cookies)
-                        except Exception as e:
-                            logger.warning("Failed to store browser fallback cookies for %s: %s", host, e)
-                    return html_content, browser_cookies
-                else:
-                    logger.warning("%s returned a blocked or redirected page for %s.", name, url)
-                    html_content = None
-            except Exception as exc:
-                logger.error("%s fallback failed for %s: %s", name, url, repr(exc))
-        if html_content is None and ENABLE_FLARESOLVERR_FALLBACK and self.__class__._flaresolverr_online is not False and ("pytest" not in sys.modules or preferred_engine):
-            try:
-                logger.info("Attempting automatic FlareSolverr Turnstile escalation for %s...", url)
-                res_val = self._get_with_flaresolverr(url)
-                html_content, browser_cookies = res_val
-                if html_content and not self._is_blocked_page(html_content, url):
-                    with self.__class__._waf_solve_lock:
-                        self.__class__._waf_solve_counts["flaresolverr"] = (
-                            self.__class__._waf_solve_counts.get("flaresolverr", 0) + 1
-                        )
-                    if browser_cookies:
-                        try:
-                            self.session_manager.save_session(host, browser_cookies)
-                            logger.info("Persisted %d solved FlareSolverr WAF cookies for domain %s", len(browser_cookies), host)
-                        except Exception as save_err:
-                            logger.warning("Failed saving WAF session cookies for %s: %s", host, save_err)
-                    return html_content, browser_cookies
-            except Exception as fs_exc:
-                logger.debug("Automatic FlareSolverr escalation failed for %s: %s", url, fs_exc)
-
-        return None, []
+    def _execute_fallbacks(self, url: str, skip_crawl4ai: bool = False, preferred_engine: str | None = None) -> tuple[str | None, list[dict] | dict]:
+        """Legacy fallback delegation to self.stealth_pipeline."""
+        try:
+            res = self.stealth_pipeline.execute(url, self, skip_httpx=True, preferred_engine=preferred_engine)
+            return res.text, res.cookies
+        except Exception as exc:
+            logger.debug("StealthPipeline legacy adapter failed for %s: %s", url, exc)
+            return None, []
 
     @property
     def last_net_latency(self) -> float:

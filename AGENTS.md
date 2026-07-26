@@ -10,25 +10,32 @@ This document provides unified project-scoped instructions, architectural guidel
 src/cli/main.py                     — CLI entry point, all flags documented via --help
 src/cli/monitor_agent.py            — Watchdog entry point, continuous monitoring loop
 src/cli/cli_wizard.py               — Interactive wizard for standard & watchdog runs
-src/config.py                       — Tunable constants (timeouts, concurrency, thresholds)
+src/config/__init__.py              — Tunable constants & .env credential loader
 src/core/engine.py                  — BFS crawl loop, page scoring, domain stats
 src/core/filters.py                 — URL classification, media detection, relevance scoring
 src/core/models.py                  — ScrapeResult, ImageItem, VideoItem dataclasses
 src/scraper/google_images.py        — Search provider + page scraper + link/media extraction
 src/storage/file_downloader.py      — Concurrent media downloader with MIME/size validation
-src/utils/http_client.py            — Rate limiting, session pooling, 429 circuit breaker, Crawlee, Crawl4AI, DrissionPage & UC fallbacks
+src/utils/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
+src/utils/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
+src/utils/capsolver.py              — CapSolver auto-captcha solving API integration
+src/utils/telegram_bot.py           — Telegram Bot alerts & interactive command handler
+src/utils/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
+src/utils/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
 src/utils/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
 src/utils/session.py                — Persistent cookie cache (data/sessions/)
 src/utils/session_pool.py           — Per-domain sticky sessions with disk persistence
+src/utils/proxy_manager.py          — Proxy pool manager with latency auto-quarantine & domain binding
 src/utils/crawlee_client.py         — Python bridge client for Node.js Crawlee operations
 crawlee_bridge/                     — Node.js Express server running Cheerio/Puppeteer stealth modes
+.env / .env.example                 — Environment variables & secret credentials
 data/domain_config.json             — Dynamic domain overrides (rate limits, referer, hotlink, deep scrape)
 data/url_normalisation_rules.json   — URL canonicalisation rules loaded into config.URL_NORMALISATION_RULES
 src/config/subject_profiles.json   — Subject profile presets (priority domains, max results)
 seeds/                              — Per-subject seed manifest files (.txt)
 output/<subject>/runs/<run_id>/     — Run output (results.json, domain_report.json, CSVs)
 frontend/app.py                     — Interactive FastAPI/HTMX dashboard server
-frontend/templates/index.html       — Brutalist WebUI dashboard template
+frontend/templates/index.html       — Brutalist WebUI dashboard template with Live Canvas Visualizer
 run.bat / run.sh                     — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
 run_monitor.bat / run_monitor.sh     — Continuous Watchdog Agent launcher
 output/cache/state_cache.db         — SQLite database persisting processed URLs across watchdog runs
@@ -41,8 +48,8 @@ scratch/                            — Test scripts, scratch validation scripts
 ## 2. Tech Stack & Core Rules
 
 - **Core Engine**: Python 3.10+ (`src/core/`), FastAPI (`frontend/app.py`), HTMX, SQLite (WAL mode).
-- **Stealth & Extraction**: 7-tier WAF fallback pipeline (`src/utils/http_client.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
-- **WebUI Design System**: Utilitarian Brutalism — strict 90° square corners (`border-radius: 0 !important`), `Oswald` headers, `JetBrains Mono` body/forms, high-contrast dark theme (`#0b0d0c` / `#ff5500` accent).
+- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/utils/stealth_pipeline.py`), CapSolver auto-captcha solver (`src/utils/capsolver.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
+- **WebUI Design System**: Utilitarian Brutalism — strict 90° square corners (`border-radius: 0 !important`), `Oswald` headers, `JetBrains Mono` body/forms, high-contrast dark theme (`#0b0d0c` / `#ff5500` accent), HTML5 Canvas live crawl network tree.
 
 ### Mandatory Coding Rules
 1. **Empirical Log Diagnostics**:

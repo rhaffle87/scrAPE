@@ -2,16 +2,37 @@
 stealth_pipeline.py — Chain-of-Responsibility Strategy Pattern for WAF Fallback Pipeline.
 
 This module encapsulates all stealth fallback engines into pluggable StealthStrategy classes
-with per-strategy failure tracking and circuit-breaking.
+with per-strategy failure tracking, standardized StealthResponse payloads, and circuit-breaking.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 import threading
 import time
 from typing import Any
 import httpx
+
+
+@dataclass
+class StealthResponse:
+    """Standardized result object returned by all stealth strategies."""
+
+    status_code: int
+    text: str
+    cookies: dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    strategy_name: str = "unknown"
+
+    def to_httpx_response(self, request_url: str) -> httpx.Response:
+        """Convert StealthResponse to a standard httpx.Response object."""
+        return httpx.Response(
+            status_code=self.status_code,
+            text=self.text,
+            headers=self.headers,
+            request=httpx.Request("GET", request_url),
+        )
 
 
 class _StrategyCircuitBreaker:
@@ -57,31 +78,36 @@ class StealthStrategy(ABC):
         return True
 
     @abstractmethod
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
-        """Execute the strategy and return an httpx.Response if successful, else None."""
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
+        """Execute the strategy and return a StealthResponse if successful, else None."""
         pass
 
 
 class HttpxStrategy(StealthStrategy):
     name = "httpx"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         headers = client._headers(url)
         resp = client.client.get(url, headers=headers)
         if resp.status_code < 400:
-            return resp
+            return StealthResponse(
+                status_code=resp.status_code,
+                text=resp.text,
+                headers=dict(resp.headers),
+                strategy_name=self.name,
+            )
         return None
 
 
 class CrawleeStrategy(StealthStrategy):
     name = "crawlee"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         # Tier A: Fast cheerio
         try:
             html, _ = client._get_with_crawlee_cheerio(url)
             if html and not client._is_blocked_page(html, url):
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                return StealthResponse(status_code=200, text=html, strategy_name=self.name)
         except Exception:
             pass
 
@@ -89,9 +115,12 @@ class CrawleeStrategy(StealthStrategy):
         try:
             html, cookies = client._get_with_crawlee_puppeteer(url)
             if html and not client._is_blocked_page(html, url):
-                if cookies:
-                    client._session_pool.update_cookies(client._hostname(url), cookies)
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
         except Exception:
             pass
 
@@ -101,11 +130,11 @@ class CrawleeStrategy(StealthStrategy):
 class Crawl4AIStrategy(StealthStrategy):
     name = "crawl4ai"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
             html = client._get_with_crawl4ai(url)
             if html and not client._is_blocked_page(html, url):
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                return StealthResponse(status_code=200, text=html, strategy_name=self.name)
         except Exception:
             pass
         return None
@@ -114,13 +143,34 @@ class Crawl4AIStrategy(StealthStrategy):
 class DrissionPageStrategy(StealthStrategy):
     name = "drissionpage"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
             html, cookies = client._get_with_drissionpage(url)
             if html and not client._is_blocked_page(html, url):
-                if cookies:
-                    client._session_pool.update_cookies(client._hostname(url), cookies)
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
+        except Exception:
+            pass
+        return None
+
+
+class HeliumStrategy(StealthStrategy):
+    name = "helium"
+
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
+        try:
+            html, cookies = client._get_with_helium(url)
+            if html and not client._is_blocked_page(html, url):
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
         except Exception:
             pass
         return None
@@ -129,13 +179,16 @@ class DrissionPageStrategy(StealthStrategy):
 class FlareSolverrStrategy(StealthStrategy):
     name = "flaresolverr"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
             html, cookies = client._get_with_flaresolverr(url)
             if html and not client._is_blocked_page(html, url):
-                if cookies:
-                    client._session_pool.update_cookies(client._hostname(url), cookies)
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
         except Exception:
             pass
         return None
@@ -144,13 +197,16 @@ class FlareSolverrStrategy(StealthStrategy):
 class CamoufoxStrategy(StealthStrategy):
     name = "camoufox"
 
-    def execute(self, url: str, client: Any) -> httpx.Response | None:
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
             html, cookies = client._get_with_camoufox(url)
             if html and not client._is_blocked_page(html, url):
-                if cookies:
-                    client._session_pool.update_cookies(client._hostname(url), cookies)
-                return httpx.Response(200, text=html, request=httpx.Request("GET", url))
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
         except Exception:
             pass
         return None
@@ -169,18 +225,32 @@ class StealthPipeline:
                 CrawleeStrategy(),
                 Crawl4AIStrategy(),
                 DrissionPageStrategy(),
+                HeliumStrategy(),
                 FlareSolverrStrategy(),
                 CamoufoxStrategy(),
             ]
 
-    def execute(self, url: str, client: Any, skip_httpx: bool = False) -> httpx.Response:
+    def get_ordered_strategies(self, host: str, preferred_engine: str | None = None) -> list[StealthStrategy]:
+        """Return strategies re-ordered according to preferred_engine hint if specified."""
+        ordered = list(self.strategies)
+        if preferred_engine:
+            preferred_name = preferred_engine.lower()
+            pref_matches = [s for s in ordered if s.name.lower() == preferred_name]
+            other = [s for s in ordered if s.name.lower() != preferred_name]
+            ordered = pref_matches + other
+        return ordered
+
+    def execute(
+        self, url: str, client: Any, skip_httpx: bool = False, preferred_engine: str | None = None
+    ) -> StealthResponse:
         from utils.http_client import ScraperBypassError
         from utils.logger import get_logger
+
         logger = get_logger(__name__)
-
         host = client._hostname(url)
+        ordered_strategies = self.get_ordered_strategies(host, preferred_engine=preferred_engine)
 
-        for strategy in self.strategies:
+        for strategy in ordered_strategies:
             if skip_httpx and strategy.name == "httpx":
                 continue
 
@@ -188,21 +258,45 @@ class StealthPipeline:
                 continue
 
             if self.circuit_breaker.is_cooling_down(strategy.name, host):
-                logger.debug("Skipping strategy '%s' for host '%s' due to active circuit breaker", strategy.name, host)
+                logger.debug(
+                    "Skipping strategy '%s' for host '%s' due to active circuit breaker",
+                    strategy.name,
+                    host,
+                )
                 continue
 
             try:
                 logger.info("Attempting stealth fallback tier '%s' for %s", strategy.name, url)
-                resp = strategy.execute(url, client)
-                if resp is not None and resp.status_code < 400:
+                res = strategy.execute(url, client)
+                if res is not None and res.status_code < 400:
                     self.circuit_breaker.record_success(strategy.name, host)
                     with client._waf_solve_lock:
-                        client._waf_solve_counts[strategy.name] = client._waf_solve_counts.get(strategy.name, 0) + 1
-                    return resp
+                        client._waf_solve_counts[strategy.name] = (
+                            client._waf_solve_counts.get(strategy.name, 0) + 1
+                        )
+
+                    # Auto-persist harvested cookies if present
+                    if res.cookies and hasattr(client, "_session_pool"):
+                        try:
+                            client._session_pool.update_cookies(host, res.cookies)
+                            if hasattr(client, "session_manager"):
+                                existing = client.session_manager.load_session(host) or {}
+                                existing.update(res.cookies)
+                                client.session_manager.save_session(host, existing)
+                        except Exception as c_err:
+                            logger.warning(
+                                "Failed to persist harvested cookies for %s: %s", host, c_err
+                            )
+
+                    return res
             except Exception as e:
-                logger.debug("Strategy '%s' execution error on %s: %s", strategy.name, url, e)
+                logger.debug(
+                    "Strategy '%s' execution error on %s: %s", strategy.name, url, e
+                )
 
             # Record failure if tier did not yield a clean response
             self.circuit_breaker.record_failure(strategy.name, host)
 
-        raise ScraperBypassError(f"All stealth fallback tiers failed to bypass anti-bot protection for {url}")
+        raise ScraperBypassError(
+            f"All stealth fallback tiers failed to bypass anti-bot protection for {url}"
+        )

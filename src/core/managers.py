@@ -781,6 +781,17 @@ class CrawlOrchestrator:
                 visited_pages.add(normalized_page)
                 ordered_pages.append((normalized_page, current_depth))
 
+                try:
+                    from utils.telemetry import broadcast_telemetry_event
+                    broadcast_telemetry_event("crawl_graph_node", {
+                        "url": normalized_page,
+                        "domain": host,
+                        "depth": current_depth,
+                        "type": "page_visited",
+                    })
+                except Exception:
+                    pass
+
                 profile = options.domain_profiles.get(host)
                 domain_depth = profile.effective_crawl_depth if profile else 1
                 domain_depth_limit = min(resolved_crawl_depth, domain_depth)
@@ -856,6 +867,18 @@ class CrawlOrchestrator:
                     queues.setdefault(current_depth + 1, {}).setdefault(
                         link_host, deque()
                     ).append(normalized_link)
+
+                    try:
+                        from utils.telemetry import broadcast_telemetry_event
+                        broadcast_telemetry_event("crawl_graph_node", {
+                            "url": normalized_link,
+                            "domain": link_host,
+                            "parent": normalized_page,
+                            "depth": current_depth + 1,
+                            "type": "link_discovered",
+                        })
+                    except Exception:
+                        pass
 
         pages_to_fetch = (
             ordered_pages

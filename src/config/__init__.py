@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 import re as _re
+
+# Attempt to load .env file if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(".env"))
+except ImportError:
+    pass
+
+# Environment Variables & Credentials
+TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+CAPSOLVER_API_KEY: str = os.getenv("CAPSOLVER_API_KEY", "").strip()
 
 ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True

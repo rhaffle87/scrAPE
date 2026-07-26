@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.22.0] — 2026-07-26
+
+### Added & Changed (0.22.0)
+
+- **Environment Configuration & Credential Management** (`.env`, `.env.example`, `src/config/__init__.py`):
+  - Created `.env` and `.env.example` supporting `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and `CAPSOLVER_API_KEY`. Added `.env` to `.gitignore` to safeguard credentials.
+  - Dynamically load environment variables in `src/config/__init__.py` via `python-dotenv` / `os.getenv()`.
+- **Telegram Bot Alerts & Interactive Control Handler** (`src/utils/telegram_bot.py`):
+  - Created `TelegramBotNotifier` sending HTML-formatted alert messages for completed runs, WAF blocks, and yield targets.
+  - Created `TelegramCommandHandler` daemon thread polling Telegram updates to respond to interactive commands (`/status`, `/stats`, `/pause`, `/resume`).
+  - Added WebUI Telegram settings panel with API endpoints `/api/telegram/config` and `/api/telegram/test`.
+- **AI Fine-Tuning & Dataset Studio** (`src/utils/dataset_tagger.py`, `src/utils/dataset_exporter.py`):
+  - Created `DatasetTagger` for generating comma-separated tag `.txt` sidecars alongside downloaded images with trigger tag support.
+  - Created `KohyaDatasetExporter` packaging images, `.txt` sidecars, and `metadata.json` into Kohya_ss / `sd-scripts` formatted LoRA dataset `.zip` archives.
+- **CapSolver Captcha Auto-Solving Integration** (`src/utils/capsolver.py`):
+  - Created `CapSolverClient` for auto-solving Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha tokens during WAF challenge resolution. Added live balance endpoint `/api/capsolver/balance`.
+- **Advanced Proxy Pool Health & Sticky Domain Binding** (`src/utils/proxy_manager.py`):
+  - Added latency auto-rotation, 5-minute auto-quarantine for slow (>3000ms) or failing proxies, and sticky domain-to-proxy binding (`bind_domain_proxy`).
+- **WebUI Live Crawl Network Visualizer** (`frontend/templates/index.html`):
+  - Built HTML5 Canvas live crawl network tree graph (`#crawl-graph-canvas`) and real-time streaming media grid feed (`#live-media-stream-grid`).
+
 ## [0.21.0] — 2026-07-26
 
 ### Added & Changed (0.21.0)

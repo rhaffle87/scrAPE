@@ -672,6 +672,20 @@ class MediaDownloader:
                     except ValueError:
                         relative_path = str(target)
 
+                try:
+                    from utils.telemetry import broadcast_telemetry_event
+                    broadcast_telemetry_event("media_downloaded", {
+                        "url": url,
+                        "file_path": relative_path.replace("\\", "/"),
+                        "media_kind": media_kind,
+                        "width": w,
+                        "height": h,
+                        "mime_type": content_type or mimetypes.guess_type(target.name)[0] or "",
+                        "file_size_bytes": content_length,
+                    })
+                except Exception:
+                    pass
+
                 return True, {
                     "reason": "ok",
                     "file_path": relative_path,

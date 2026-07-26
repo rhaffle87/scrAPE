@@ -34,15 +34,22 @@ class ProxyInfo:
         self.consecutive_failures = 0
         self.total_latency_ms += latency_ms
         self.avg_latency_ms = round(self.total_latency_ms / max(1, self.successes), 1)
+        if latency_ms > 3000.0:
+            self.cooldown_until = time.monotonic() + 300.0
+            LOGGER.warning(
+                "Proxy '%s' entered 5-minute cooldown (high latency %.1f ms > 3000ms).",
+                self.url,
+                latency_ms,
+            )
 
     def record_failure(self) -> None:
         self.failures += 1
         self.consecutive_failures += 1
         if self.consecutive_failures >= 3:
-            # 10-minute auto-eviction cooldown
-            self.cooldown_until = time.monotonic() + 600.0
+            # 5-minute auto-eviction cooldown
+            self.cooldown_until = time.monotonic() + 300.0
             LOGGER.warning(
-                "Proxy '%s' entered 10-minute cooldown (3 consecutive failures).",
+                "Proxy '%s' entered 5-minute cooldown (3 consecutive failures).",
                 self.url,
             )
 
@@ -75,6 +82,15 @@ class ProxyPoolManager:
                 cleaned = p.strip()
                 if cleaned and cleaned not in self._proxies:
                     self._proxies[cleaned] = ProxyInfo(cleaned)
+
+    def bind_domain_proxy(self, domain: str, proxy_url: str) -> None:
+        """Explicitly bind a specific proxy URL to a domain."""
+        with self._pool_lock:
+            domain_clean = domain.lower().strip()
+            cleaned_proxy = proxy_url.strip()
+            if cleaned_proxy and cleaned_proxy not in self._proxies:
+                self._proxies[cleaned_proxy] = ProxyInfo(cleaned_proxy)
+            self._domain_bindings[domain_clean] = cleaned_proxy
 
     def get_best_proxy(self) -> str | None:
         """Return the lowest-latency healthy proxy from the pool."""

@@ -18,11 +18,31 @@ def signal_handler(signum, frame):
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+def broadcast_watchdog_event(event_name: str, payload: dict) -> None:
+    """Broadcast watchdog status/alert event over SSE if frontend broadcaster is available."""
+    try:
+        from frontend.app import broadcaster
+        broadcaster.broadcast(event_name, payload)
+    except Exception:
+        pass
+
+
+def discover_rotation_targets(seeds_dir: str) -> list[tuple[str, str]]:
+    """Scan seeds_dir for .txt seed manifest files and return list of (keyword, seed_file_path)."""
+    p = Path(seeds_dir)
+    if not p.exists() or not p.is_dir():
+        return []
+    targets = []
+    for f in sorted(p.glob("*.txt")):
+        keyword = f.stem.replace("_", " ")
+        targets.append((keyword, str(f)))
+    return targets
+
 
 def run_scraper(
     keyword: str, seed_file: str | None, download_media: bool, extra_args: list[str]
-) -> None:
-    print(f"[{datetime.now().isoformat()}] Starting full scrAPE run...")
+) -> int:
+    print(f"[{datetime.now().isoformat()}] Starting full scrAPE run for subject '{keyword}'...")
     cmd = [
         sys.executable,
         str(Path(__file__).parent / "main.py"),
@@ -37,6 +57,7 @@ def run_scraper(
     if extra_args:
         cmd.extend(extra_args)
 
+    return_code = -1
     try:
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
@@ -91,6 +112,8 @@ def run_scraper(
     except Exception as e:
         print(f"[{datetime.now().isoformat()}] Unexpected error during run: {e}")
 
+    return return_code
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -107,6 +130,11 @@ def main():
         "-s",
         default=os.environ.get("SCRAPE_SEED_FILE"),
         help="Path to the matching seed manifest file. Can also be set via SCRAPE_SEED_FILE environment variable.",
+    )
+    parser.add_argument(
+        "--seeds-dir",
+        default=os.environ.get("SCRAPE_SEEDS_DIR"),
+        help="Directory containing seed manifest files for automatic round-robin rotation across watch cycles.",
     )
     parser.add_argument(
         "--interval",
@@ -133,13 +161,28 @@ def main():
         action="store_true",
         help="Flush the state cache database before starting the watchdog.",
     )
+    parser.add_argument(
+        "--auto-prune-cache",
+        action="store_true",
+        help="Enable periodic StateCache pruning and vacuuming across watch cycles.",
+    )
+    parser.add_argument(
+        "--prune-interval-cycles",
+        type=int,
+        default=5,
+        help="Number of watch cycles between automatic cache pruning (default: 5).",
+    )
 
     args, extra_args = parser.parse_known_args()
 
-    if not args.keyword:
+    rotation_targets = []
+    if args.seeds_dir:
+        rotation_targets = discover_rotation_targets(args.seeds_dir)
+
+    if not args.keyword and not rotation_targets:
         parser.print_help()
         print(
-            "\nERROR: --keyword (or SCRAPE_KEYWORD env var) is required to run the monitoring agent."
+            "\nERROR: --keyword (or SCRAPE_KEYWORD env var) or a valid --seeds-dir is required to run the monitoring agent."
         )
         sys.exit(1)
 
@@ -153,9 +196,12 @@ def main():
     print(
         f"[{datetime.now().isoformat()}] Sleep Monitoring Agent (scrAPE) initialized."
     )
-    print(f"Target Keyword: {args.keyword}")
-    if args.seed_file:
-        print(f"Seed File: {args.seed_file}")
+    if rotation_targets:
+        print(f"Seed Rotation Active: {len(rotation_targets)} subjects discovered in '{args.seeds_dir}'.")
+    else:
+        print(f"Target Keyword: {args.keyword}")
+        if args.seed_file:
+            print(f"Seed File: {args.seed_file}")
     print(f"Interval: {args.interval} seconds | Timeout: {args.timeout} seconds")
     if extra_args:
         print(f"Pass-through arguments: {extra_args}")
@@ -163,22 +209,58 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    try:
-        # Initial immediate run
-        run_scraper(args.keyword, args.seed_file, args.download_media, extra_args)
+    cycle_count = 0
 
+    try:
         while not shutdown_event.is_set():
+            if rotation_targets:
+                target_keyword, target_seed = rotation_targets[cycle_count % len(rotation_targets)]
+            else:
+                target_keyword = args.keyword
+                target_seed = args.seed_file
+
+            cycle_count += 1
+            print(f"\n[{datetime.now().isoformat()}] --- WATCHDOG CYCLE #{cycle_count} [{target_keyword}] ---")
+
+            # Periodic cache maintenance
+            if args.auto_prune_cache and (cycle_count % args.prune_interval_cycles == 0):
+                try:
+                    from storage.state_cache import StateCache
+                    cache = StateCache()
+                    pruned = cache.prune_expired()
+                    db_size = cache.vacuum_db()
+                    print(f"[{datetime.now().isoformat()}] StateCache Maintenance: Pruned {pruned} stale URLs. DB size: {db_size} bytes.")
+                    broadcast_watchdog_event("watchdog", {"type": "prune", "pruned": pruned, "db_size": db_size})
+                except Exception as c_err:
+                    print(f"[{datetime.now().isoformat()}] StateCache Maintenance Error: {c_err}")
+
+            broadcast_watchdog_event("watchdog", {
+                "type": "cycle_start",
+                "cycle": cycle_count,
+                "keyword": target_keyword,
+                "seed_file": target_seed,
+            })
+
+            code = run_scraper(target_keyword, target_seed, args.download_media, extra_args)
+
+            broadcast_watchdog_event("watchdog", {
+                "type": "cycle_complete",
+                "cycle": cycle_count,
+                "keyword": target_keyword,
+                "return_code": code,
+            })
+
+            if shutdown_event.is_set():
+                break
+
             next_run = datetime.now() + timedelta(seconds=args.interval)
             print(
-                f"[{datetime.now().isoformat()}] Next run scheduled at {next_run.isoformat()}. Sleeping..."
+                f"[{datetime.now().isoformat()}] Next cycle scheduled at {next_run.isoformat()}. Sleeping for {args.interval}s..."
             )
 
-            # Sleep via event wait to allow immediate responsive exit on signal
             if shutdown_event.wait(args.interval):
                 break
 
-            if not shutdown_event.is_set():
-                run_scraper(args.keyword, args.seed_file, args.download_media, extra_args)
     except KeyboardInterrupt:
         print(
             f"\n[{datetime.now().isoformat()}] Sleep Monitoring Agent stopped by user request."

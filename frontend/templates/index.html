@@ -365,6 +365,12 @@
             animation: pulse-opacity 1.5s infinite;
         }
 
+        .status-badge.paused {
+            border-color: #ffaa00;
+            color: #ffaa00;
+            animation: pulse-opacity 2s infinite;
+        }
+
         @keyframes pulse-opacity {
 
             0%,
@@ -1404,7 +1410,7 @@
                         </div>
                     </div>
 
-                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#status-badge">
+                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#action-bar-container">
                         <!-- Mode Preset Selector -->
                         <div class="run-mode-selector">
                             <button type="button" class="btn active" id="mode-custom" onclick="setRunMode('custom')">[
@@ -1648,13 +1654,38 @@
                             </div>
                         </details>
 
-                        <div class="form-group full-width button-bar">
+                        <div class="form-group full-width button-bar" id="action-bar-container" hx-get="/htmx/controls" hx-trigger="load">
                             <button type="submit" class="btn btn-primary" id="btn-run"
                                 onclick="onInitiateScrape()">Initiate Scrape</button>
-                            <button type="button" class="btn btn-danger" id="btn-abort" hx-post="/htmx/kill"
-                                hx-target="#status-badge">Abort</button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream) -->
+                <div class="visualizer-split-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <!-- Live Crawl Network Tree Graph (Left) -->
+                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
+                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--text-primary); font-size: 0.85rem; letter-spacing: 1px;">LIVE CRAWL NETWORK TREE</span>
+                            <span id="graph-node-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent);">NODES: 0</span>
+                        </div>
+                        <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
+                            <canvas id="crawl-graph-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Live Streaming Media Feed Grid (Right) -->
+                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
+                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--text-primary); font-size: 0.85rem; letter-spacing: 1px;">STREAMING MEDIA FEED</span>
+                            <span id="stream-item-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent);">ASSETS: 0</span>
+                        </div>
+                        <div id="live-media-stream-grid" style="flex: 1; overflow-y: auto; padding: 0.6rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 0.5rem; background: #080a09;">
+                            <div id="stream-empty-placeholder" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                                AWAITING MEDIA ASSETS...
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Live Log Terminal -->
@@ -2915,10 +2946,10 @@
                             if (data.status === 'running') {
                                 badge.innerText = 'STATUS: RUNNING [' + (data.current_keyword || 'ACTIVE') + ']';
                                 badge.classList.add('running');
+                                badge.classList.remove('paused');
 
                                 if (!isFormLocked) {
                                     isFormLocked = true;
-                                    // Attempt to restore parameters if page was reloaded during run
                                     const activeParams = localStorage.getItem('active_scrape_params');
                                     if (activeParams) {
                                         try {
@@ -2935,9 +2966,13 @@
                                     isPollingLogs = true;
                                     pollLogsInterval = setInterval(pollLogs, 1000);
                                 }
+                            } else if (data.status === 'paused') {
+                                badge.innerText = 'STATUS: PAUSED [' + (data.current_keyword || 'ACTIVE') + ']';
+                                badge.classList.remove('running');
+                                badge.classList.add('paused');
                             } else {
                                 badge.innerText = 'STATUS: IDLE';
-                                badge.classList.remove('running');
+                                badge.classList.remove('running', 'paused');
 
                                 if (isFormLocked) {
                                     isFormLocked = false;
@@ -2949,7 +2984,6 @@
                                     clearInterval(pollLogsInterval);
                                     isPollingLogs = false;
                                     document.getElementById('log-speed-indicator').innerText = "IDLE";
-                                    // Trigger refresh of sidebar to catch any newly created folder subjects!
                                     htmx.trigger(document.getElementById('sidebar-list'), 'load');
                                 }
                             }
@@ -3006,10 +3040,163 @@
                     }
                 }
 
+                // --- Live Crawl Graph & Media Visualizer ---
+                const graphNodes = new Map();
+                let streamedAssetsCount = 0;
+
+                function initCrawlGraphCanvas() {
+                    const canvas = document.getElementById('crawl-graph-canvas');
+                    if (!canvas) return;
+                    
+                    function resizeCanvas() {
+                        canvas.width = canvas.parentElement.clientWidth || 400;
+                        canvas.height = canvas.parentElement.clientHeight || 260;
+                        drawCrawlGraph();
+                    }
+
+                    window.addEventListener('resize', resizeCanvas);
+                    resizeCanvas();
+                }
+
+                function addCrawlGraphNode(data) {
+                    const canvas = document.getElementById('crawl-graph-canvas');
+                    if (!canvas) return;
+                    const w = canvas.width || 400;
+                    const h = canvas.height || 260;
+
+                    if (!graphNodes.has(data.url)) {
+                        const depth = data.depth || 0;
+                        const parentNode = data.parent ? graphNodes.get(data.parent) : null;
+                        
+                        let x = parentNode ? parentNode.x + (Math.random() * 80 - 40) : (w / 2) + (Math.random() * 60 - 30);
+                        let y = parentNode ? parentNode.y + 40 : 30 + (depth * 45);
+
+                        x = Math.max(20, Math.min(w - 20, x));
+                        y = Math.max(20, Math.min(h - 20, y));
+
+                        graphNodes.set(data.url, {
+                            url: data.url,
+                            domain: data.domain || '',
+                            depth: depth,
+                            parent: data.parent,
+                            type: data.type || 'node',
+                            x: x,
+                            y: y,
+                            color: data.type === 'page_visited' ? '#ff5500' : '#00ff88'
+                        });
+
+                        const countElem = document.getElementById('graph-node-count');
+                        if (countElem) countElem.innerText = `NODES: ${graphNodes.size}`;
+                        drawCrawlGraph();
+                    }
+                }
+
+                function drawCrawlGraph() {
+                    const canvas = document.getElementById('crawl-graph-canvas');
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    const w = canvas.width;
+                    const h = canvas.height;
+
+                    ctx.clearRect(0, 0, w, h);
+
+                    // Grid background
+                    ctx.strokeStyle = '#121614';
+                    ctx.lineWidth = 1;
+                    for (let x = 0; x < w; x += 25) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, h);
+                        ctx.stroke();
+                    }
+                    for (let y = 0; y < h; y += 25) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        ctx.lineTo(w, y);
+                        ctx.stroke();
+                    }
+
+                    // Connections
+                    graphNodes.forEach(node => {
+                        if (node.parent && graphNodes.has(node.parent)) {
+                            const p = graphNodes.get(node.parent);
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(node.x, node.y);
+                            ctx.strokeStyle = node.color === '#ff5500' ? 'rgba(255, 85, 0, 0.6)' : 'rgba(0, 255, 136, 0.25)';
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+                        }
+                    });
+
+                    // Nodes
+                    graphNodes.forEach(node => {
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, node.type === 'page_visited' ? 5 : 3, 0, Math.PI * 2);
+                        ctx.fillStyle = node.color;
+                        ctx.fill();
+
+                        if (node.type === 'page_visited') {
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, 8, 0, Math.PI * 2);
+                            ctx.strokeStyle = 'rgba(255, 85, 0, 0.4)';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    });
+                }
+
+                function addStreamingMediaCard(data) {
+                    const container = document.getElementById('live-media-stream-grid');
+                    if (!container) return;
+
+                    const placeholder = document.getElementById('stream-empty-placeholder');
+                    if (placeholder) placeholder.style.display = 'none';
+
+                    streamedAssetsCount++;
+                    const countElem = document.getElementById('stream-item-count');
+                    if (countElem) countElem.innerText = `ASSETS: ${streamedAssetsCount}`;
+
+                    const card = document.createElement('div');
+                    card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 75px;';
+
+                    if (data.media_kind === 'image') {
+                        card.innerHTML = `<img src="/output/${data.file_path}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important;" alt="Media Asset" loading="lazy">`;
+                    } else {
+                        card.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #111; color: var(--accent); font-family: 'Oswald', sans-serif; font-size: 0.7rem;">VIDEO</div>`;
+                    }
+
+                    if (data.width && data.height) {
+                        card.innerHTML += `<div style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.85); color: #fff; font-size: 0.55rem; font-family: monospace; padding: 1px 3px;">${data.width}x${data.height}</div>`;
+                    }
+
+                    container.insertBefore(card, container.firstChild);
+
+                    while (container.children.length > 25) {
+                        container.removeChild(container.lastChild);
+                    }
+                }
+
+                function setupLiveTelemetrySSE() {
+                    try {
+                        const eventSource = new EventSource('/api/logs/stream');
+                        eventSource.addEventListener('crawl_graph_node', (e) => {
+                            try { addCrawlGraphNode(JSON.parse(e.data)); } catch (err) {}
+                        });
+                        eventSource.addEventListener('media_downloaded', (e) => {
+                            try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) {}
+                        });
+                    } catch (err) {
+                        console.error("Failed to connect live SSE visualizer stream:", err);
+                    }
+                }
+
                 document.addEventListener('DOMContentLoaded', () => {
                     loadSeeds();
                     setInterval(checkGlobalStatus, 2000);
                     checkGlobalStatus();
+                    initCrawlGraphCanvas();
+                    setupLiveTelemetrySSE();
                 });
             </script>
 </body>

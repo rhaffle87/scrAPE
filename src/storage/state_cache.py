@@ -61,7 +61,12 @@ class StateCache:
 
     def _cleanup_old_entries(self):
         """Delete entries older than max_age_seconds to prevent endless database bloat."""
-        cutoff_time = time.time() - self.max_age_seconds
+        self.prune_expired(max_age_days=int(self.max_age_seconds / 86400))
+
+    def prune_expired(self, max_age_days: int = 30) -> int:
+        """Delete entries older than max_age_days to prevent database bloat. Returns number of deleted rows."""
+        cutoff_time = time.time() - (max_age_days * 86400)
+        total_deleted = 0
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -74,7 +79,8 @@ class StateCache:
                 )
                 deleted_phashes = cursor.rowcount
                 conn.commit()
-                if deleted_urls > 0 or deleted_phashes > 0:
+                total_deleted = deleted_urls + deleted_phashes
+                if total_deleted > 0:
                     LOGGER.info(
                         "StateCache cleanup: removed %d expired URLs and %d expired pHashes.",
                         deleted_urls,
@@ -82,6 +88,7 @@ class StateCache:
                     )
         except Exception as e:
             LOGGER.warning(f"StateCache cleanup failed: {e}")
+        return total_deleted
 
     def is_processed(self, url: str) -> bool:
         """Check if a URL has already been processed and successfully downloaded/scraped."""

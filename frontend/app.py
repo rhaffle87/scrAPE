@@ -52,7 +52,10 @@ class LogBroadcaster:
                 except Exception:
                     pass
 
+from utils.telemetry import register_telemetry_listener, broadcast_telemetry_event
+
 broadcaster = LogBroadcaster()
+register_telemetry_listener(broadcaster.broadcast)
 
 app = FastAPI(title="scrAPE Web GUI", version="0.20.0")
 
@@ -823,31 +826,265 @@ async def htmx_run(request: Request):
         
     try:
         run_scrape(req)
-        return HTMLResponse("<div style='color: var(--accent); margin-top: 1rem;'>SCRAPE INITIATED // LOG STREAM ACTIVE</div>")
+        broadcaster.broadcast("status", {"status": "running"})
+        return render_control_buttons()
     except Exception as e:
         return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>ERR: {str(e)}</div>")
 
 @app.post("/htmx/kill")
 def kill_scrape():
     global _current_process, task_state
-    if _current_process and _current_process.poll() is None:
-        try:
-            import psutil
-            parent = psutil.Process(_current_process.pid)
-            for child in parent.children(recursive=True):
-                try:
-                    child.kill()
-                except Exception:
-                    pass
-            parent.kill()
-        except Exception:
-            _current_process.kill()
+    with _state_lock:
+        if _current_process and _current_process.poll() is None:
+            try:
+                import psutil
+                parent = psutil.Process(_current_process.pid)
+                for child in parent.children(recursive=True):
+                    try:
+                        child.kill()
+                    except Exception:
+                        pass
+                parent.kill()
+            except Exception:
+                _current_process.kill()
 
-        task_state["status"] = "idle"
-        task_state["pid"] = None
-        log_buffer.append(">>> PROCESS & CHILD WORKERS TERMINATED BY USER <<<")
-        return HTMLResponse("<div style='color: red; margin-top: 1rem;'>PROCESS ABORTED</div>")
+            task_state["status"] = "idle"
+            task_state["pid"] = None
+            log_buffer.append(">>> PROCESS & CHILD WORKERS TERMINATED BY USER <<<")
+            broadcaster.broadcast("status", {"status": "idle"})
+            return render_control_buttons()
     return HTMLResponse("<div style='color: var(--text-muted); margin-top: 1rem;'>NO ACTIVE PROCESS</div>")
+
+
+@app.post("/htmx/pause")
+def htmx_pause_scrape():
+    global _current_process, task_state
+    with _state_lock:
+        if task_state["status"] == "running" and _current_process and _current_process.poll() is None:
+            try:
+                import psutil
+                parent = psutil.Process(_current_process.pid)
+                for child in parent.children(recursive=True):
+                    try:
+                        child.suspend()
+                    except Exception:
+                        pass
+                parent.suspend()
+            except Exception as e:
+                return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>PAUSE ERR: {str(e)}</div>")
+
+            task_state["status"] = "paused"
+            log_buffer.append(">>> SCRAPE PAUSED BY USER <<<")
+            broadcaster.broadcast("status", {"status": "paused"})
+            return render_control_buttons()
+    return HTMLResponse("<div style='color: var(--text-muted); margin-top: 1rem;'>NO RUNNING PROCESS TO PAUSE</div>")
+
+
+@app.post("/htmx/resume")
+def htmx_resume_scrape():
+    global _current_process, task_state
+    with _state_lock:
+        if task_state["status"] == "paused" and _current_process and _current_process.poll() is None:
+            try:
+                import psutil
+                parent = psutil.Process(_current_process.pid)
+                for child in parent.children(recursive=True):
+                    try:
+                        child.resume()
+                    except Exception:
+                        pass
+                parent.resume()
+            except Exception as e:
+                return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>RESUME ERR: {str(e)}</div>")
+
+            task_state["status"] = "running"
+            log_buffer.append(">>> SCRAPE RESUMED BY USER <<<")
+            broadcaster.broadcast("status", {"status": "running"})
+            return render_control_buttons()
+    return HTMLResponse("<div style='color: var(--text-muted); margin-top: 1rem;'>NO PAUSED PROCESS TO RESUME</div>")
+
+
+@app.post("/htmx/stop")
+def htmx_stop_scrape():
+    return kill_scrape()
+
+
+@app.get("/htmx/controls")
+def render_control_buttons():
+    status = task_state.get("status", "idle")
+    if status == "running":
+        return HTMLResponse('''
+            <div class="button-bar" style="display: flex; gap: 0.5rem; flex: 1;">
+                <button type="button" hx-post="/htmx/pause" hx-target="#action-bar-container" hx-swap="innerHTML" class="btn" style="flex: 1; background: #ffaa00; color: #000; border: 2px solid #ffaa00;">PAUSE</button>
+                <button type="button" hx-post="/htmx/stop" hx-target="#action-bar-container" hx-swap="innerHTML" class="btn btn-danger" style="flex: 1; background: #ff3333; color: #fff; border: 2px solid #ff3333;">TERMINATE</button>
+            </div>
+        ''')
+    elif status == "paused":
+        return HTMLResponse('''
+            <div class="button-bar" style="display: flex; gap: 0.5rem; flex: 1;">
+                <button type="button" hx-post="/htmx/resume" hx-target="#action-bar-container" hx-swap="innerHTML" class="btn" style="flex: 1; background: #00ff66; color: #000; border: 2px solid #00ff66;">RESUME</button>
+                <button type="button" hx-post="/htmx/stop" hx-target="#action-bar-container" hx-swap="innerHTML" class="btn btn-danger" style="flex: 1; background: #ff3333; color: #fff; border: 2px solid #ff3333;">TERMINATE</button>
+            </div>
+        ''')
+    else:
+        return HTMLResponse('''
+            <button type="submit" id="btn-run" class="btn btn-primary">START SCRAPE</button>
+        ''')
+
+
+@app.get("/htmx/status-badge")
+def render_status_badge():
+    status = task_state.get("status", "idle").upper()
+    badge_class = "status-badge"
+    if status == "RUNNING":
+        badge_class += " running"
+    elif status == "PAUSED":
+        badge_class += " paused"
+
+    color_style = "color: var(--accent); border-color: var(--accent);" if status in {"RUNNING", "PAUSED"} else "color: var(--text-muted);"
+    return HTMLResponse(f'<span class="{badge_class}" style="{color_style}">{status}</span>')
+
+
+@app.get("/api/capsolver/balance")
+def get_capsolver_balance(key: str | None = None):
+    """Query live balance for CapSolver API key."""
+    from utils.capsolver import CapSolverClient
+    client = CapSolverClient(api_key=key)
+    balance = client.get_balance()
+    return {"status": "ok", "balance": balance}
+
+
+@app.get("/htmx/proxy-status")
+def render_proxy_status():
+    """Return HTMX status cards for Proxy Pool Manager."""
+    from utils.proxy_manager import ProxyPoolManager
+    pm = ProxyPoolManager.get_instance()
+    pool = pm.get_pool_status()
+    total = len(pool)
+    healthy = sum(1 for p in pool if p["healthy"])
+    quarantined = total - healthy
+    return HTMLResponse(f'''
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); display: flex; gap: 1rem;">
+            <span>TOTAL PROXIES: <strong style="color: var(--accent);">{total}</strong></span>
+            <span>HEALTHY: <strong style="color: #00ff66;">{healthy}</strong></span>
+            <span>QUARANTINED: <strong style="color: #ff3333;">{quarantined}</strong></span>
+        </div>
+    ''')
+
+
+@app.post("/api/dataset/tag")
+def api_dataset_tag(subject: str = Form(""), trigger_tag: str = Form("")):
+    """Batch auto-tag downloaded images in a subject run folder."""
+    from utils.dataset_tagger import DatasetTagger
+    from pathlib import Path
+
+    output_dir = Path("output") / subject / "images"
+    if not output_dir.exists():
+        # Fallback to subject root or first run folder
+        output_dir = Path("output") / subject
+
+    tagger = DatasetTagger(trigger_tag=trigger_tag)
+    res = tagger.tag_directory(output_dir)
+    return {"status": "ok", "subject": subject, **res}
+
+
+@app.get("/api/dataset/sidecar")
+def get_dataset_sidecar(path: str):
+    """Retrieve sidecar text file for a given image path."""
+    from pathlib import Path
+    img_path = Path(path)
+    sidecar_path = img_path.with_suffix(".txt")
+    if sidecar_path.exists():
+        tags_str = sidecar_path.read_text(encoding="utf-8")
+        return {"status": "ok", "path": str(sidecar_path), "tags": [t.strip() for t in tags_str.split(",") if t.strip()]}
+    return {"status": "ok", "path": str(sidecar_path), "tags": []}
+
+
+@app.post("/api/dataset/sidecar")
+def save_dataset_sidecar(path: str = Form(...), tags: str = Form(...)):
+    """Update sidecar text file for a given image path."""
+    from pathlib import Path
+    img_path = Path(path)
+    sidecar_path = img_path.with_suffix(".txt")
+    sidecar_path.write_text(tags, encoding="utf-8")
+    return {"status": "ok", "path": str(sidecar_path), "saved_tags": tags}
+
+
+@app.get("/api/dataset/export")
+def export_dataset_zip(subject: str, repeats: int = 10, concept: str = "concept"):
+    """Export Kohya_ss formatted LoRA dataset ZIP archive."""
+    from fastapi.responses import Response
+    from utils.dataset_exporter import KohyaDatasetExporter
+    from pathlib import Path
+
+    image_dir = Path("output") / subject / "images"
+    if not image_dir.exists():
+        image_dir = Path("output") / subject
+
+    exporter = KohyaDatasetExporter(repeats=repeats, concept_name=concept)
+    zip_bytes = exporter.create_dataset_zip_bytes(image_dir)
+    filename = f"{subject}_lora_dataset.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# Telegram Bot Store (Initialised from .env config)
+import config
+
+telegram_config = {
+    "token": getattr(config, "TELEGRAM_BOT_TOKEN", ""),
+    "chat_id": getattr(config, "TELEGRAM_CHAT_ID", ""),
+    "enabled": True,
+}
+
+
+@app.get("/api/telegram/config")
+def get_telegram_config():
+    """Return current Telegram Bot configuration."""
+    return {"status": "ok", **telegram_config}
+
+
+@app.post("/api/telegram/config")
+def update_telegram_config(token: str = Form(""), chat_id: str = Form(""), enabled: bool = Form(True)):
+    """Update Telegram Bot configuration."""
+    telegram_config["token"] = token.strip()
+    telegram_config["chat_id"] = chat_id.strip()
+    telegram_config["enabled"] = enabled
+    return {"status": "ok", **telegram_config}
+
+
+@app.post("/api/telegram/test")
+def test_telegram_notification(token: str = Form(""), chat_id: str = Form("")):
+    """Send a test notification message via Telegram Bot API."""
+    from utils.telegram_bot import TelegramBotNotifier
+
+    tok = token.strip() or telegram_config.get("token", "")
+    cid = chat_id.strip() or telegram_config.get("chat_id", "")
+    notifier = TelegramBotNotifier(tok, cid)
+    success = notifier.send_message("<b>scrAPE Telegram Bot Connected!</b>\nTest alert message received successfully.")
+    return {"status": "ok" if success else "failed", "sent": success}
+
+
+@app.post("/api/pause")
+def api_pause():
+    res = htmx_pause_scrape()
+    return {"status": task_state["status"]}
+
+
+@app.post("/api/resume")
+def api_resume():
+    res = htmx_resume_scrape()
+    return {"status": task_state["status"]}
+
+
+@app.post("/api/stop")
+def api_stop():
+    res = kill_scrape()
+    return {"status": task_state["status"]}
+
 
 # Seed Studio endpoints defined below
 
