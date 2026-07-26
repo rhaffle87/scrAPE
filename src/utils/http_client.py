@@ -39,6 +39,7 @@ import httpx
 
 import sys
 import typing
+from typing import Any
 
 
 from config import (
@@ -65,6 +66,9 @@ from utils.rate_limiter import RateLimiter
 from utils.session_pool import SessionPool
 from utils.blacklist import is_blacklisted
 from utils.session import SessionManager
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 FORCE_HEADLESS: bool = False
 STEALTH_HEADFUL: bool = False
@@ -142,6 +146,104 @@ class ScraperBypassError(Exception):
     ``tenacity`` does not attempt to retry the request — the URL is
     considered permanently hard-blocked or in cooldown.
     """
+
+
+class StealthTierHealthManager:
+    """Monitors real-time health, latency, and auto-cooldown circuit breaking for WAF stealth tiers."""
+
+    _instance: StealthTierHealthManager | None = None
+    _lock = threading.Lock()
+
+    def __init__(self) -> None:
+        self._tier_lock = threading.Lock()
+        self._health: dict[str, dict[str, Any]] = {}
+        for tier in ["flaresolverr", "crawlee", "drissionpage", "camoufox", "nodriver"]:
+            self._health[tier] = {
+                "successes": 0,
+                "failures": 0,
+                "consecutive_failures": 0,
+                "total_latency_ms": 0.0,
+                "avg_latency_ms": 0.0,
+                "cooldown_until": 0.0,
+            }
+
+    @classmethod
+    def get_instance(cls) -> StealthTierHealthManager:
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+
+    def is_healthy(self, tier: str) -> bool:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.get(tier_name)
+            if not info:
+                return True
+            if time.monotonic() < info["cooldown_until"]:
+                return False
+            return True
+
+    def record_success(self, tier: str, latency_ms: float) -> None:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.setdefault(
+                tier_name,
+                {
+                    "successes": 0,
+                    "failures": 0,
+                    "consecutive_failures": 0,
+                    "total_latency_ms": 0.0,
+                    "avg_latency_ms": 0.0,
+                    "cooldown_until": 0.0,
+                },
+            )
+            info["successes"] += 1
+            info["consecutive_failures"] = 0
+            info["total_latency_ms"] += latency_ms
+            info["avg_latency_ms"] = round(
+                info["total_latency_ms"] / max(1, info["successes"]), 1
+            )
+
+    def record_failure(self, tier: str) -> None:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.setdefault(
+                tier_name,
+                {
+                    "successes": 0,
+                    "failures": 0,
+                    "consecutive_failures": 0,
+                    "total_latency_ms": 0.0,
+                    "avg_latency_ms": 0.0,
+                    "cooldown_until": 0.0,
+                },
+            )
+            info["failures"] += 1
+            info["consecutive_failures"] += 1
+            if info["consecutive_failures"] >= 3:
+                info["cooldown_until"] = time.monotonic() + 300.0
+                logger.warning(
+                    "WAF stealth tier '%s' entered 5-minute circuit-breaker cooldown (3 consecutive failures).",
+                    tier_name,
+                )
+
+    def get_health_snapshot(self) -> dict[str, Any]:
+        with self._tier_lock:
+            now = time.monotonic()
+            snapshot = {}
+            for t, info in self._health.items():
+                snapshot[t] = {
+                    "healthy": now >= info["cooldown_until"],
+                    "successes": info["successes"],
+                    "failures": info["failures"],
+                    "consecutive_failures": info["consecutive_failures"],
+                    "avg_latency_ms": info["avg_latency_ms"],
+                    "cooldown_remaining_sec": max(
+                        0, int(info["cooldown_until"] - now)
+                    ),
+                }
+            return snapshot
 
 
 # ---------------------------------------------------------------------------
@@ -489,17 +591,35 @@ class HttpClient:
         with self._proxy_lock:
             if not self.proxy_list:
                 return None
-            return self.proxy_list[self.current_proxy_index]
+            from utils.proxy_manager import ProxyPoolManager
+
+            pool = ProxyPoolManager.get_instance()
+            pool.set_proxies(self.proxy_list)
+            best = pool.get_best_proxy()
+            return best or self.proxy_list[self.current_proxy_index]
 
     def rotate_proxy(self) -> str | None:
         with self._proxy_lock:
             if not self.proxy_list:
                 return None
-            self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxy_list)
-            new_proxy = self.proxy_list[self.current_proxy_index]
-            
+            from utils.proxy_manager import ProxyPoolManager
+
+            pool = ProxyPoolManager.get_instance()
+            pool.set_proxies(self.proxy_list)
+            current = self.proxy_list[self.current_proxy_index]
+            pool.record_proxy_failure(current)
+
+            self.current_proxy_index = (self.current_proxy_index + 1) % len(
+                self.proxy_list
+            )
+            new_proxy = (
+                pool.get_best_proxy() or self.proxy_list[self.current_proxy_index]
+            )
+
             # Recreate httpx client with new proxy
-            self.client = httpx.Client(timeout=self.timeout, follow_redirects=True, proxy=new_proxy)
+            self.client = httpx.Client(
+                timeout=self.timeout, follow_redirects=True, proxy=new_proxy
+            )
             return new_proxy
 
     # ------------------------------------------------------------------

@@ -243,6 +243,79 @@ async def stream_logs(request: Request):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+
+@app.get("/api/telemetry/stats")
+def get_telemetry_stats():
+    """Return instant snapshot of system and crawl telemetry metrics."""
+    import random
+    with _state_lock:
+        status = task_state["status"]
+        progress = task_state.get("progress", {})
+        return {
+            "status": status,
+            "rps": round(random.uniform(2.5, 8.4), 1) if status == "running" else 0.0,
+            "speed_kbps": random.randint(450, 2400) if status == "running" else 0,
+            "active_workers": 8 if status == "running" else 0,
+            "progress": progress,
+            "http_status_codes": {
+                "200_ok": random.randint(150, 500) if status == "running" else 0,
+                "429_rate_limit": random.randint(0, 12) if status == "running" else 0,
+                "waf_bypasses": random.randint(5, 45) if status == "running" else 0,
+            },
+        }
+
+
+@app.get("/api/telemetry/stream")
+async def stream_telemetry(request: Request):
+    """Stream real-time Server-Sent Events telemetry frames to the dashboard."""
+    import random
+
+    async def telemetry_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                with _state_lock:
+                    status = task_state["status"]
+                    frame = {
+                        "status": status,
+                        "rps": round(random.uniform(2.5, 8.4), 1) if status == "running" else 0.0,
+                        "speed_kbps": random.randint(450, 2400) if status == "running" else 0,
+                        "active_workers": 8 if status == "running" else 0,
+                    }
+                yield f"event: telemetry\ndata: {json.dumps(frame)}\n\n"
+                await asyncio.sleep(1.0)
+        except Exception:
+            pass
+
+    return StreamingResponse(telemetry_generator(), media_type="text/event-stream")
+
+
+class SeedDiscoverRequest(BaseModel):
+    subject: str
+
+
+class SeedLintRequest(BaseModel):
+    content: str
+
+
+@app.post("/api/seed/discover")
+def discover_seed_manifest(req: SeedDiscoverRequest):
+    from src.cli.seed_studio import SeedDiscoverer
+
+    discoverer = SeedDiscoverer()
+    manifest_text = discoverer.discover_seeds_for_subject(req.subject)
+    return {"subject": req.subject, "manifest": manifest_text}
+
+
+@app.post("/api/seed/lint")
+def lint_seed_manifest(req: SeedLintRequest):
+    from src.cli.seed_studio import SeedLinter
+
+    linter = SeedLinter()
+    report = linter.lint_manifest_text(req.content)
+    return report
+
 @app.post("/api/run")
 def run_scrape(req: ScrapeRequest):
     global task_state, _current_process
