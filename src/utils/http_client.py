@@ -467,6 +467,8 @@ class HttpClient:
         # Per-domain serialization locks for Crawl4AI fallback
         self._domain_fallback_locks: dict[str, threading.Lock] = {}
         self._fallback_lock = threading.Lock()
+        from utils.stealth_pipeline import StealthPipeline
+        self.stealth_pipeline = StealthPipeline()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         # Thread-local storage: tracks the pure *network* latency for the most
         # recent get() call on this thread (excludes rate-limiter sleep time).
@@ -1807,14 +1809,14 @@ class HttpClient:
         else:
             ordered_keys = default_order
 
-        strategies = [strategy_map[k] for k in ordered_keys]
+        strategies = [(k, strategy_map[k]) for k in ordered_keys]
 
         html_content = None
         browser_cookies = []
         start_time = time.monotonic()
         timeout_budget = 60.0  # 60 seconds total deadline for all fallbacks
 
-        for name, strategy_func in strategies:
+        for key, (name, strategy_func) in strategies:
             if time.monotonic() - start_time > timeout_budget:
                 logger.warning("WAF fallback sequence exceeded 60s total timeout budget for %s.", url)
                 break
@@ -1828,6 +1830,10 @@ class HttpClient:
             if name != "Crawl4AI" and "pytest" in sys.modules and not preferred_engine:
                 continue
 
+            if hasattr(self, "stealth_pipeline") and self.stealth_pipeline.circuit_breaker.is_cooling_down(key, host):
+                logger.debug("Skipping strategy '%s' for host '%s' due to active strategy circuit breaker", key, host)
+                continue
+
             logger.info("Escalating stealth routing to %s fallback for %s...", name, url)
             try:
                 res_val = strategy_func(url)
@@ -1837,6 +1843,8 @@ class HttpClient:
                     html_content, browser_cookies = res_val, []
 
                 if html_content and not self._is_blocked_page(html_content, url):
+                    if hasattr(self, "stealth_pipeline"):
+                        self.stealth_pipeline.circuit_breaker.record_success(key, host)
                     # Cache successful engine choice in host memory & increment telemetry counter
                     engine_key = next((k for k, (n, f) in strategy_map.items() if n == name), None)
                     if engine_key:
@@ -1848,10 +1856,9 @@ class HttpClient:
                             )
                     if browser_cookies:
                         try:
-                            self.session_manager.save_session(host, browser_cookies)
-                            logger.info("Persisted %d solved WAF cookies for domain %s", len(browser_cookies), host)
-                        except Exception as save_err:
-                            logger.warning("Failed saving WAF session cookies for %s: %s", host, save_err)
+                            self._session_pool.update_cookies(host, browser_cookies)
+                        except Exception as e:
+                            logger.warning("Failed to store browser fallback cookies for %s: %s", host, e)
                     return html_content, browser_cookies
                 else:
                     logger.warning("%s returned a blocked or redirected page for %s.", name, url)

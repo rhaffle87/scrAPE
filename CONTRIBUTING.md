@@ -66,27 +66,23 @@ Thank you for contributing to **scrAPE**! This guide outlines development setup,
 
 ## 3. Testing Requirements
 
-All bug fixes, scraper enhancements, and new feature additions must include unit or integration tests under `tests/`.
+All bug fixes, scraper enhancements, and new feature additions must include unit or integration test scripts under `scratch/` (the legacy `tests/` directory is removed and all active test scripts are maintained inside gitignored `scratch/`).
 
 ### Running Tests
 ```bash
-# Run complete test suite
-pytest
+# Run complete test suite in scratch
+pytest scratch/ -v
 
-# Run tests with verbose output
-pytest -v
-
-# Run specific test file
-pytest tests/test_filters.py
+# Run specific test script
+pytest scratch/test_enhanced_features.py -v
 ```
 
 ### Key Test Categories
-- `tests/test_filters.py` — Relevance scoring, low-res path patterns, and rejection rules.
-- `tests/test_downloader_stream.py` & `tests/test_resumable_downloads.py` — Multi-threaded downloader, Range request resumptions, and Pillow sanitization.
-- `tests/test_flaresolverr_docker_opt.py` — FlareSolverr 127.0.0.1 Docker container auto-start & session reuse.
-- `tests/test_speed_limiter.py` — Dual Token-Bucket rate and bandwidth limiting validation.
-- `tests/test_cli.py` & `tests/test_seed_validation.py` — Seed manifest parsing and annotation validation.
-- `tests/test_frontend_ux.py` — Playwright E2E WebUI tests, telemetry polling, and view routing.
+- `scratch/test_enhanced_features.py` — Dynamic layout container parsing, dimension filtering, JSON API discovery, and Crawl4AI fallback verification.
+- `scratch/test_stealth_cookie_sync.py` — In-memory WAF cookie propagation, SessionPool sync, and REST engine metrics verification.
+- `scratch/test_stealth_circuit_breaker.py` — 429 rate limit circuit breaker and stealth escalation logic.
+- `scratch/test_downloader_resumption.py` — Multi-threaded downloader stream range request resumptions.
+- `scratch/test_auth_version_main.py` — Interactive auth module and Chrome version mismatch handling.
 
 ---
 
@@ -109,7 +105,7 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 
 Before submitting your pull request:
 
-- [ ] All 131+ unit and integration tests pass cleanly (`pytest`).
+- [ ] All unit and integration tests pass cleanly (`pytest scratch/ -v`).
 - [ ] Code is formatted cleanly and adheres to Python 3.10+ conventions.
 - [ ] No hardcoded domain rules in Python source files (used `data/url_normalisation_rules.json`).
 - [ ] Updated relevant documentation files (`README.md`, `docs/`, `CHANGELOG.md`).

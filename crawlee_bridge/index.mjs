@@ -1,16 +1,17 @@
 import express from 'express';
 import { CheerioCrawler, PuppeteerCrawler, RequestQueue, ProxyConfiguration } from 'crawlee';
 import puppeteerExtra from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-puppeteerExtra.use(StealthPlugin());
 
 const app = express();
 app.use(express.json());
 
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', service: 'crawlee_bridge' });
+});
+
 app.post('/scrape', async (req, res) => {
     const { url, mode, proxy } = req.body;
-    
+
     if (!url) {
         return res.status(400).json({ error: 'URL is required' });
     }
@@ -18,13 +19,13 @@ app.post('/scrape', async (req, res) => {
     try {
         let resultData = null;
         let proxyConfiguration = undefined;
-        
+
         if (proxy) {
             proxyConfiguration = new ProxyConfiguration({ proxyUrls: [proxy] });
         }
 
         const uniqueId = Date.now().toString() + Math.random().toString().slice(2, 6);
-        
+
         if (mode === 'cheerio') {
             const rq = await RequestQueue.open(uniqueId);
             const crawler = new CheerioCrawler({
@@ -47,7 +48,7 @@ app.post('/scrape', async (req, res) => {
             });
             await crawler.run([url]);
             await rq.drop();
-        } 
+        }
         else if (mode === 'puppeteer') {
             const rq = await RequestQueue.open(uniqueId);
             const crawler = new PuppeteerCrawler({
@@ -65,8 +66,8 @@ app.post('/scrape', async (req, res) => {
                     try {
                         // wait 15 sec for cloudflare
                         await new Promise(r => setTimeout(r, 15000));
-                    } catch(e) {}
-                    
+                    } catch (e) { }
+
                     const html = await page.content();
                     const cookies = await page.cookies();
                     resultData = {
@@ -80,7 +81,7 @@ app.post('/scrape', async (req, res) => {
                             const html = await page.content();
                             const cookies = await page.cookies();
                             resultData = { html, cookies };
-                        } catch(e) {}
+                        } catch (e) { }
                     }
                 },
                 maxRequestRetries: 0,

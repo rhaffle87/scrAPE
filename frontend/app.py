@@ -1,20 +1,20 @@
 import sys
 import subprocess
 import threading
+import asyncio
 from collections import deque
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import re
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 import json
 import psutil
 import os
-from fastapi import Request, Form
 
 from utils.http_client import HttpClient
 
@@ -24,8 +24,37 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Global log buffer for streaming to the web UI (capped to 1,000 lines to prevent DOM bloat)
 log_buffer = deque(maxlen=1000)
+_state_lock = threading.Lock()
 
-app = FastAPI(title="scrAPE Web GUI", version="0.19.0")
+class LogBroadcaster:
+    """Manages active SSE client subscriber queues and broadcasts log/progress events."""
+
+    def __init__(self) -> None:
+        self._subscribers: set[asyncio.Queue] = set()
+        self._lock = threading.Lock()
+
+    def subscribe(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue()
+        with self._lock:
+            self._subscribers.add(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue) -> None:
+        with self._lock:
+            self._subscribers.discard(q)
+
+    def broadcast(self, event_type: str, data: dict | str) -> None:
+        payload = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+        with self._lock:
+            for q in list(self._subscribers):
+                try:
+                    q.put_nowait(payload)
+                except Exception:
+                    pass
+
+broadcaster = LogBroadcaster()
+
+app = FastAPI(title="scrAPE Web GUI", version="0.20.0")
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,31 +105,33 @@ _current_process: Optional[subprocess.Popen] = None
 @app.get("/api/status")
 def get_status():
     global task_state, _current_process
-    if task_state["status"] == "running" and _current_process:
-        if _current_process.poll() is None:
-            pass # still running
-        else:
-            task_state["status"] = "idle"
-            task_state["pid"] = None
-    return task_state
+    with _state_lock:
+        if task_state["status"] == "running" and _current_process:
+            if _current_process.poll() is None:
+                pass # still running
+            else:
+                task_state["status"] = "idle"
+                task_state["pid"] = None
+        return task_state
 
 def read_subprocess_logs(proc: subprocess.Popen):
     global log_buffer, task_state
     
     import re
     
-    task_state["active_metrics"] = {
-        "pages_scanned": 0,
-        "images_saved": 0,
-        "videos_saved": 0,
-        "errors": 0
-    }
-    task_state["progress"] = {
-        "percent": 0,
-        "current": 0,
-        "total": 0,
-        "time_info": ""
-    }
+    with _state_lock:
+        task_state["active_metrics"] = {
+            "pages_scanned": 0,
+            "images_saved": 0,
+            "videos_saved": 0,
+            "errors": 0
+        }
+        task_state["progress"] = {
+            "percent": 0,
+            "current": 0,
+            "total": 0,
+            "time_info": ""
+        }
     
     def process_progress(bar_text: str):
         pct_match = re.search(r"(\d+)%", bar_text)
@@ -111,26 +142,30 @@ def read_subprocess_logs(proc: subprocess.Popen):
         current, total = (int(frac_match.group(1)), int(frac_match.group(2))) if frac_match else (0, 0)
         time_info = time_match.group(1) if time_match else ""
         
-        task_state["progress"] = {
-            "percent": pct,
-            "current": current,
-            "total": total,
-            "time_info": time_info
-        }
+        with _state_lock:
+            task_state["progress"] = {
+                "percent": pct,
+                "current": current,
+                "total": total,
+                "time_info": time_info
+            }
+        broadcaster.broadcast("progress", task_state["progress"])
 
     def process_log_line(log_line: str):
         log_buffer.append(log_line)
         lower_line = log_line.lower()
-        if "http request: get" in lower_line or "fetching page" in lower_line or "routing " in lower_line:
-            if not any(ext in lower_line for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm", ".mkv"]):
-                task_state["active_metrics"]["pages_scanned"] += 1
-        elif "downloaded " in lower_line:
-            if "images" in lower_line or any(ext in lower_line for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
-                task_state["active_metrics"]["images_saved"] += 1
-            elif "videos" in lower_line or any(ext in lower_line for ext in [".mp4", ".webm", ".mkv", ".ogv"]):
-                task_state["active_metrics"]["videos_saved"] += 1
-        elif any(err in log_line.upper() for err in ["429", "ERROR", "FAILED", "EXCEPTION", "TIMEOUT"]):
-            task_state["active_metrics"]["errors"] += 1
+        with _state_lock:
+            if "http request: get" in lower_line or "fetching page" in lower_line or "routing " in lower_line:
+                if not any(ext in lower_line for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm", ".mkv"]):
+                    task_state["active_metrics"]["pages_scanned"] += 1
+            elif "downloaded " in lower_line:
+                if "images" in lower_line or any(ext in lower_line for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
+                    task_state["active_metrics"]["images_saved"] += 1
+                elif "videos" in lower_line or any(ext in lower_line for ext in [".mp4", ".webm", ".mkv", ".ogv"]):
+                    task_state["active_metrics"]["videos_saved"] += 1
+            elif any(err in log_line.upper() for err in ["429", "ERROR", "FAILED", "EXCEPTION", "TIMEOUT"]):
+                task_state["active_metrics"]["errors"] += 1
+        broadcaster.broadcast("log", {"line": log_line})
 
     if proc.stdout:
         for line in iter(proc.stdout.readline, ""):
@@ -160,8 +195,10 @@ def read_subprocess_logs(proc: subprocess.Popen):
         proc.stdout.close()
     if hasattr(proc, "wait"):
         proc.wait()
-    task_state["status"] = "idle"
-    task_state["pid"] = None
+    with _state_lock:
+        task_state["status"] = "idle"
+        task_state["pid"] = None
+    broadcaster.broadcast("status", {"status": "idle"})
 
 @app.get("/api/logs")
 def get_logs(offset: int = 0):
@@ -170,17 +207,41 @@ def get_logs(offset: int = 0):
     if offset > len(logs):
         offset = 0
     new_lines = logs[offset:]
-    return {
-        "lines": new_lines, 
-        "next_offset": offset + len(new_lines),
-        "status": task_state["status"],
-        "progress": task_state.get("progress", {
-            "percent": 0,
-            "current": 0,
-            "total": 0,
-            "time_info": ""
-        })
-    }
+    with _state_lock:
+        return {
+            "lines": new_lines, 
+            "next_offset": offset + len(new_lines),
+            "status": task_state["status"],
+            "progress": task_state.get("progress", {
+                "percent": 0,
+                "current": 0,
+                "total": 0,
+                "time_info": ""
+            })
+        }
+
+@app.get("/api/logs/stream")
+async def stream_logs(request: Request):
+    q = broadcaster.subscribe()
+
+    async def event_generator():
+        # Yield historical log lines first
+        for line in list(log_buffer):
+            yield f"event: log\ndata: {json.dumps({'line': line})}\n\n"
+
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    msg = await asyncio.wait_for(q.get(), timeout=1.0)
+                    yield msg
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+        finally:
+            broadcaster.unsubscribe(q)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/api/run")
 def run_scrape(req: ScrapeRequest):
@@ -723,33 +784,53 @@ def get_historical_stats(subject: str | None = None):
     pattern = f"{subject}/runs/*/" if subject else "*/runs/*/"
 
     if OUTPUT_DIR.exists():
-        for run_dir in OUTPUT_DIR.glob(pattern):
-            if not run_dir.is_dir():
-                continue
-            total_runs += 1
+        subj_dirs = [OUTPUT_DIR / subject] if subject else [d for d in OUTPUT_DIR.iterdir() if d.is_dir() and d.name not in ("cache", "test")]
+        for sdir in subj_dirs:
+            runs_dir = sdir / "runs"
+            if runs_dir.exists():
+                rdirs = [r for r in runs_dir.iterdir() if r.is_dir()]
+            else:
+                rdirs = [sdir]
 
-            # Count actual files on disk — results.json keys are unreliable
-            img_dir = run_dir / "images"
-            if img_dir.is_dir():
-                total_images += sum(
-                    1 for f in img_dir.rglob("*") if f.is_file() and f.suffix.lower() in IMAGE_EXTS
-                )
+            for run_dir in rdirs:
+                summary_file = run_dir / "run_summary.json"
+                results_file = run_dir / "results.json"
+                img_dir = run_dir / "images"
+                vid_dir = run_dir / "videos"
 
-            vid_dir = run_dir / "videos"
-            if vid_dir.is_dir():
-                total_videos += sum(
-                    1 for f in vid_dir.rglob("*") if f.is_file() and f.suffix.lower() in VIDEO_EXTS
-                )
+                has_summary = summary_file.is_file() or results_file.is_file()
+                has_images = img_dir.is_dir() and any(f.is_file() for f in img_dir.rglob("*"))
+                has_videos = vid_dir.is_dir() and any(f.is_file() for f in vid_dir.rglob("*"))
 
-            # Still read page_count from results.json for scanned pages total
-            results_file = run_dir / "results.json"
-            if results_file.is_file():
-                try:
-                    with open(results_file, "r", encoding="utf-8") as fh:
-                        data = json.load(fh)
-                        total_scanned += data.get("page_count", 0)
-                except Exception:
-                    pass
+                if not (has_summary or has_images or has_videos):
+                    continue
+
+                total_runs += 1
+
+                if img_dir.is_dir():
+                    total_images += sum(
+                        1 for f in img_dir.rglob("*") if f.is_file() and f.suffix.lower() in IMAGE_EXTS
+                    )
+
+                if vid_dir.is_dir():
+                    total_videos += sum(
+                        1 for f in vid_dir.rglob("*") if f.is_file() and f.suffix.lower() in VIDEO_EXTS
+                    )
+
+                if summary_file.is_file():
+                    try:
+                        with open(summary_file, "r", encoding="utf-8") as fh:
+                            sdata = json.load(fh)
+                            total_scanned += sdata.get("overall_stats", {}).get("total_pages_scanned", 0)
+                    except Exception:
+                        pass
+                elif results_file.is_file():
+                    try:
+                        with open(results_file, "r", encoding="utf-8") as fh:
+                            data = json.load(fh)
+                            total_scanned += data.get("page_count", 0)
+                    except Exception:
+                        pass
 
     return {
         "total_runs": total_runs,

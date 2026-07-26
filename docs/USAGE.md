@@ -108,12 +108,14 @@ The terminal wizard provides guided menus for scraping, continuous watchdog sche
 
 ---
 
-## 5. Local WebUI Command Center
+## 5. Master Launcher & Dashboard Startup
 
-Launch the WebUI server:
+```powershell
+# Unified Interactive Master Launcher (Menu: WebUI, Wizard, Auth Login, Autostart, Global Install)
+.\run.bat
 
-```bash
-.\run_frontend.bat
+# Continuous Watchdog Monitoring Agent
+.\run_monitor.bat --keyword "<subject>" --use-state-cache
 ```
 
 Open `http://localhost:10001` in your browser.

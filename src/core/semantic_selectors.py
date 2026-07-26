@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from bs4 import BeautifulSoup
+from typing import Any
+from bs4 import BeautifulSoup, Tag
 from core.models import ImageItem, VideoItem
 from core.filters import (
     absolutize_url,
@@ -41,6 +42,18 @@ SEMANTIC_TARGET_KEYWORDS = {
 }
 
 
+def _get_attr_str(tag: Any, attr: str, default: str = "") -> str:
+    if not isinstance(tag, Tag):
+        return default
+    val = tag.get(attr, default)
+    if isinstance(val, list):
+        first = val[0] if val else default
+        return first if isinstance(first, str) else str(first)
+    if val is None:
+        return default
+    return val if isinstance(val, str) else str(val)
+
+
 def extract_semantic_fallback_images(
     soup: BeautifulSoup,
     page_url: str,
@@ -59,23 +72,30 @@ def extract_semantic_fallback_images(
 
     # Search every element for custom image attributes or href links
     for el in soup.find_all(True):
+        if not isinstance(el, Tag):
+            continue
+
         # Calculate semantic score based on classes and IDs
         score = 0
-        el_classes = el.get("class", [])
-        if isinstance(el_classes, str):
-            el_classes = [el_classes]
-        el_id = el.get("id", "")
+        raw_classes = el.get("class")
+        if isinstance(raw_classes, list):
+            el_classes = raw_classes
+        elif isinstance(raw_classes, str):
+            el_classes = [raw_classes]
+        else:
+            el_classes = []
+        el_id = _get_attr_str(el, "id")
 
         # Check attributes and tag content
-        text_to_check = " ".join([str(c) for c in el_classes] + [str(el_id), el.name])
+        tag_name = el.name if isinstance(el.name, str) else ""
+        text_to_check = " ".join([str(c) for c in el_classes] + [el_id, tag_name])
         for kw in SEMANTIC_TARGET_KEYWORDS:
             if kw in text_to_check.lower():
                 score += 10
 
         # Scan all attributes for image URLs, ignoring textual/structural attributes.
-        # NOTE: 'title' MUST be excluded – some gallery sites use title="Page N: _N.jpg"
-        # on div thumbnails; that value would otherwise be mistaken for a .jpg URL.
-        for attr, val in el.attrs.items():
+        attrs_dict = dict(el.attrs) if hasattr(el, "attrs") and el.attrs is not None else {}
+        for attr, val in attrs_dict.items():
             if attr.lower() in {
                 "alt",
                 "title",
@@ -124,21 +144,21 @@ def extract_semantic_fallback_images(
                     parent_anchor = el.find_parent("a")
                     parent_anchor_href = ""
                     parent_anchor_text = ""
-                    if parent_anchor:
+                    if isinstance(parent_anchor, Tag):
                         parent_anchor_href = normalize_url(
                             absolutize_url(
-                                parent_anchor.get("href", "").strip(), page_url
+                                _get_attr_str(parent_anchor, "href").strip(), page_url
                             )
                         )
                         parent_anchor_text = clean_attr(
-                            parent_anchor.get_text() or parent_anchor.get("title", "")
+                            parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                         )
 
                     extracted.append(
                         ImageItem(
                             url=absolute_url,
                             source_page=page_url,
-                            alt_text=clean_attr(el.get("alt") or el.get("title") or ""),
+                            alt_text=clean_attr(_get_attr_str(el, "alt") or _get_attr_str(el, "title")),
                             page_title=page_title,
                             in_layout_container=False,
                             parent_anchor_text=parent_anchor_text,
@@ -164,21 +184,29 @@ def extract_semantic_fallback_videos(
 
     # Search every element for custom video attributes or urls
     for el in soup.find_all(True):
+        if not isinstance(el, Tag):
+            continue
+
         # Calculate semantic score based on classes and IDs
         score = 0
-        el_classes = el.get("class", [])
-        if isinstance(el_classes, str):
-            el_classes = [el_classes]
-        el_id = el.get("id", "")
+        raw_classes = el.get("class")
+        if isinstance(raw_classes, list):
+            el_classes = raw_classes
+        elif isinstance(raw_classes, str):
+            el_classes = [raw_classes]
+        else:
+            el_classes = []
+        el_id = _get_attr_str(el, "id")
 
-        text_to_check = " ".join([str(c) for c in el_classes] + [str(el_id), el.name])
+        tag_name = el.name if isinstance(el.name, str) else ""
+        text_to_check = " ".join([str(c) for c in el_classes] + [el_id, tag_name])
         for kw in SEMANTIC_TARGET_KEYWORDS:
             if kw in text_to_check.lower():
                 score += 10
 
         # Scan attributes, ignoring textual/structural attributes.
-        # NOTE: 'title' MUST be excluded – same reason as extract_semantic_fallback_images.
-        for attr, val in el.attrs.items():
+        attrs_dict = dict(el.attrs) if hasattr(el, "attrs") and el.attrs is not None else {}
+        for attr, val in attrs_dict.items():
             if attr.lower() in {
                 "alt",
                 "title",
@@ -220,14 +248,14 @@ def extract_semantic_fallback_videos(
                     parent_anchor = el if el.name == "a" else el.find_parent("a")
                     parent_anchor_href = ""
                     parent_anchor_text = ""
-                    if parent_anchor:
+                    if isinstance(parent_anchor, Tag):
                         parent_anchor_href = normalize_url(
                             absolutize_url(
-                                parent_anchor.get("href", "").strip(), page_url
+                                _get_attr_str(parent_anchor, "href").strip(), page_url
                             )
                         )
                         parent_anchor_text = clean_attr(
-                            parent_anchor.get_text() or parent_anchor.get("title", "")
+                            parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                         )
 
                     from scraper.video_scraper import detect_video_type

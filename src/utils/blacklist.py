@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 
-BLACKLIST_PATH = "data/blacklist.json"
+BLACKLIST_PATH: str = "data/blacklist.json"
 
 
 def load_blacklist():
@@ -33,3 +33,13 @@ def is_blacklisted(domain):
         if dom == b_dom or dom.endswith("." + b_dom):
             return True
     return False
+
+
+def remove_from_blacklist(domain: str) -> None:
+    blacklist = load_blacklist()
+    dom = domain.lower()
+    keys_to_remove = [k for k in blacklist if k.lower() == dom]
+    for k in keys_to_remove:
+        del blacklist[k]
+    if keys_to_remove:
+        save_blacklist(blacklist)

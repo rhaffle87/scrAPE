@@ -394,9 +394,22 @@ class MediaDownloader:
                             resp.close()
                     else:
                         dl_timeout = httpx.Timeout(30.0, read=60.0, connect=15.0)
-                        with self.http.client.stream("GET", safe_url, headers=req_headers, timeout=dl_timeout) as resp:
-                            resp.raise_for_status()
-                            yield resp
+                        try:
+                            with self.http.client.stream("GET", safe_url, headers=req_headers, timeout=dl_timeout) as resp:
+                                resp.raise_for_status()
+                                yield resp
+                        except (httpx.ConnectError, httpx.TransportError, Exception) as ssl_err:
+                            err_msg = str(ssl_err).lower()
+                            if "ssl" in err_msg or "certificate" in err_msg or "curl: (60)" in err_msg:
+                                LOGGER.warning(
+                                    "SSL certificate verification failed for %s. Retrying with unverified transport...", url
+                                )
+                                with httpx.Client(verify=False, timeout=dl_timeout, follow_redirects=True) as unverified_client:
+                                    with unverified_client.stream("GET", safe_url, headers=req_headers) as resp:
+                                        resp.raise_for_status()
+                                        yield resp
+                            else:
+                                raise ssl_err
 
                 with _host_semaphore_for(_url_host, max_concurrent=self.workers):
                     with _do_request() as response:

@@ -23,9 +23,6 @@ class FlatCookies(dict):
     def set(self, name: str, value: str, domain: str = "", path: str = "") -> None:
         self[name] = value
 
-    def get(self, name: str, default: str | None = None) -> str | None:
-        return super().get(name, default)
-
 
 class Session:
     """Represents a virtual scraping session with sticky browser properties."""
@@ -85,6 +82,17 @@ class Session:
             except OSError as exc:
                 logger.warning("Failed to delete session file: %s", exc)
 
+    def update_cookies(self, cookies: list[dict] | dict) -> None:
+        """Update session cookies and persist to disk."""
+        with self.lock:
+            if isinstance(cookies, list):
+                for c in cookies:
+                    if isinstance(c, dict) and "name" in c and "value" in c:
+                        self.cookies[c["name"]] = c["value"]
+            elif isinstance(cookies, dict):
+                self.cookies.update(cookies)
+        self.save_to_disk()
+
 
 class SessionPool:
     """Thread-safe pool of active scraping sessions grouped by domain."""
@@ -105,3 +113,8 @@ class SessionPool:
         """Force reset identity for a domain session due to blocks or rate limiting."""
         session = self.get_session(domain)
         session.reset_identity()
+
+    def update_cookies(self, domain: str, cookies: list[dict] | dict) -> None:
+        """Update session cookies for *domain*."""
+        session = self.get_session(domain)
+        session.update_cookies(cookies)

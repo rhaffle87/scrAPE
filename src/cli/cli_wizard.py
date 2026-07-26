@@ -106,6 +106,19 @@ def validate_number(val: str):
     return True, ""
 
 
+def load_subject_profiles(profile_path: str = "src/config/subject_profiles.json") -> dict:
+    """Load subject profile presets from JSON configuration file."""
+    import json
+    try:
+        path = Path(profile_path)
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
 def validate_seed_file(val: str):
     if not val.strip():
         return True, ""

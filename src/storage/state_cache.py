@@ -95,6 +95,55 @@ class StateCache:
         except Exception as e:
             LOGGER.warning(f"Error marking {url} as processed in state cache: {e}")
 
+    def mark_processed_batch(self, urls: list[str], chunk_size: int = 500) -> None:
+        """Mark a batch of URLs as processed using chunked executemany transactions."""
+        if not urls:
+            return
+
+        now = time.time()
+        items = [(self._hash_url(u), u, now) for u in urls]
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                for i in range(0, len(items), chunk_size):
+                    chunk = items[i : i + chunk_size]
+                    cursor.executemany(
+                        "INSERT OR REPLACE INTO processed_urls (url_hash, url, timestamp) VALUES (?, ?, ?)",
+                        chunk,
+                    )
+                conn.commit()
+        except Exception as e:
+            LOGGER.warning(f"Error marking batch of {len(urls)} URLs as processed in state cache: {e}")
+
+    def is_processed_batch(self, urls: list[str], chunk_size: int = 500) -> dict[str, bool]:
+        """Check a batch of URLs against the state cache, returning {url: is_processed}."""
+        if not urls:
+            return {}
+
+        results: dict[str, bool] = {u: False for u in urls}
+        hash_to_url = {self._hash_url(u): u for u in urls}
+        hashes = list(hash_to_url.keys())
+
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                for i in range(0, len(hashes), chunk_size):
+                    chunk = hashes[i : i + chunk_size]
+                    placeholders = ",".join("?" for _ in chunk)
+                    cursor.execute(
+                        f"SELECT url_hash FROM processed_urls WHERE url_hash IN ({placeholders})",
+                        chunk,
+                    )
+                    found = cursor.fetchall()
+                    for (h,) in found:
+                        if h in hash_to_url:
+                            results[hash_to_url[h]] = True
+        except Exception as e:
+            LOGGER.warning(f"Error performing batch state cache check: {e}")
+
+        return results
+
     def flush(self):
         """Manually clear all cached state."""
         try:

@@ -1,51 +1,22 @@
-import importlib
-import inspect
+from __future__ import annotations
+
 import logging
-import pkgutil
-from plugins.base import ExtractorPlugin, SpecializedResult
-import plugins
+from plugins.base import ExtractorPlugin, SpecializedResult, PluginRegistry
 
 LOGGER = logging.getLogger(__name__)
 
-# Keep for backwards compatibility if anyone imports it directly from here
 __all__ = ["SpecializedResult", "SpecializedExtractor"]
+
 
 class SpecializedExtractor:
     """Handles deep extraction for platforms that block or complicate traditional DOM scraping.
-    Now uses a dynamic plugin architecture.
+    Delegates all plugin management, priority ordering, and caching to PluginRegistry.
     """
-
-    _plugins = []
-    _loaded = False
-
-    @classmethod
-    def _load_plugins(cls):
-        if cls._loaded:
-            return
-        
-        cls._plugins = []
-        for _, name, is_pkg in pkgutil.iter_modules(plugins.__path__, plugins.__name__ + "."):
-            try:
-                module = importlib.import_module(name)
-                for item_name, item in inspect.getmembers(module, inspect.isclass):
-                    if issubclass(item, ExtractorPlugin) and item is not ExtractorPlugin:
-                        cls._plugins.append(item())
-            except Exception as e:
-                LOGGER.error("Failed to load plugin module %s: %s", name, e)
-        cls._loaded = True
 
     @classmethod
     def is_supported(cls, url: str) -> bool:
-        cls._load_plugins()
-        for plugin in cls._plugins:
-            if plugin.can_handle(url):
-                return True
-        return False
+        return PluginRegistry.get_instance().is_supported(url)
 
     @classmethod
     def extract(cls, url: str) -> SpecializedResult:
-        cls._load_plugins()
-        for plugin in cls._plugins:
-            if plugin.can_handle(url):
-                return plugin.extract(url)
-        return SpecializedResult([], [])
+        return PluginRegistry.get_instance().extract(url)

@@ -11,13 +11,14 @@ def get_dir_size(path: Path) -> int:
     """Calculate total size of a directory recursively."""
     return sum(f.stat().st_size for f in path.rglob('*') if f.is_file())
 
-def format_size(size: int) -> str:
+def format_size(size: float | int) -> str:
     """Format bytes into a human-readable string."""
+    val = float(size)
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if size < 1024.0:
-            return f"{size:.2f} {unit}"
-        size /= 1024.0
-    return f"{size:.2f} PB"
+        if val < 1024.0:
+            return f"{val:.2f} {unit}"
+        val /= 1024.0
+    return f"{val:.2f} PB"
 
 def main():
     parser = argparse.ArgumentParser(

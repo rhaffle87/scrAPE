@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+import os
 import re
 import threading
 import time
@@ -43,41 +44,64 @@ class DomainRulesManager:
     def __init__(self, config_path: str = "data/domain_config.json", profile_path: str = "src/config/subject_profiles.json"):
         self.config_path = config_path
         self.profile_path = profile_path
+        self._lock = threading.RLock()
+        self._config_mtime: float | None = None
+        self._profile_mtime: float | None = None
+        self._cached_config: dict = {}
+        self._cached_profiles: dict = {}
+
+    def _get_config(self) -> dict:
+        with self._lock:
+            try:
+                current_mtime = os.path.getmtime(self.config_path)
+                if self._config_mtime is None or current_mtime != self._config_mtime:
+                    with open(self.config_path, "r", encoding="utf-8") as f:
+                        self._cached_config = json.load(f)
+                    self._config_mtime = current_mtime
+            except Exception as e:
+                if self._config_mtime is None:
+                    LOGGER.warning(f"Failed to load domain config from {self.config_path}: {e}")
+                    self._cached_config = {}
+            return self._cached_config
+
+    def _get_profiles(self) -> dict:
+        with self._lock:
+            try:
+                current_mtime = os.path.getmtime(self.profile_path)
+                if self._profile_mtime is None or current_mtime != self._profile_mtime:
+                    with open(self.profile_path, "r", encoding="utf-8") as f:
+                        self._cached_profiles = json.load(f)
+                    self._profile_mtime = current_mtime
+            except Exception as e:
+                if self._profile_mtime is None:
+                    LOGGER.warning(f"Failed to load subject profiles from {self.profile_path}: {e}")
+                    self._cached_profiles = {}
+            return self._cached_profiles
 
     def should_deep_scrape(self, domain: str) -> bool:
-        try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            return domain in cfg.get("deep_scrape", [])
-        except Exception:
-            return False
+        cfg = self._get_config()
+        return domain in cfg.get("deep_scrape", [])
 
     def handle_domain_links(self, soup, domain: str) -> list[str]:
         """Extract links matching the configured link_pattern for a domain."""
+        cfg = self._get_config()
+        handler = cfg.get("domain_handlers", {}).get(domain, {})
+        pattern = handler.get("link_pattern", "/post/")
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            handler = cfg.get("domain_handlers", {}).get(domain, {})
-            pattern = handler.get("link_pattern", "/post/")
             return [a["href"] for a in soup.find_all("a", href=re.compile(pattern))]
         except Exception:
             return []
 
     def filter_domains_by_profile(self, domains: list[str], profile_name: str) -> list[str]:
         """Filter list of domains based on subject profile blocklists."""
-        try:
-            with open(self.profile_path, "r", encoding="utf-8") as f:
-                profiles = json.load(f)
-
-            if profile_name not in profiles:
-                return domains
-
-            profile = profiles[profile_name]
-            block = profile.get("block_image_only_domains", [])
-
-            return [d for d in domains if not any(b in d for b in block)]
-        except Exception:
+        profiles = self._get_profiles()
+        if profile_name not in profiles:
             return domains
+
+        profile = profiles.get(profile_name, {})
+        block = profile.get("block_image_only_domains", [])
+
+        return [d for d in domains if not any(b in d for b in block)]
 
     def scope_rejection_reason(self, url: str, options: EngineOptions) -> str | None:
         """Determines if a URL is out of scope based on strict domain or site tree constraints."""

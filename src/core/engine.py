@@ -107,6 +107,9 @@ class ScrapingEngine:
         self.downloader = MediaDownloader(http=self.search_provider.http, speed_limit_kbps=dl_speed_limit_kbps)
         self.state_cache = StateCache() if use_state_cache else None
 
+        from core.managers import DomainRulesManager
+        self.rules_manager = DomainRulesManager()
+
     def track_domain_yield(self, domain, kept_delta, pages_delta):
         stats = self.domain_yield.get(domain, [0, 0])
         stats[0] += kept_delta
@@ -122,41 +125,15 @@ class ScrapingEngine:
             self.domain_yield[domain] = [-1000, 0]
 
     def should_deep_scrape(self, domain: str) -> bool:
-        import json
-
-        with open("data/domain_config.json", "r") as f:
-            cfg = json.load(f)
-        return domain in cfg.get("deep_scrape", [])
+        return self.rules_manager.should_deep_scrape(domain)
 
     def handle_domain_links(self, soup, domain):
         """Extract links matching the configured link_pattern for a domain."""
-        import json
-
-        with open("data/domain_config.json", "r") as f:
-            cfg = json.load(f)
-        handler = cfg.get("domain_handlers", {}).get(domain, {})
-        pattern = handler.get("link_pattern", "/post/")
-        return [a["href"] for a in soup.find_all("a", href=re.compile(pattern))]
+        return self.rules_manager.handle_domain_links(soup, domain)
 
     def filter_domains_by_profile(self, domains, profile_name):
         """Filter list of domains based on subject profile."""
-        try:
-            import json
-
-            profile_path = "src/config/subject_profiles.json"
-            with open(profile_path, "r", encoding="utf-8") as f:
-                profiles = json.load(f)
-
-            if profile_name not in profiles:
-                return domains
-
-            profile = profiles[profile_name]
-            block = profile.get("block_image_only_domains", [])
-
-            filtered = [d for d in domains if not any(b in d for b in block)]
-            return filtered
-        except Exception:
-            return domains
+        return self.rules_manager.filter_domains_by_profile(domains, profile_name)
 
     def run(
         self,
@@ -206,9 +183,9 @@ class ScrapingEngine:
             
         start_time = time.time()
 
-        # Initialize domain rules manager
-        from core.managers import DomainRulesManager, MediaProcessor, CrawlOrchestrator
-        rules_manager = DomainRulesManager()
+        # Initialize domain rules manager & media processor
+        from core.managers import MediaProcessor, CrawlOrchestrator
+        rules_manager = self.rules_manager
 
         media_processor = MediaProcessor(
             downloader=self.downloader,

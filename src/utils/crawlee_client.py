@@ -83,24 +83,34 @@ class CrawleeClient:
         :param proxy: Optional proxy URL to use
         :return: JSON response from the bridge (contains 'html', 'cookies', 'title')
         """
-        if not self._is_server_running():
-            self._start_server()
+        for attempt in range(1, 4):
+            if not self._is_server_running():
+                logger.warning("Crawlee bridge server is not responding. Restarting (attempt %d/3)...", attempt)
+                self._stop_server()
+                self._start_server()
 
-        logger.info("Sending %s request to Crawlee for %s", mode, url)
-        try:
-            with httpx.Client(timeout=45.0) as client:
-                res = client.post(
-                    f"{self._base_url}/scrape",
-                    json={"url": url, "mode": mode, "proxy": proxy}
-                )
-                res.raise_for_status()
-                return res.json()
-        except httpx.HTTPStatusError as e:
-            logger.error("Crawlee bridge returned HTTP %d: %s", e.response.status_code, e.response.text)
-            raise e
-        except Exception as e:
-            logger.error("Crawlee bridge request failed: %s", repr(e))
-            raise e
+            logger.info("Sending %s request to Crawlee for %s", mode, url)
+            try:
+                with httpx.Client(timeout=45.0) as client:
+                    res = client.post(
+                        f"{self._base_url}/scrape",
+                        json={"url": url, "mode": mode, "proxy": proxy}
+                    )
+                    res.raise_for_status()
+                    return res.json()
+            except httpx.HTTPStatusError as e:
+                logger.error("Crawlee bridge returned HTTP %d: %s", e.response.status_code, e.response.text)
+                raise e
+            except httpx.RequestError as e:
+                logger.warning("Crawlee bridge request connection error (attempt %d/3): %s", attempt, repr(e))
+                if attempt == 3:
+                    raise e
+                self._stop_server()
+                time.sleep(1)
+            except Exception as e:
+                logger.error("Crawlee bridge request failed: %s", repr(e))
+                raise e
+        return {}
 
     def get_with_cheerio(self, url: str, proxy: str | None = None) -> str:
         """Returns the HTML string using Cheerio (fast)."""

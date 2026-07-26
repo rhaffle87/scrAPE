@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlencode, urlparse
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from core.filters import (
     absolutize_url,
@@ -33,6 +34,18 @@ HLS_PATTERN = re.compile(r"https?://[^\s\"'<>]+\.m3u8\/?(?:\?[^\s\"'<>]*)?", re.
 DASH_PATTERN = re.compile(r"https?://[^\s\"'<>]+\.mpd\/?(?:\?[^\s\"'<>]*)?", re.I)
 
 
+def _get_attr_str(tag: Any, attr: str, default: str = "") -> str:
+    if not isinstance(tag, Tag):
+        return default
+    val = tag.get(attr, default)
+    if isinstance(val, list):
+        first = val[0] if val else default
+        return first if isinstance(first, str) else str(first)
+    if val is None:
+        return default
+    return val if isinstance(val, str) else str(val)
+
+
 def extract_videos_from_html(
     soup: BeautifulSoup, page_url: str, page_title: str = ""
 ) -> list[VideoItem]:
@@ -40,9 +53,12 @@ def extract_videos_from_html(
     seen: set[str] = set()
 
     # Pre-pass: scan and block any media URLs inside layout containers
-    for el in soup.find_all(lambda tag: tag and _is_in_layout_container(tag)):
-        for child in [el] + el.find_all(True):
-            src = child.get("src") or child.get("href")
+    for el in soup.find_all(lambda tag: tag and isinstance(tag, Tag) and _is_in_layout_container(tag)):
+        if not isinstance(el, Tag):
+            continue
+        children = [el] + [c for c in el.find_all(True) if isinstance(c, Tag)]
+        for child in children:
+            src = _get_attr_str(child, "src") or _get_attr_str(child, "href")
             if src:
                 try:
                     seen.add(normalize_url(absolutize_url(src, page_url)))
@@ -56,21 +72,23 @@ def extract_videos_from_html(
             videos.append(item)
 
     for video in soup.find_all("video"):
+        if not isinstance(video, Tag):
+            continue
         in_layout = _is_in_layout_container(video)
         if in_layout:
             continue
         parent_anchor = video.find_parent("a")
         parent_anchor_text = ""
         parent_anchor_href = ""
-        if parent_anchor:
+        if isinstance(parent_anchor, Tag):
             parent_anchor_href = normalize_url(
-                absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                absolutize_url(_get_attr_str(parent_anchor, "href").strip(), page_url)
             )
             parent_anchor_text = clean_attr(
-                parent_anchor.get_text() or parent_anchor.get("title", "")
+                parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
             )
 
-        video_src = video.get("src")
+        video_src = _get_attr_str(video, "src")
         if video_src:
             absolute = normalize_url(absolutize_url(video_src, page_url))
             add_video(
@@ -86,7 +104,9 @@ def extract_videos_from_html(
             )
 
         for source in video.find_all("source"):
-            source_src = source.get("src")
+            if not isinstance(source, Tag):
+                continue
+            source_src = _get_attr_str(source, "src")
             if not source_src:
                 continue
             absolute = normalize_url(absolutize_url(source_src, page_url))
@@ -103,7 +123,9 @@ def extract_videos_from_html(
             )
 
     for iframe in soup.find_all(["iframe", "embed", "a"]):
-        src = iframe.get("src") or iframe.get("href")
+        if not isinstance(iframe, Tag):
+            continue
+        src = _get_attr_str(iframe, "src") or _get_attr_str(iframe, "href")
         if not src:
             continue
         absolute_url = normalize_url(absolutize_url(src, page_url))
@@ -115,12 +137,12 @@ def extract_videos_from_html(
             parent_anchor = iframe if iframe.name == "a" else iframe.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
-            if parent_anchor:
+            if isinstance(parent_anchor, Tag):
                 parent_anchor_href = normalize_url(
-                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                    absolutize_url(_get_attr_str(parent_anchor, "href").strip(), page_url)
                 )
                 parent_anchor_text = clean_attr(
-                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                    parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                 )
 
             add_video(
@@ -141,32 +163,6 @@ def extract_videos_from_html(
     for item in _extract_videos_from_scripts(soup, page_url, page_title):
         add_video(item)
 
-    html = str(soup)
-    for pattern, video_type in (
-        *((pattern, "youtube") for pattern in YOUTUBE_PATTERNS),
-        *((pattern, "vimeo") for pattern in VIMEO_PATTERNS),
-        (DIRECT_VIDEO_PATTERN, "direct"),
-        (HLS_PATTERN, "hls"),
-        (DASH_PATTERN, "dash"),
-    ):
-        for match in pattern.findall(html):
-            absolute = normalize_url(match)
-            add_video(
-                VideoItem(
-                    url=absolute,
-                    source_page=page_url,
-                    type=video_type,
-                    page_title=page_title,
-                )
-            )
-
-    if not videos:
-        from core.semantic_selectors import extract_semantic_fallback_videos
-
-        fallback_videos = extract_semantic_fallback_videos(soup, page_url, page_title)
-        for item in fallback_videos:
-            add_video(item)
-
     return videos
 
 
@@ -176,27 +172,24 @@ def _extract_video_objects_from_jsonld(
     page_title: str,
 ) -> list[VideoItem]:
     videos: list[VideoItem] = []
-    for script in soup.select("script[type='application/ld+json']"):
-        raw = script.string or script.get_text(" ", strip=True)
-        if not raw:
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        if not isinstance(script, Tag):
+            continue
+        content = script.string or script.get_text(strip=True)
+        if not content:
             continue
         try:
-            payload = json.loads(raw)
+            payload = json.loads(content)
         except Exception:
             continue
+
         for item in _walk_json(payload):
             if not isinstance(item, dict):
                 continue
             item_type = item.get("@type")
-            type_names = (
-                {item_type.lower()}
-                if isinstance(item_type, str)
-                else {value.lower() for value in item_type if isinstance(value, str)}
-                if isinstance(item_type, list)
-                else set()
-            )
-            if "videoobject" not in type_names and not any(
-                key in item for key in ("contentUrl", "embedUrl", "url")
+            if not (
+                item_type == "VideoObject"
+                or (isinstance(item_type, list) and "VideoObject" in item_type)
             ):
                 continue
             for key in ("contentUrl", "embedUrl", "url"):
@@ -224,16 +217,21 @@ def _extract_videos_from_scripts(
 ) -> list[VideoItem]:
     videos: list[VideoItem] = []
     patterns = [
+        (re.compile(r"https?://(?:www\.)?youtube\.com/watch\?v=[\w-]+"), "youtube"),
+        (re.compile(r"https?://youtu\.be/[\w-]+"), "youtube"),
+        (re.compile(r"https?://(?:www\.)?vimeo\.com/\d+"), "vimeo"),
         (DIRECT_VIDEO_PATTERN, "direct"),
         (HLS_PATTERN, "hls"),
         (DASH_PATTERN, "dash"),
     ]
-    for script in soup.find_all("script"):
-        script_text = script.string or script.get_text(" ", strip=True)
-        if not script_text:
+    for tag in soup.find_all(["script", "p", "div", "span", "article", "section"]):
+        if not isinstance(tag, Tag):
+            continue
+        text = tag.string or tag.get_text(" ", strip=True)
+        if not text:
             continue
         for pattern, video_type in patterns:
-            for match in pattern.findall(script_text):
+            for match in pattern.findall(text):
                 absolute = normalize_url(absolutize_url(match, page_url))
                 videos.append(
                     VideoItem(
@@ -322,7 +320,9 @@ class VideoScraper:
                 break
 
             for anchor in soup.select("a.result__a"):
-                href = self._extract_result_href(anchor.get("href", "").strip())
+                if not isinstance(anchor, Tag):
+                    continue
+                href = self._extract_result_href(_get_attr_str(anchor, "href").strip())
                 if not href:
                     continue
                 if not is_allowed_domain(href, allow_domains, block_domains):
@@ -356,13 +356,17 @@ class VideoScraper:
     def _extract_next_page_url(soup: BeautifulSoup) -> str | None:
         """Extract the next-page URL from the DuckDuckGo HTML results form."""
         for form in soup.find_all("form"):
-            action = form.get("action", "")
+            if not isinstance(form, Tag):
+                continue
+            action = _get_attr_str(form, "action")
             if "html" not in action.lower():
                 continue
             params: dict[str, str] = {}
             for inp in form.find_all("input"):
-                name = inp.get("name")
-                val = inp.get("value", "")
+                if not isinstance(inp, Tag):
+                    continue
+                name = _get_attr_str(inp, "name")
+                val = _get_attr_str(inp, "value")
                 if name:
                     params[name] = val
             if params and ("s" in params or "vqd" in params):
@@ -380,7 +384,7 @@ class VideoScraper:
 
 
 def _is_in_layout_container(element: object) -> bool:
-    if not hasattr(element, "parents"):
+    if not isinstance(element, Tag):
         return False
     excluded_keywords = {
         "sidebar",
@@ -405,20 +409,23 @@ def _is_in_layout_container(element: object) -> bool:
         "social",
     }
     for parent in element.parents:
+        if not isinstance(parent, Tag):
+            continue
         if parent.name in ("body", "html"):
             break
         if parent.name in ("footer", "header", "aside", "nav"):
             return True
-        parent_class = parent.get("class", [])
-        parent_id = parent.get("id", "")
+        parent_class = parent.get("class")
+        parent_id = _get_attr_str(parent, "id")
 
         tokens = set()
         if parent_id:
-            tokens.update(re.split(r"[-_\s]+", str(parent_id).lower()))
+            tokens.update(re.split(r"[-_\s]+", parent_id.lower()))
         if parent_class:
             classes = parent_class if isinstance(parent_class, list) else [parent_class]
             for c in classes:
-                tokens.update(re.split(r"[-_\s]+", str(c).lower()))
+                c_str = c if isinstance(c, str) else str(c)
+                tokens.update(re.split(r"[-_\s]+", c_str.lower()))
 
         if any(kw in tokens for kw in excluded_keywords):
             return True

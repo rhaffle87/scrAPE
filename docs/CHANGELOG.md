@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.20.0] — 2026-07-26
+
+### Added & Changed (0.20.0)
+
+- **Domain Blacklist System & Dynamic Unblacklisting** (`src/utils/blacklist.py`):
+  - Added `remove_from_blacklist(domain: str)` to cleanly remove domain entries from `data/blacklist.json` in-memory and on disk.
+  - Hardened unit tests (`scratch/test_performance_quality_features.py`) with isolated test domains (`test-cooldown-domain.org`) and guaranteed `try...finally` teardown cleanup to prevent test pollution of persistent blacklist records.
+- **Text-Embedded Video & Media Extraction** (`src/scraper/video_scraper.py`):
+  - Expanded `_extract_videos_from_scripts()` to scan raw text content across structural HTML tags (`<p>`, `<div>`, `<span>`, `<article>`, `<section>`).
+  - Added regex pattern matchers for direct YouTube (`youtube.com/watch?v=`, `youtu.be/`), Vimeo (`vimeo.com/`), HLS (`.m3u8`), DASH (`.mpd`), and MP4/WebM video links embedded inside plain text nodes.
+- **Strict BeautifulSoup `Tag` & Type Safety Guards** (`src/core/semantic_selectors.py`, `src/scraper/video_scraper.py`, `src/scraper/google_images.py`, `src/cli/cleanup.py`):
+  - Added `_get_attr_str()` helper and explicit `isinstance(el, Tag)` type guards across `extract_semantic_fallback_images()`, `extract_semantic_fallback_videos()`, `extract_videos_from_html()`, and layout container detectors to satisfy static type checking and eliminate runtime attribute errors on text/string nodes.
+  - Refined `format_size(size: float | int)` signature in `src/cli/cleanup.py` to fix in-place float division assignment type mismatches.
+- **SSE Real-Time WebUI Log Streaming** (`frontend/app.py`, `src/utils/logger.py`):
+  - Integrated `LogBroadcaster` Pub-Sub SSE endpoint (`/api/logs/stream`) for streaming server logs directly to HTMX frontend consoles over async generators, while retaining full backward compatibility for `/api/logs?offset=N` legacy polling.
+- **Domain Rules & Search Provider Resilience** (`src/core/managers.py`, `src/scraper/google_images.py`):
+  - Consolidated thread-safe `DomainRulesManager` with automatic `mtime` disk reload for `data/domain_config.json` and `data/url_normalisation_rules.json`.
+  - Upgraded DuckDuckGo and Bing search provider redirect decoders (`/l/?uddg=`, `/bing/url?link=`) with automatic fallback failover.
+- **Complete Test Suite Verification** (`scratch/`):
+  - Expanded and verified all 7 dedicated scratch test suites (`test_search_provider_fallbacks.py`, `test_cli_wizard_and_launchers.py`, `test_plugin_registry.py`, `test_state_cache_and_watchdog.py`, `test_webui_sse_streaming.py`, `test_stealth_pipeline_refactoring.py`, `test_domain_rules_manager.py`, `test_performance_quality_features.py`), achieving 100% clean test execution across 173 tests.
+
 ## [0.19.0] — 2026-07-23
 
 ### Added & Changed (0.19.0)
@@ -17,7 +38,7 @@
 - **Downloader Per-Host Concurrency Semaphore** (`src/storage/file_downloader.py`):
   - Wrapped active HTTP download streams inside `_host_semaphore_for` to enforce per-domain concurrency limits during file transfers.
 - **Test Suite Expansion**:
-  - Added `tests/test_flaresolverr_docker_opt.py` and `tests/test_speed_limiter.py`, bringing the test suite to **131 unit and integration tests passing 100% cleanly**.
+  - Added `scratch/test_flaresolverr_docker_opt.py` and `scratch/test_speed_limiter.py`, bringing the test suite to **131 unit and integration tests passing 100% cleanly**.
 
 ## [0.18.0] — 2026-07-23
 
@@ -38,7 +59,7 @@
 - **Resumable Crawl & Download Checkpointing** (`src/storage/checkpoint_db.py`, `src/storage/file_downloader.py`): Thread-safe SQLite database (`output/.crawl_state.sqlite`) storing `visited_urls`, `frontier_queue`, and `download_checkpoints`. HTTP `Range: bytes={existing_size}-` byte download resumption on HTTP 206 Partial Content.
 - **AI Dataset Curation & Perceptual Hashing** (`src/utils/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
 - **WebUI WAF Telemetry & Badges** (`frontend/app.py`): Added `_waf_solve_counts` telemetry counters to `HttpClient`. Rendered live WAF engine badges (`CAMOUFOX`, `FLARESOLVERR`, `CRAWL4AI`) inside the WebUI Command Center telemetry bar (`/htmx/stats`).
-- **Comprehensive Test Suite Expansion**: Added `tests/test_system_optimizations.py`, `tests/test_camoufox_flaresolverr.py`, `tests/test_flaresolverr_advanced.py`, `tests/test_stream_ytdlp_escalation.py`, `tests/test_multi_platform_extractors.py`, `tests/test_checkpoint_and_range_resume.py`, and `tests/test_phash_and_dataset_exporter.py` (totaling **124 test cases** passing cleanly).
+- **Comprehensive Test Suite Expansion**: Added `scratch/test_system_optimizations.py`, `scratch/test_camoufox_flaresolverr.py`, `scratch/test_flaresolverr_advanced.py`, `scratch/test_stream_ytdlp_escalation.py`, `scratch/test_multi_platform_extractors.py`, `scratch/test_checkpoint_and_range_resume.py`, and `scratch/test_phash_and_dataset_exporter.py` (totaling **124 test cases** passing cleanly).
 
 ## [0.17.1] — 2026-07-22
 
@@ -58,7 +79,7 @@
 - **Dynamic Help Tooltips**: Placed inline `[?]` help indicators with CSS-only hovered popup labels over all legend boxes, subsection titles, and config inputs.
 - **Sidebar & Media Gallery Routing Fixes**: Standardized sidebar items to trigger JS `selectSubject()` routes and set `hx-trigger="load"` on the gallery grid dynamically. Fixes loading bugs so that clicked subjects display their images/videos immediately. Patched glob paths to load domain-grouped folder structures recursively (`*/images/**/*.*`).
 - **Live Terminal & Telemetry Formatting**: Enabled vertical resizability on the log console. Cleans output lines by splitting on carriage returns (`\r`) to isolate tqdm download progress logs. Colors vertical borders of log lines based on severity log levels (`log-info`, `log-warning`, `log-error`, `log-debug`).
-- **Playwright Automated Testing Suite** (`tests/test_frontend_ux.py`): Built a comprehensive E2E, modular, and flow testing suite to verify styling configurations, tooltips content, active metrics polling, and run-form thread initiations.
+- **Playwright Automated Testing Suite** (`scratch/test_frontend_ux.py`): Built a comprehensive E2E, modular, and flow testing suite to verify styling configurations, tooltips content, active metrics polling, and run-form thread initiations.
 - **Standard Python Packaging (`pyproject.toml`)**: Added standard build configuration to compile the workspace and register the global `scrape` console script entry point.
 - **One-Click Windows Installer (`install.bat`)**: Added a global installer script that compiles the package in editable mode (`pip install -e .`) and registers `scrape` on the user's terminal path.
 - **Self-Bootstrapping CLI Launcher (`src/cli/launcher.py`)**: Added checks at launcher startup to automatically execute `npm install` for `crawlee_bridge` and `playwright install chromium` if system dependencies are not detected. Swapped broken webui imports with the new FastAPI instance (`frontend.app:app`) and added a 9Router-style status message for background tray operations.
@@ -72,7 +93,7 @@
 - **Post-Download Integrity Verification**: Moved SHA-256 hash calculation from streaming chunk iteration in memory to post-download disk-based reading. This guarantees correct file integrity validation across multiple resume iterations.
 - **WAF & Auth Wall Cutoff Circuit Breakers** (`src/core/managers.py`, `src/utils/http_client.py`): Prevents thread hangs and wasted resources on protected domains by halting crawling on a domain after 3 consecutive worker errors or upon redirection to authentication routes (`/login`, `/signin`, `/signup`, `/auth`).
 - **Low-Resolution Path Pre-Filtering** (`src/core/filters.py`): Optimized link extraction by running `has_low_res_path_pattern` pre-filtering (checking for `/320x180/` screenshots and similar patterns) directly inside `is_thumbnail_url()`, avoiding scheduling and downloading low-resolution frame screenshots.
-- **Testing Suite Expansion** (`tests/test_resumable_downloads.py`): Created dedicated unit tests verifying append (206), overwrite (200), and invalid range retry (416) behaviors. Expanded test suite coverage to 100 tests.
+- **Testing Suite Expansion** (`scratch/test_resumable_downloads.py`): Created dedicated unit tests verifying append (206), overwrite (200), and invalid range retry (416) behaviors. Expanded test suite coverage to 100 tests.
 
 ## [0.15.0] — 2026-07-19
 
@@ -113,7 +134,7 @@
 
 - **Architectural Reorganization** (`src/cli/`, `src/config/`): Moved primary entry points (`main.py`, `cli_wizard.py`, `monitor_agent.py`) and configuration constants into dedicated packages within `src/` to formalize the project layout as a proper Python package.
 - **Dynamic Path Resolution**: Refactored module imports and `sys.path` injections across CLI scripts to use robust absolute paths derived from `__file__`, resolving module loading errors during subprocess execution.
-- **Test Suite Hardening**: Fixed infinite test hangs in `tests/test_advanced_features.py` by scoping `time.monotonic` mocks to avoid blocking `concurrent.futures.wait`. Also patched unmocked live network requests that caused rate-limiting and hanging during testing.
+- **Test Suite Hardening**: Fixed infinite test hangs in `scratch/test_advanced_features.py` by scoping `time.monotonic` mocks to avoid blocking `concurrent.futures.wait`. Also patched unmocked live network requests that caused rate-limiting and hanging during testing.
 - **Import Hygiene & Code Cleanup**: Resolved `E402` and `F841` linting errors across the codebase via `ruff`, removed duplicate methods in `ScrapingEngine`, and achieved a 100% pass rate for the 91-item test suite.
 - **Shell Wrapper Updates**: Updated `run.bat`, `run.sh`, `run_monitor.bat`, and `run_monitor.sh` to target the new entry points in `src/cli/`.
 

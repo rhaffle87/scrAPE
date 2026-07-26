@@ -24,6 +24,19 @@ from utils.robots import RobotsChecker
 LOGGER = get_logger(__name__)
 
 
+def _get_attr_str(tag: Any, attr: str, default: str = "") -> str:
+    if not isinstance(tag, Tag):
+        return default
+    val = tag.get(attr, default)
+    if isinstance(val, list):
+        first = val[0] if val else default
+        return first if isinstance(first, str) else str(first)
+    if val is None:
+        return default
+    return val if isinstance(val, str) else str(val)
+
+
+
 class SearchProviderScraper(BaseSearchScraper):
     # DuckDuckGo host variants that must bypass raw httpx and use browser stealth.
     _DDG_HOSTS = ("duckduckgo.com", "html.duckduckgo.com")
@@ -71,10 +84,14 @@ class SearchProviderScraper(BaseSearchScraper):
                 LOGGER.warning("Search page fetch failed (%s): %s", search_url, exc)
                 break
 
-            anchors = soup.select("a.result__a") or soup.select("a[href]")
+            anchors = soup.select("a.result__a")
+            if not anchors:
+                anchors = soup.select("a[href]")
             page_count = 0
             for anchor in anchors:
-                href = self._extract_result_href(anchor.get("href", "").strip())
+                if not isinstance(anchor, Tag):
+                    continue
+                href = self._extract_result_href(_get_attr_str(anchor, "href").strip())
                 if not href or not is_http_url(href):
                     continue
                 if not is_allowed_domain(href, allow_domains, block_domains):
@@ -94,7 +111,11 @@ class SearchProviderScraper(BaseSearchScraper):
             # Follow the next-page form (hidden inputs carry vqd/s/dc tokens).
             search_url = self._extract_next_page_url(soup)
 
-        LOGGER.info("Search provider returned %s candidate pages total", len(links))
+        LOGGER.info("Search provider (DDG) returned %s candidate pages total", len(links))
+        if not links:
+            LOGGER.info("DuckDuckGo yielded 0 results or failed; falling back to Bing search...")
+            links = self._search_bing(keyword, max_results, allow_domains, block_domains)
+            LOGGER.info("Search provider (Bing) returned %s candidate pages total", len(links))
         return links
 
     def scrape_page(
@@ -188,10 +209,12 @@ class SearchProviderScraper(BaseSearchScraper):
         seen: set[str] = set()
         current_host = urlparse(page_url).netloc.lower()
         for element in soup.find_all(["a", "iframe", "embed", "link"]):
-            href = element.get("href") or element.get("src") or element.get("data-href")
+            if not isinstance(element, Tag):
+                continue
+            href = _get_attr_str(element, "href") or _get_attr_str(element, "src") or _get_attr_str(element, "data-href")
             if not href:
                 continue
-            absolute_url = normalize_url(absolutize_url(str(href).strip(), page_url))
+            absolute_url = normalize_url(absolutize_url(href.strip(), page_url))
             if not is_http_url(absolute_url):
                 continue
             if not is_allowed_path(absolute_url):
@@ -328,7 +351,9 @@ class SearchProviderScraper(BaseSearchScraper):
         block_domains = block_domains or []
 
         for meta in soup.select("meta[property='og:image'], meta[name='og:image']"):
-            content = meta.get("content", "").strip()
+            if not isinstance(meta, Tag):
+                continue
+            content = _get_attr_str(meta, "content").strip()
             if not content:
                 continue
             absolute_url = normalize_url(absolutize_url(content, page_url))
@@ -380,17 +405,19 @@ class SearchProviderScraper(BaseSearchScraper):
                 pass
 
         for image in soup.find_all("img"):
+            if not isinstance(image, Tag):
+                continue
             in_layout = self._is_in_layout_container(image)
             if in_layout:
                 continue
 
-            srcset_source = self._parse_srcset_highest_res(image.get("srcset", ""))
+            srcset_source = self._parse_srcset_highest_res(_get_attr_str(image, "srcset"))
             source = (
                 srcset_source
-                or image.get("data-src")
-                or image.get("data-original")
-                or image.get("data-lazy-src")
-                or image.get("src")
+                or _get_attr_str(image, "data-src")
+                or _get_attr_str(image, "data-original")
+                or _get_attr_str(image, "data-lazy-src")
+                or _get_attr_str(image, "src")
             )
             if not source:
                 continue
@@ -414,11 +441,11 @@ class SearchProviderScraper(BaseSearchScraper):
             width = None
             height = None
             try:
-                w_attr = image.get("width")
-                if w_attr and str(w_attr).isdigit():
+                w_attr = _get_attr_str(image, "width")
+                if w_attr and w_attr.isdigit():
                     width = int(w_attr)
-                h_attr = image.get("height")
-                if h_attr and str(h_attr).isdigit():
+                h_attr = _get_attr_str(image, "height")
+                if h_attr and h_attr.isdigit():
                     height = int(h_attr)
             except Exception:
                 pass
@@ -426,19 +453,19 @@ class SearchProviderScraper(BaseSearchScraper):
             parent_anchor = image.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
-            if parent_anchor:
+            if isinstance(parent_anchor, Tag):
                 parent_anchor_href = normalize_url(
-                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                    absolutize_url(_get_attr_str(parent_anchor, "href").strip(), page_url)
                 )
                 parent_anchor_text = clean_attr(
-                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                    parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                 )
 
             images.append(
                 ImageItem(
                     url=absolute_url,
                     source_page=page_url,
-                    alt_text=clean_attr(image.get("alt")),
+                    alt_text=clean_attr(_get_attr_str(image, "alt")),
                     page_title=page_title,
                     width=width,
                     height=height,
@@ -449,11 +476,13 @@ class SearchProviderScraper(BaseSearchScraper):
             )
 
         for element in soup.find_all(style=True):
+            if not isinstance(element, Tag):
+                continue
             in_layout = self._is_in_layout_container(element)
             if in_layout:
                 continue
 
-            background_image = extract_background_image(element.get("style"))
+            background_image = extract_background_image(_get_attr_str(element, "style"))
             if not background_image:
                 continue
             absolute_url = normalize_url(absolutize_url(background_image, page_url))
@@ -467,12 +496,12 @@ class SearchProviderScraper(BaseSearchScraper):
             parent_anchor = element.find_parent("a")
             parent_anchor_text = ""
             parent_anchor_href = ""
-            if parent_anchor:
+            if isinstance(parent_anchor, Tag):
                 parent_anchor_href = normalize_url(
-                    absolutize_url(parent_anchor.get("href", "").strip(), page_url)
+                    absolutize_url(_get_attr_str(parent_anchor, "href").strip(), page_url)
                 )
                 parent_anchor_text = clean_attr(
-                    parent_anchor.get_text() or parent_anchor.get("title", "")
+                    parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                 )
 
             images.append(
@@ -490,10 +519,12 @@ class SearchProviderScraper(BaseSearchScraper):
         from core.filters import is_probable_image
 
         for anchor in soup.find_all("a"):
-            href = anchor.get("href")
+            if not isinstance(anchor, Tag):
+                continue
+            href = _get_attr_str(anchor, "href")
             if not href:
                 continue
-            absolute_url = normalize_url(absolutize_url(str(href).strip(), page_url))
+            absolute_url = normalize_url(absolutize_url(href.strip(), page_url))
             if not is_http_url(absolute_url):
                 continue
             if is_probable_image(absolute_url):
@@ -504,7 +535,7 @@ class SearchProviderScraper(BaseSearchScraper):
                     absolute_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]
                 ):
                     continue
-                anchor_text = clean_attr(anchor.get_text() or anchor.get("title", ""))
+                anchor_text = clean_attr(anchor.get_text() or _get_attr_str(anchor, "title"))
                 images.append(
                     ImageItem(
                         url=absolute_url,
@@ -518,21 +549,16 @@ class SearchProviderScraper(BaseSearchScraper):
         return images
 
     @staticmethod
-    def _is_in_layout_container(element: Tag | None) -> bool:
+    def _is_in_layout_container(element: Any) -> bool:
         excluded_keywords = {
-            "sidebar",
             "footer",
-            "widget",
-            "related",
-            "popular",
-            "recommend",
             "header",
-            "menu",
             "nav",
-            "carousel",
+            "sidebar",
+            "widget",
+            "menu",
+            "banner",
             "ad",
-            "ads",
-            "advert",
             "advertisement",
             "breadcrumb",
             "pagination",
@@ -541,25 +567,28 @@ class SearchProviderScraper(BaseSearchScraper):
             "sharing",
             "social",
         }
-        if element is None:
+        if not isinstance(element, Tag):
             return False
         for parent in element.parents:
+            if not isinstance(parent, Tag):
+                continue
             if parent.name in ("body", "html"):
                 break
             if parent.name in ("footer", "header", "aside", "nav"):
                 return True
-            parent_class = parent.get("class", [])
-            parent_id = parent.get("id", "")
+            parent_class = parent.get("class")
+            parent_id = _get_attr_str(parent, "id")
 
             tokens = set()
             if parent_id:
-                tokens.update(re.split(r"[-_\s]+", str(parent_id).lower()))
+                tokens.update(re.split(r"[-_\s]+", parent_id.lower()))
             if parent_class:
                 classes = (
                     parent_class if isinstance(parent_class, list) else [parent_class]
                 )
                 for c in classes:
-                    tokens.update(re.split(r"[-_\s]+", str(c).lower()))
+                    c_str = c if isinstance(c, str) else str(c)
+                    tokens.update(re.split(r"[-_\s]+", c_str.lower()))
 
             if any(kw in tokens for kw in excluded_keywords):
                 return True
@@ -669,7 +698,9 @@ class SearchProviderScraper(BaseSearchScraper):
         for meta in soup.select(
             "meta[property='og:title'], meta[name='title'], meta[name='twitter:title']"
         ):
-            content = meta.get("content", "").strip()
+            if not isinstance(meta, Tag):
+                continue
+            content = _get_attr_str(meta, "content").strip()
             if content:
                 return content
         return ""
@@ -684,13 +715,17 @@ class SearchProviderScraper(BaseSearchScraper):
         sessions or POST requests, and picks up any new token fields automatically.
         """
         for form in soup.find_all("form"):
-            action = form.get("action", "")
+            if not isinstance(form, Tag):
+                continue
+            action = _get_attr_str(form, "action")
             if "html" not in action.lower():
                 continue
             params: dict[str, str] = {}
             for inp in form.find_all("input"):
-                name = inp.get("name")
-                val = inp.get("value", "")
+                if not isinstance(inp, Tag):
+                    continue
+                name = _get_attr_str(inp, "name")
+                val = _get_attr_str(inp, "value")
                 if name:
                     params[name] = val
             # Only follow if real pagination params are present.
@@ -706,6 +741,59 @@ class SearchProviderScraper(BaseSearchScraper):
         if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
             return parse_qs(parsed.query).get("uddg", [""])[0]
         return href
+
+    @staticmethod
+    def _extract_bing_result_href(href: str) -> str:
+        if not href:
+            return ""
+        from urllib.parse import unquote
+        parsed = urlparse(href)
+        if "bing.com" in parsed.netloc:
+            query_params = parse_qs(parsed.query)
+            if "url" in query_params:
+                return unquote(query_params["url"][0])
+            if "u" in query_params:
+                u_val = query_params["u"][0]
+                if u_val.startswith("a1"):
+                    u_val = u_val[2:]
+                return unquote(u_val)
+        return href
+
+    def _search_bing(
+        self,
+        keyword: str,
+        max_results: int,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[str]:
+        allow_domains = allow_domains or []
+        block_domains = block_domains or []
+        bing_url = f"https://www.bing.com/search?q={quote_plus(keyword)}"
+        LOGGER.info("Attempting Bing fallback search: %s", bing_url)
+        links: list[str] = []
+        try:
+            response = self.http.get(bing_url)
+            soup = parse_html(response.text)
+            anchors = soup.select("li.b_algo h2 a[href]")
+            if not anchors:
+                anchors = soup.select("a[href]")
+            for anchor in anchors:
+                if not isinstance(anchor, Tag):
+                    continue
+                href = self._extract_bing_result_href(_get_attr_str(anchor, "href").strip())
+                if not href or not is_http_url(href):
+                    continue
+                if not is_allowed_domain(href, allow_domains, block_domains):
+                    continue
+                if not is_allowed_path(href):
+                    continue
+                if href not in links:
+                    links.append(href)
+                if max_results > 0 and len(links) >= max_results:
+                    break
+        except Exception as exc:
+            LOGGER.warning("Bing fallback search failed (%s): %s", bing_url, exc)
+        return links
 
     @staticmethod
     def _link_priority(url: str) -> tuple[int, int, str]:

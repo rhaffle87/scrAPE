@@ -46,6 +46,18 @@ def run_scraper(
         timeout = int(os.environ.get("SCRAPE_TIMEOUT", 1800))
 
         while True:
+            if shutdown_event.is_set():
+                print(
+                    f"[{datetime.now().isoformat()}] Shutdown requested during active scrape. Terminating process gracefully..."
+                )
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                process.wait()
+                break
+
             if time.time() - start_time > timeout:
                 print(
                     f"[{datetime.now().isoformat()}] ERROR: scrAPE timed out after {timeout} seconds. Terminating process..."
@@ -58,6 +70,8 @@ def run_scraper(
                 process.wait()
                 break
 
+            if process.stdout is None:
+                break
             line = process.stdout.readline()
             if not line:
                 break

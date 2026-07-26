@@ -29,7 +29,8 @@ seeds/                              — Per-subject seed manifest files (.txt)
 output/<subject>/runs/<run_id>/     — Run output (results.json, domain_report.json, CSVs)
 frontend/app.py                     — Interactive FastAPI/HTMX dashboard server
 frontend/templates/index.html       — Brutalist WebUI dashboard template
-run_frontend.bat                    — Startup script for the interactive dashboard
+run.bat / run.sh                     — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
+run_monitor.bat / run_monitor.sh     — Continuous Watchdog Agent launcher
 output/cache/state_cache.db         — SQLite database persisting processed URLs across watchdog runs
 logs/run_<run_id>.log               — Full structured log per run
 scratch/                            — Test scripts, scratch validation scripts, and diagnostic tools
@@ -92,15 +93,16 @@ python src/cli/main.py --keyword "<subject>" --max-results 50 --page-limit 100
 
 # Continuous Watchdog Agent (long-running with state cache)
 python src/cli/monitor_agent.py --keyword "<subject>" --seed seeds/<subject>.txt --use-state-cache
+# Or via Watchdog launcher wrapper:
+.\run_monitor.bat --keyword "<subject>" --use-state-cache
 
 # Clear stale cache before run
 python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt --clear-cache
 
-# Start Interactive WebUI Dashboard (Command Center + Vault Gallery + Seed Studio)
-./run_frontend.bat
+# Unified Master Launcher (Interactive Menu: WebUI Dashboard, Wizard, Login, Autostart, Install)
+.\run.bat
 
-# Global CLI Installation & Execution
-.\install.bat
+# Global CLI Execution
 scrape
 ```
 

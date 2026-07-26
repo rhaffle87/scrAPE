@@ -38,8 +38,8 @@ flowchart TD
 ```text
 scrape-dashboard/
 ├── pyproject.toml               — Standard packaging setup & `scrape` entry point
-├── install.bat                  — One-click Windows installer script
-├── run_frontend.bat             — WebUI launcher batch wrapper
+├── run.bat / run.sh             — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
+├── run_monitor.bat / .sh        — Continuous Watchdog Agent launcher
 ├── requirements.txt             — Python dependencies
 ├── README.md                    — Primary documentation portal
 │

@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.19.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.20.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
@@ -27,16 +27,23 @@ If you want a local, fast, stealth-resilient web scraper that feels responsive, 
 
 ---
 
-## Quick Start
+### 1. Unified Master Launcher (Recommended)
 
-### 1. Global CLI Installation (Recommended)
+Launch the interactive master menu (or pass flags directly):
 
-Install scrAPE globally so you can launch the dashboard or runs from any terminal:
+- **Windows**: Run `.\run.bat` from the repository root.
+- **macOS / Linux**: Run `./run.sh` from the repository root.
 
-- **Windows**: Run `.\install.bat` from the repository root.
-- **macOS / Linux**: Run `pip install -e .` from the repository root.
+```powershell
+# Interactive Master Launcher (Menu: WebUI, Wizard, Auth Login, Autostart, Install)
+.\run.bat
 
-Once installed, launch from any terminal:
+# Direct CLI Scrape Execution
+.\run.bat --keyword "<subject>" --seed-file seeds/<subject>.txt --download-media
+
+# Continuous Watchdog Monitoring Agent
+.\run_monitor.bat --keyword "<subject>" --use-state-cache
+```
 
 ```bash
 scrape
