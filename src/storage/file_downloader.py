@@ -96,6 +96,8 @@ class MediaDownloader:
         http: HttpClient | None = None,
         workers: int = CONCURRENT_DOWNLOADS,
         speed_limit_kbps: int = 0,
+        state_cache=None,
+        keyword: str = "",
     ) -> None:
         from utils.bandwidth_limiter import BandwidthLimiter
 
@@ -107,6 +109,21 @@ class MediaDownloader:
         self._seen_hashes: set[str] = set()
         self._seen_phashes: set[int] = set()
         self._hash_lock = threading.Lock()
+        self._state_cache = state_cache
+        self._keyword = keyword.strip().lower()
+        # Seed in-memory pHash set from persistent DB for cross-run deduplication
+        if self._state_cache is not None:
+            try:
+                persisted = self._state_cache.load_phashes(subject=self._keyword)
+                if persisted:
+                    self._seen_phashes.update(persisted)
+                    LOGGER.info(
+                        "MediaDownloader: seeded %d persisted pHashes from StateCache (subject='%s').",
+                        len(persisted),
+                        self._keyword,
+                    )
+            except Exception as exc:
+                LOGGER.warning("MediaDownloader: failed to load persisted pHashes: %s", exc)
 
     def _is_hotlink_protected(self, url: str) -> bool:
         """Check if URL is from a domain that requires Referer header."""
@@ -616,6 +633,12 @@ class MediaDownloader:
                                     )
                                     return False, {"reason": "perceptual_duplicate"}
                             self._seen_phashes.add(dhash_val)
+                            # Persist to DB for cross-run deduplication
+                            if self._state_cache is not None:
+                                try:
+                                    self._state_cache.store_phash(dhash_val, subject=self._keyword)
+                                except Exception as exc:
+                                    LOGGER.warning("Failed to persist pHash to StateCache: %s", exc)
 
                     try:
                         from PIL import Image

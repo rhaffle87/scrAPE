@@ -263,10 +263,22 @@ class _DomainCooldownState:
         self.cooldown_count: int = 0  # how many cooldowns have been triggered
         self.cooldown_until: float = 0.0  # monotonic timestamp
         self.is_blacklisted: bool = False
+        self.total_429s: int = 0  # cumulative 429s for adaptive jitter scaling
+
+    def adaptive_jitter(self) -> float:
+        """Return a scaled jitter ceiling based on cumulative 429 pressure.
+
+        Formula: ``min(RATE_LIMIT_JITTER_SECONDS + (total_429s * 0.1), 2.0)``
+        - Baseline: 0.4 s (zero 429s observed).
+        - Grows +0.1 s per 429 hit.
+        - Hard-capped at 2.0 s to prevent crawl stalls.
+        """
+        return min(RATE_LIMIT_JITTER_SECONDS + self.total_429s * 0.1, 2.0)
 
     def record_429(self) -> float | None:
         """Increment the 429 counter.  Returns cooldown duration if threshold crossed, else None."""
         with self._lock:
+            self.total_429s += 1
             self.consecutive_429s += 1
             if self.consecutive_429s >= DOMAIN_COOLDOWN_THRESHOLD:
                 if self.cooldown_count >= 3:
@@ -641,6 +653,11 @@ class HttpClient:
                 self._rate_limiters[host] = RateLimiter(
                     rps, jitter=RATE_LIMIT_JITTER_SECONDS
                 )
+            # Update live jitter from adaptive 429-pressure scaling
+            with self._cd_lock:
+                cd_state = self._cooldown_states.get(host)
+            if cd_state is not None:
+                self._rate_limiters[host].jitter = cd_state.adaptive_jitter()
             return self._rate_limiters[host]
 
     def _cooldown_state_for(self, url: str) -> _DomainCooldownState:

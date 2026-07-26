@@ -316,6 +316,40 @@ def lint_seed_manifest(req: SeedLintRequest):
     report = linter.lint_manifest_text(req.content)
     return report
 
+
+# ------------------------------------------------------------------
+# Cache Management Endpoints
+# ------------------------------------------------------------------
+
+class CacheClearDomainRequest(BaseModel):
+    domain: str
+
+
+@app.get("/api/cache/stats")
+def cache_stats():
+    from storage.state_cache import StateCache
+
+    cache = StateCache()
+    return cache.get_db_stats()
+
+
+@app.post("/api/cache/vacuum")
+def cache_vacuum():
+    from storage.state_cache import StateCache
+
+    cache = StateCache()
+    size_after = cache.vacuum_db()
+    return {"status": "ok", "db_size_bytes_after": size_after}
+
+
+@app.post("/api/cache/clear_domain")
+def cache_clear_domain(req: CacheClearDomainRequest):
+    from storage.state_cache import StateCache
+
+    cache = StateCache()
+    deleted = cache.clear_domain(req.domain)
+    return {"status": "ok", "domain": req.domain, "rows_deleted": deleted}
+
 @app.post("/api/run")
 def run_scrape(req: ScrapeRequest):
     global task_state, _current_process

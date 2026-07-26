@@ -10,6 +10,7 @@ ENABLE_HELIUM_FALLBACK = True
 ENABLE_CAMOUFOX_FALLBACK = True
 ENABLE_FLARESOLVERR_FALLBACK = True
 FLARESOLVERR_URL = "http://127.0.0.1:8191/v1"
+SEARXNG_HOSTS: list[str] = ["https://searx.be", "https://searx.space"]
 DEFAULT_VIDEO_QUALITY = "best"
 FORCE_HEADLESS: bool = False
 STEALTH_HEADFUL: bool = False

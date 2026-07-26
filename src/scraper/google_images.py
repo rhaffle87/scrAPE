@@ -116,6 +116,14 @@ class SearchProviderScraper(BaseSearchScraper):
             LOGGER.info("DuckDuckGo yielded 0 results or failed; falling back to Bing search...")
             links = self._search_bing(keyword, max_results, allow_domains, block_domains)
             LOGGER.info("Search provider (Bing) returned %s candidate pages total", len(links))
+        if not links:
+            LOGGER.info("Bing yielded 0 results; falling back to SearXNG search...")
+            links = self._search_searxng(keyword, max_results, allow_domains, block_domains)
+            LOGGER.info("Search provider (SearXNG) returned %s candidate pages total", len(links))
+        if not links:
+            LOGGER.info("SearXNG yielded 0 results; falling back to StartPage search...")
+            links = self._search_startpage(keyword, max_results, allow_domains, block_domains)
+            LOGGER.info("Search provider (StartPage) returned %s candidate pages total", len(links))
         return links
 
     def scrape_page(
@@ -793,6 +801,81 @@ class SearchProviderScraper(BaseSearchScraper):
                     break
         except Exception as exc:
             LOGGER.warning("Bing fallback search failed (%s): %s", bing_url, exc)
+        return links
+
+    def _search_searxng(
+        self,
+        keyword: str,
+        max_results: int,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[str]:
+        from config import SEARXNG_HOSTS
+
+        allow_domains = allow_domains or []
+        block_domains = block_domains or []
+        links: list[str] = []
+
+        for host in SEARXNG_HOSTS:
+            searx_url = f"{host.rstrip('/')}/search?q={quote_plus(keyword)}&format=json"
+            LOGGER.info("Attempting SearXNG fallback search: %s", searx_url)
+            try:
+                response = self.http.get(searx_url)
+                data = response.json()
+                results = data.get("results", [])
+                for item in results:
+                    href = item.get("url", "").strip()
+                    if not href or not is_http_url(href):
+                        continue
+                    if not is_allowed_domain(href, allow_domains, block_domains):
+                        continue
+                    if not is_allowed_path(href):
+                        continue
+                    if href not in links:
+                        links.append(href)
+                    if max_results > 0 and len(links) >= max_results:
+                        break
+                if links:
+                    break
+            except Exception as exc:
+                LOGGER.warning("SearXNG host failed (%s): %s", searx_url, exc)
+
+        return links
+
+    def _search_startpage(
+        self,
+        keyword: str,
+        max_results: int,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[str]:
+        allow_domains = allow_domains or []
+        block_domains = block_domains or []
+        sp_url = f"https://www.startpage.com/sp/search?query={quote_plus(keyword)}"
+        LOGGER.info("Attempting StartPage fallback search: %s", sp_url)
+        links: list[str] = []
+        try:
+            response = self.http.get(sp_url)
+            soup = parse_html(response.text)
+            anchors = soup.select("a.result-link[href]")
+            if not anchors:
+                anchors = soup.select("a[href]")
+            for anchor in anchors:
+                if not isinstance(anchor, Tag):
+                    continue
+                href = _get_attr_str(anchor, "href").strip()
+                if not href or not is_http_url(href):
+                    continue
+                if not is_allowed_domain(href, allow_domains, block_domains):
+                    continue
+                if not is_allowed_path(href):
+                    continue
+                if href not in links:
+                    links.append(href)
+                if max_results > 0 and len(links) >= max_results:
+                    break
+        except Exception as exc:
+            LOGGER.warning("StartPage fallback search failed (%s): %s", sp_url, exc)
         return links
 
     @staticmethod

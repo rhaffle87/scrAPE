@@ -180,7 +180,27 @@ class ScrapingEngine:
         result = ScrapeResult(keyword=keyword)
         if run_id:
             result.run_id = run_id
-            
+
+        # Wire persistent pHash state into downloader for cross-run deduplication
+        if self.state_cache is not None and (
+            self.downloader._state_cache is None
+            or self.downloader._keyword != keyword.strip().lower()
+        ):
+            self.downloader._state_cache = self.state_cache
+            self.downloader._keyword = keyword.strip().lower()
+            try:
+                persisted = self.state_cache.load_phashes(subject=self.downloader._keyword)
+                if persisted:
+                    with self.downloader._hash_lock:
+                        self.downloader._seen_phashes.update(persisted)
+                    LOGGER.info(
+                        "ScrapingEngine: seeded %d pHashes from StateCache for keyword '%s'.",
+                        len(persisted),
+                        keyword,
+                    )
+            except Exception as exc:
+                LOGGER.warning("ScrapingEngine: failed to seed pHashes: %s", exc)
+
         start_time = time.time()
 
         # Initialize domain rules manager & media processor

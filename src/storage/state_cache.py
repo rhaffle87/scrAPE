@@ -46,6 +46,17 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON processed_urls(timestamp)
             """)
+            # Persistent perceptual-hash store for cross-run image deduplication
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS phash_cache (
+                    dhash INTEGER PRIMARY KEY,
+                    subject TEXT NOT NULL DEFAULT '',
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_phash_ts ON phash_cache(timestamp)
+            """)
             conn.commit()
 
     def _cleanup_old_entries(self):
@@ -57,10 +68,18 @@ class StateCache:
                 cursor.execute(
                     "DELETE FROM processed_urls WHERE timestamp < ?", (cutoff_time,)
                 )
-                deleted = cursor.rowcount
+                deleted_urls = cursor.rowcount
+                cursor.execute(
+                    "DELETE FROM phash_cache WHERE timestamp < ?", (cutoff_time,)
+                )
+                deleted_phashes = cursor.rowcount
                 conn.commit()
-                if deleted > 0:
-                    LOGGER.info(f"StateCache cleanup: Removed {deleted} expired URLs.")
+                if deleted_urls > 0 or deleted_phashes > 0:
+                    LOGGER.info(
+                        "StateCache cleanup: removed %d expired URLs and %d expired pHashes.",
+                        deleted_urls,
+                        deleted_phashes,
+                    )
         except Exception as e:
             LOGGER.warning(f"StateCache cleanup failed: {e}")
 
@@ -154,6 +173,133 @@ class StateCache:
                 LOGGER.info("StateCache flushed successfully.")
         except Exception as e:
             LOGGER.warning(f"Error flushing StateCache: {e}")
+
+    # ------------------------------------------------------------------
+    # Perceptual Hash Persistence (cross-run image deduplication)
+    # ------------------------------------------------------------------
+
+    def store_phash(self, dhash: int, subject: str = "") -> None:
+        """Persist a perceptual hash so it survives across runs.
+
+        Uses INSERT OR IGNORE so duplicate inserts are silently discarded.
+        """
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT OR IGNORE INTO phash_cache (dhash, subject, timestamp) VALUES (?, ?, ?)",
+                    (dhash, subject.strip().lower(), time.time()),
+                )
+                conn.commit()
+        except Exception as e:
+            LOGGER.warning("StateCache store_phash(%d) failed: %s", dhash, e)
+
+    def load_phashes(self, subject: str = "") -> set[int]:
+        """Bulk-load all stored perceptual hashes into an in-memory set.
+
+        If *subject* is given, only hashes for that subject are loaded.
+        """
+        hashes: set[int] = set()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                if subject.strip():
+                    cursor.execute(
+                        "SELECT dhash FROM phash_cache WHERE subject = ?",
+                        (subject.strip().lower(),),
+                    )
+                else:
+                    cursor.execute("SELECT dhash FROM phash_cache")
+                for (dhash,) in cursor.fetchall():
+                    hashes.add(int(dhash))
+        except Exception as e:
+            LOGGER.warning("StateCache load_phashes failed: %s", e)
+        return hashes
+
+    def flush_phashes(self, subject: str = "") -> int:
+        """Delete all perceptual hash entries (or only those for *subject*).
+
+        Returns the number of rows deleted.
+        """
+        deleted = 0
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                if subject.strip():
+                    cursor.execute(
+                        "DELETE FROM phash_cache WHERE subject = ?",
+                        (subject.strip().lower(),),
+                    )
+                else:
+                    cursor.execute("DELETE FROM phash_cache")
+                deleted = cursor.rowcount
+                conn.commit()
+            LOGGER.info("StateCache flush_phashes: removed %d entries.", deleted)
+        except Exception as e:
+            LOGGER.warning("StateCache flush_phashes failed: %s", e)
+        return deleted
+
+    def vacuum_db(self) -> int:
+        """Run SQLite VACUUM to reclaim disk space after TTL cleanup deletions.
+
+        Returns the file size in bytes after vacuuming.
+        """
+        try:
+            with self._get_connection() as conn:
+                conn.execute("VACUUM")
+            size_after = self.db_path.stat().st_size if self.db_path.exists() else 0
+            LOGGER.info("StateCache VACUUM complete. DB size: %d bytes.", size_after)
+            return size_after
+        except Exception as e:
+            LOGGER.warning("StateCache VACUUM failed: %s", e)
+            return 0
+
+    def clear_domain(self, domain: str) -> int:
+        """Delete all cached URL entries belonging to *domain*.
+
+        Performs a LIKE-based scan on the stored URL column to find and remove
+        all entries whose hostname matches the supplied domain string.
+
+        Returns the number of rows deleted.
+        """
+        pattern = f"%{domain.strip().lower()}%"
+        deleted = 0
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM processed_urls WHERE LOWER(url) LIKE ?", (pattern,)
+                )
+                deleted = cursor.rowcount
+                conn.commit()
+            LOGGER.info(
+                "StateCache: cleared %d cached entries for domain '%s'.",
+                deleted,
+                domain,
+            )
+        except Exception as e:
+            LOGGER.warning("StateCache clear_domain('%s') failed: %s", domain, e)
+        return deleted
+
+    def get_db_stats(self) -> dict[str, int | str]:
+        """Return database telemetry metrics: record count, file size, WAL mode."""
+        stats: dict[str, int | str] = {
+            "total_urls": 0,
+            "db_size_bytes": 0,
+            "journal_mode": "unknown",
+        }
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM processed_urls")
+                row = cursor.fetchone()
+                stats["total_urls"] = int(row[0]) if row else 0
+                cursor.execute("PRAGMA journal_mode")
+                jm_row = cursor.fetchone()
+                stats["journal_mode"] = str(jm_row[0]) if jm_row else "unknown"
+            stats["db_size_bytes"] = self.db_path.stat().st_size if self.db_path.exists() else 0
+        except Exception as e:
+            LOGGER.warning("StateCache get_db_stats failed: %s", e)
+        return stats
 
     def _hash_url(self, url: str) -> str:
         """Create a consistent key for the URL. Strips fragments, keeps query params."""
