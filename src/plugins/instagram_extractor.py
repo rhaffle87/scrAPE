@@ -21,6 +21,7 @@ class InstagramExtractor(ExtractorPlugin):
     def extract(self, url: str) -> SpecializedResult:
         images = []
         videos = []
+        cookies = self.get_domain_cookies("instagram.com")
 
         # 1. Attempt API JSON endpoints (?__a=1&__d=dis)
         try:
@@ -30,7 +31,7 @@ class InstagramExtractor(ExtractorPlugin):
                 "Accept": "application/json",
             }
             api_url = url.split("?")[0].rstrip("/") + "/?__a=1&__d=dis"
-            resp = requests.get(api_url, headers=headers, timeout=10.0)
+            resp = requests.get(api_url, headers=headers, cookies=cookies, timeout=10.0)
             if resp.status_code == 200:
                 data = resp.json()
                 items = data.get("graphql", {}).get("shortcode_media", {}) or data.get("items", [{}])[0]
@@ -52,16 +53,21 @@ class InstagramExtractor(ExtractorPlugin):
         except Exception as exc:
             LOGGER.debug("Instagram API JSON extraction failed for %s: %s", url, exc)
 
-        # 2. Fallback to yt-dlp metadata extraction
+        # 2. Fallback to yt-dlp metadata extraction with cookie injection
         if not images and not videos:
             try:
+                import typing
                 import yt_dlp
-                ydl_opts = {
+                ydl_opts: dict[str, typing.Any] = {
                     "quiet": True,
                     "no_warnings": True,
                     "extract_flat": False,
                 }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                if cookies:
+                    cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                    ydl_opts["http_headers"] = {"Cookie": cookie_header}
+
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                     info = ydl.extract_info(url, download=False)
                     if info:
                         if info.get("url"):

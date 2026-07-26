@@ -48,7 +48,12 @@ class YtDlpExtractor(ExtractorPlugin):
         elif quality == "480p":
             format_spec = "bestvideo[height<=480]+bestaudio/best[height<=480]/best"
 
-        ydl_opts = {
+        parsed_host = urllib.parse.urlparse(url).netloc.lower()
+        if parsed_host.startswith("www."):
+            parsed_host = parsed_host[4:]
+
+        import typing
+        ydl_opts: dict[str, typing.Any] = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": "in_playlist",
@@ -56,6 +61,11 @@ class YtDlpExtractor(ExtractorPlugin):
             "dumpjson": True,
             "format": format_spec,
         }
+
+        cookies = self.get_domain_cookies(parsed_host)
+        if cookies:
+            cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
+            ydl_opts["http_headers"] = {"Cookie": cookie_header}
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore[arg-type]

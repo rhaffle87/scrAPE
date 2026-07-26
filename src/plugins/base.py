@@ -35,6 +35,18 @@ class ExtractorPlugin(ABC):
         """Extract media from the given URL."""
         pass
 
+    def get_domain_cookies(self, domain: str) -> dict[str, str]:
+        """Fetch active session cookies from SessionPool for *domain* if available."""
+        try:
+            from utils.session_pool import SessionPool
+            pool = SessionPool()
+            session = pool.get_session(domain)
+            if hasattr(session, "session") and hasattr(session.session, "cookies"):
+                return dict(session.session.cookies)
+        except Exception as exc:
+            LOGGER.debug("Could not fetch cookies for domain %s: %s", domain, exc)
+        return {}
+
 
 class PluginRegistry:
     """Thread-safe registry managing priority-ordered ExtractorPlugin instances."""

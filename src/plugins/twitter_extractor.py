@@ -69,16 +69,22 @@ class TwitterExtractor(ExtractorPlugin):
             except Exception as exc:
                 LOGGER.debug("Twitter vxtwitter API extraction failed for %s: %s", url, exc)
 
-        # 2. Fallback to yt-dlp metadata extraction
+        # 2. Fallback to yt-dlp metadata extraction with cookie injection
         if not images and not videos:
             try:
+                import typing
                 import yt_dlp
-                ydl_opts = {
+                ydl_opts: dict[str, typing.Any] = {
                     "quiet": True,
                     "no_warnings": True,
                     "extract_flat": False,
                 }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                cookies = self.get_domain_cookies("twitter.com") or self.get_domain_cookies("x.com")
+                if cookies:
+                    cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                    ydl_opts["http_headers"] = {"Cookie": cookie_header}
+
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                     info = ydl.extract_info(url, download=False)
                     if info:
                         if info.get("url"):
