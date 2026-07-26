@@ -23,10 +23,11 @@ echo   [3] Interactive Domain Login (--login)
 echo   [4] Enable Windows Boot Autostart
 echo   [5] Install Package ^& Register Global 'scrape' Command
 echo   [6] Launch Continuous Watchdog Agent (monitor_agent.py)
+echo   [7] Launch Automated Release Wizard (src/cli/release.py)
 echo   [0] Exit
 echo.
 echo ========================================================================
-set /p CHOICE="Select option [0-6]: "
+set /p CHOICE="Select option [0-7]: "
 
 if "%CHOICE%"=="1" (
     echo.
@@ -94,6 +95,13 @@ if "%CHOICE%"=="6" (
     ) else (
         echo Keyword is required to launch Watchdog Agent.
     )
+    pause
+    goto MENU
+)
+
+if "%CHOICE%"=="7" (
+    echo.
+    python -m src.cli.release
     pause
     goto MENU
 )

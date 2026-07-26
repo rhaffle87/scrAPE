@@ -166,6 +166,7 @@ def main():
             f"Update to {VERSION} (current: {VERSION})",
             "Web UI (Open in Browser)",
             "Terminal UI (Interactive CLI)",
+            "Release Automation Wizard",
             "Hide to Tray (Background)",
             "Exit"
         ],
@@ -178,6 +179,10 @@ def main():
     elif choice.startswith("Update"):
         print("\n[INFO] Update feature coming in a future release.")
         time.sleep(2)
+        main()
+
+    elif choice == "Release Automation Wizard":
+        subprocess.call([sys.executable, "-m", "src.cli.release"])
         main()
         
     elif choice == "Web UI (Open in Browser)":

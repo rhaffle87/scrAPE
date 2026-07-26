@@ -21,10 +21,11 @@ while true; do
     echo "  [3] Interactive Domain Login (--login)"
     echo "  [4] Install Package & Register Global 'scrape' Command"
     echo "  [5] Launch Continuous Watchdog Agent (monitor_agent.py)"
+    echo "  [6] Launch Automated Release Wizard (release.py)"
     echo "  [0] Exit"
     echo ""
     echo "========================================================================"
-    read -p "Select option [0-5]: " CHOICE
+    read -p "Select option [0-6]: " CHOICE
 
     case "$CHOICE" in
         1)
@@ -69,6 +70,11 @@ while true; do
             else
                 echo "Keyword is required to launch Watchdog Agent."
             fi
+            read -p "Press Enter to return to menu..."
+            ;;
+        6)
+            echo ""
+            python3 -m src.cli.release
             read -p "Press Enter to return to menu..."
             ;;
         0)
