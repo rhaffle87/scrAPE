@@ -121,8 +121,10 @@ def compute_dhash(image_bytes: bytes, hash_size: int = 8) -> int | None:
         from io import BytesIO
         from PIL import Image
 
-        img = Image.open(BytesIO(image_bytes)).convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
-        pixels = list(img.getdata())
+        with Image.open(BytesIO(image_bytes)) as raw_img:
+            img = raw_img.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
+            pixels = list(img.getdata())
+            img.close()
 
         difference = []
         for row in range(hash_size):

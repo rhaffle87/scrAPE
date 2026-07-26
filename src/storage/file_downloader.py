@@ -195,11 +195,17 @@ class MediaDownloader:
                 )
             return success, result
 
+        completed_count = 0
+        import gc
+
         with ThreadPoolExecutor(
             max_workers=self.workers, thread_name_prefix="dl"
         ) as executor:
             futures = {executor.submit(_run, task): task[0] for task in all_tasks}
             for future in as_completed(futures):
+                completed_count += 1
+                if completed_count % 250 == 0:
+                    gc.collect()
                 try:
                     future.result()
                 except Exception as exc:

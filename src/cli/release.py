@@ -113,7 +113,8 @@ def run_command(cmd: list[str], check: bool = True) -> tuple[int, str]:
             cwd=str(ROOT_DIR),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=encoding,
+            text=True,
+            encoding="utf-8",
             check=check,
         )
         return proc.returncode, proc.stdout
@@ -133,6 +134,7 @@ def main() -> None:
     parser.add_argument("--version", type=str, help="Target version string (e.g. 0.21.0 or v0.21.0)")
     parser.add_argument("--notes", type=str, help="Release highlights summary (comma or newline separated)")
     parser.add_argument("--dry-run", action="store_true", help="Perform version bumps without git commit or push")
+    parser.add_argument("--push", action="store_true", help="Push commit/tag to GitHub origin and publish gh release")
     parser.add_argument("--no-push", action="store_true", help="Commit and tag locally, but skip git push and gh release")
 
     args = parser.parse_args()
@@ -189,7 +191,12 @@ def main() -> None:
     tag_msg = f"Release {version_tag} — scrAPE extraction engine"
     run_command(["git", "tag", "-a", version_tag, "-m", tag_msg], check=False)
 
-    if args.no_push:
+    should_push = args.push
+    if not args.push and not args.no_push:
+        confirm = input("\nPush commit & tag to remote GitHub origin? [y/N]: ").strip().lower()
+        should_push = confirm == "y" or confirm == "yes"
+
+    if not should_push or args.no_push:
         print("\n[COMPLETE] Committed and tagged locally. Skiped push and GitHub release.")
         return
 

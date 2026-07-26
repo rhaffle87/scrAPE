@@ -532,6 +532,9 @@ class MediaProcessor:
                 )
             )
 
+        completed_dl_count = 0
+        import gc
+
         with _cf.ThreadPoolExecutor(
             max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
         ) as dl_executor:
@@ -558,6 +561,9 @@ class MediaProcessor:
                 dl_futures[fut] = (item, media_kind)
                 
             for fut in _cf.as_completed(dl_futures):
+                completed_dl_count += 1
+                if completed_dl_count % 250 == 0:
+                    gc.collect()
                 item, media_kind = dl_futures[fut]
                 try:
                     success, download_info = fut.result()
