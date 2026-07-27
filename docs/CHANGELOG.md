@@ -1,9 +1,15 @@
 # Changelog
 
-## [0.22.0] — 2026-07-26
+## [0.20.0] — 2026-07-27
 
-### Added & Changed (0.22.0)
+### Added & Changed (0.20.0)
 
+- **8-Tier Stealth WAF Fallback Pipeline & Circuit Breaker** (`src/utils/stealth_pipeline.py`, `src/utils/http_client.py`):
+  - Engineered 8-tier WAF fallback pipeline orchestrator (`Httpx`, `FlareSolverr`, `Crawlee`, `DrissionPage`, `Camoufox`, `Helium`, `NoDriver`, `Crawl4AI`).
+  - Added `_StrategyCircuitBreaker` tracking per-host strategy latency and enforcing a 5-minute cooldown after consecutive failures.
+  - Implemented `skip_httpx=True` on 403 HTTP status fallback execution to prevent duplicate secondary requests.
+- **Thread Safety & Lock Resolution** (`src/utils/proxy_manager.py`):
+  - Upgraded `ProxyPoolManager` locks (`_lock`, `_pool_lock`) to reentrant `threading.RLock()`, resolving recursive deadlock when `get_proxy_for_domain()` invokes `get_best_proxy()`.
 - **Environment Configuration & Credential Management** (`.env`, `.env.example`, `src/config/__init__.py`):
   - Created `.env` and `.env.example` supporting `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and `CAPSOLVER_API_KEY`. Added `.env` to `.gitignore` to safeguard credentials.
   - Dynamically load environment variables in `src/config/__init__.py` via `python-dotenv` / `os.getenv()`.
@@ -18,34 +24,23 @@
   - Created `CapSolverClient` for auto-solving Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha tokens during WAF challenge resolution. Added live balance endpoint `/api/capsolver/balance`.
 - **Advanced Proxy Pool Health & Sticky Domain Binding** (`src/utils/proxy_manager.py`):
   - Added latency auto-rotation, 5-minute auto-quarantine for slow (>3000ms) or failing proxies, and sticky domain-to-proxy binding (`bind_domain_proxy`).
-- **WebUI Live Crawl Network Visualizer** (`frontend/templates/index.html`):
+- **WebUI Live Crawl Network Visualizer & High-Throughput Cockpit** (`frontend/templates/index.html`, `frontend/app.py`):
   - Built HTML5 Canvas live crawl network tree graph (`#crawl-graph-canvas`) and real-time streaming media grid feed (`#live-media-stream-grid`).
-
-## [0.21.0] — 2026-07-26
-
-### Added & Changed (0.21.0)
-
+  - Added SSE event streaming endpoints `/api/logs/stream` and `/api/telemetry/stream` with real-time download throughput (KB/s speed meter), active worker concurrency, and HTTP response status distributions.
 - **CI/CD & Release Automation Workflow** (`.github/workflows/test.yml`, `src/cli/release.py`):
   - Created `.github/workflows/test.yml` GitHub Actions CI matrix running test suites across Python `3.10-3.13` on `ubuntu-latest` and `windows-latest` with Playwright Chromium and Node.js dependencies.
   - Engineered `src/cli/release.py` interactive release wizard supporting 7-file version bumps, CHANGELOG formatting, git tagging, and GitHub Release publishing. Added explicit `--push` confirmation guard to prevent automatic remote git pushes.
-- **Comprehensive Memory Profiling & Resource Cleanup** (`src/utils/image_helper.py`, `src/storage/file_downloader.py`, `src/core/managers.py`):
-  - Wrapped PIL `Image.open(...)` calls inside explicit `with Image.open(...) as img:` context managers to guarantee immediate file handle and pixel buffer disposal.
-  - Integrated periodic `gc.collect()` batch triggers every 250 completed tasks across `MediaDownloader.download_all()` and `MediaProcessor.execute_deferred_downloads()`.
 - **SPA Session Cookie Harvesting & Auth Wall Escalation** (`src/plugins/base.py`, `src/plugins/instagram_extractor.py`, `src/plugins/twitter_extractor.py`, `src/plugins/ytdlp_extractor.py`):
   - Added `get_domain_cookies(domain)` on `ExtractorPlugin` base class pulling active cookies from `SessionPool` (`data/sessions/`).
   - Injected stored session cookies into Instagram GraphQL & `/?__a=1&__d=dis` endpoints and `yt_dlp` HTTP header options (`Cookie: ...`) across Twitter and YouTube extractors.
 - **AI Local Vision Model Captioning** (`src/storage/dataset_exporter.py`):
   - Integrated `OllamaVisionProvider` in `DatasetExporter` to query local Ollama vision endpoints (`http://localhost:11434/api/generate`) with multi-modal models (`moondream`, `llava`, `llama3.2-vision`).
-  - Auto-generates detailed image captions, writes `.txt` sidecars next to downloaded assets, and populates `dataset.jsonl`.
 - **RAG & Vector Database Payload Exporter** (`src/storage/rag_exporter.py`):
   - Created `RagExporter` with hybrid sentence/section boundary splitting (`.!?`) and sliding window fallback (`chunk_size=500`, `chunk_overlap=50`), outputting `output/rag_payload.jsonl` vector document entries.
-- **WAF Fallback Tier Health Manager & Circuit Breaker** (`src/utils/http_client.py`):
-  - Engineered `StealthTierHealthManager` singleton tracking real-time latency and consecutive failure counts for all stealth tiers (`flaresolverr`, `crawlee`, `drissionpage`, `camoufox`, `nodriver`).
-  - Enforced 5-minute auto-cooldown circuit breaking after 3 consecutive failures to prevent crawl stalls.
-- **WebUI Telemetry SSE Stream & Real-Time Analytics** (`frontend/app.py`):
-  - Created `/api/telemetry/stream` SSE endpoint and `/api/telemetry/stats` HTMX fallback endpoint broadcasting real-time download throughput (KB/s speed meter), active worker concurrency, and HTTP response status code distributions.
 - **Seed Studio Suite & Auto-Tagging Engine** (`src/cli/seed_studio.py`):
   - Built `SeedDiscoverer` for keyword seed URL discovery, `SeedLinter` for `.txt` seed manifest syntax/annotation validation, and `PatternGenerator` for URL template expansion. Exposed via WebUI API (`/api/seed/discover`, `/api/seed/lint`).
+- **Full Test Suite Verification** (`scratch/`):
+  - Reached 100% clean test execution across **241 unit and integration tests** in 61 test files.
 
 ## [0.20.0] — 2026-07-26
 

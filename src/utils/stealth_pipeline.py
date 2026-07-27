@@ -24,6 +24,7 @@ class StealthResponse:
     cookies: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
     strategy_name: str = "unknown"
+    user_agent: str | None = None
 
     def to_httpx_response(self, request_url: str) -> httpx.Response:
         """Convert StealthResponse to a standard httpx.Response object."""
@@ -38,7 +39,7 @@ class StealthResponse:
 class _StrategyCircuitBreaker:
     """Tracks per-strategy, per-hostname consecutive failures and cooldowns."""
 
-    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 3600.0) -> None:
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0) -> None:
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
         self._lock = threading.Lock()
@@ -51,7 +52,10 @@ class _StrategyCircuitBreaker:
             count = self._failures.get(key, 0) + 1
             self._failures[key] = count
             if count >= self.failure_threshold:
-                self._cooldown_until[key] = time.monotonic() + self.cooldown_seconds
+                # Exponential backoff up to 1800s (30m)
+                mult = 2 ** min(5, count - self.failure_threshold)
+                cooldown = min(1800.0, self.cooldown_seconds * mult)
+                self._cooldown_until[key] = time.monotonic() + cooldown
 
     def record_success(self, strategy_name: str, host: str) -> None:
         key = (strategy_name.lower(), host.lower())
@@ -102,6 +106,13 @@ class HttpxStrategy(StealthStrategy):
 class CrawleeStrategy(StealthStrategy):
     name = "crawlee"
 
+    def is_available(self) -> bool:
+        try:
+            r = httpx.get("http://127.0.0.1:3000/health", timeout=1.0)
+            return r.status_code == 200
+        except Exception:
+            return False
+
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         # Tier A: Fast cheerio
         try:
@@ -132,9 +143,18 @@ class Crawl4AIStrategy(StealthStrategy):
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
-            html = client._get_with_crawl4ai(url)
+            res = client._get_with_crawl4ai(url)
+            if isinstance(res, tuple):
+                html, cookies = res
+            else:
+                html, cookies = res, []
             if html and not client._is_blocked_page(html, url):
-                return StealthResponse(status_code=200, text=html, strategy_name=self.name)
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
         except Exception:
             pass
         return None
@@ -178,6 +198,16 @@ class HeliumStrategy(StealthStrategy):
 
 class FlareSolverrStrategy(StealthStrategy):
     name = "flaresolverr"
+
+    def is_available(self) -> bool:
+        from config import FLARESOLVERR_URL, ENABLE_FLARESOLVERR_FALLBACK
+        if not ENABLE_FLARESOLVERR_FALLBACK or not FLARESOLVERR_URL:
+            return False
+        try:
+            r = httpx.get(f"{FLARESOLVERR_URL.rstrip('/')}/v1", timeout=1.5)
+            return r.status_code == 200
+        except Exception:
+            return False
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
@@ -230,11 +260,14 @@ class StealthPipeline:
                 CamoufoxStrategy(),
             ]
 
-    def get_ordered_strategies(self, host: str, preferred_engine: str | None = None) -> list[StealthStrategy]:
-        """Return strategies re-ordered according to preferred_engine hint if specified."""
+    def get_ordered_strategies(self, host: str, client: Any = None, preferred_engine: str | None = None) -> list[StealthStrategy]:
+        """Return strategies re-ordered according to preferred_engine hint if specified or cached in client."""
         ordered = list(self.strategies)
-        if preferred_engine:
-            preferred_name = preferred_engine.lower()
+        engine_hint = preferred_engine
+        if not engine_hint and client and hasattr(client, "_preferred_engine_by_host"):
+            engine_hint = client._preferred_engine_by_host.get(host)
+        if engine_hint:
+            preferred_name = engine_hint.lower()
             pref_matches = [s for s in ordered if s.name.lower() == preferred_name]
             other = [s for s in ordered if s.name.lower() != preferred_name]
             ordered = pref_matches + other
@@ -248,7 +281,7 @@ class StealthPipeline:
 
         logger = get_logger(__name__)
         host = client._hostname(url)
-        ordered_strategies = self.get_ordered_strategies(host, preferred_engine=preferred_engine)
+        ordered_strategies = self.get_ordered_strategies(host, client=client, preferred_engine=preferred_engine)
 
         for strategy in ordered_strategies:
             if skip_httpx and strategy.name == "httpx":
@@ -275,17 +308,18 @@ class StealthPipeline:
                             client._waf_solve_counts.get(strategy.name, 0) + 1
                         )
 
-                    # Auto-persist harvested cookies if present
-                    if res.cookies and hasattr(client, "_session_pool"):
+                    # Auto-persist harvested cookies and user-agent if present
+                    if (res.cookies or res.user_agent) and hasattr(client, "_session_pool"):
                         try:
-                            client._session_pool.update_cookies(host, res.cookies)
+                            client._session_pool.update_session(host, cookies=res.cookies, user_agent=res.user_agent)
                             if hasattr(client, "session_manager"):
                                 existing = client.session_manager.load_session(host) or {}
-                                existing.update(res.cookies)
+                                if res.cookies:
+                                    existing.update(res.cookies)
                                 client.session_manager.save_session(host, existing)
                         except Exception as c_err:
                             logger.warning(
-                                "Failed to persist harvested cookies for %s: %s", host, c_err
+                                "Failed to persist harvested session for %s: %s", host, c_err
                             )
 
                     return res
@@ -300,3 +334,4 @@ class StealthPipeline:
         raise ScraperBypassError(
             f"All stealth fallback tiers failed to bypass anti-bot protection for {url}"
         )
+

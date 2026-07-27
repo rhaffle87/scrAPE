@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
 from plugins.base import ExtractorPlugin, SpecializedResult
 from plugins.instagram_extractor import InstagramExtractor
 from plugins.twitter_extractor import TwitterExtractor

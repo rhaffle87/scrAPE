@@ -37,3 +37,10 @@ include = ["src*", "frontend*"]
 
 [tool.pyright]
 extraPaths = ["src", "."]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.*:",
+    "ignore::DeprecationWarning:uvicorn.*:"
+]

@@ -82,9 +82,11 @@ class Session:
             except OSError as exc:
                 logger.warning("Failed to delete session file: %s", exc)
 
-    def update_cookies(self, cookies: list[dict] | dict) -> None:
-        """Update session cookies and persist to disk."""
+    def update_cookies(self, cookies: list[dict] | dict, user_agent: str | None = None) -> None:
+        """Update session cookies and optional user_agent, then persist to disk."""
         with self.lock:
+            if user_agent:
+                self.user_agent = user_agent
             if isinstance(cookies, list):
                 for c in cookies:
                     if isinstance(c, dict) and "name" in c and "value" in c:
@@ -92,6 +94,15 @@ class Session:
             elif isinstance(cookies, dict):
                 self.cookies.update(cookies)
         self.save_to_disk()
+
+    def update_session(self, cookies: list[dict] | dict | None = None, user_agent: str | None = None) -> None:
+        """Update session cookies and/or User-Agent."""
+        if cookies is not None:
+            self.update_cookies(cookies, user_agent=user_agent)
+        elif user_agent:
+            with self.lock:
+                self.user_agent = user_agent
+            self.save_to_disk()
 
 
 class SessionPool:
@@ -114,7 +125,13 @@ class SessionPool:
         session = self.get_session(domain)
         session.reset_identity()
 
-    def update_cookies(self, domain: str, cookies: list[dict] | dict) -> None:
-        """Update session cookies for *domain*."""
+    def update_cookies(self, domain: str, cookies: list[dict] | dict, user_agent: str | None = None) -> None:
+        """Update session cookies and optional user_agent for *domain*."""
         session = self.get_session(domain)
-        session.update_cookies(cookies)
+        session.update_cookies(cookies, user_agent=user_agent)
+
+    def update_session(self, domain: str, cookies: list[dict] | dict | None = None, user_agent: str | None = None) -> None:
+        """Update session cookies and/or User-Agent for *domain*."""
+        session = self.get_session(domain)
+        session.update_session(cookies=cookies, user_agent=user_agent)
+

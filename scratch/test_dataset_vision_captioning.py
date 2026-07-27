@@ -1,6 +1,9 @@
+import sys
 import json
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from storage.dataset_exporter import DatasetExporter, OllamaVisionProvider
 

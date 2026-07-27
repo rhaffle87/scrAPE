@@ -61,10 +61,10 @@ class ProxyPoolManager:
     """Thread-safe Proxy Pool Manager handling health probing, latency sorting, sticky domain binding, and auto-eviction."""
 
     _instance: ProxyPoolManager | None = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __init__(self) -> None:
-        self._pool_lock = threading.Lock()
+        self._pool_lock = threading.RLock()
         self._proxies: dict[str, ProxyInfo] = {}
         self._domain_bindings: dict[str, str] = {}
 

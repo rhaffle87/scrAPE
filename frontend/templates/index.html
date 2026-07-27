@@ -1410,7 +1410,7 @@
                         </div>
                     </div>
 
-                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#action-bar-container">
+                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#action-bar-container" hx-on::after-request="checkGlobalStatus(); setTimeout(pollLogs, 100);">
                         <!-- Mode Preset Selector -->
                         <div class="run-mode-selector">
                             <button type="button" class="btn active" id="mode-custom" onclick="setRunMode('custom')">[

@@ -47,8 +47,15 @@ RATE_LIMIT_JITTER_SECONDS = 0.4
 # Domains not listed here fall back to DEFAULT_REQUESTS_PER_SECOND.
 # e.g. {"example.com": 0.5}
 # Note: Custom rate limits are dynamically loaded from seed manifest headers or --domain-delay.
-# Dynamically loaded from data/domain_config.json
 DOMAIN_REQUESTS_PER_SECOND: dict[str, float] = {}
+
+ENABLE_COOKIE_HARVESTING = True
+ENABLE_DRISSIONPAGE_FALLBACK = True
+ENABLE_HELIUM_FALLBACK = True
+ENABLE_CAMOUFOX_FALLBACK = True
+ENABLE_FLARESOLVERR_FALLBACK = True
+ENABLE_CURL_CFFI_FALLBACK = True
+FLARESOLVERR_URL = "http://127.0.0.1:8191/v1"
 
 # 429 circuit-breaker: how many consecutive 429 responses before cooldown triggers.
 DOMAIN_COOLDOWN_THRESHOLD = 3
@@ -172,6 +179,7 @@ AUTH_GATED_DOMAINS: set[str] = set()
 URL_NORMALISATION_RULES: list[tuple] = []
 
 def _load_dynamic_config() -> None:
+    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS
     # ── domain_config.json ────────────────────────────────────────────────
     try:
         with open("data/domain_config.json", "r") as f:
