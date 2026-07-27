@@ -216,7 +216,8 @@ class FlareSolverrStrategy(StealthStrategy):
         if not ENABLE_FLARESOLVERR_FALLBACK or not FLARESOLVERR_URL:
             return False
         try:
-            r = httpx.get(f"{FLARESOLVERR_URL.rstrip('/')}/v1", timeout=1.5)
+            base_url = FLARESOLVERR_URL.rsplit("/v1", 1)[0] or FLARESOLVERR_URL
+            r = httpx.get(base_url, timeout=1.5)
             return r.status_code == 200
         except Exception:
             return False

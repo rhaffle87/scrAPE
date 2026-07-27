@@ -24,6 +24,10 @@ def unregister_telemetry_listener(listener: Callable[[str, dict[str, Any]], None
 
 def broadcast_telemetry_event(event_type: str, data: dict[str, Any]) -> None:
     """Broadcast a real-time telemetry event to all registered listeners."""
+    try:
+        logger.info("[TELEMETRY:%s] %s", event_type, json.dumps(data))
+    except Exception:
+        pass
     for listener in _TELEMETRY_LISTENERS:
         try:
             listener(event_type, data)

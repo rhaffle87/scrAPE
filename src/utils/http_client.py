@@ -1556,14 +1556,11 @@ class HttpClient:
             raise Exception("Camoufox library is not installed")
 
         is_windows = sys.platform.startswith("win")
-        if is_windows:
-            logger.warning("Camoufox does not support Windows platform. Skipping Camoufox tier for %s.", url)
-            raise Exception("Camoufox unsupported on Windows platform")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
         headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
 
-        camou_os = "mac" if is_macos else "lin"
+        camou_os = "win" if is_windows else ("mac" if is_macos else "lin")
 
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)

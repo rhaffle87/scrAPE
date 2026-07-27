@@ -316,7 +316,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1.5rem;
-            align-items: start;
+            align-items: stretch;
         }
 
         #command-center-view > .terminal-panel {
@@ -1687,9 +1687,9 @@
                 </div>
 
                 <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream Stacked) -->
-                <div class="visualizer-split-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div class="visualizer-split-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
                     <!-- Live Crawl Network Tree Graph (Top) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                    <div class="glass-panel" style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
                             <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE CRAWL NETWORK TREE</span>
                             <span id="graph-node-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES: 0</span>
@@ -1700,7 +1700,7 @@
                     </div>
 
                     <!-- Live Streaming Media Feed Grid (Bottom) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                    <div class="glass-panel" style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
                             <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">STREAMING MEDIA FEED</span>
                             <span id="stream-item-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">ASSETS: 0</span>
@@ -2826,9 +2826,84 @@
                     document.getElementById('progress-bar-fill').style.width = "0%";
                     document.getElementById('progress-text').style.display = "none";
                     document.getElementById('progress-text').innerText = "";
+
+                    // Reset visualizer canvas & streaming feed state for fresh scrape
+                    graphNodes.clear();
+                    streamedAssetsCount = 0;
+                    const countElem = document.getElementById('graph-node-count');
+                    if (countElem) countElem.innerText = 'NODES: 0';
+                    const streamCountElem = document.getElementById('stream-item-count');
+                    if (streamCountElem) streamCountElem.innerText = 'ASSETS: 0';
+                    const streamGrid = document.getElementById('live-media-stream-grid');
+                    if (streamGrid) {
+                        streamGrid.innerHTML = `<div id="stream-empty-placeholder" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">AWAITING MEDIA ASSETS...</div>`;
+                    }
+                    if (typeof drawCrawlGraph === 'function') drawCrawlGraph();
+
                     if (!isPollingLogs) {
                         isPollingLogs = true;
                         pollLogsInterval = setInterval(pollLogs, 1000);
+                    }
+                }
+
+                function parseAndTriggerVisualizerEvents(line) {
+                    if (!line) return;
+
+                    // 1. Check for Telemetry or Log Crawl Node events
+                    if (line.includes("[TELEMETRY:crawl_graph_node]")) {
+                        try {
+                            const jsonStr = line.split("[TELEMETRY:crawl_graph_node]")[1].trim();
+                            const data = JSON.parse(jsonStr);
+                            addCrawlGraphNode(data);
+                            return;
+                        } catch (e) {}
+                    }
+
+                    // Heuristic parsing from standard crawler log lines
+                    const lower = line.toLowerCase();
+                    if (lower.includes("crawling") || lower.includes("fetching page") || lower.includes("http request") || lower.includes("discovered")) {
+                        const urlMatch = line.match(/https?:\/\/[^\s"'<>\(\)]+/i);
+                        if (urlMatch) {
+                            const rawUrl = urlMatch[0];
+                            if (!/\.(jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov|css|js|woff2?|json)$/i.test(rawUrl)) {
+                                try {
+                                    const uObj = new URL(rawUrl);
+                                    const depthMatch = line.match(/depth=(\d+)/i);
+                                    addCrawlGraphNode({
+                                        url: rawUrl,
+                                        domain: uObj.hostname,
+                                        depth: depthMatch ? parseInt(depthMatch[1]) : 0,
+                                        type: (lower.includes("crawling") || lower.includes("fetching")) ? "page_visited" : "node"
+                                    });
+                                } catch (e) {}
+                            }
+                        }
+                    }
+
+                    // 2. Check for Telemetry or Log Media Download events
+                    if (line.includes("[TELEMETRY:media_downloaded]")) {
+                        try {
+                            const jsonStr = line.split("[TELEMETRY:media_downloaded]")[1].trim();
+                            const data = JSON.parse(jsonStr);
+                            addStreamingMediaCard(data);
+                            return;
+                        } catch (e) {}
+                    }
+
+                    // Heuristic parsing from file downloader log lines
+                    if (lower.includes("downloaded") || lower.includes("saved")) {
+                        const pathMatch = line.match(/(?:output\/)?([^\s"':]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
+                        if (pathMatch) {
+                            let relPath = pathMatch[1].replace(/^output\//, '');
+                            const isVideo = /\.(mp4|webm|mkv|mov)$/i.test(relPath);
+                            const dimMatch = line.match(/(\d{3,5})x(\d{3,5})/);
+                            addStreamingMediaCard({
+                                file_path: relPath,
+                                media_kind: isVideo ? 'video' : 'image',
+                                width: dimMatch ? parseInt(dimMatch[1]) : null,
+                                height: dimMatch ? parseInt(dimMatch[2]) : null
+                            });
+                        }
                     }
                 }
 
@@ -2985,6 +3060,9 @@
                                     div.className = 'terminal-line ' + parsed.cssClass;
                                     div.innerHTML = parsed.html;
                                     body.appendChild(div);
+
+                                    // Trigger dynamic Visualizer updates for live graph nodes & streaming media
+                                    parseAndTriggerVisualizerEvents(line);
                                 });
                                 logOffset = data.next_offset;
                                 if (autoScrollEnabled) {
@@ -3125,6 +3203,10 @@
                     }
 
                     window.addEventListener('resize', resizeCanvas);
+                    if (window.ResizeObserver && canvas.parentElement) {
+                        const observer = new ResizeObserver(() => resizeCanvas());
+                        observer.observe(canvas.parentElement);
+                    }
                     resizeCanvas();
 
                     // Mouse wheel zoom
