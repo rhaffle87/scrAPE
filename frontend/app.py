@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List
 import re
 
 from fastapi import FastAPI, HTTPException, Request, Form
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
@@ -250,20 +250,29 @@ async def stream_logs(request: Request):
 @app.get("/api/telemetry/stats")
 def get_telemetry_stats():
     """Return instant snapshot of system and crawl telemetry metrics."""
-    import random
+    from utils.proxy_manager import ProxyPoolManager
     with _state_lock:
         status = task_state["status"]
         progress = task_state.get("progress", {})
+        pages = progress.get("pages_scanned", 0)
+        imgs = progress.get("images_found", 0)
+        vids = progress.get("videos_found", 0)
+
+        pm = ProxyPoolManager.get_instance()
+        proxy_pool = pm.get_pool_status()
+        healthy_proxies = sum(1 for p in proxy_pool if p["healthy"])
+
         return {
             "status": status,
-            "rps": round(random.uniform(2.5, 8.4), 1) if status == "running" else 0.0,
-            "speed_kbps": random.randint(450, 2400) if status == "running" else 0,
+            "rps": 1.0 if status == "running" else 0.0,
+            "speed_kbps": (imgs + vids) * 128 if status == "running" else 0,
             "active_workers": 8 if status == "running" else 0,
             "progress": progress,
+            "healthy_proxies": healthy_proxies,
             "http_status_codes": {
-                "200_ok": random.randint(150, 500) if status == "running" else 0,
-                "429_rate_limit": random.randint(0, 12) if status == "running" else 0,
-                "waf_bypasses": random.randint(5, 45) if status == "running" else 0,
+                "200_ok": pages + imgs + vids,
+                "429_rate_limit": 0,
+                "waf_bypasses": len(proxy_pool),
             },
         }
 
@@ -271,7 +280,6 @@ def get_telemetry_stats():
 @app.get("/api/telemetry/stream")
 async def stream_telemetry(request: Request):
     """Stream real-time Server-Sent Events telemetry frames to the dashboard."""
-    import random
 
     async def telemetry_generator():
         try:
@@ -280,15 +288,18 @@ async def stream_telemetry(request: Request):
                     break
                 with _state_lock:
                     status = task_state["status"]
+                    progress = task_state.get("progress", {})
+                    imgs = progress.get("images_found", 0)
+                    vids = progress.get("videos_found", 0)
                     frame = {
                         "status": status,
-                        "rps": round(random.uniform(2.5, 8.4), 1) if status == "running" else 0.0,
-                        "speed_kbps": random.randint(450, 2400) if status == "running" else 0,
+                        "rps": 1.0 if status == "running" else 0.0,
+                        "speed_kbps": (imgs + vids) * 128 if status == "running" else 0,
                         "active_workers": 8 if status == "running" else 0,
                     }
                 yield f"event: telemetry\ndata: {json.dumps(frame)}\n\n"
                 await asyncio.sleep(1.0)
-        except Exception:
+        except asyncio.CancelledError:
             pass
 
     return StreamingResponse(telemetry_generator(), media_type="text/event-stream")
@@ -1573,6 +1584,34 @@ def export_ai_dataset(payload: ExportDatasetPayload):
         "exported_count": copied_count,
         "export_path": str(target_root.resolve()),
     }
+
+
+@app.get("/api/export/dataset/download/{subject}/{run_id}")
+def download_kohya_dataset_zip(
+    subject: str, run_id: str, repeats: int = 10, min_resolution: int = 512
+):
+    """Generate and stream Kohya_ss LoRA dataset ZIP file directly to browser."""
+    from utils.dataset_exporter import KohyaDatasetExporter
+
+    run_dir = OUTPUT_DIR / subject / "runs" / run_id / "images"
+    if not run_dir.exists():
+        raise HTTPException(status_code=404, detail="Run image directory not found")
+
+    exporter = KohyaDatasetExporter(
+        repeats=repeats, concept_name=subject, min_resolution=min_resolution
+    )
+    zip_bytes = exporter.create_dataset_zip_bytes(run_dir)
+    if not zip_bytes:
+        raise HTTPException(
+            status_code=400, detail="No eligible images found for Kohya dataset export"
+        )
+
+    filename = f"{subject}_kohya_dataset.zip"
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 @app.post("/api/export/rag")
 def export_rag_markdown(payload: ExportRAGPayload):

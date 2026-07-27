@@ -596,6 +596,26 @@ class HttpClient:
                 self._domain_fallback_locks[host] = threading.Lock()
             return self._domain_fallback_locks[host]
 
+    def _save_domain_cookies(self, url: str, cookies: dict | list) -> None:
+        """Save solved cookies to persistent disk session and session pool."""
+        from utils.logger import get_logger
+        logger = get_logger(__name__)
+        host = self._hostname(url)
+        cookie_dict = {}
+        if isinstance(cookies, list):
+            cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+        elif isinstance(cookies, dict):
+            cookie_dict = cookies
+
+        if cookie_dict:
+            try:
+                self.session_manager.save_session(host, cookie_dict)
+                self._session_pool.update_cookies(host, cookie_dict)
+                for k, v in cookie_dict.items():
+                    self.client.cookies.set(k, v, domain=host)
+            except Exception as e:
+                logger.debug("Failed saving domain cookies for %s: %s", host, e)
+
     # ------------------------------------------------------------------
     # Proxy Management
     # ------------------------------------------------------------------
@@ -1536,11 +1556,14 @@ class HttpClient:
             raise Exception("Camoufox library is not installed")
 
         is_windows = sys.platform.startswith("win")
+        if is_windows:
+            logger.warning("Camoufox does not support Windows platform. Skipping Camoufox tier for %s.", url)
+            raise Exception("Camoufox unsupported on Windows platform")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
         headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
 
-        camou_os = "win" if is_windows else ("mac" if is_macos else "lin")
+        camou_os = "mac" if is_macos else "lin"
 
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
@@ -2370,6 +2393,24 @@ class HttpClient:
                 raise exc
 
             except httpx.HTTPError as exc:
+                if "CERTIFICATE_VERIFY_FAILED" in str(exc) or "certificate verify failed" in str(exc):
+                    logger.warning("SSL certificate verification failed for %s. Retrying with verify=False fallback...", url)
+                    try:
+                        import urllib3
+                        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                        ssl_headers = self._headers(url)
+                        if headers:
+                            ssl_headers.update(headers)
+                        with httpx.Client(verify=False, follow_redirects=True, timeout=current_timeout) as unverified_client:
+                            resp = unverified_client.get(url, headers=ssl_headers)
+                            if resp.status_code == 200:
+                                logger.info("Unverified SSL fallback succeeded for %s.", url)
+                                cd_state.record_success()
+                                self._store_cache(url, resp)
+                                return resp
+                    except Exception as unverify_err:
+                        logger.warning("Unverified SSL fallback failed for %s: %s", url, unverify_err)
+
                 logger.warning(
                     "HTTPError fetching %s (attempt %d/%d): %s",
                     url,

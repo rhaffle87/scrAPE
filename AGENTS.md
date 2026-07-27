@@ -40,7 +40,8 @@ run.bat / run.sh                     — Unified Master Launcher (WebUI, Wizard,
 run_monitor.bat / run_monitor.sh     — Continuous Watchdog Agent launcher
 output/cache/state_cache.db         — SQLite database persisting processed URLs across watchdog runs
 logs/run_<run_id>.log               — Full structured log per run
-scratch/                            — Test scripts, scratch validation scripts, and diagnostic tools
+tests/                              — Dedicated automated unit & integration test suite
+scratch/                            — Ad-hoc test scripts, scratch validation scripts, and diagnostic tools
 ```
 
 ---
@@ -151,12 +152,12 @@ After a run completes, inspect these primary outputs:
 
 ## 5. Verification & Testing
 
-- All testing and test scripts are maintained exclusively inside `scratch/` (the `tests/` directory is deleted and unused).
+- All automated unit and integration test scripts are maintained exclusively inside `tests/`. Ad-hoc scratch scripts and temporary logs belong in `scratch/`.
 - Run test scripts via pytest:
   ```powershell
-  pytest scratch/ -v
+  pytest tests/ -v
   ```
-- Always run `pytest scratch/` after completing code edits to verify that test scripts pass cleanly before declaring completion.
+- Always run `pytest tests/` after completing code edits to verify that test scripts pass cleanly before declaring completion.
 
 ---
 

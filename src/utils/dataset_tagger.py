@@ -45,7 +45,14 @@ class DatasetTagger:
             if subject:
                 subj_clean = str(subject).lower().strip()
                 if subj_clean not in tags:
-                    tags.insert(0, subj_clean)
+                    tags.append(subj_clean)
+
+        # Enforce trigger_tag at index 0 if specified
+        if self.trigger_tag:
+            trigger_lower = self.trigger_tag.lower()
+            if trigger_lower in tags:
+                tags.remove(trigger_lower)
+            tags.insert(0, trigger_lower)
 
         return tags
 

@@ -45,10 +45,12 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov build
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright Browsers & Dependencies
         run: |
-          playwright install chromium
+          playwright install --with-deps chromium
 
       - name: Run Test Suite
+        env:
+          PYTHONPATH: .
         run: |
-          pytest scratch/ -v
+          pytest tests/ -v

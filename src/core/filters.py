@@ -661,25 +661,36 @@ def transform_to_highres(url: str) -> tuple[str, str]:
         query = parsed.query
         host = parsed.netloc.lower()
 
-        # 1. WordPress / generic style dimension pattern e.g. -150x150.jpg, -300x200.jpg, -1024x768.png, -scaled.jpg
+        # Domain-specific highres transforms loaded from data/domain_config.json
+        import json as _json
+        from pathlib import Path as _Path
+        _dc_path = _Path("data/domain_config.json")
+        if _dc_path.exists():
+            try:
+                _dc = _json.loads(_dc_path.read_text(encoding="utf-8"))
+                for _rg in _dc.get("highres_transforms", {}).values():
+                    if any(p in host for p in _rg.get("host_contains", [])):
+                        for _rule in _rg.get("rules", []):
+                            if _rule.get("target") == "path":
+                                path = re.sub(_rule["pattern"], _rule["replacement"], path, flags=re.I)
+            except Exception:
+                pass
+
+        # WordPress / generic style dimension pattern e.g. -150x150.jpg, -300x200.jpg, -1024x768.png, -scaled.jpg
         wp_match = re.search(r"(-\d{2,4}x\d{2,4}|-scaled)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
         if wp_match:
             path = path[: wp_match.start(1)] + wp_match.group(2)
 
-        # 2. _thumb or .thumb suffix
+        # _thumb or .thumb suffix
         thumb_match = re.search(r"([._-]thumb(?:nail)?s?|\.thumb)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
         if thumb_match:
             path = path[: thumb_match.start(1)] + thumb_match.group(2)
 
-        # 3. Erome image thumbnail replacement (/t/ or /th/ -> /v/ or /)
-        if "erome.com" in host:
-            path = re.sub(r"/(?:t|th)/", "/v/", path)
-
-        # 4. Path directory replacements
+        # Generic path directory replacements
         path = re.sub(r"/(?:thumbs|preview|previews|thumbnails)/", "/images/", path, flags=re.I)
         path = re.sub(r"/video_thumbs/", "/video_sources/", path, flags=re.I)
 
-        # 5. Twitter name=small / name=medium -> name=large
+        # 7. Twitter name=small / name=medium -> name=large
         if "name=small" in query:
             query = query.replace("name=small", "name=large")
         elif "name=medium" in query:

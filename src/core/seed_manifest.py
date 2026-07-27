@@ -92,6 +92,9 @@ class DomainProfile:
     protected by Cloudflare Turnstile that defeat both headless and headful tiers.
     """
 
+    allow_insecure_ssl: bool = False
+    """When True, http_client disables SSL certificate verification for this domain."""
+
     max_pages: int | None = None
     """
     Optional hard cap on pages crawled per domain per run. None = unlimited.
@@ -379,6 +382,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_engine: str | None = None
     pend_referer: bool = False
     pend_cloudflare: bool = False
+    pend_insecure_ssl: bool = False
     pend_disabled: bool = False
     pend_max_pages: int | None = None
     pend_notes: list[str] = []
@@ -387,7 +391,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
         nonlocal pend_rate_limit, pend_username, pend_email, pend_password
         nonlocal pend_min_size, pend_thumb_prefix, pend_engine, pend_referer
-        nonlocal pend_cloudflare, pend_max_pages, pend_disabled
+        nonlocal pend_cloudflare, pend_insecure_ssl, pend_max_pages, pend_disabled
         pend_media = "mixed"
         pend_crawl = "index\u2192detail"
         pend_cdns = []
@@ -402,6 +406,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_engine = None
         pend_referer = False
         pend_cloudflare = False
+        pend_insecure_ssl = False
         pend_disabled = False
         pend_max_pages = None
         pend_notes = []
@@ -423,6 +428,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             preferred_engine=pend_engine,
             requires_referer=pend_referer,
             cloudflare_blocked=pend_cloudflare,
+            allow_insecure_ssl=pend_insecure_ssl,
             disabled=pend_disabled,
             max_pages=pend_max_pages,
             notes=list(pend_notes),
@@ -520,6 +526,10 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             # Flag: cloudflare_blocked — skip Crawl4AI fallback for this domain
             if _CLOUDFLARE_RE.search(line):
                 pend_cloudflare = True
+
+            # Flag: allow_insecure_ssl — disable SSL cert verification
+            if re.search(r"#\s*(?:ssl\s*:\s*insecure|insecure[-_]ssl\s*:\s*true)", line, re.IGNORECASE):
+                pend_insecure_ssl = True
 
             # Flag: disabled — skip domain entirely
             if _DISABLED_RE.search(line):

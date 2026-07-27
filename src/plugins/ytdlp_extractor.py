@@ -74,12 +74,26 @@ class YtDlpExtractor(ExtractorPlugin):
                     return SpecializedResult([], [])
 
                 videos = []
+                def _best_url_for_entry(entry: typing.Any) -> str | None:
+                    if not isinstance(entry, dict):
+                        return None
+                    formats = entry.get("formats")
+                    if isinstance(formats, list) and formats:
+                        mp4_formats = [f for f in formats if isinstance(f, dict) and f.get("ext") == "mp4" and f.get("url")]
+                        if mp4_formats:
+                            sorted_mp4s = sorted(mp4_formats, key=lambda x: x.get("height") or 0, reverse=True)
+                            return sorted_mp4s[0]["url"]
+                    return entry.get("url")
+
                 if "entries" in info:
                     for entry in info["entries"]:
-                        if entry and "url" in entry:
-                            videos.append(entry["url"])
-                elif "url" in info:
-                    videos.append(info["url"])
+                        u = _best_url_for_entry(entry)
+                        if u:
+                            videos.append(u)
+                else:
+                    u = _best_url_for_entry(info)
+                    if u:
+                        videos.append(u)
 
                 return SpecializedResult(images=[], videos=videos)
         except Exception as e:

@@ -315,8 +315,13 @@
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            align-items: stretch;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        #command-center-view > .terminal-panel {
+            grid-column: 1 / -1;
+            width: 100%;
         }
 
         @media (max-width: 1024px) {
@@ -595,39 +600,59 @@
         .terminal-panel {
             background-color: var(--bg-base);
             border: var(--border-heavy);
-            height: 100%;
-            min-height: 200px;
-            max-height: 1200px;
-            resize: vertical;
+            height: auto;
+            min-height: 280px;
+            max-height: 600px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            grid-column: 1 / -1;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         .terminal-header {
-            background-color: var(--accent);
-            color: var(--bg-base);
-            padding: 0.5rem 1rem;
+            background-color: var(--bg-surface);
+            border-bottom: var(--border-heavy);
+            color: var(--text-primary);
+            padding: 0.6rem 1rem;
             font-size: 0.85rem;
             font-weight: 700;
             text-transform: uppercase;
         }
 
         .terminal-body {
-            flex: 1;
+            height: 280px;
+            min-height: 220px;
             overflow-y: auto;
             padding: 1rem;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: var(--text-muted);
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.35rem;
+            background: #050706;
+        }
+
+        .terminal-body::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .terminal-body::-webkit-scrollbar-track {
+            background: var(--bg-base);
+            border-left: 1px solid var(--border-color);
+        }
+
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: var(--accent);
         }
 
         .terminal-line {
             white-space: pre-wrap;
             word-break: break-all;
+            line-height: 1.45;
+            padding-left: 0.4rem;
         }
 
         /* Gallery View Panel */
@@ -1661,27 +1686,27 @@
                     </form>
                 </div>
 
-                <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream) -->
-                <div class="visualizer-split-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                    <!-- Live Crawl Network Tree Graph (Left) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
-                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--text-primary); font-size: 0.85rem; letter-spacing: 1px;">LIVE CRAWL NETWORK TREE</span>
-                            <span id="graph-node-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent);">NODES: 0</span>
+                <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream Stacked) -->
+                <div class="visualizer-split-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Live Crawl Network Tree Graph (Top) -->
+                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
+                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE CRAWL NETWORK TREE</span>
+                            <span id="graph-node-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES: 0</span>
                         </div>
                         <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
                             <canvas id="crawl-graph-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
                         </div>
                     </div>
 
-                    <!-- Live Streaming Media Feed Grid (Right) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
-                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--text-primary); font-size: 0.85rem; letter-spacing: 1px;">STREAMING MEDIA FEED</span>
-                            <span id="stream-item-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent);">ASSETS: 0</span>
+                    <!-- Live Streaming Media Feed Grid (Bottom) -->
+                    <div class="glass-panel" style="display: flex; flex-direction: column; height: 320px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
+                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">STREAMING MEDIA FEED</span>
+                            <span id="stream-item-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">ASSETS: 0</span>
                         </div>
-                        <div id="live-media-stream-grid" style="flex: 1; overflow-y: auto; padding: 0.6rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 0.5rem; background: #080a09;">
-                            <div id="stream-empty-placeholder" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                        <div id="live-media-stream-grid" style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; background: #080a09;">
+                            <div id="stream-empty-placeholder" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">
                                 AWAITING MEDIA ASSETS...
                             </div>
                         </div>
@@ -1690,19 +1715,21 @@
 
                 <!-- Live Log Terminal -->
                 <div class="terminal-panel" id="terminal-panel">
-                    <div class="terminal-header"
-                        style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>LIVE TERMINAL FEED</span>
-                        <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.8rem;">
-                            <span id="progress-text"
-                                style="color: var(--text-muted); font-weight: normal; font-family: monospace; display: none;"></span>
-                            <span id="log-speed-indicator" style="color: var(--accent);">IDLE</span>
+                    <div class="terminal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-family: 'Oswald', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);">LIVE TERMINAL FEED</span>
+                            <span id="log-speed-indicator" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0, 0, 0, 0.4); padding: 0.2rem 0.5rem; border: 1px solid var(--accent);">IDLE</span>
+                            <span id="log-copy-feedback" style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #00ff66; font-weight: bold;">✓ COPIED TO CLIPBOARD</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span id="progress-text" style="color: var(--text-muted); font-size: 0.75rem; font-family: monospace; display: none;"></span>
+                            <button type="button" id="btn-autoscroll" onclick="toggleAutoScroll()" style="background: transparent; border: 1px solid var(--border-color); color: var(--accent); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ AUTO-SCROLL ON ]</button>
+                            <button type="button" onclick="copyTerminalLogs()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ COPY LOGS ]</button>
+                            <button type="button" onclick="clearTerminalFeed()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ CLEAR ]</button>
                         </div>
                     </div>
-                    <div id="progress-bar-container"
-                        style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
-                        <div id="progress-bar-fill"
-                            style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);">
+                    <div id="progress-bar-container" style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
+                        <div id="progress-bar-fill" style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);">
                         </div>
                     </div>
                     <div class="terminal-body" id="live-terminal-body">
@@ -2895,6 +2922,39 @@
                     };
                 }
 
+                let autoScrollEnabled = true;
+
+                function toggleAutoScroll() {
+                    autoScrollEnabled = !autoScrollEnabled;
+                    const btn = document.getElementById('btn-autoscroll');
+                    if (btn) {
+                        btn.innerText = autoScrollEnabled ? '[ AUTO-SCROLL ON ]' : '[ AUTO-SCROLL OFF ]';
+                        btn.style.color = autoScrollEnabled ? 'var(--accent)' : 'var(--text-muted)';
+                    }
+                }
+
+                function clearTerminalFeed() {
+                    const body = document.getElementById('live-terminal-body');
+                    if (body) {
+                        body.innerHTML = '<div class="terminal-line log-info" style="color: var(--text-muted); font-style: italic;">[ TERMINAL FEED CLEARED ]</div>';
+                    }
+                }
+
+                function copyTerminalLogs() {
+                    const body = document.getElementById('live-terminal-body');
+                    if (!body) return;
+                    const text = body.innerText;
+                    navigator.clipboard.writeText(text).then(() => {
+                        const feedback = document.getElementById('log-copy-feedback');
+                        if (feedback) {
+                            feedback.style.display = 'inline';
+                            setTimeout(() => { feedback.style.display = 'none'; }, 2000);
+                        }
+                    }).catch(err => {
+                        console.error("Failed copying logs:", err);
+                    });
+                }
+
                 async function pollLogs() {
                     try {
                         const response = await fetch('/api/logs?offset=' + logOffset);
@@ -2927,7 +2987,9 @@
                                     body.appendChild(div);
                                 });
                                 logOffset = data.next_offset;
-                                body.scrollTop = body.scrollHeight;
+                                if (autoScrollEnabled) {
+                                    body.scrollTop = body.scrollHeight;
+                                }
                             }
                         }
                     } catch (err) {
@@ -3040,9 +3102,17 @@
                     }
                 }
 
-                // --- Live Crawl Graph & Media Visualizer ---
+                // --- Live Crawl Graph & Media Visualizer with Zoom/Pan & Node Inspector ---
                 const graphNodes = new Map();
                 let streamedAssetsCount = 0;
+
+                let canvasScale = 1.0;
+                let canvasPanX = 0;
+                let canvasPanY = 0;
+                let isPanning = false;
+                let startPanX = 0;
+                let startPanY = 0;
+                let selectedNode = null;
 
                 function initCrawlGraphCanvas() {
                     const canvas = document.getElementById('crawl-graph-canvas');
@@ -3056,6 +3126,75 @@
 
                     window.addEventListener('resize', resizeCanvas);
                     resizeCanvas();
+
+                    // Mouse wheel zoom
+                    canvas.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+                        canvasScale = Math.max(0.4, Math.min(3.0, canvasScale * zoomFactor));
+                        drawCrawlGraph();
+                    });
+
+                    // Mouse drag pan
+                    canvas.addEventListener('mousedown', (e) => {
+                        isPanning = true;
+                        startPanX = e.clientX - canvasPanX;
+                        startPanY = e.clientY - canvasPanY;
+                    });
+
+                    window.addEventListener('mousemove', (e) => {
+                        if (!isPanning) return;
+                        canvasPanX = e.clientX - startPanX;
+                        canvasPanY = e.clientY - startPanY;
+                        drawCrawlGraph();
+                    });
+
+                    window.addEventListener('mouseup', () => {
+                        isPanning = false;
+                    });
+
+                    // Node click inspector
+                    canvas.addEventListener('click', (e) => {
+                        const rect = canvas.getBoundingClientRect();
+                        const clickX = (e.clientX - rect.left - canvasPanX) / canvasScale;
+                        const clickY = (e.clientY - rect.top - canvasPanY) / canvasScale;
+
+                        let clicked = null;
+                        graphNodes.forEach(node => {
+                            const dist = Math.hypot(node.x - clickX, node.y - clickY);
+                            if (dist <= 12) {
+                                clicked = node;
+                            }
+                        });
+
+                        if (clicked) {
+                            inspectGraphNode(clicked);
+                        }
+                    });
+                }
+
+                function inspectGraphNode(node) {
+                    selectedNode = node;
+                    const drawer = document.getElementById('node-detail-drawer');
+                    if (!drawer) return;
+
+                    document.getElementById('node-drawer-url').innerText = node.url || 'Unknown';
+                    document.getElementById('node-drawer-domain').innerText = node.domain || 'N/A';
+                    document.getElementById('node-drawer-depth').innerText = node.depth !== undefined ? node.depth : '0';
+                    document.getElementById('node-drawer-type').innerText = node.type || 'page_visited';
+                    drawer.style.display = 'block';
+                }
+
+                function closeNodeDrawer() {
+                    const drawer = document.getElementById('node-detail-drawer');
+                    if (drawer) drawer.style.display = 'none';
+                }
+
+                function resetCanvasView() {
+                    canvasScale = 1.0;
+                    canvasPanX = 0;
+                    canvasPanY = 0;
+                    drawCrawlGraph();
                 }
 
                 function addCrawlGraphNode(data) {
@@ -3100,19 +3239,23 @@
 
                     ctx.clearRect(0, 0, w, h);
 
+                    ctx.save();
+                    ctx.translate(canvasPanX, canvasPanY);
+                    ctx.scale(canvasScale, canvasScale);
+
                     // Grid background
                     ctx.strokeStyle = '#121614';
                     ctx.lineWidth = 1;
-                    for (let x = 0; x < w; x += 25) {
+                    for (let x = -w; x < w * 2; x += 25) {
                         ctx.beginPath();
-                        ctx.moveTo(x, 0);
-                        ctx.lineTo(x, h);
+                        ctx.moveTo(x, -h);
+                        ctx.lineTo(x, h * 2);
                         ctx.stroke();
                     }
-                    for (let y = 0; y < h; y += 25) {
+                    for (let y = -h; y < h * 2; y += 25) {
                         ctx.beginPath();
-                        ctx.moveTo(0, y);
-                        ctx.lineTo(w, y);
+                        ctx.moveTo(-w, y);
+                        ctx.lineTo(w * 2, y);
                         ctx.stroke();
                     }
 
@@ -3144,6 +3287,8 @@
                             ctx.stroke();
                         }
                     });
+
+                    ctx.restore();
                 }
 
                 function addStreamingMediaCard(data) {
@@ -3158,12 +3303,13 @@
                     if (countElem) countElem.innerText = `ASSETS: ${streamedAssetsCount}`;
 
                     const card = document.createElement('div');
-                    card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 75px;';
+                    card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 75px; cursor: pointer;';
 
                     if (data.media_kind === 'image') {
                         card.innerHTML = `<img src="/output/${data.file_path}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important;" alt="Media Asset" loading="lazy">`;
                     } else {
                         card.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #111; color: var(--accent); font-family: 'Oswald', sans-serif; font-size: 0.7rem;">VIDEO</div>`;
+                        card.onclick = () => openVideoModal(`/output/${data.file_path}`, data.file_path, data.width, data.height, data.url);
                     }
 
                     if (data.width && data.height) {
@@ -3175,6 +3321,66 @@
                     while (container.children.length > 25) {
                         container.removeChild(container.lastChild);
                     }
+                }
+
+                // --- Video Player Overlay Modal ---
+                function openVideoModal(videoSrc, title, width, height, sourceUrl) {
+                    const modal = document.getElementById('video-player-modal');
+                    const player = document.getElementById('video-modal-player');
+                    if (!modal || !player) return;
+
+                    player.src = videoSrc;
+                    document.getElementById('video-modal-title').innerText = title || 'Video Asset';
+                    document.getElementById('video-modal-res').innerText = (width && height) ? `${width}x${height}` : 'HD Video';
+                    
+                    const srcBtn = document.getElementById('video-modal-src-link');
+                    if (srcBtn && sourceUrl) {
+                        srcBtn.href = sourceUrl;
+                        srcBtn.style.display = 'inline-block';
+                    }
+
+                    modal.style.display = 'flex';
+                    player.play().catch(() => {});
+                }
+
+                function closeVideoModal() {
+                    const modal = document.getElementById('video-player-modal');
+                    const player = document.getElementById('video-modal-player');
+                    if (player) {
+                        player.pause();
+                        player.src = '';
+                    }
+                    if (modal) modal.style.display = 'none';
+                }
+
+                // --- Kohya_ss LoRA Dataset Export Modal ---
+                let currentExportSubject = '';
+                let currentExportRunId = '';
+
+                function openDatasetExportModal(subject, runId) {
+                    currentExportSubject = subject || 'subject';
+                    currentExportRunId = runId || 'run';
+
+                    const modal = document.getElementById('dataset-export-modal');
+                    if (!modal) return;
+
+                    document.getElementById('export-modal-subject').innerText = `${subject} (${runId})`;
+                    document.getElementById('export-concept-tag').value = subject.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+                    modal.style.display = 'flex';
+                }
+
+                function closeDatasetExportModal() {
+                    const modal = document.getElementById('dataset-export-modal');
+                    if (modal) modal.style.display = 'none';
+                }
+
+                function triggerDatasetZipDownload() {
+                    const repeats = document.getElementById('export-repeats')?.value || 10;
+                    const minRes = document.getElementById('export-min-res')?.value || 512;
+
+                    const downloadUrl = `/api/export/dataset/download/${encodeURIComponent(currentExportSubject)}/${encodeURIComponent(currentExportRunId)}?repeats=${repeats}&min_resolution=${minRes}`;
+                    window.location.href = downloadUrl;
+                    closeDatasetExportModal();
                 }
 
                 function setupLiveTelemetrySSE() {
@@ -3199,6 +3405,64 @@
                     setupLiveTelemetrySSE();
                 });
             </script>
+
+    <!-- Node Detail Drawer Side Panel -->
+    <div id="node-detail-drawer" style="display: none; position: absolute; top: 80px; right: 2rem; width: 320px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1rem; z-index: 200; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); box-shadow: 6px 6px 0 var(--bg-surface);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+            <span style="font-family: 'Oswald', sans-serif; color: var(--accent); font-weight: 700; text-transform: uppercase;">NODE INSPECTOR</span>
+            <button onclick="closeNodeDrawer()" style="background: none; border: none; color: var(--accent); cursor: pointer; font-weight: 700;">[X]</button>
+        </div>
+        <div style="font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; word-break: break-all;">
+            <div><strong style="color: var(--text-muted);">URL:</strong> <span id="node-drawer-url">-</span></div>
+            <div><strong style="color: var(--text-muted);">DOMAIN:</strong> <span id="node-drawer-domain">-</span></div>
+            <div><strong style="color: var(--text-muted);">DEPTH:</strong> <span id="node-drawer-depth">-</span></div>
+            <div><strong style="color: var(--text-muted);">TYPE:</strong> <span id="node-drawer-type">-</span></div>
+        </div>
+        <button onclick="resetCanvasView()" style="margin-top: 1rem; width: 100%; padding: 0.4rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer;">RESET GRAPH VIEW</button>
+    </div>
+
+    <!-- Video Player Overlay Modal -->
+    <div id="video-player-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="width: 90%; max-width: 850px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
+                <span id="video-modal-title" style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700; text-transform: uppercase;">VIDEO ASSET</span>
+                <button onclick="closeVideoModal()" style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">CLOSE [X]</button>
+            </div>
+            <video id="video-modal-player" controls autoplay loop style="width: 100%; max-height: 500px; background: #000; border: 1px solid var(--border-heavy);"></video>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                <span id="video-modal-res" style="background: var(--accent); color: #000; padding: 2px 6px; font-weight: 700;">HD</span>
+                <a id="video-modal-src-link" href="#" target="_blank" style="color: var(--accent); text-decoration: underline; display: none;">VIEW SOURCE PAGE</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kohya_ss LoRA Dataset Export Modal -->
+    <div id="dataset-export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="width: 90%; max-width: 500px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; font-family: 'JetBrains Mono', monospace;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
+                <span style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700;">EXPORT KOHYA LORA DATASET</span>
+                <button onclick="closeDatasetExportModal()" style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">[X]</button>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);" id="export-modal-subject">Target Run</div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">CONCEPT TRIGGER TAG:</label>
+                <input id="export-concept-tag" type="text" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;" placeholder="concept_name">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">REPEAT COUNT:</label>
+                <input id="export-repeats" type="number" value="10" min="1" max="100" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">MIN RESOLUTION FILTER:</label>
+                <select id="export-min-res" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
+                    <option value="512" selected>512px x 512px</option>
+                    <option value="768">768px x 768px</option>
+                    <option value="1024">1024px x 1024px</option>
+                </select>
+            </div>
+            <button onclick="triggerDatasetZipDownload()" style="margin-top: 0.5rem; padding: 0.8rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer; text-transform: uppercase;">DOWNLOAD DATASET (.ZIP)</button>
+        </div>
+    </div>
 </body>
 
 </html>

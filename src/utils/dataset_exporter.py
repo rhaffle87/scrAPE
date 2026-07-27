@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 import zipfile
+from utils.image_helper import get_image_dimensions, compute_dhash, hamming_distance
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class KohyaDatasetExporter:
         self,
         repeats: int = 10,
         concept_name: str = "concept",
-        min_resolution: int = 256,
+        min_resolution: int = 512,
     ):
         self.repeats = repeats
         self.concept_name = (concept_name or "concept").strip().replace(" ", "_")
@@ -38,13 +39,43 @@ class KohyaDatasetExporter:
                 if filename:
                     metadata_map[filename] = item
 
+        seen_hashes: list[int] = []
+        exported_count = 0
+
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             if image_dir.exists() and image_dir.is_dir():
                 for file_path in image_dir.iterdir():
                     if file_path.is_file() and file_path.suffix.lower() in image_extensions:
+                        try:
+                            file_bytes = file_path.read_bytes()
+                        except Exception as read_err:
+                            LOGGER.debug("Failed reading %s: %s", file_path, read_err)
+                            continue
+
+                        # 1. Min resolution check
+                        w, h = get_image_dimensions(file_bytes)
+                        if w is not None and h is not None:
+                            if w < self.min_resolution and h < self.min_resolution:
+                                LOGGER.debug("Skipping low-resolution image %s (%dx%d < %d)", file_path.name, w, h, self.min_resolution)
+                                continue
+
+                        # 2. Perceptual dHash near-duplicate check
+                        img_hash = compute_dhash(file_bytes)
+                        if img_hash is not None:
+                            is_dupe = False
+                            for prev_hash in seen_hashes:
+                                if hamming_distance(img_hash, prev_hash) <= 4:
+                                    is_dupe = True
+                                    break
+                            if is_dupe:
+                                LOGGER.debug("Skipping near-duplicate image %s", file_path.name)
+                                continue
+                            seen_hashes.append(img_hash)
+
                         # Write image file into folder_prefix
                         archive_image_path = f"{folder_prefix}/{file_path.name}"
                         zf.write(file_path, archive_image_path)
+                        exported_count += 1
 
                         # Write sidecar .txt file if exists or create dummy
                         sidecar_path = file_path.with_suffix(".txt")
@@ -60,9 +91,11 @@ class KohyaDatasetExporter:
             dataset_meta = {
                 "concept": self.concept_name,
                 "repeats": self.repeats,
-                "total_images": len([f for f in image_dir.iterdir() if f.is_file() and f.suffix.lower() in image_extensions]) if image_dir.exists() else 0,
+                "min_resolution": self.min_resolution,
+                "total_images": exported_count,
             }
             zf.writestr("metadata.json", json.dumps(dataset_meta, indent=2))
 
         buffer.seek(0)
         return buffer.getvalue()
+

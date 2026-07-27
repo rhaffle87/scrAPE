@@ -227,6 +227,9 @@ class FlareSolverrStrategy(StealthStrategy):
 class CamoufoxStrategy(StealthStrategy):
     name = "camoufox"
 
+    def is_available(self) -> bool:
+        return True
+
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
             html, cookies = client._get_with_camoufox(url)
@@ -246,12 +249,15 @@ class StealthPipeline:
     """Orchestrates sequential execution of StealthStrategy instances with per-tier circuit-breaking."""
 
     def __init__(self, strategies: list[StealthStrategy] | None = None) -> None:
+        from utils.capsolver_strategy import CapSolverStrategy
+
         self.circuit_breaker = _StrategyCircuitBreaker()
         if strategies is not None:
             self.strategies = strategies
         else:
             self.strategies = [
                 HttpxStrategy(),
+                CapSolverStrategy(),
                 CrawleeStrategy(),
                 Crawl4AIStrategy(),
                 DrissionPageStrategy(),

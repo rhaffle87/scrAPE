@@ -130,6 +130,8 @@ class SessionPool:
         session = self.get_session(domain)
         session.update_cookies(cookies, user_agent=user_agent)
 
+    set_cookies = update_cookies
+
     def update_session(self, domain: str, cookies: list[dict] | dict | None = None, user_agent: str | None = None) -> None:
         """Update session cookies and/or User-Agent for *domain*."""
         session = self.get_session(domain)

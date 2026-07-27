@@ -3,6 +3,7 @@ import time
 import subprocess
 import argparse
 import os
+import json
 import signal
 import threading
 from datetime import datetime, timedelta
@@ -10,18 +11,57 @@ from pathlib import Path
 
 shutdown_event = threading.Event()
 
+
 def signal_handler(signum, frame):
     print(f"\n[{datetime.now().isoformat()}] Received shutdown signal. Exiting gracefully...")
     shutdown_event.set()
 
+
 # Add src to python path to resolve modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
+def load_watchdog_config(config_path: str = "data/domain_config.json") -> dict:
+    """Load watchdog default configuration from domain_config.json."""
+    p = Path(config_path)
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            return data.get("watchdog", {})
+        except Exception:
+            pass
+    return {}
+
+
+class AdaptiveBackoffTracker:
+    """Tracks per-subject harvest history and calculates adaptive next-run delay."""
+
+    def __init__(
+        self,
+        min_interval_s: float = 60,
+        max_interval_s: float = 86400,
+        backoff_factor: float = 2.0,
+    ):
+        self.min_interval_s = float(min_interval_s)
+        self.max_interval_s = float(max_interval_s)
+        self.backoff_factor = float(backoff_factor)
+        self.subject_delays: dict[str, float] = {}
+
+    def get_next_delay(self, subject: str, harvest_yield: int) -> float:
+        current = self.subject_delays.get(subject, self.min_interval_s)
+        if harvest_yield > 0:
+            next_delay = self.min_interval_s
+        else:
+            next_delay = min(self.max_interval_s, current * self.backoff_factor)
+        self.subject_delays[subject] = next_delay
+        return next_delay
 
 
 def broadcast_watchdog_event(event_name: str, payload: dict) -> None:
     """Broadcast watchdog status/alert event over SSE if frontend broadcaster is available."""
     try:
         from frontend.app import broadcaster
+
         broadcaster.broadcast(event_name, payload)
     except Exception:
         pass
@@ -37,6 +77,29 @@ def discover_rotation_targets(seeds_dir: str) -> list[tuple[str, str]]:
         keyword = f.stem.replace("_", " ")
         targets.append((keyword, str(f)))
     return targets
+
+
+def parse_latest_run_yield(keyword: str) -> tuple[int, int, int] | None:
+    """Parse latest run results for subject to extract (images, videos, rejections)."""
+    slug = keyword.replace(" ", "_").lower()
+    sub_dir = Path("output") / slug / "runs"
+    if not sub_dir.exists():
+        return None
+    run_folders = sorted([d for d in sub_dir.iterdir() if d.is_dir()])
+    if not run_folders:
+        return None
+    latest_run = run_folders[-1]
+    res_json = latest_run / "results.json"
+    if res_json.exists():
+        try:
+            data = json.loads(res_json.read_text(encoding="utf-8"))
+            imgs = len(data.get("images", []))
+            vids = len(data.get("videos", []))
+            rejs = len(data.get("rejected_items", []))
+            return imgs, vids, rejs
+        except Exception:
+            pass
+    return None
 
 
 def run_scraper(
@@ -115,7 +178,43 @@ def run_scraper(
     return return_code
 
 
+def notify_telegram(message: str) -> None:
+    """Send Telegram alert if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are configured."""
+    try:
+        from utils.telegram_bot import TelegramBotNotifier
+
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+        notifier = TelegramBotNotifier(token, chat_id)
+        if notifier.is_configured():
+            notifier.send_message(message)
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] Telegram alert dispatch failed: {e}")
+
+
+def notify_telegram_summary(
+    keyword: str, cycle: int, code: int, yield_info: tuple[int, int, int] | None
+) -> None:
+    """Send structured HTML summary digest card after a subject watchdog cycle."""
+    if yield_info:
+        imgs, vids, rejs = yield_info
+        status = "✅ SUCCESS" if code == 0 else f"⚠️ FAILED ({code})"
+        msg = (
+            f"<b>📊 Watchdog Cycle #{cycle} Complete</b>\n"
+            f"<b>Subject:</b> <code>{keyword}</code>\n"
+            f"<b>Status:</b> {status}\n"
+            f"<b>Images Harvested:</b> {imgs}\n"
+            f"<b>Videos Harvested:</b> {vids}\n"
+            f"<b>Rejections Filtered:</b> {rejs}"
+        )
+    else:
+        msg = f"<b>📊 Watchdog Cycle #{cycle} Complete</b>\n<b>Subject:</b> <code>{keyword}</code>\n<b>Return Code:</b> {code}"
+    notify_telegram(msg)
+
+
 def main():
+    wd_cfg = load_watchdog_config()
+
     parser = argparse.ArgumentParser(
         description="Sleep Monitoring Agent for scrAPE — run scrapes continuously at set intervals."
     )
@@ -140,7 +239,7 @@ def main():
         "--interval",
         "-i",
         type=int,
-        default=int(os.environ.get("SCRAPE_INTERVAL", 60)),
+        default=int(os.environ.get("SCRAPE_INTERVAL", wd_cfg.get("min_interval_s", 60))),
         help="Check/run interval in seconds (default: 60).",
     )
     parser.add_argument(
@@ -164,13 +263,26 @@ def main():
     parser.add_argument(
         "--auto-prune-cache",
         action="store_true",
-        help="Enable periodic StateCache pruning and vacuuming across watch cycles.",
+        default=True,
+        help="Enable periodic StateCache pruning and vacuuming across watch cycles (default: True).",
     )
     parser.add_argument(
         "--prune-interval-cycles",
         type=int,
         default=5,
         help="Number of watch cycles between automatic cache pruning (default: 5).",
+    )
+    parser.add_argument(
+        "--ttl-days",
+        type=int,
+        default=int(wd_cfg.get("ttl_days", 7)),
+        help="State cache URL retention TTL in days (default: 7).",
+    )
+    parser.add_argument(
+        "--adaptive-backoff",
+        action="store_true",
+        default=True,
+        help="Enable adaptive yield-based backoff delay per subject (default: True).",
     )
 
     args, extra_args = parser.parse_known_args()
@@ -193,6 +305,12 @@ def main():
 
         StateCache().flush()
 
+    backoff_tracker = AdaptiveBackoffTracker(
+        min_interval_s=args.interval,
+        max_interval_s=wd_cfg.get("max_interval_s", 86400),
+        backoff_factor=wd_cfg.get("backoff_factor", 2.0),
+    )
+
     print(
         f"[{datetime.now().isoformat()}] Sleep Monitoring Agent (scrAPE) initialized."
     )
@@ -202,7 +320,7 @@ def main():
         print(f"Target Keyword: {args.keyword}")
         if args.seed_file:
             print(f"Seed File: {args.seed_file}")
-    print(f"Interval: {args.interval} seconds | Timeout: {args.timeout} seconds")
+    print(f"Interval: {args.interval}s | TTL: {args.ttl_days} days | Timeout: {args.timeout}s")
     if extra_args:
         print(f"Pass-through arguments: {extra_args}")
 
@@ -222,43 +340,62 @@ def main():
             cycle_count += 1
             print(f"\n[{datetime.now().isoformat()}] --- WATCHDOG CYCLE #{cycle_count} [{target_keyword}] ---")
 
-            # Periodic cache maintenance
+            # Periodic 7-day TTL cache maintenance
             if args.auto_prune_cache and (cycle_count % args.prune_interval_cycles == 0):
                 try:
                     from storage.state_cache import StateCache
+
                     cache = StateCache()
-                    pruned = cache.prune_expired()
+                    pruned = cache.prune_expired(max_age_days=args.ttl_days)
                     db_size = cache.vacuum_db()
-                    print(f"[{datetime.now().isoformat()}] StateCache Maintenance: Pruned {pruned} stale URLs. DB size: {db_size} bytes.")
-                    broadcast_watchdog_event("watchdog", {"type": "prune", "pruned": pruned, "db_size": db_size})
+                    print(
+                        f"[{datetime.now().isoformat()}] StateCache Maintenance (TTL={args.ttl_days}d): Pruned {pruned} stale URLs. DB size: {db_size} bytes."
+                    )
+                    broadcast_watchdog_event(
+                        "watchdog", {"type": "prune", "pruned": pruned, "db_size": db_size}
+                    )
                 except Exception as c_err:
                     print(f"[{datetime.now().isoformat()}] StateCache Maintenance Error: {c_err}")
 
-            broadcast_watchdog_event("watchdog", {
-                "type": "cycle_start",
-                "cycle": cycle_count,
-                "keyword": target_keyword,
-                "seed_file": target_seed,
-            })
+            broadcast_watchdog_event(
+                "watchdog",
+                {
+                    "type": "cycle_start",
+                    "cycle": cycle_count,
+                    "keyword": target_keyword,
+                    "seed_file": target_seed,
+                },
+            )
 
             code = run_scraper(target_keyword, target_seed, args.download_media, extra_args)
+            yield_info = parse_latest_run_yield(target_keyword)
 
-            broadcast_watchdog_event("watchdog", {
-                "type": "cycle_complete",
-                "cycle": cycle_count,
-                "keyword": target_keyword,
-                "return_code": code,
-            })
+            if wd_cfg.get("telegram_digest", True):
+                notify_telegram_summary(target_keyword, cycle_count, code, yield_info)
+
+            broadcast_watchdog_event(
+                "watchdog",
+                {
+                    "type": "cycle_complete",
+                    "cycle": cycle_count,
+                    "keyword": target_keyword,
+                    "return_code": code,
+                    "yield": yield_info,
+                },
+            )
 
             if shutdown_event.is_set():
                 break
 
-            next_run = datetime.now() + timedelta(seconds=args.interval)
+            total_harvest = (yield_info[0] + yield_info[1]) if yield_info else 0
+            sleep_delay = backoff_tracker.get_next_delay(target_keyword, total_harvest) if args.adaptive_backoff else float(args.interval)
+
+            next_run = datetime.now() + timedelta(seconds=sleep_delay)
             print(
-                f"[{datetime.now().isoformat()}] Next cycle scheduled at {next_run.isoformat()}. Sleeping for {args.interval}s..."
+                f"[{datetime.now().isoformat()}] Next cycle scheduled at {next_run.isoformat()}. Adaptive sleep for {sleep_delay:.0f}s..."
             )
 
-            if shutdown_event.wait(args.interval):
+            if shutdown_event.wait(sleep_delay):
                 break
 
     except KeyboardInterrupt:
