@@ -1044,6 +1044,36 @@ def save_dataset_sidecar(path: str = Form(...), tags: str = Form(...)):
     return {"status": "ok", "path": str(sidecar_path), "saved_tags": tags}
 
 
+@app.post("/api/dataset/score")
+def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
+    """Evaluate aesthetic quality scores for images in a subject folder."""
+    from utils.aesthetic_scorer import AestheticScorer
+    from pathlib import Path
+
+    output_dir = Path("output") / subject / "images"
+    if not output_dir.exists():
+        output_dir = Path("output") / subject
+
+    scorer = AestheticScorer()
+    res = scorer.filter_directory(output_dir, min_score=min_score)
+    return {"status": "ok", "subject": subject, **res}
+
+
+@app.post("/api/dataset/crop")
+def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: int = Form(1024)):
+    """Batch smart-crop images in a subject folder to specified aspect ratio/resolution."""
+    from utils.dataset_cropper import DatasetCropper
+    from pathlib import Path
+
+    output_dir = Path("output") / subject / "images"
+    if not output_dir.exists():
+        output_dir = Path("output") / subject
+
+    cropper = DatasetCropper(default_target_size=(width, height))
+    res = cropper.crop_directory(output_dir, target_size=(width, height))
+    return {"status": "ok", "subject": subject, **res}
+
+
 @app.get("/api/dataset/export")
 def export_dataset_zip(subject: str, repeats: int = 10, concept: str = "concept"):
     """Export Kohya_ss formatted LoRA dataset ZIP archive."""

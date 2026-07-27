@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0] — 2026-07-28
+
+### Added & Changed (0.20.0)
+
+- Test highlight 1
+- Test highlight 2
+
 ## [0.20.0] — 2026-07-27
 
 ### Added & Changed (0.20.0)

@@ -235,6 +235,18 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="Validate the syntax and annotations of the specified seed file, then exit.",
     )
+    parser.add_argument(
+        "--aesthetic-score",
+        type=float,
+        default=None,
+        metavar="SCORE",
+        help="Minimum aesthetic quality score threshold (1.0-10.0) for downloaded images.",
+    )
+    parser.add_argument(
+        "--auto-crop",
+        action="store_true",
+        help="Automatically generate smart face/body-centered cropped images for LoRA training.",
+    )
     return parser
 
 
@@ -552,6 +564,11 @@ def main() -> None:
         global_rate_limit_rps=getattr(args, "rate_limit", 0.0),
     )
     engine.downloader.workers = args.dl_workers
+    if getattr(args, "aesthetic_score", None) is not None:
+        from utils.aesthetic_scorer import AestheticScorer
+        engine.downloader.min_aesthetic_score = args.aesthetic_score
+        engine.downloader.aesthetic_scorer = AestheticScorer()
+        logger.info("Aesthetic quality filter enabled: min_score=%.1f", args.aesthetic_score)
 
     log_run_start(
         logger,
@@ -567,6 +584,8 @@ def main() -> None:
             "download_media": args.download_media,
             "skip_search": args.skip_search,
             "strict_domain": args.strict_domain,
+            "aesthetic_score": args.aesthetic_score,
+            "auto_crop": args.auto_crop,
         },
     )
 
@@ -600,8 +619,19 @@ def main() -> None:
         "max_results": args.max_results,
         "entity_tokens": args.entity_token,
         "download_media": args.download_media,
+        "aesthetic_score": args.aesthetic_score,
+        "auto_crop": args.auto_crop,
     }
     result.run_metadata.update(metadata_updates)
+
+    if args.auto_crop and args.download_media:
+        from utils.dataset_cropper import DatasetCropper
+        images_dir = OUTPUT_DIR / result.keyword_slug / "images"
+        if images_dir.exists():
+            logger.info("Executing post-run smart face/body auto-cropping on %s...", images_dir)
+            cropper = DatasetCropper()
+            crop_res = cropper.crop_directory(images_dir)
+            logger.info("Auto-crop complete: cropped %d images into %s", crop_res.get("cropped_count", 0), crop_res.get("output_dir"))
 
     output_root = OUTPUT_DIR / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
     output_root.mkdir(parents=True, exist_ok=True)

@@ -98,8 +98,10 @@ class MediaDownloader:
         speed_limit_kbps: int = 0,
         state_cache=None,
         keyword: str = "",
+        min_aesthetic_score: float | None = None,
     ) -> None:
         from utils.bandwidth_limiter import BandwidthLimiter
+        from utils.aesthetic_scorer import AestheticScorer
 
         self.http = http if http is not None else HttpClient()
         self.workers = max(1, workers)
@@ -111,6 +113,8 @@ class MediaDownloader:
         self._hash_lock = threading.Lock()
         self._state_cache = state_cache
         self._keyword = keyword.strip().lower()
+        self.min_aesthetic_score = min_aesthetic_score
+        self.aesthetic_scorer = AestheticScorer() if min_aesthetic_score is not None else None
         # Seed in-memory pHash set from persistent DB for cross-run deduplication
         if self._state_cache is not None:
             try:
@@ -636,6 +640,17 @@ class MediaDownloader:
                             "Skipping image with unparseable dimensions %s", url
                         )
                         return False, {"reason": "unparseable_dimensions"}
+
+                    if self.min_aesthetic_score is not None and self.aesthetic_scorer is not None:
+                        score = self.aesthetic_scorer.score_image(content)
+                        if score < self.min_aesthetic_score:
+                            LOGGER.info(
+                                "Skipping low aesthetic image %s (score=%.1f < min=%.1f)",
+                                url,
+                                score,
+                                self.min_aesthetic_score,
+                            )
+                            return False, {"reason": "low_aesthetic_score", "score": score}
 
                 if media_kind == "image":
                     dhash_val = compute_dhash(content)
