@@ -177,6 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Number of media files to download concurrently (default: {CONCURRENT_DOWNLOADS}).",
     )
     parser.add_argument(
+        "--enable-governor",
+        action="store_true",
+        help="Enable dynamic system CPU/RAM load governor to scale worker threads dynamically.",
+    )
+    parser.add_argument(
         "--dl-speed-limit",
         type=int,
         default=0,

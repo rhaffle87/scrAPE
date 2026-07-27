@@ -74,3 +74,10 @@ class HardwareLoadGovernor:
             return 0.50
 
         return 1.0
+
+    def trigger_memory_cleanup(self) -> int:
+        """Triggers explicit Python garbage collection to release unreferenced memory objects."""
+        import gc
+        collected = gc.collect()
+        LOGGER.info("HardwareLoadGovernor: Explicit GC cycle collected %d unreferenced objects.", collected)
+        return collected

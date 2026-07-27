@@ -1,10 +1,33 @@
+import functools
+import logging
+import random
 import sqlite3
 import time
 from pathlib import Path
 from urllib.parse import urlparse
-import logging
 
 LOGGER = logging.getLogger(__name__)
+
+
+def retry_on_db_lock(max_retries: int = 5, initial_delay: float = 0.05):
+    """Decorator to retry SQLite operations on database lock contention."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except sqlite3.OperationalError as exc:
+                    if "locked" in str(exc).lower() or "busy" in str(exc).lower():
+                        if attempt == max_retries:
+                            raise
+                        time.sleep(delay + random.uniform(0.01, 0.05))
+                        delay *= 2.0
+                    else:
+                        raise
+        return wrapper
+    return decorator
 
 
 class StateCache:
@@ -23,6 +46,16 @@ class StateCache:
         self.max_age_seconds = max_age_days * 86400
         self._init_db()
         self._cleanup_old_entries()
+
+    def wal_checkpoint(self) -> bool:
+        """Executes explicit PRAGMA wal_checkpoint(TRUNCATE) to optimize database WAL size."""
+        try:
+            with self._get_connection() as conn:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            return True
+        except Exception as exc:
+            LOGGER.warning("SQLite WAL checkpoint failed: %s", exc)
+            return False
 
     def _get_connection(self):
         return sqlite3.connect(str(self.db_path), timeout=30.0)

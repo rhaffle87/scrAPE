@@ -69,6 +69,18 @@ class _StrategyCircuitBreaker:
             until = self._cooldown_until.get(key, 0.0)
             return time.monotonic() < until
 
+    def auto_heal_quarantined_tiers(self) -> int:
+        """Checks for expired strategy cooldowns and resets failure counters to restore active pipeline tiers."""
+        healed_count = 0
+        now = time.monotonic()
+        with self._lock:
+            expired_keys = [key for key, until in self._cooldown_until.items() if now >= until]
+            for key in expired_keys:
+                self._failures[key] = 0
+                self._cooldown_until.pop(key, None)
+                healed_count += 1
+        return healed_count
+
 
 class StealthStrategy(ABC):
     """Abstract base class for all stealth fallback strategies."""

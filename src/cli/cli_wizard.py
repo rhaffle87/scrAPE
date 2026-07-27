@@ -195,6 +195,8 @@ def mode_general_scraping():
         )
         ignore_robots = get_bool_input("Ignore robots.txt check?", default=False)
 
+    enable_gov = get_bool_input("Enable Dynamic CPU/RAM Load Governor?", default=True)
+
     cmd = [
         sys.executable,
         str(Path(__file__).parent / "main.py"),
@@ -213,6 +215,8 @@ def mode_general_scraping():
         cmd.append("--download-media")
     if ignore_robots:
         cmd.append("--ignore-robots")
+    if enable_gov:
+        cmd.append("--enable-governor")
 
     run_command(cmd)
 

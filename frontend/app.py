@@ -251,6 +251,15 @@ async def stream_logs(request: Request):
 def get_telemetry_stats():
     """Return instant snapshot of system and crawl telemetry metrics."""
     from utils.proxy_manager import ProxyPoolManager
+    from utils.hardware_governor import HardwareLoadGovernor
+    from storage.db_store import get_state_store, PostgresStateStore
+
+    gov = HardwareLoadGovernor()
+    metrics = gov.get_metrics()
+    scale = gov.get_concurrency_scale_factor()
+    store = get_state_store()
+    db_name = "POSTGRES / NEON" if isinstance(store, PostgresStateStore) else "SQLITE WAL"
+
     with _state_lock:
         status = task_state["status"]
         progress = task_state.get("progress", {})
@@ -269,6 +278,10 @@ def get_telemetry_stats():
             "active_workers": 8 if status == "running" else 0,
             "progress": progress,
             "healthy_proxies": healthy_proxies,
+            "cpu_percent": metrics.get("cpu_percent", 0.0),
+            "ram_percent_available": metrics.get("ram_percent_available", 100.0),
+            "governor_scale_factor": scale,
+            "db_engine_name": db_name,
             "http_status_codes": {
                 "200_ok": pages + imgs + vids,
                 "429_rate_limit": 0,
@@ -723,10 +736,18 @@ async def open_folder(request: Request):
 
 @app.get("/htmx/stats")
 def get_stats():
+    from utils.hardware_governor import HardwareLoadGovernor
+    from storage.db_store import get_state_store, PostgresStateStore
+
+    gov = HardwareLoadGovernor()
     cpu = psutil.cpu_percent()
     ram = psutil.virtual_memory().percent
     disk = psutil.disk_usage(str(OUTPUT_DIR)).percent
-    
+    scale = gov.get_concurrency_scale_factor()
+
+    store = get_state_store()
+    db_name = "POSTGRES" if isinstance(store, PostgresStateStore) else "SQLITE"
+
     def get_color(val, high_thresh=85, warn_thresh=70):
         if val >= high_thresh:
             return "#ff3333"
@@ -743,6 +764,8 @@ def get_stats():
             <div class="telemetry-badge">
                 <span class="pulse-dot"></span>
                 <span class="telemetry-title">SYS TELEMETRY</span>
+                <span style="font-size: 0.7rem; background: rgba(0,255,102,0.1); border: 1px solid #00ff66; color: #00ff66; padding: 1px 4px; margin-left: 4px; font-weight: 700;">DB: {db_name}</span>
+                <span style="font-size: 0.7rem; background: rgba(255,85,0,0.1); border: 1px solid var(--accent); color: var(--accent); padding: 1px 4px; margin-left: 4px; font-weight: 700;">GOV: {scale:.2f}x</span>
             </div>
             <div class="telemetry-metrics">
                 <div class="telemetry-card">

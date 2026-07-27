@@ -125,6 +125,22 @@ class MediaDownloader:
             except Exception as exc:
                 LOGGER.warning("MediaDownloader: failed to load persisted pHashes: %s", exc)
 
+    def verify_magic_bytes(self, file_path: Path) -> bool:
+        """Verifies that a downloaded file starts with valid image/video magic byte headers."""
+        if not file_path.exists() or file_path.stat().st_size == 0:
+            return False
+        try:
+            with open(file_path, "rb") as f:
+                header = f.read(16)
+            if not header:
+                return False
+            for sig in IMAGE_SIGNATURES + VIDEO_SIGNATURES:
+                if header.startswith(sig):
+                    return True
+            return False
+        except Exception:
+            return False
+
     def _is_hotlink_protected(self, url: str) -> bool:
         """Check if URL is from a domain that requires Referer header."""
         from config import HOTLINK_PROTECTED_DOMAINS
