@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCRAPE // VAULT</title>
     <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -252,7 +252,7 @@
         }
 
         /* Suppress IDM (Internet Download Manager) download button overlay.
-           IDM works by injecting <img> nodes sourced from its own browser
+           IDM works by injecting image nodes sourced from its own browser
            extension URL (chrome-extension:// or moz-extension://) directly
            into the page DOM. Hiding those by src prefix covers any injections
            that land before the MutationObserver fires. */
@@ -311,9 +311,9 @@
         }
 
         .btn-overlay.delete {
-            background-color: #ff3333;
+            background-color: #cc0000;
             color: white;
-            border-color: #ff3333;
+            border-color: #cc0000;
         }
 
         .btn-overlay.delete:hover {
@@ -374,11 +374,11 @@
             </h2>
             <form class="controls-row" onsubmit="event.preventDefault(); triggerLoad();">
                 <div class="form-group">
-                    <label>Keyword</label>
+                    <label for="keyword-input">Keyword</label>
                     <input type="text" id="keyword-input" placeholder="keyword" value="apple">
                 </div>
                 <div class="form-group">
-                    <label>Domain</label>
+                    <label for="domain-input">Domain</label>
                     <input type="text" id="domain-input" placeholder="domain.com">
                 </div>
                 <button type="submit" class="btn" style="margin-top: auto;">Filter</button>
@@ -408,7 +408,7 @@
             currentMediaKind = kind;
             document.querySelectorAll('.gallery-tabs .tab-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.getAttribute('data-kind') === kind) {
+                if (btn.dataset.kind === kind) {
                     btn.classList.add('active');
                 }
             });

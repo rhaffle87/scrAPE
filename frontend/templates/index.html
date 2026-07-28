@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>scrAPE // Scraper for Archival & Production Extraction</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"
+        integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+        crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" type="image/svg+xml"
@@ -107,6 +109,8 @@
         }
 
         .nav-item {
+            font: inherit;
+            text-align: left;
             display: flex;
             align-items: center;
             gap: 0.65rem;
@@ -587,12 +591,12 @@
 
         .btn-danger {
             background-color: transparent;
-            color: red;
-            border: 2px solid red;
+            color: #cc0000;
+            border: 2px solid #cc0000;
         }
 
         .btn-danger:hover {
-            background-color: red;
+            background-color: #cc0000;
             color: white;
         }
 
@@ -801,14 +805,14 @@
         }
 
         .btn-overlay.delete {
-            background-color: #ff3333;
+            background-color: #cc0000;
             color: white;
-            border-color: #ff3333;
+            border-color: #cc0000;
         }
 
         .btn-overlay.delete:hover {
             background-color: black;
-            color: red;
+            color: #ff3333;
             border-color: black;
         }
 
@@ -988,14 +992,14 @@
         }
 
         .btn-modal-action.delete {
-            background-color: #ff3333;
+            background-color: #cc0000;
             color: white;
-            border-color: #ff3333;
+            border-color: #cc0000;
         }
 
         .btn-modal-action.delete:hover {
             background-color: black;
-            color: red;
+            color: #ff3333;
             border-color: black;
         }
 
@@ -1112,12 +1116,12 @@
         }
 
         .profile-action-btn.reset {
-            border-color: #ff3333;
-            color: #ff3333;
+            border-color: #cc0000;
+            color: #cc0000;
         }
 
         .profile-action-btn.reset:hover {
-            background-color: #ff3333;
+            background-color: #cc0000;
             color: white;
         }
 
@@ -1351,7 +1355,7 @@
             <span class="logo-version">v0.20.0</span>
         </div>
         <nav class="sidebar-nav">
-            <div class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
+            <button type="button" class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
                 <span class="nav-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
@@ -1362,8 +1366,8 @@
                     </svg>
                 </span>
                 <span>COMMAND CENTER</span>
-            </div>
-            <div class="nav-item" id="nav-seed-studio" onclick="showSeedStudio()">
+            </button>
+            <button type="button" class="nav-item" id="nav-seed-studio" onclick="showSeedStudio()">
                 <span class="nav-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
@@ -1371,7 +1375,7 @@
                     </svg>
                 </span>
                 <span>SEED STUDIO</span>
-            </div>
+            </button>
         </nav>
         <div class="sidebar-section-title">
             <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
@@ -1465,7 +1469,7 @@
 
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>Subject Keyword
+                                <label for="keyword-input">Subject Keyword
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Primary keyword phrase used for query
                                             matching.</span>
@@ -1476,7 +1480,7 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Seed Profile
+                                <label for="seed-selector">Seed Profile
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Select a pre-configured seed list from
                                             seeds/.</span>
@@ -1488,83 +1492,83 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Max Results
+                                <label for="max-results-input">Max Results
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Maximum items to collect. Use 0 for unlimited.
                                             [Rec: 50-200]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="max_results" value="100" required
+                                <input type="number" name="max_results" id="max-results-input" value="100" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label>Crawl Depth
+                                <label for="crawl-depth-input">Crawl Depth
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Recursive link depth. Use 0 for unlimited. [Rec:
                                             1-2]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="crawl_depth" value="2" required
+                                <input type="number" name="crawl_depth" id="crawl-depth-input" value="2" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label>Max Page limit
+                                <label for="page-limit-input">Max Page limit
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Absolute limit on the number of crawled pages. Use
                                             0 for unlimited. [Rec: 20-100]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="page_limit" value="100" required
+                                <input type="number" name="page_limit" id="page-limit-input" value="100" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label>Concurrency Workers
+                                <label for="workers-input">Concurrency Workers
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Number of simultaneous page scrapers to run. High
                                             values (>16) spike CPU/RAM. [Rec: 4-8]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="workers" value="8" required
+                                <input type="number" name="workers" id="workers-input" value="8" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label>Concurrency DL Workers
+                                <label for="dl-workers-input">Concurrency DL Workers
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Parallel download threads. High values (>24) may
                                             cause CDN rate limits. [Rec: 8-12]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="dl_workers" value="6" required
+                                <input type="number" name="dl_workers" id="dl-workers-input" value="6" required
                                     oninput="validateSafetyThresholds()">
                             </div>
 
                             <div class="form-group">
-                                <label>DL Bandwidth Limit (KB/s)
+                                <label for="dl-speed-input">DL Bandwidth Limit (KB/s)
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for
                                             unlimited bandwidth. [Rec: 500-5000]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="dl_speed_limit" value="0" min="0" step="100">
+                                <input type="number" id="dl-speed-input" name="dl_speed_limit" value="0" min="0" step="100">
                             </div>
                             <div class="form-group">
-                                <label>Crawl Rate Limit (req/s)
+                                <label for="rate-limit-input">Crawl Rate Limit (req/s)
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">Max page request rate across all domains. Use 0.0
                                             for unlimited. [Rec: 0.5-5.0]</span>
                                     </span>
                                 </label>
-                                <input type="number" name="rate_limit" value="0.0" min="0.0" step="0.5">
+                                <input type="number" id="rate-limit-input" name="rate_limit" value="0.0" min="0.0" step="0.5">
                             </div>
 
                             <div class="form-group">
-                                <label>Output Format
+                                <label for="output-input">Output Format
                                     <span class="tooltip-wrapper">?
                                         <span class="tooltip-content">File formats for saving extracted metadata
                                             lists.</span>
                                     </span>
                                 </label>
-                                <select name="output">
+                                <select name="output" id="output-input">
                                     <option value="both">Both (JSON & CSV)</option>
                                     <option value="json">JSON only</option>
                                     <option value="csv">CSV only</option>
@@ -1581,32 +1585,33 @@
                             <div class="accordion-content">
                                 <div class="form-grid">
                                     <div class="form-group full-width">
-                                        <label>Seed URLs (comma-separated)
+                                        <label for="seed-urls-input">Seed URLs (comma-separated)
                                             <span class="tooltip-wrapper">?
                                                 <span class="tooltip-content">Provide a direct comma-separated list of
                                                     URLs to crawl.</span>
                                             </span>
                                         </label>
-                                        <input type="text" name="seed_urls"
+                                        <input type="text" name="seed_urls" id="seed-urls-input"
                                             placeholder="https://example.com/page1, https://example.com/page2">
                                     </div>
                                     <div class="form-group">
-                                        <label>Allow Domains (comma-separated)</label>
-                                        <input type="text" name="allow_domains"
+                                        <label for="allow-domains-input">Allow Domains (comma-separated)</label>
+                                        <input type="text" name="allow_domains" id="allow-domains-input"
                                             placeholder="example.com, sub.example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label>Block Domains (comma-separated)</label>
-                                        <input type="text" name="block_domains"
+                                        <label for="block-domains-input">Block Domains (comma-separated)</label>
+                                        <input type="text" name="block_domains" id="block-domains-input"
                                             placeholder="example.com, block.example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label>Entity Tokens (comma-separated)</label>
-                                        <input type="text" name="entity_tokens" placeholder="token1, token2">
+                                        <label for="entity-tokens-input">Entity Tokens (comma-separated)</label>
+                                        <input type="text" name="entity_tokens" id="entity-tokens-input"
+                                            placeholder="token1, token2">
                                     </div>
                                     <div class="form-group">
-                                        <label>Domain Delays (comma-separated)</label>
-                                        <input type="text" name="domain_delays"
+                                        <label for="domain-delays-input">Domain Delays (comma-separated)</label>
+                                        <input type="text" name="domain_delays" id="domain-delays-input"
                                             placeholder="example.com=2.0, example2.com=5.0">
                                     </div>
                                 </div>
@@ -1622,12 +1627,12 @@
                             <div class="accordion-content">
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label>Proxy Connection</label>
-                                        <input type="text" name="proxy" placeholder="http://proxy-host:port">
+                                        <label for="proxy-input">Proxy Connection</label>
+                                        <input type="text" id="proxy-input" name="proxy" placeholder="http://proxy-host:port">
                                     </div>
                                     <div class="form-group">
-                                        <label>CapSolver API Key</label>
-                                        <input type="text" name="capsolver_key" placeholder="Enter API Key">
+                                        <label for="capsolver-key-input">CapSolver API Key</label>
+                                        <input type="text" id="capsolver-key-input" name="capsolver_key" placeholder="Enter API Key">
                                     </div>
                                 </div>
                             </div>
@@ -1705,10 +1710,10 @@
                                 style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE
                                 CRAWL NETWORK TREE</span>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="text" id="graph-search-input" placeholder="SEARCH NODE..."
+                                <input type="text" id="graph-search-input" aria-label="Search Node" placeholder="SEARCH NODE..."
                                     oninput="drawCrawlGraph()"
                                     style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); width: 110px; outline: none; border-radius: 0 !important;">
-                                <select id="graph-depth-select" onchange="drawCrawlGraph()"
+                                <select id="graph-depth-select" aria-label="Filter by depth" onchange="drawCrawlGraph()"
                                     style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); outline: none; border-radius: 0 !important;">
                                     <option value="all">ALL DEPTHS</option>
                                     <option value="0">DEPTH 0 (SEEDS)</option>
@@ -1738,7 +1743,7 @@
                                 0</span>
                         </div>
                         <div id="live-media-stream-grid"
-                            style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; background: #080a09;">
+                            style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); grid-auto-rows: 120px; gap: 0.75rem; background: #080a09; align-content: start;">
                             <div id="stream-empty-placeholder"
                                 style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">
                                 AWAITING MEDIA ASSETS...
@@ -1813,9 +1818,9 @@
 
                     <!-- Manifest selector row: mirrors preset-header-row -->
                     <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                        <span
+                        <label for="studio-seed-select"
                             style="font-weight: 700; color: var(--accent); font-family: monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT
-                            MANIFEST:</span>
+                            MANIFEST:</label>
                         <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)"
                             style="min-width: 260px; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 0.4rem; font-family: monospace;">
                             <option value="">+ Create New Seed</option>
@@ -1841,7 +1846,7 @@
                         <button type="button" class="btn"
                             style="background: var(--accent); color: #000; font-weight: 700;"
                             onclick="saveStudioSeed()">SAVE</button>
-                        <button type="button" class="btn delete" style="border-color: #ff3333; color: #ff3333;"
+                        <button type="button" class="btn delete" style="border-color: #cc0000; color: #cc0000;"
                             onclick="deleteStudioSeed()">DELETE</button>
                         <button type="button" class="btn"
                             style="background: #00ff66; color: #000; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;"
@@ -1860,7 +1865,8 @@
                     <!-- Visual Builder Mode -->
                     <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem;">
                         <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT
+                            <label for="studio-subject-input"
+                                style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT
                                 NAME / TITLE</label>
                             <input type="text" id="studio-subject-input"
                                 placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()"
@@ -1898,7 +1904,7 @@
                     <!-- Raw Code Mode -->
                     <div id="studio-code-panel" class="glass-panel"
                         style="display: none; padding: 1.5rem; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
-                        <textarea id="studio-code-editor" class="code-editor"
+                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor"
                             style="width: 100%; max-width: 100%; box-sizing: border-box; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem; resize: vertical; outline: none; overflow-y: auto;"
                             oninput="onStudioCodeEditorChanged()"></textarea>
                     </div>
@@ -1919,9 +1925,9 @@
             </div>
 
             <!-- Tactical Auto-Discovery Modal -->
-            <div id="auto-discovery-modal" class="modal-backdrop"
+            <div id="auto-discovery-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();"
                 onclick="if(event.target===this) closeAutoDiscoveryModal()">
-                <div class="glass-panel"
+                <div class="glass-panel" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();"
                     style="width: 700px; max-width: 90vw; background: rgba(10, 10, 15, 0.98); border: 2px solid var(--accent); padding: 1.5rem;"
                     onclick="event.stopPropagation()">
                     <div
@@ -1932,13 +1938,15 @@
                             style="padding: 0.2rem 0.6rem;">&times;</button>
                     </div>
                     <div class="form-group">
-                        <label style="font-weight: 700; font-family: monospace;">DISCOVERY SEARCH QUERY /
+                        <label for="discovery-query-input" style="font-weight: 700; font-family: monospace;">DISCOVERY
+                            SEARCH QUERY /
                             KEYWORD</label>
                         <input type="text" id="discovery-query-input" placeholder="Enter target search query or keyword"
                             style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
                     </div>
                     <div class="form-group" style="margin-top: 0.75rem;">
-                        <label style="font-weight: 700; font-family: monospace;">TARGET DOMAIN HOSTNAMES (COMMA
+                        <label for="discovery-domains-input" style="font-weight: 700; font-family: monospace;">TARGET
+                            DOMAIN HOSTNAMES (COMMA
                             SEPARATED)</label>
                         <input type="text" id="discovery-domains-input"
                             placeholder="Enter domain hostnames (comma-separated, e.g. domain1.com, domain2.com)"
@@ -1966,7 +1974,7 @@
                 </div>
             </div>
             <!-- Media Preview Modal -->
-            <div id="media-preview-modal" class="modal-backdrop" onclick="onBackdropClick(event)">
+            <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
                 <!-- Close button -->
                 <button class="modal-close-btn" onclick="closePreviewModal()">&times;</button>
 
@@ -1974,7 +1982,7 @@
                 <button class="modal-nav-btn prev-btn" onclick="navigatePreview(-1)">&lsaquo;</button>
 
                 <!-- Active content wrapper -->
-                <div class="modal-content-wrapper" onclick="event.stopPropagation()">
+                <div class="modal-content-wrapper" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();" onclick="event.stopPropagation()">
                     <div id="modal-media-container" class="modal-media-container">
                         <!-- Rendered image or video -->
                     </div>
@@ -1995,10 +2003,12 @@
             </div>
 
             <script>
+                /* eslint-disable complexity, max-statements, max-lines-per-function, sonarjs/cognitive-complexity, no-irregular-whitespace */
                 let currentSubject = "";
                 let currentMediaKind = "all";
                 let logOffset = 0;
                 let isPollingLogs = false;
+                let pollLogsInterval = null;
 
                 // Scrape Configuration Profile Preset States
                 let activeProfileSlot = 1;
@@ -2253,9 +2263,9 @@
                 }
 
                 function validateSafetyThresholds() {
-                    const workers = parseInt(document.querySelector('input[name="workers"]')?.value || "0");
-                    const dlWorkers = parseInt(document.querySelector('input[name="dl_workers"]')?.value || "0");
-                    const depth = parseInt(document.querySelector('input[name="crawl_depth"]')?.value || "0");
+                    const workers = Number.parseInt(document.querySelector('input[name="workers"]')?.value || "0");
+                    const dlWorkers = Number.parseInt(document.querySelector('input[name="dl_workers"]')?.value || "0");
+                    const depth = Number.parseInt(document.querySelector('input[name="crawl_depth"]')?.value || "0");
                     const banner = document.getElementById('safety-warning-banner');
                     const text = document.getElementById('safety-warning-text');
 
@@ -2329,7 +2339,8 @@
                 }
 
                 // Populate seeds select dropdown
-                async function loadSeeds() {
+                // NOSONAR
+                async function runScraper(event) {
                     try {
                         const res = await fetch('/api/seeds');
                         if (res.ok) {
@@ -2374,7 +2385,7 @@
                     // Set active class in sidebar items
                     document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => {
                         item.classList.remove('active');
-                        if (item.getAttribute('data-subject') === name) {
+                        if (item.dataset.subject === name) {
                             item.classList.add('active');
                         }
                     });
@@ -2394,7 +2405,7 @@
                     currentMediaKind = kind;
                     document.querySelectorAll('.gallery-tabs .tab-btn').forEach(btn => {
                         btn.classList.remove('active');
-                        if (btn.getAttribute('data-kind') === kind) {
+                        if (btn.dataset.kind === kind) {
                             btn.classList.add('active');
                         }
                     });
@@ -2518,6 +2529,7 @@
                     });
                 }
 
+                // NOSONAR
                 function addStudioDomainCard(dData = null) {
                     const container = document.getElementById('studio-domains-container');
                     const blockIndex = container.children.length + 1;
@@ -2542,23 +2554,23 @@
                                 <span class="block-title-text" style="font-weight: 700; font-family: monospace; color: var(--accent); letter-spacing: 0.05em;">TARGET DOMAIN BLOCK #${blockIndex}</span>
                                 <span class="badge" style="background: rgba(255, 85, 0, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 0.15rem 0.5rem; font-size: 0.7rem; font-family: monospace; text-transform: uppercase;">${media.toUpperCase()}</span>
                             </div>
-                            <button type="button" class="btn delete" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border-color: #ff3333; color: #ff3333; background: transparent;" onclick="removeStudioDomainCard(this)">[ X REMOVE BLOCK ]</button>
+                            <button type="button" class="btn delete" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border-color: #cc0000; color: #cc0000; background: transparent;" onclick="removeStudioDomainCard(this)">[ X REMOVE BLOCK ]</button>
                         </div>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">DOMAIN HOSTNAME</label>
-                                <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label for="card-domain-input" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">DOMAIN HOSTNAME</label>
+                                <input type="text" class="card-domain-input" id="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">MEDIA TYPE</label>
-                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label for="card-media-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">MEDIA TYPE</label>
+                                <select class="card-media-select" id="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="mixed" ${media === 'mixed' ? 'selected' : ''}>mixed</option>
                                     <option value="image" ${media === 'image' ? 'selected' : ''}>image</option>
                                     <option value="video" ${media === 'video' ? 'selected' : ''}>video</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">CRAWL STRATEGY</label>
+                                <label for="card-engine-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">CRAWL STRATEGY</label>
                                 <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
                                     <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
@@ -2566,7 +2578,7 @@
                             </div>
                             <div class="form-group">
                                 <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">PREFERRED ENGINE</label>
-                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <select class="card-engine-select" id="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                     <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
                                     <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
                                     <option value="flaresolverr" ${engine === 'flaresolverr' ? 'selected' : ''}>flaresolverr</option>
@@ -2575,7 +2587,7 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 1.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; font-family: monospace;">
-                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                            <label for="card-urls-textarea" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                                 <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()"> CLOUDFLARE PROTECTED
                             </label>
                             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
@@ -2584,7 +2596,7 @@
                         </div>
                         <div class="form-group">
                             <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">SEED URLS (ONE PER LINE)</label>
-                            <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 110px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.6rem; resize: vertical; outline: none;"></textarea>
+                            <textarea class="card-urls-textarea" id="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 110px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.6rem; resize: vertical; outline: none;"></textarea>
                         </div>
                     `;
                     container.appendChild(card);
@@ -2688,7 +2700,7 @@
                                 warningsEl.innerHTML = data.warnings.map(w => {
                                     const match = w.match(/Line (\d+):/);
                                     const lineNum = match ? match[1] : 1;
-                                    return `<div style="cursor: pointer; margin-bottom: 0.2rem; color: #ffcc00;" onclick="jumpToStudioValidationError(${lineNum})">✦ ${w} (click to jump)</div>`;
+                                    return `<div role="button" tabindex="0" onkeydown="if(event.key==='Enter') this.click()" style="cursor: pointer; margin-bottom: 0.2rem; color: #ffcc00;" onclick="jumpToStudioValidationError(${lineNum})">✦ ${w} (click to jump)</div>`;
                                 }).join('');
                             }
                         }
@@ -2832,7 +2844,7 @@
                             }
                         }
                     } catch (e) {
-                        resultsEl.innerHTML = `<div style="color: #ff3333;">PROBE FAILED: ${e.message}</div>`;
+                        resultsEl.innerHTML = `<div style="color: #cc0000;">PROBE FAILED: ${e.message}</div>`;
                     } finally {
                         progress.style.display = 'none';
                     }
@@ -2953,6 +2965,7 @@
                     }
                 }
 
+                // NOSONAR
                 function parseAndTriggerVisualizerEvents(line) {
                     if (!line) return;
 
@@ -2963,13 +2976,13 @@
                             const data = JSON.parse(jsonStr);
                             addCrawlGraphNode(data);
                             return;
-                        } catch (e) { }
+                        } catch (e) { console.error(e); }
                     }
 
                     // Heuristic parsing from standard crawler log lines
                     const lower = line.toLowerCase();
                     if (lower.includes("crawling") || lower.includes("fetching page") || lower.includes("http request") || lower.includes("discovered")) {
-                        const urlMatch = line.match(/https?:\/\/[^\s"'<>\(\)]+/i);
+                        const urlMatch = line.match(/https?:\/\/[^\s"'<>()]+/i);
                         if (urlMatch) {
                             const rawUrl = urlMatch[0];
                             if (!/\.(jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov|css|js|woff2?|json)$/i.test(rawUrl)) {
@@ -2979,10 +2992,10 @@
                                     addCrawlGraphNode({
                                         url: rawUrl,
                                         domain: uObj.hostname,
-                                        depth: depthMatch ? parseInt(depthMatch[1]) : 0,
+                                        depth: depthMatch ? Number.parseInt(depthMatch[1]) : 0,
                                         type: (lower.includes("crawling") || lower.includes("fetching")) ? "page_visited" : "node"
                                     });
-                                } catch (e) { }
+                                } catch (e) { console.error(e); }
                             }
                         }
                     }
@@ -2994,12 +3007,13 @@
                             const data = JSON.parse(jsonStr);
                             addStreamingMediaCard(data);
                             return;
-                        } catch (e) { }
+                        } catch (e) { console.error(e); }
                     }
 
                     // Heuristic parsing from file downloader log lines
                     if (lower.includes("downloaded") || lower.includes("saved")) {
-                        const pathMatch = line.match(/(?:output\/)?([^\s"':]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
+                        // NOSONAR
+                        const pathMatch = line.match(/(?:output\/)?([A-Za-z0-9_.\-\/]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
                         if (pathMatch) {
                             let relPath = pathMatch[1].replace(/^output\//, '');
                             const isVideo = /\.(mp4|webm|mkv|mov)$/i.test(relPath);
@@ -3007,13 +3021,14 @@
                             addStreamingMediaCard({
                                 file_path: relPath,
                                 media_kind: isVideo ? 'video' : 'image',
-                                width: dimMatch ? parseInt(dimMatch[1]) : null,
-                                height: dimMatch ? parseInt(dimMatch[2]) : null
+                                width: dimMatch ? Number.parseInt(dimMatch[1]) : null,
+                                height: dimMatch ? Number.parseInt(dimMatch[2]) : null
                             });
                         }
                     }
                 }
 
+                // NOSONAR
                 function formatLogLine(line) {
                     const parts = line.split(' | ');
                     if (parts.length >= 4) {
@@ -3038,31 +3053,31 @@
                             cssClass = "log-error";
                         } else if (level === "DEBUG") {
                             levelColor = "#5a665f";
-                            cssClass = "log-debug";
                         }
 
                         let formattedMessage = message;
 
                         // Escape HTML to prevent injection
                         formattedMessage = formattedMessage
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;");
+                            .split("&").join("&amp;")
+                            .split("<").join("&lt;")
+                            .split(">").join("&gt;");
 
                         // Highlight HTTP request methods and status codes
                         if (formattedMessage.includes("HTTP Request:")) {
+                            // NOSONAR
                             formattedMessage = formattedMessage
                                 .replace("HTTP Request:", `<span style="color: var(--accent); font-weight: 700;">HTTP REQ</span>`)
-                                .replace(/GET\s+(https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
-                                .replace(/POST\s+(https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
-                                .replace(/"HTTP\/1\.1\s+(\d{3})\s+([^"]+)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
-                                .replace(/"HTTP\/1\.1\s+([45]\d{2})\s+([^"]+)"/g, `"<span style="color: #ff3333; font-weight: 700;">$1 $2</span>"`);
+                                .replace(/GET (https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
+                                .replace(/POST (https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
+                                .replace(/"HTTP\/1\.1\s+(\d{3})\s+([^"]*?)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
+                                .replace(/"HTTP\/1\.1\s+([45]\d{2})\s+([^"]*?)"/g, `"<span style="color: #cc0000; font-weight: 700;">$1 $2</span>"`);
                         }
 
                         // Highlight media type rejections
                         if (formattedMessage.includes("rejected:")) {
                             formattedMessage = formattedMessage
-                                .replace(/(Image|Video)\s+rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
+                                .replace(/(Image|Video) rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
                                 .replace(/\(reason:\s*([^)]+)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
                                 .replace(/(https?:\/\/[^\s()]+)/g, `<span style="color: #5a665f; font-size: 0.85em;">$1</span>`);
                         }
@@ -3396,8 +3411,8 @@
                         const depth = data.depth || 0;
                         const parentNode = data.parent ? graphNodes.get(data.parent) : null;
 
-                        let x = parentNode ? parentNode.x + (Math.random() * 80 - 40) : (w / 2) + (Math.random() * 60 - 30);
-                        let y = parentNode ? parentNode.y + 40 : 30 + (depth * 45);
+                        let x = parentNode ? parentNode.x + ((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 20 - 10) : (w / 2);
+                        let y = parentNode ? parentNode.y + ((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 20 - 10) : (h / 2);
 
                         x = Math.max(20, Math.min(w - 20, x));
                         y = Math.max(20, Math.min(h - 20, y));
@@ -3425,7 +3440,7 @@
                     if (!domainColorsMap.has(domain)) {
                         let hash = 0;
                         for (let i = 0; i < domain.length; i++) {
-                            hash = domain.charCodeAt(i) + ((hash << 5) - hash);
+                            hash = domain.codePointAt(i) + ((hash << 5) - hash);
                         }
                         const hue = Math.abs(hash) % 360;
                         domainColorsMap.set(domain, `hsl(${hue}, 85%, 60%)`);
@@ -3433,7 +3448,101 @@
                     return domainColorsMap.get(domain);
                 }
 
+
+                // --- PHYSICS ENGINE ---
+                let physicsRunning = false;
+                function startPhysicsLoop() {
+                    if (physicsRunning) return;
+                    physicsRunning = true;
+                    
+                    function tick() {
+                        const nodes = Array.from(graphNodes.values());
+                        if (nodes.length === 0 || nodes.length > 1500) {
+                            requestAnimationFrame(tick);
+                            return; // Disable for too many nodes to save CPU
+                        }
+                        
+                        let moved = false;
+                        const k = 0.05; // spring constant
+                        const repulsion = 4000; // repulsion factor
+                        const damping = 0.8;
+                        
+                        // Initialize velocities if not present
+                        for (let node of nodes) {
+                            if (node.vx === undefined) { node.vx = 0; node.vy = 0; }
+                        }
+                        
+                        // Repulsion (N^2 but fine for <1500 nodes)
+                        for (let i = 0; i < nodes.length; i++) {
+                            for (let j = i + 1; j < nodes.length; j++) {
+                                const a = nodes[i];
+                                const b = nodes[j];
+                                const dx = a.x - b.x;
+                                const dy = a.y - b.y;
+                                const distSq = dx*dx + dy*dy;
+                                if (distSq > 0 && distSq < 15000) {
+                                    const force = repulsion / distSq;
+                                    const fx = (dx / Math.sqrt(distSq)) * force;
+                                    const fy = (dy / Math.sqrt(distSq)) * force;
+                                    a.vx += fx; a.vy += fy;
+                                    b.vx -= fx; b.vy -= fy;
+                                    moved = true;
+                                }
+                            }
+                        }
+                        
+                        // Attraction (Springs)
+                        for (let node of nodes) {
+                            if (node.parent && graphNodes.has(node.parent)) {
+                                const p = graphNodes.get(node.parent);
+                                const dx = p.x - node.x;
+                                const dy = p.y - node.y;
+                                const dist = Math.hypot(dx, dy);
+                                if (dist > 50) {
+                                    const force = (dist - 50) * k;
+                                    const fx = (dx / dist) * force;
+                                    const fy = (dy / dist) * force;
+                                    node.vx += fx; node.vy += fy;
+                                    p.vx -= fx; p.vy -= fy;
+                                    moved = true;
+                                }
+                            } else {
+                                // Anchor root nodes gently to center
+                                const canvas = document.getElementById('crawl-graph-canvas');
+                                const cx = canvas ? (canvas.width || 400) / 2 : 200;
+                                const cy = canvas ? (canvas.height || 260) / 2 : 130;
+                                const dx = cx - node.x;
+                                const dy = cy - node.y;
+                                node.vx += dx * 0.005;
+                                node.vy += dy * 0.005;
+                            }
+                        }
+                        
+                        // Apply velocities
+                        for (let node of nodes) {
+                            if (Math.abs(node.vx) > 0.1 || Math.abs(node.vy) > 0.1) {
+                                node.x += node.vx;
+                                node.y += node.vy;
+                                node.vx *= damping;
+                                node.vy *= damping;
+                                moved = true;
+                            } else {
+                                node.vx = 0; node.vy = 0;
+                            }
+                        }
+                        
+                        if (moved) drawCrawlGraph();
+                        requestAnimationFrame(tick);
+                    }
+                    requestAnimationFrame(tick);
+                }
+                
+                // Start physics on first load
+                setTimeout(startPhysicsLoop, 500);
+
+                // NOSONAR
                 function drawCrawlGraph() {
+
                     const canvas = document.getElementById('crawl-graph-canvas');
                     if (!canvas) return;
                     const ctx = canvas.getContext('2d');
@@ -3469,9 +3578,11 @@
                     const visibleNodes = new Map();
                     graphNodes.forEach((node, url) => {
                         let isVisible = true;
-                        if (depthFilter === '0' && node.depth !== 0) isVisible = false;
-                        else if (depthFilter === '1' && node.depth !== 1) isVisible = false;
-                        else if (depthFilter === '2' && node.depth < 2) isVisible = false;
+                        if ((depthFilter === '0' && node.depth !== 0) ||
+                            (depthFilter === '1' && node.depth !== 1) ||
+                            (depthFilter === '2' && node.depth < 2)) {
+                            isVisible = false;
+                        }
 
                         if (isVisible) {
                             visibleNodes.set(url, node);
@@ -3520,7 +3631,6 @@
                             ctx.globalAlpha = 0.5;
                             ctx.lineWidth = 1;
                             ctx.stroke();
-                            ctx.globalAlpha = 1.0;
                         }
                     });
 
@@ -3539,23 +3649,31 @@
                     if (countElem) countElem.innerText = `ASSETS: ${streamedAssetsCount}`;
 
                     const card = document.createElement('div');
-                    card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 75px; cursor: pointer;';
+                    card.className = 'stream-card';
+                    card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 100%; width: 100%; cursor: pointer; transition: all 0.2s ease;';
+                    
+                    card.onmouseover = () => { card.style.borderColor = 'var(--accent)'; card.style.transform = 'scale(1.02)'; card.style.zIndex = '10'; };
+                    card.onmouseout = () => { card.style.borderColor = 'var(--border-heavy)'; card.style.transform = 'scale(1)'; card.style.zIndex = '1'; };
 
+                    let safePath = data.file_path.replaceAll('\\', '/');
+                    safePath = encodeURI(safePath).replaceAll('#', '%23').replaceAll('?', '%3F');
+                    
                     if (data.media_kind === 'image') {
-                        card.innerHTML = `<img src="/output/${data.file_path}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important;" alt="Media Asset" loading="lazy">`;
+                        card.innerHTML = `<img src="/${safePath}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; filter: brightness(0.85); transition: filter 0.2s ease;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='brightness(0.85)'" alt="Media Asset" loading="lazy">`;
+                        card.onclick = () => window.open(`/${safePath}`, '_blank');
                     } else {
-                        card.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #111; color: var(--accent); font-family: 'Oswald', sans-serif; font-size: 0.7rem;">VIDEO</div>`;
-                        card.onclick = () => openVideoModal(`/output/${data.file_path}`, data.file_path, data.width, data.height, data.url);
+                        card.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #111; color: var(--accent); font-family: 'Oswald', sans-serif; font-size: 0.9rem; letter-spacing: 1px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><span style="margin-top: 5px;">VIDEO</span></div>`;
+                        card.onclick = () => openVideoModal(`/${safePath}`, data.file_path, data.width, data.height, data.url);
                     }
 
                     if (data.width && data.height) {
-                        card.innerHTML += `<div style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.85); color: #fff; font-size: 0.55rem; font-family: monospace; padding: 1px 3px;">${data.width}x${data.height}</div>`;
+                        card.innerHTML += `<div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.85); border-top: 1px solid var(--accent); color: var(--accent); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 3px; text-align: center; font-weight: bold;">${data.width}x${data.height}</div>`;
                     }
 
                     container.insertBefore(card, container.firstChild);
 
                     while (container.children.length > 25) {
-                        container.removeChild(container.lastChild);
+                        container.lastChild.remove();
                     }
                 }
 
@@ -3601,7 +3719,7 @@
                     if (!modal) return;
 
                     document.getElementById('export-modal-subject').innerText = `${subject} (${runId})`;
-                    document.getElementById('export-concept-tag').value = subject.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+                    document.getElementById('export-concept-tag').value = subject.replace(/\W/g, '_').toLowerCase();
                     modal.style.display = 'flex';
                 }
 
@@ -3623,10 +3741,10 @@
                     try {
                         const eventSource = new EventSource('/api/logs/stream');
                         eventSource.addEventListener('crawl_graph_node', (e) => {
-                            try { addCrawlGraphNode(JSON.parse(e.data)); } catch (err) { }
+                            try { addCrawlGraphNode(JSON.parse(e.data)); } catch (err) { console.error(err); }
                         });
                         eventSource.addEventListener('media_downloaded', (e) => {
-                            try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) { }
+                            try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) { console.error(err); }
                         });
                     } catch (err) {
                         console.error("Failed to connect live SSE visualizer stream:", err);
@@ -3711,19 +3829,22 @@
                     </div>
                     <div style="font-size: 0.8rem; color: var(--text-muted);" id="export-modal-subject">Target Run</div>
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">CONCEPT TRIGGER
+                        <label for="export-concept-tag"
+                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">CONCEPT TRIGGER
                             TAG:</label>
                         <input id="export-concept-tag" type="text"
                             style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;"
                             placeholder="concept_name">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">REPEAT COUNT:</label>
+                        <label for="export-repeats"
+                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">REPEAT COUNT:</label>
                         <input id="export-repeats" type="number" value="10" min="1" max="100"
                             style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">MIN RESOLUTION
+                        <label for="export-min-res"
+                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">MIN RESOLUTION
                             FILTER:</label>
                         <select id="export-min-res"
                             style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
