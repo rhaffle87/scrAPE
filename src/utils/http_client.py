@@ -499,6 +499,74 @@ class HttpClient:
     }
     _waf_solve_lock = threading.Lock()
 
+    _tls_impersonate_map: dict[str, str] = {}
+    _tls_impersonate_loaded: bool = False
+    _tls_impersonate_lock = threading.Lock()
+
+    @classmethod
+    def get_tls_impersonate(cls, domain: str) -> str:
+        """Return the configured curl_cffi TLS impersonate browser profile for *domain*.
+
+        Defaults to 'chrome120' if no explicit profile is configured in data/domain_config.json.
+        """
+        import json
+
+        with cls._tls_impersonate_lock:
+            if not cls._tls_impersonate_loaded:
+                config_path = Path("data/domain_config.json")
+                if config_path.exists():
+                    try:
+                        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+                        cls._tls_impersonate_map = {
+                            k.lower(): str(v)
+                            for k, v in cfg.get("tls_impersonate", {}).items()
+                        }
+                    except Exception as exc:
+                        logger.warning("Failed to load tls_impersonate from domain_config.json: %s", exc)
+                cls._tls_impersonate_loaded = True
+
+        domain_clean = domain.lower().strip()
+        for d_key, profile in cls._tls_impersonate_map.items():
+            if d_key in domain_clean:
+                return profile
+        return "chrome120"
+
+    def _get_with_curl_cffi(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using curl_cffi with domain-specific browser TLS impersonation."""
+        from typing import cast
+        from urllib.parse import urlparse
+        import curl_cffi.requests as curl_req
+
+        parsed = urlparse(url)
+        domain = parsed.netloc or ""
+        impersonate_target = self.get_tls_impersonate(domain)
+
+        proxies: dict[str, str] | None = None
+        if self.proxy_list:
+            proxies = {"http": self.proxy_list[0], "https": self.proxy_list[0]}
+
+        resp = curl_req.get(
+            url,
+            impersonate=cast(Any, impersonate_target),
+            timeout=int(self.timeout),
+            proxies=cast(Any, proxies),
+            verify=False,
+        )
+        if resp.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"curl_cffi HTTP {resp.status_code}",
+                request=httpx.Request("GET", url),
+                response=httpx.Response(resp.status_code, text=resp.text),
+            )
+
+        cookies_list = []
+        for name, value in resp.cookies.items():
+            cookies_list.append(
+                {"name": name, "value": value, "domain": domain, "path": "/"}
+            )
+
+        return resp.text, cookies_list
+
     @classmethod
     def register_cloudflare_blocked(cls, hostname: str) -> None:
         """Mark *hostname* as Cloudflare-blocked.

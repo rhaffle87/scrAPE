@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCRAPE // WATCHDOG</title>
+    <title>scrAPE // Scraper for Archival & Production Extraction</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -319,7 +319,7 @@
             align-items: stretch;
         }
 
-        #command-center-view > .terminal-panel {
+        #command-center-view>.terminal-panel {
             grid-column: 1 / -1;
             width: 100%;
         }
@@ -1325,7 +1325,8 @@
     <!-- Left Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="72" height="72" style="flex-shrink:0; filter: drop-shadow(0 0 10px rgba(255,85,0,0.8));">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="72" height="72"
+                style="flex-shrink:0; filter: drop-shadow(0 0 10px rgba(255,85,0,0.8));">
                 <rect x="26" y="26" width="160" height="160" fill="#ff5500" />
                 <rect x="20" y="20" width="160" height="160" fill="#161917" stroke="#3a3f3c" stroke-width="4" />
                 <path d="M 40 70 L 28 100 L 40 130" stroke="#8c928e" stroke-width="4" fill="none" />
@@ -1352,7 +1353,8 @@
         <nav class="sidebar-nav">
             <div class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
                 <span class="nav-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
                         <rect x="3" y="3" width="7" height="7"></rect>
                         <rect x="14" y="3" width="7" height="7"></rect>
                         <rect x="14" y="14" width="7" height="7"></rect>
@@ -1363,7 +1365,8 @@
             </div>
             <div class="nav-item" id="nav-seed-studio" onclick="showSeedStudio()">
                 <span class="nav-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
                         <path d="M12 2v10M12 12l4-4M12 12l-4-4M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path>
                     </svg>
                 </span>
@@ -1435,7 +1438,8 @@
                         </div>
                     </div>
 
-                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#action-bar-container" hx-on::after-request="checkGlobalStatus(); setTimeout(pollLogs, 100);">
+                    <form id="scrape-form" hx-post="/htmx/run" hx-target="#action-bar-container"
+                        hx-on::after-request="checkGlobalStatus(); setTimeout(pollLogs, 100);">
                         <!-- Mode Preset Selector -->
                         <div class="run-mode-selector">
                             <button type="button" class="btn active" id="mode-custom" onclick="setRunMode('custom')">[
@@ -1537,7 +1541,8 @@
                             <div class="form-group">
                                 <label>DL Bandwidth Limit (KB/s)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for unlimited bandwidth. [Rec: 500-5000]</span>
+                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for
+                                            unlimited bandwidth. [Rec: 500-5000]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="dl_speed_limit" value="0" min="0" step="100">
@@ -1545,7 +1550,8 @@
                             <div class="form-group">
                                 <label>Crawl Rate Limit (req/s)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0 for unlimited. [Rec: 0.5-5.0]</span>
+                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0
+                                            for unlimited. [Rec: 0.5-5.0]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="rate_limit" value="0.0" min="0.0" step="0.5">
@@ -1679,7 +1685,8 @@
                             </div>
                         </details>
 
-                        <div class="form-group full-width button-bar" id="action-bar-container" hx-get="/htmx/controls" hx-trigger="load">
+                        <div class="form-group full-width button-bar" id="action-bar-container" hx-get="/htmx/controls"
+                            hx-trigger="load">
                             <button type="submit" class="btn btn-primary" id="btn-run"
                                 onclick="onInitiateScrape()">Initiate Scrape</button>
                         </div>
@@ -1687,12 +1694,31 @@
                 </div>
 
                 <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream Stacked) -->
-                <div class="visualizer-split-container" style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
+                <div class="visualizer-split-container"
+                    style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
                     <!-- Live Crawl Network Tree Graph (Top) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
-                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE CRAWL NETWORK TREE</span>
-                            <span id="graph-node-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES: 0</span>
+                    <div class="glass-panel"
+                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base); gap: 0.5rem; flex-wrap: wrap;">
+                            <span
+                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE
+                                CRAWL NETWORK TREE</span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="text" id="graph-search-input" placeholder="SEARCH NODE..."
+                                    oninput="drawCrawlGraph()"
+                                    style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); width: 110px; outline: none; border-radius: 0 !important;">
+                                <select id="graph-depth-select" onchange="drawCrawlGraph()"
+                                    style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); outline: none; border-radius: 0 !important;">
+                                    <option value="all">ALL DEPTHS</option>
+                                    <option value="0">DEPTH 0 (SEEDS)</option>
+                                    <option value="1">DEPTH 1</option>
+                                    <option value="2">DEPTH 2+</option>
+                                </select>
+                                <span id="graph-node-count"
+                                    style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES:
+                                    0</span>
+                            </div>
                         </div>
                         <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
                             <canvas id="crawl-graph-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
@@ -1700,13 +1726,21 @@
                     </div>
 
                     <!-- Live Streaming Media Feed Grid (Bottom) -->
-                    <div class="glass-panel" style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
-                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">STREAMING MEDIA FEED</span>
-                            <span id="stream-item-count" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">ASSETS: 0</span>
+                    <div class="glass-panel"
+                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
+                            <span
+                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">STREAMING
+                                MEDIA FEED</span>
+                            <span id="stream-item-count"
+                                style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">ASSETS:
+                                0</span>
                         </div>
-                        <div id="live-media-stream-grid" style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; background: #080a09;">
-                            <div id="stream-empty-placeholder" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">
+                        <div id="live-media-stream-grid"
+                            style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; background: #080a09;">
+                            <div id="stream-empty-placeholder"
+                                style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">
                                 AWAITING MEDIA ASSETS...
                             </div>
                         </div>
@@ -1715,21 +1749,36 @@
 
                 <!-- Live Log Terminal -->
                 <div class="terminal-panel" id="terminal-panel">
-                    <div class="terminal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div class="terminal-header"
+                        style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; flex-wrap: wrap; gap: 0.5rem;">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span style="font-family: 'Oswald', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);">LIVE TERMINAL FEED</span>
-                            <span id="log-speed-indicator" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0, 0, 0, 0.4); padding: 0.2rem 0.5rem; border: 1px solid var(--accent);">IDLE</span>
-                            <span id="log-copy-feedback" style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #00ff66; font-weight: bold;">✓ COPIED TO CLIPBOARD</span>
+                            <span
+                                style="font-family: 'Oswald', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);">LIVE
+                                TERMINAL FEED</span>
+                            <span id="log-speed-indicator"
+                                style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0, 0, 0, 0.4); padding: 0.2rem 0.5rem; border: 1px solid var(--accent);">IDLE</span>
+                            <span id="log-copy-feedback"
+                                style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #00ff66; font-weight: bold;">✓
+                                COPIED TO CLIPBOARD</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span id="progress-text" style="color: var(--text-muted); font-size: 0.75rem; font-family: monospace; display: none;"></span>
-                            <button type="button" id="btn-autoscroll" onclick="toggleAutoScroll()" style="background: transparent; border: 1px solid var(--border-color); color: var(--accent); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ AUTO-SCROLL ON ]</button>
-                            <button type="button" onclick="copyTerminalLogs()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ COPY LOGS ]</button>
-                            <button type="button" onclick="clearTerminalFeed()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[ CLEAR ]</button>
+                            <span id="progress-text"
+                                style="color: var(--text-muted); font-size: 0.75rem; font-family: monospace; display: none;"></span>
+                            <button type="button" id="btn-autoscroll" onclick="toggleAutoScroll()"
+                                style="background: transparent; border: 1px solid var(--border-color); color: var(--accent); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
+                                AUTO-SCROLL ON ]</button>
+                            <button type="button" onclick="copyTerminalLogs()"
+                                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
+                                COPY LOGS ]</button>
+                            <button type="button" onclick="clearTerminalFeed()"
+                                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
+                                CLEAR ]</button>
                         </div>
                     </div>
-                    <div id="progress-bar-container" style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
-                        <div id="progress-bar-fill" style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);">
+                    <div id="progress-bar-container"
+                        style="height: 4px; background-color: var(--bg-base); width: 100%; display: none; position: relative; border-bottom: var(--border-heavy);">
+                        <div id="progress-bar-fill"
+                            style="height: 100%; width: 0%; background-color: var(--accent); transition: width 0.3s ease; box-shadow: 0 0 8px var(--accent);">
                         </div>
                     </div>
                     <div class="terminal-body" id="live-terminal-body">
@@ -1753,7 +1802,7 @@
                     <!-- Cards here -->
                 </div>
             </div>
-            
+
             <!-- Seed Studio View Grid -->
             <div class="seed-studio-view" id="seed-studio-view" style="display: none;">
                 <div class="seed-studio-header glass-panel">
@@ -1764,24 +1813,43 @@
 
                     <!-- Manifest selector row: mirrors preset-header-row -->
                     <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                        <span style="font-weight: 700; color: var(--accent); font-family: monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT MANIFEST:</span>
-                        <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)" style="min-width: 260px; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 0.4rem; font-family: monospace;">
+                        <span
+                            style="font-weight: 700; color: var(--accent); font-family: monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT
+                            MANIFEST:</span>
+                        <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)"
+                            style="min-width: 260px; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 0.4rem; font-family: monospace;">
                             <option value="">+ Create New Seed</option>
                         </select>
                     </div>
 
                     <!-- Action buttons row: mirrors profile-actions-row -->
                     <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                        <button type="button" class="btn active" id="studio-btn-builder-mode" onclick="setStudioMode('builder')">[ VISUAL BUILDER ]</button>
-                        <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')">[ RAW CODE ]</button>
-                        <button type="button" class="btn" style="border-color: var(--accent); color: var(--accent); display: inline-flex; align-items: center; gap: 0.4rem;" onclick="openAutoDiscoveryModal()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <button type="button" class="btn active" id="studio-btn-builder-mode"
+                            onclick="setStudioMode('builder')">[ VISUAL BUILDER ]</button>
+                        <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')">[
+                            RAW CODE ]</button>
+                        <button type="button" class="btn"
+                            style="border-color: var(--accent); color: var(--accent); display: inline-flex; align-items: center; gap: 0.4rem;"
+                            onclick="openAutoDiscoveryModal()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
                             DISCOVER SEARCH URLS
                         </button>
-                        <button type="button" class="btn" style="background: var(--accent); color: #000; font-weight: 700;" onclick="saveStudioSeed()">SAVE</button>
-                        <button type="button" class="btn delete" style="border-color: #ff3333; color: #ff3333;" onclick="deleteStudioSeed()">DELETE</button>
-                        <button type="button" class="btn" style="background: #00ff66; color: #000; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="launchStudioSeedScrape()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <button type="button" class="btn"
+                            style="background: var(--accent); color: #000; font-weight: 700;"
+                            onclick="saveStudioSeed()">SAVE</button>
+                        <button type="button" class="btn delete" style="border-color: #ff3333; color: #ff3333;"
+                            onclick="deleteStudioSeed()">DELETE</button>
+                        <button type="button" class="btn"
+                            style="background: #00ff66; color: #000; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;"
+                            onclick="launchStudioSeedScrape()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
                             QUICK RUN
                         </button>
                     </div>
@@ -1792,68 +1860,107 @@
                     <!-- Visual Builder Mode -->
                     <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem;">
                         <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT NAME / TITLE</label>
-                            <input type="text" id="studio-subject-input" placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                            <label style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT
+                                NAME / TITLE</label>
+                            <input type="text" id="studio-subject-input"
+                                placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()"
+                                style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
                         </div>
                         <!-- Quick Domain Preset Templates Bar -->
-                        <div style="margin-bottom: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem;">
-                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: monospace; text-transform: uppercase; margin-bottom: 0.5rem;">QUICK DOMAIN PRESET TEMPLATES:</div>
+                        <div
+                            style="margin-bottom: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem;">
+                            <div
+                                style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: monospace; text-transform: uppercase; margin-bottom: 0.5rem;">
+                                QUICK DOMAIN PRESET TEMPLATES:</div>
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Gallery Index Block</button>
-                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Direct Search Block</button>
-                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Stealth Protected Block</button>
-                                <button type="button" class="btn" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Video Stream Block</button>
+                                <button type="button" class="btn"
+                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
+                                    onclick="addPresetDomainBlock('gallery')">+ Gallery Index Block</button>
+                                <button type="button" class="btn"
+                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
+                                    onclick="addPresetDomainBlock('direct')">+ Direct Search Block</button>
+                                <button type="button" class="btn"
+                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
+                                    onclick="addPresetDomainBlock('stealth')">+ Stealth Protected Block</button>
+                                <button type="button" class="btn"
+                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
+                                    onclick="addPresetDomainBlock('video')">+ Video Stream Block</button>
                             </div>
                         </div>
                         <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1rem;">
                             <!-- Domain cards rendered dynamically -->
                         </div>
-                        <button type="button" class="btn" style="margin-top: 1.5rem; width: 100%; background: transparent !important; color: var(--accent) !important; border: 2px dashed var(--accent) !important; padding: 0.85rem; font-family: monospace; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; cursor: pointer;" onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
+                        <button type="button" class="btn"
+                            style="margin-top: 1.5rem; width: 100%; background: transparent !important; color: var(--accent) !important; border: 2px dashed var(--accent) !important; padding: 0.85rem; font-family: monospace; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; cursor: pointer;"
+                            onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
                     </div>
 
                     <!-- Raw Code Mode -->
-                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 1.5rem; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
-                        <textarea id="studio-code-editor" class="code-editor" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem; resize: vertical; outline: none; overflow-y: auto;" oninput="onStudioCodeEditorChanged()"></textarea>
+                    <div id="studio-code-panel" class="glass-panel"
+                        style="display: none; padding: 1.5rem; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
+                        <textarea id="studio-code-editor" class="code-editor"
+                            style="width: 100%; max-width: 100%; box-sizing: border-box; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem; resize: vertical; outline: none; overflow-y: auto;"
+                            oninput="onStudioCodeEditorChanged()"></textarea>
                     </div>
                 </div>
 
                 <!-- Floating Line-Jump Validation Console -->
-                <div id="studio-validation-console" style="margin-top: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem; font-family: monospace; font-size: 0.85rem;">
+                <div id="studio-validation-console"
+                    style="margin-top: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem; font-family: monospace; font-size: 0.85rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="color: var(--accent); font-weight: 700;">SYNTAX & MANIFEST VALIDATION:</span>
                         <span id="studio-validation-status" style="color: #00ff66;">✓ MANIFEST VALID</span>
                     </div>
-                    <div id="studio-validation-warnings" style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
+                    <div id="studio-validation-warnings"
+                        style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
                         No syntax warnings detected.
                     </div>
                 </div>
             </div>
 
             <!-- Tactical Auto-Discovery Modal -->
-            <div id="auto-discovery-modal" class="modal-backdrop" onclick="if(event.target===this) closeAutoDiscoveryModal()">
-                <div class="glass-panel" style="width: 700px; max-width: 90vw; background: rgba(10, 10, 15, 0.98); border: 2px solid var(--accent); padding: 1.5rem;" onclick="event.stopPropagation()">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: var(--border-heavy); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h3 style="margin: 0; color: var(--accent); font-family: monospace;">UNIVERSAL SEARCH URL AUTO-DISCOVERY</h3>
-                        <button type="button" class="btn" onclick="closeAutoDiscoveryModal()" style="padding: 0.2rem 0.6rem;">&times;</button>
+            <div id="auto-discovery-modal" class="modal-backdrop"
+                onclick="if(event.target===this) closeAutoDiscoveryModal()">
+                <div class="glass-panel"
+                    style="width: 700px; max-width: 90vw; background: rgba(10, 10, 15, 0.98); border: 2px solid var(--accent); padding: 1.5rem;"
+                    onclick="event.stopPropagation()">
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; border-bottom: var(--border-heavy); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; color: var(--accent); font-family: monospace;">UNIVERSAL SEARCH URL
+                            AUTO-DISCOVERY</h3>
+                        <button type="button" class="btn" onclick="closeAutoDiscoveryModal()"
+                            style="padding: 0.2rem 0.6rem;">&times;</button>
                     </div>
                     <div class="form-group">
-                        <label style="font-weight: 700; font-family: monospace;">DISCOVERY SEARCH QUERY / KEYWORD</label>
-                        <input type="text" id="discovery-query-input" placeholder="Enter target search query or keyword" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                        <label style="font-weight: 700; font-family: monospace;">DISCOVERY SEARCH QUERY /
+                            KEYWORD</label>
+                        <input type="text" id="discovery-query-input" placeholder="Enter target search query or keyword"
+                            style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
                     </div>
                     <div class="form-group" style="margin-top: 0.75rem;">
-                        <label style="font-weight: 700; font-family: monospace;">TARGET DOMAIN HOSTNAMES (COMMA SEPARATED)</label>
-                        <input type="text" id="discovery-domains-input" placeholder="Enter domain hostnames (comma-separated, e.g. domain1.com, domain2.com)" style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                        <label style="font-weight: 700; font-family: monospace;">TARGET DOMAIN HOSTNAMES (COMMA
+                            SEPARATED)</label>
+                        <input type="text" id="discovery-domains-input"
+                            placeholder="Enter domain hostnames (comma-separated, e.g. domain1.com, domain2.com)"
+                            style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
                     </div>
-                    <button type="button" id="btn-run-discovery" class="btn" style="width: 100%; margin-top: 1rem; background: var(--accent); color: #000; font-weight: 700; padding: 0.75rem;" onclick="runAutoDiscoveryProbe()">
+                    <button type="button" id="btn-run-discovery" class="btn"
+                        style="width: 100%; margin-top: 1rem; background: var(--accent); color: #000; font-weight: 700; padding: 0.75rem;"
+                        onclick="runAutoDiscoveryProbe()">
                         EXECUTE PARALLEL DOMAIN MATRIX PROBE
                     </button>
-                    <div id="discovery-progress-bar" style="height: 4px; background: var(--bg-base); margin-top: 1rem; display: none;">
-                        <div id="discovery-progress-fill" style="height: 100%; width: 100%; background: var(--accent);"></div>
+                    <div id="discovery-progress-bar"
+                        style="height: 4px; background: var(--bg-base); margin-top: 1rem; display: none;">
+                        <div id="discovery-progress-fill" style="height: 100%; width: 100%; background: var(--accent);">
+                        </div>
                     </div>
-                    <div id="discovery-results-container" style="margin-top: 1rem; max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; border: var(--border-heavy); padding: 0.75rem; background: var(--bg-surface);">
+                    <div id="discovery-results-container"
+                        style="margin-top: 1rem; max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; border: var(--border-heavy); padding: 0.75rem; background: var(--bg-surface);">
                         Enter search query and target domains to probe candidate search URLs.
                     </div>
-                    <button type="button" id="btn-add-discovered" class="btn" style="width: 100%; margin-top: 1rem; display: none; background: #00ff66; color: #000; font-weight: 700; padding: 0.75rem;" onclick="addDiscoveredUrlsToStudio()">
+                    <button type="button" id="btn-add-discovered" class="btn"
+                        style="width: 100%; margin-top: 1rem; display: none; background: #00ff66; color: #000; font-weight: 700; padding: 0.75rem;"
+                        onclick="addDiscoveredUrlsToStudio()">
                         ADD DISCOVERED VALID URLS TO SEED MANIFEST
                     </button>
                 </div>
@@ -2362,7 +2469,7 @@
                             const data = await res.json();
                             document.getElementById('studio-subject-input').value = data.subject_name || "";
                             document.getElementById('studio-code-editor').value = data.content || "";
-                            
+
                             const container = document.getElementById('studio-domains-container');
                             container.innerHTML = "";
                             if (data.domains && data.domains.length > 0) {
@@ -2445,25 +2552,25 @@
                             <div class="form-group">
                                 <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">MEDIA TYPE</label>
                                 <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
-                                    <option value="mixed" ${media==='mixed'?'selected':''}>mixed</option>
-                                    <option value="image" ${media==='image'?'selected':''}>image</option>
-                                    <option value="video" ${media==='video'?'selected':''}>video</option>
+                                    <option value="mixed" ${media === 'mixed' ? 'selected' : ''}>mixed</option>
+                                    <option value="image" ${media === 'image' ? 'selected' : ''}>image</option>
+                                    <option value="video" ${media === 'video' ? 'selected' : ''}>video</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">CRAWL STRATEGY</label>
                                 <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
-                                    <option value="index→detail" ${strategy.includes('index')?'selected':''}>index→detail</option>
-                                    <option value="direct" ${strategy==='direct'?'selected':''}>direct</option>
+                                    <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
+                                    <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">PREFERRED ENGINE</label>
                                 <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
-                                    <option value="auto" ${engine==='auto'?'selected':''}>auto</option>
-                                    <option value="camoufox" ${engine==='camoufox'?'selected':''}>camoufox</option>
-                                    <option value="flaresolverr" ${engine==='flaresolverr'?'selected':''}>flaresolverr</option>
-                                    <option value="crawl4ai" ${engine==='crawl4ai'?'selected':''}>crawl4ai</option>
+                                    <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
+                                    <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
+                                    <option value="flaresolverr" ${engine === 'flaresolverr' ? 'selected' : ''}>flaresolverr</option>
+                                    <option value="crawl4ai" ${engine === 'crawl4ai' ? 'selected' : ''}>crawl4ai</option>
                                 </select>
                             </div>
                         </div>
@@ -2668,7 +2775,7 @@
                 function openAutoDiscoveryModal() {
                     const subj = document.getElementById('studio-subject-input').value.trim();
                     document.getElementById('discovery-query-input').value = subj;
-                    
+
                     const domains = [];
                     document.querySelectorAll('.card-domain-input').forEach(i => {
                         if (i.value.trim()) domains.push(i.value.trim());
@@ -2856,7 +2963,7 @@
                             const data = JSON.parse(jsonStr);
                             addCrawlGraphNode(data);
                             return;
-                        } catch (e) {}
+                        } catch (e) { }
                     }
 
                     // Heuristic parsing from standard crawler log lines
@@ -2875,7 +2982,7 @@
                                         depth: depthMatch ? parseInt(depthMatch[1]) : 0,
                                         type: (lower.includes("crawling") || lower.includes("fetching")) ? "page_visited" : "node"
                                     });
-                                } catch (e) {}
+                                } catch (e) { }
                             }
                         }
                     }
@@ -2887,7 +2994,7 @@
                             const data = JSON.parse(jsonStr);
                             addStreamingMediaCard(data);
                             return;
-                        } catch (e) {}
+                        } catch (e) { }
                     }
 
                     // Heuristic parsing from file downloader log lines
@@ -3147,8 +3254,8 @@
                     try {
                         const res = await fetch('/api/export/dataset', {
                             method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({subject: keyword, run_id: 'latest', layout: '1'})
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subject: keyword, run_id: 'latest', layout: '1' })
                         });
                         const data = await res.json();
                         if (res.ok) {
@@ -3166,8 +3273,8 @@
                     try {
                         const res = await fetch('/api/export/rag', {
                             method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({subject: keyword, run_id: 'latest'})
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subject: keyword, run_id: 'latest' })
                         });
                         const data = await res.json();
                         if (res.ok) {
@@ -3195,7 +3302,7 @@
                 function initCrawlGraphCanvas() {
                     const canvas = document.getElementById('crawl-graph-canvas');
                     if (!canvas) return;
-                    
+
                     function resizeCanvas() {
                         canvas.width = canvas.parentElement.clientWidth || 400;
                         canvas.height = canvas.parentElement.clientHeight || 260;
@@ -3288,7 +3395,7 @@
                     if (!graphNodes.has(data.url)) {
                         const depth = data.depth || 0;
                         const parentNode = data.parent ? graphNodes.get(data.parent) : null;
-                        
+
                         let x = parentNode ? parentNode.x + (Math.random() * 80 - 40) : (w / 2) + (Math.random() * 60 - 30);
                         let y = parentNode ? parentNode.y + 40 : 30 + (depth * 45);
 
@@ -3312,12 +3419,29 @@
                     }
                 }
 
+                const domainColorsMap = new Map();
+                function getDomainColor(domain) {
+                    if (!domain) return '#00ff88';
+                    if (!domainColorsMap.has(domain)) {
+                        let hash = 0;
+                        for (let i = 0; i < domain.length; i++) {
+                            hash = domain.charCodeAt(i) + ((hash << 5) - hash);
+                        }
+                        const hue = Math.abs(hash) % 360;
+                        domainColorsMap.set(domain, `hsl(${hue}, 85%, 60%)`);
+                    }
+                    return domainColorsMap.get(domain);
+                }
+
                 function drawCrawlGraph() {
                     const canvas = document.getElementById('crawl-graph-canvas');
                     if (!canvas) return;
                     const ctx = canvas.getContext('2d');
                     const w = canvas.width;
                     const h = canvas.height;
+
+                    const searchQuery = (document.getElementById('graph-search-input')?.value || '').trim().toLowerCase();
+                    const depthFilter = document.getElementById('graph-depth-select')?.value || 'all';
 
                     ctx.clearRect(0, 0, w, h);
 
@@ -3341,32 +3465,62 @@
                         ctx.stroke();
                     }
 
+                    // Filter nodes by depth
+                    const visibleNodes = new Map();
+                    graphNodes.forEach((node, url) => {
+                        let isVisible = true;
+                        if (depthFilter === '0' && node.depth !== 0) isVisible = false;
+                        else if (depthFilter === '1' && node.depth !== 1) isVisible = false;
+                        else if (depthFilter === '2' && node.depth < 2) isVisible = false;
+
+                        if (isVisible) {
+                            visibleNodes.set(url, node);
+                        }
+                    });
+
                     // Connections
-                    graphNodes.forEach(node => {
-                        if (node.parent && graphNodes.has(node.parent)) {
-                            const p = graphNodes.get(node.parent);
+                    visibleNodes.forEach(node => {
+                        if (node.parent && visibleNodes.has(node.parent)) {
+                            const p = visibleNodes.get(node.parent);
                             ctx.beginPath();
                             ctx.moveTo(p.x, p.y);
                             ctx.lineTo(node.x, node.y);
-                            ctx.strokeStyle = node.color === '#ff5500' ? 'rgba(255, 85, 0, 0.6)' : 'rgba(0, 255, 136, 0.25)';
+                            ctx.strokeStyle = getDomainColor(node.domain);
+                            ctx.globalAlpha = 0.35;
                             ctx.lineWidth = 1.5;
                             ctx.stroke();
+                            ctx.globalAlpha = 1.0;
                         }
                     });
 
                     // Nodes
-                    graphNodes.forEach(node => {
+                    visibleNodes.forEach(node => {
+                        const isMatched = searchQuery && (node.url.toLowerCase().includes(searchQuery) || node.domain.toLowerCase().includes(searchQuery));
+                        const color = getDomainColor(node.domain);
+
                         ctx.beginPath();
-                        ctx.arc(node.x, node.y, node.type === 'page_visited' ? 5 : 3, 0, Math.PI * 2);
-                        ctx.fillStyle = node.color;
+                        ctx.arc(node.x, node.y, node.type === 'page_visited' ? 6 : 3.5, 0, Math.PI * 2);
+                        ctx.fillStyle = color;
                         ctx.fill();
 
-                        if (node.type === 'page_visited') {
+                        if (isMatched) {
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
+                            ctx.strokeStyle = '#ff5500';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+
+                            ctx.font = '10px "JetBrains Mono", monospace';
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillText(node.domain || node.url, node.x + 14, node.y + 4);
+                        } else if (node.type === 'page_visited') {
                             ctx.beginPath();
                             ctx.arc(node.x, node.y, 8, 0, Math.PI * 2);
-                            ctx.strokeStyle = 'rgba(255, 85, 0, 0.4)';
+                            ctx.strokeStyle = color;
+                            ctx.globalAlpha = 0.5;
                             ctx.lineWidth = 1;
                             ctx.stroke();
+                            ctx.globalAlpha = 1.0;
                         }
                     });
 
@@ -3414,7 +3568,7 @@
                     player.src = videoSrc;
                     document.getElementById('video-modal-title').innerText = title || 'Video Asset';
                     document.getElementById('video-modal-res').innerText = (width && height) ? `${width}x${height}` : 'HD Video';
-                    
+
                     const srcBtn = document.getElementById('video-modal-src-link');
                     if (srcBtn && sourceUrl) {
                         srcBtn.href = sourceUrl;
@@ -3422,7 +3576,7 @@
                     }
 
                     modal.style.display = 'flex';
-                    player.play().catch(() => {});
+                    player.play().catch(() => { });
                 }
 
                 function closeVideoModal() {
@@ -3469,10 +3623,10 @@
                     try {
                         const eventSource = new EventSource('/api/logs/stream');
                         eventSource.addEventListener('crawl_graph_node', (e) => {
-                            try { addCrawlGraphNode(JSON.parse(e.data)); } catch (err) {}
+                            try { addCrawlGraphNode(JSON.parse(e.data)); } catch (err) { }
                         });
                         eventSource.addEventListener('media_downloaded', (e) => {
-                            try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) {}
+                            try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) { }
                         });
                     } catch (err) {
                         console.error("Failed to connect live SSE visualizer stream:", err);
@@ -3488,63 +3642,101 @@
                 });
             </script>
 
-    <!-- Node Detail Drawer Side Panel -->
-    <div id="node-detail-drawer" style="display: none; position: absolute; top: 80px; right: 2rem; width: 320px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1rem; z-index: 200; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); box-shadow: 6px 6px 0 var(--bg-surface);">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
-            <span style="font-family: 'Oswald', sans-serif; color: var(--accent); font-weight: 700; text-transform: uppercase;">NODE INSPECTOR</span>
-            <button onclick="closeNodeDrawer()" style="background: none; border: none; color: var(--accent); cursor: pointer; font-weight: 700;">[X]</button>
-        </div>
-        <div style="font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; word-break: break-all;">
-            <div><strong style="color: var(--text-muted);">URL:</strong> <span id="node-drawer-url">-</span></div>
-            <div><strong style="color: var(--text-muted);">DOMAIN:</strong> <span id="node-drawer-domain">-</span></div>
-            <div><strong style="color: var(--text-muted);">DEPTH:</strong> <span id="node-drawer-depth">-</span></div>
-            <div><strong style="color: var(--text-muted);">TYPE:</strong> <span id="node-drawer-type">-</span></div>
-        </div>
-        <button onclick="resetCanvasView()" style="margin-top: 1rem; width: 100%; padding: 0.4rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer;">RESET GRAPH VIEW</button>
-    </div>
+            <!-- Node Detail Drawer Side Panel -->
+            <div id="node-detail-drawer"
+                style="display: none; position: absolute; top: 80px; right: 2rem; width: 320px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1rem; z-index: 200; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); box-shadow: 6px 6px 0 var(--bg-surface);">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+                    <span
+                        style="font-family: 'Oswald', sans-serif; color: var(--accent); font-weight: 700; text-transform: uppercase;">NODE
+                        INSPECTOR</span>
+                    <button onclick="closeNodeDrawer()"
+                        style="background: none; border: none; color: var(--accent); cursor: pointer; font-weight: 700;">[X]</button>
+                </div>
+                <div
+                    style="font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; word-break: break-all;">
+                    <div><strong style="color: var(--text-muted);">URL:</strong> <span id="node-drawer-url">-</span>
+                    </div>
+                    <div><strong style="color: var(--text-muted);">DOMAIN:</strong> <span
+                            id="node-drawer-domain">-</span></div>
+                    <div><strong style="color: var(--text-muted);">DEPTH:</strong> <span id="node-drawer-depth">-</span>
+                    </div>
+                    <div><strong style="color: var(--text-muted);">TYPE:</strong> <span id="node-drawer-type">-</span>
+                    </div>
+                </div>
+                <button onclick="resetCanvasView()"
+                    style="margin-top: 1rem; width: 100%; padding: 0.4rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer;">RESET
+                    GRAPH VIEW</button>
+            </div>
 
-    <!-- Video Player Overlay Modal -->
-    <div id="video-player-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-        <div style="width: 90%; max-width: 850px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; position: relative;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
-                <span id="video-modal-title" style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700; text-transform: uppercase;">VIDEO ASSET</span>
-                <button onclick="closeVideoModal()" style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">CLOSE [X]</button>
+            <!-- Video Player Overlay Modal -->
+            <div id="video-player-modal"
+                style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                <div
+                    style="width: 90%; max-width: 850px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; position: relative;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
+                        <span id="video-modal-title"
+                            style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700; text-transform: uppercase;">VIDEO
+                            ASSET</span>
+                        <button onclick="closeVideoModal()"
+                            style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">CLOSE
+                            [X]</button>
+                    </div>
+                    <video id="video-modal-player" controls autoplay loop
+                        style="width: 100%; max-height: 500px; background: #000; border: 1px solid var(--border-heavy);"></video>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                        <span id="video-modal-res"
+                            style="background: var(--accent); color: #000; padding: 2px 6px; font-weight: 700;">HD</span>
+                        <a id="video-modal-src-link" href="#" target="_blank"
+                            style="color: var(--accent); text-decoration: underline; display: none;">VIEW SOURCE
+                            PAGE</a>
+                    </div>
+                </div>
             </div>
-            <video id="video-modal-player" controls autoplay loop style="width: 100%; max-height: 500px; background: #000; border: 1px solid var(--border-heavy);"></video>
-            <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
-                <span id="video-modal-res" style="background: var(--accent); color: #000; padding: 2px 6px; font-weight: 700;">HD</span>
-                <a id="video-modal-src-link" href="#" target="_blank" style="color: var(--accent); text-decoration: underline; display: none;">VIEW SOURCE PAGE</a>
-            </div>
-        </div>
-    </div>
 
-    <!-- Kohya_ss LoRA Dataset Export Modal -->
-    <div id="dataset-export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-        <div style="width: 90%; max-width: 500px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; font-family: 'JetBrains Mono', monospace;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
-                <span style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700;">EXPORT KOHYA LORA DATASET</span>
-                <button onclick="closeDatasetExportModal()" style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">[X]</button>
+            <!-- Kohya_ss LoRA Dataset Export Modal -->
+            <div id="dataset-export-modal"
+                style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                <div
+                    style="width: 90%; max-width: 500px; background: #0b0d0c; border: 2px solid var(--accent); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; font-family: 'JetBrains Mono', monospace;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem;">
+                        <span
+                            style="font-family: 'Oswald', sans-serif; color: var(--accent); font-size: 1.2rem; font-weight: 700;">EXPORT
+                            KOHYA LORA DATASET</span>
+                        <button onclick="closeDatasetExportModal()"
+                            style="background: none; border: 1px solid var(--accent); color: var(--accent); padding: 0.2rem 0.6rem; cursor: pointer; font-weight: 700;">[X]</button>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="export-modal-subject">Target Run</div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">CONCEPT TRIGGER
+                            TAG:</label>
+                        <input id="export-concept-tag" type="text"
+                            style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;"
+                            placeholder="concept_name">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">REPEAT COUNT:</label>
+                        <input id="export-repeats" type="number" value="10" min="1" max="100"
+                            style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">MIN RESOLUTION
+                            FILTER:</label>
+                        <select id="export-min-res"
+                            style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
+                            <option value="512" selected>512px x 512px</option>
+                            <option value="768">768px x 768px</option>
+                            <option value="1024">1024px x 1024px</option>
+                        </select>
+                    </div>
+                    <button onclick="triggerDatasetZipDownload()"
+                        style="margin-top: 0.5rem; padding: 0.8rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer; text-transform: uppercase;">DOWNLOAD
+                        DATASET (.ZIP)</button>
+                </div>
             </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);" id="export-modal-subject">Target Run</div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">CONCEPT TRIGGER TAG:</label>
-                <input id="export-concept-tag" type="text" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;" placeholder="concept_name">
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">REPEAT COUNT:</label>
-                <input id="export-repeats" type="number" value="10" min="1" max="100" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">MIN RESOLUTION FILTER:</label>
-                <select id="export-min-res" style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
-                    <option value="512" selected>512px x 512px</option>
-                    <option value="768">768px x 768px</option>
-                    <option value="1024">1024px x 1024px</option>
-                </select>
-            </div>
-            <button onclick="triggerDatasetZipDownload()" style="margin-top: 0.5rem; padding: 0.8rem; background: var(--accent); color: #000; border: none; font-weight: 700; font-family: 'JetBrains Mono', monospace; cursor: pointer; text-transform: uppercase;">DOWNLOAD DATASET (.ZIP)</button>
-        </div>
-    </div>
 </body>
 
 </html>

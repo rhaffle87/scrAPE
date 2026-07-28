@@ -66,23 +66,23 @@ Thank you for contributing to **scrAPE**! This guide outlines development setup,
 
 ## 3. Testing Requirements
 
-All bug fixes, scraper enhancements, and new feature additions must include unit or integration test scripts under `scratch/` (the legacy `tests/` directory is removed and all active test scripts are maintained inside gitignored `scratch/`).
+All bug fixes, scraper enhancements, and new feature additions must include unit or integration test scripts under `tests/`.
 
 ### Running Tests
 ```bash
-# Run complete test suite in scratch
-pytest scratch/ -v
+# Run complete test suite
+pytest tests/ -v
 
-# Run specific test script
-pytest scratch/test_enhanced_features.py -v
+# Run specific test file
+pytest tests/test_enhanced_features.py -v
 ```
 
 ### Key Test Categories
-- `scratch/test_enhanced_features.py` — Dynamic layout container parsing, dimension filtering, JSON API discovery, and Crawl4AI fallback verification.
-- `scratch/test_stealth_cookie_sync.py` — In-memory WAF cookie propagation, SessionPool sync, and REST engine metrics verification.
-- `scratch/test_stealth_circuit_breaker.py` — 429 rate limit circuit breaker and stealth escalation logic.
-- `scratch/test_downloader_resumption.py` — Multi-threaded downloader stream range request resumptions.
-- `scratch/test_auth_version_main.py` — Interactive auth module and Chrome version mismatch handling.
+- `tests/test_enhanced_features.py` — Dynamic layout container parsing, dimension filtering, JSON API discovery, and Crawl4AI fallback verification.
+- `tests/test_stealth_cookie_sync.py` — In-memory WAF cookie propagation, SessionPool sync, and REST engine metrics verification.
+- `tests/test_stealth_circuit_breaker.py` — 429 rate limit circuit breaker and stealth escalation logic.
+- `tests/test_download_retries.py` — Multi-threaded downloader stream range request resumptions.
+- `tests/test_env_and_docs.py` — Credential loading, format validation, and `.gitignore` safeguards.
 
 ---
 
@@ -105,7 +105,7 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 
 Before submitting your pull request:
 
-- [ ] All unit and integration tests pass cleanly (`pytest scratch/ -v`).
+- [ ] All unit and integration tests pass cleanly (`pytest tests/ -v`).
 - [ ] Code is formatted cleanly and adheres to Python 3.10+ conventions.
 - [ ] No hardcoded domain rules in Python source files (used `data/url_normalisation_rules.json`).
 - [ ] Updated relevant documentation files (`README.md`, `docs/`, `CHANGELOG.md`).

@@ -224,11 +224,22 @@ def test_ux_e2e_scraping_and_terminal(mock_popen, page_session):
     assert lines.count() > 0, "No log lines streamed to live terminal view"
     
     # 5. Verify color coded borders are applied based on severity log levels
+    #    Use wait_for_selector so we block until the poll interval delivers the lines
+    page_session.wait_for_selector(
+        "#live-terminal-body .terminal-line.log-warning",
+        timeout=20000,
+    )
+    page_session.wait_for_selector(
+        "#live-terminal-body .terminal-line.log-error",
+        timeout=20000,
+    )
+
     warn_line = page_session.locator("#live-terminal-body .terminal-line.log-warning")
     err_line = page_session.locator("#live-terminal-body .terminal-line.log-error")
-    
+
     assert warn_line.count() > 0, "Vertical warning border class not found in logs"
     assert err_line.count() > 0, "Vertical error border class not found in logs"
+
     
     # 6. Verify status badge element is rendered
     status_badge = page_session.locator("#status-badge")
