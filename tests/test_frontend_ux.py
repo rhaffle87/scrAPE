@@ -35,6 +35,10 @@ class MockSubprocess:
         ]
         self.current_idx = 0
         self.stdout = self
+        # asyncio subprocess infrastructure inspects these attributes; provide safe stubs
+        self.stdin = None
+        self.stderr = None
+        self.returncode = None
         self.start_time = time.time()
         
     def readline(self):
@@ -51,8 +55,13 @@ class MockSubprocess:
             return None
         return 0
 
+    def kill(self):
+        """No-op: mock processes cannot be killed."""
+        pass
+
     def close(self):
         pass
+
 
 
 @pytest.fixture(scope="module", autouse=True)

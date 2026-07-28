@@ -665,6 +665,9 @@ def transform_to_highres(url: str) -> tuple[str, str]:
         import json as _json
         from pathlib import Path as _Path
         _dc_path = _Path("data/domain_config.json")
+        if not _dc_path.exists():
+            # Fallback: resolve relative to project root (two levels up from src/core/)
+            _dc_path = _Path(__file__).resolve().parent.parent.parent / "data" / "domain_config.json"
         if _dc_path.exists():
             try:
                 _dc = _json.loads(_dc_path.read_text(encoding="utf-8"))

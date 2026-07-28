@@ -107,10 +107,19 @@ def validate_number(val: str):
 
 
 def load_subject_profiles(profile_path: str = "src/config/subject_profiles.json") -> dict:
-    """Load subject profile presets from JSON configuration file."""
+    """Load subject profile presets from JSON configuration file.
+
+    Path resolution order:
+    1. As-is (absolute or relative to CWD).
+    2. Relative to the project root inferred from this module's location.
+    """
     import json
     try:
         path = Path(profile_path)
+        if not path.is_absolute() and not path.exists():
+            # Resolve relative to project root (two levels up from src/cli/)
+            _project_root = Path(__file__).resolve().parent.parent.parent
+            path = _project_root / profile_path
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)

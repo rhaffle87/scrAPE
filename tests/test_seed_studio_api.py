@@ -4,6 +4,26 @@ from frontend.app import app, SEEDS_DIR
 
 client = TestClient(app)
 
+# ---------------------------------------------------------------------------
+# Fixture: ensure at least one seed file exists so list tests pass in CI
+# (seeds/ is gitignored; the fixture creates and removes a sentinel file)
+# ---------------------------------------------------------------------------
+_SENTINEL_SEED = "_test_sentinel.txt"
+_SENTINEL_CONTENT = "# Subject : Sentinel Test Subject\n\nhttps://example.com/sentinel/\n"
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_seed_exists():
+    """Create a throwaway seed file so SEEDS_DIR is never empty during this module."""
+    sentinel = SEEDS_DIR / _SENTINEL_SEED
+    created = False
+    if not sentinel.exists():
+        sentinel.write_text(_SENTINEL_CONTENT, encoding="utf-8")
+        created = True
+    yield
+    if created and sentinel.exists():
+        sentinel.unlink(missing_ok=True)
+
+
 def test_api_list_seeds():
     response = client.get("/api/seeds")
     assert response.status_code == 200
@@ -11,6 +31,7 @@ def test_api_list_seeds():
     assert "seeds" in data
     assert isinstance(data["seeds"], list)
     assert len(data["seeds"]) > 0
+
 
 def test_api_get_seed_details():
     response = client.get("/api/seeds")

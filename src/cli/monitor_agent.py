@@ -22,8 +22,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def load_watchdog_config(config_path: str = "data/domain_config.json") -> dict:
-    """Load watchdog default configuration from domain_config.json."""
+    """Load watchdog default configuration from domain_config.json.
+
+    Resolves the path relative to CWD first; falls back to project root inferred
+    from this module's location so tests pass regardless of working directory.
+    """
     p = Path(config_path)
+    if not p.is_absolute() and not p.exists():
+        _project_root = Path(__file__).resolve().parent.parent.parent
+        p = _project_root / config_path
     if p.exists():
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
