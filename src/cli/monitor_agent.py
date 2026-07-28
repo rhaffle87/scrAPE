@@ -49,9 +49,9 @@ class AdaptiveBackoffTracker:
         max_interval_s: float = 86400,
         backoff_factor: float = 2.0,
     ):
-        self.min_interval_s = float(min_interval_s)
-        self.max_interval_s = float(max_interval_s)
-        self.backoff_factor = float(backoff_factor)
+        self.min_interval_s = min_interval_s
+        self.max_interval_s = max_interval_s
+        self.backoff_factor = backoff_factor
         self.subject_delays: dict[str, float] = {}
 
     def get_next_delay(self, subject: str, harvest_yield: int) -> float:

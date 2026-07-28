@@ -59,6 +59,11 @@ class MockSubprocess:
         """No-op: mock processes cannot be killed."""
         pass
 
+    def fileno(self):
+        # Stub for asyncio unix_events _UnixReadPipeTransport
+        import sys
+        return sys.stdout.fileno()
+
     def close(self):
         pass
 
