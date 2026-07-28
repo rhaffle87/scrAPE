@@ -729,9 +729,15 @@ async def open_folder(request: Request):
     form = await request.form()
     path_str = _get_form_str(form, "path", "") or ""
     target = OUTPUT_DIR / path_str
-    if path_str and target.exists():
-        # Windows only
-        subprocess.Popen(f'explorer /select,"{target.resolve()}"')
+    if path_str:
+        try:
+            resolved_target = target.resolve()
+            resolved_output = OUTPUT_DIR.resolve()
+            if resolved_target.is_relative_to(resolved_output) and resolved_target.exists():
+                # Windows only
+                subprocess.Popen(["explorer", "/select,", str(resolved_target)])
+        except Exception:
+            pass
     return HTMLResponse("")
 
 @app.get("/htmx/stats")
