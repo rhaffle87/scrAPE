@@ -3,9 +3,10 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
+import zipfile
 from pathlib import Path
 from typing import Any
-import zipfile
 from utils.image_helper import get_image_dimensions, compute_dhash, hamming_distance
 
 LOGGER = logging.getLogger(__name__)
