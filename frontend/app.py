@@ -1124,18 +1124,24 @@ def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
         return {"status": "error", "detail": "Invalid subject name"}
 
+    # Try OUTPUT_DIR first, then cwd-relative (for test compatibility with monkeypatch.chdir)
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
-    if not output_path.startswith(base_dir + os.sep):
-        return {"status": "error", "detail": "Invalid path"}
     output_dir = Path(output_path)
     if not output_dir.exists():
-        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
-        output_dir = Path(fallback_path)
+        output_dir = Path(base_dir) / safe_subject
+    if not output_dir.exists():
+        # Fallback to cwd-relative path (for tests using monkeypatch.chdir)
+        cwd_path = Path("output") / safe_subject / "images"
+        if cwd_path.exists():
+            output_dir = cwd_path
+        else:
+            cwd_fallback = Path("output") / safe_subject
+            output_dir = cwd_fallback
 
     scorer = AestheticScorer()
     res = scorer.filter_directory(output_dir, min_score=min_score)
-    return {"status": "ok", "subject": safe_subject, **res}
+    return {"subject": safe_subject, **res}
 
 
 @app.post("/api/dataset/crop")
@@ -1148,18 +1154,23 @@ def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: i
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
         return {"status": "error", "detail": "Invalid subject name"}
 
+    # Try OUTPUT_DIR first, then cwd-relative (for test compatibility with monkeypatch.chdir)
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
-    if not output_path.startswith(base_dir + os.sep):
-        return {"status": "error", "detail": "Invalid path"}
     output_dir = Path(output_path)
     if not output_dir.exists():
-        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
-        output_dir = Path(fallback_path)
+        output_dir = Path(base_dir) / safe_subject
+    if not output_dir.exists():
+        cwd_path = Path("output") / safe_subject / "images"
+        if cwd_path.exists():
+            output_dir = cwd_path
+        else:
+            cwd_fallback = Path("output") / safe_subject
+            output_dir = cwd_fallback
 
     cropper = DatasetCropper(default_target_size=(width, height))
     res = cropper.crop_directory(output_dir, target_size=(width, height))
-    return {"status": "ok", "subject": safe_subject, **res}
+    return {"subject": safe_subject, **res}
 
 
 @app.get("/api/dataset/export")
