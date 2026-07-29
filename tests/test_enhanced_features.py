@@ -514,6 +514,12 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
 
     monkeypatch.setattr(client.client, "get", mock_get)
 
+    from utils.stealth_pipeline import CrawleeStrategy
+    from utils.capsolver_strategy import CapSolverStrategy
+
+    monkeypatch.setattr(CrawleeStrategy, "is_available", lambda self: False)
+    monkeypatch.setattr(CapSolverStrategy, "is_available", lambda self: False)
+
     # Mock _get_with_crawl4ai to return custom HTML
     monkeypatch.setattr(
         client, "_get_with_crawl4ai", lambda url: "<html>Crawl4AI Page</html>"
@@ -589,11 +595,16 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
         call_count += 1
         raise ScraperBypassError("Mocked WAF Bypass Failure")
 
+    from utils.capsolver_strategy import CapSolverStrategy
+    from utils.stealth_pipeline import HeliumStrategy
+
     monkeypatch.setattr(Crawl4AIStrategy, "execute", mock_fail)
     monkeypatch.setattr(DrissionPageStrategy, "execute", mock_fail)
     monkeypatch.setattr(CrawleeStrategy, "execute", mock_fail)
     monkeypatch.setattr(CamoufoxStrategy, "execute", mock_fail)
     monkeypatch.setattr(FlareSolverrStrategy, "execute", mock_fail)
+    monkeypatch.setattr(CapSolverStrategy, "execute", mock_fail)
+    monkeypatch.setattr(HeliumStrategy, "execute", mock_fail)
 
     test_url = "https://no-retry-test-domain.com/blocked-page-no-retry"
     cache_path = client._cache_path(test_url)

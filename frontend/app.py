@@ -789,6 +789,37 @@ async def open_folder(request: Request):
         return HTMLResponse("<span>ERR: Status check failed</span>")
     return HTMLResponse("")
 
+@app.get("/api/telemetry/stealth")
+def get_stealth_telemetry():
+    """Return live WAF stealth pipeline statistics, solve counts, and circuit breaker cooldowns."""
+    from utils.http_client import HttpClient, StealthTierHealthManager
+    import time
+    health_mgr = StealthTierHealthManager.get_instance()
+    
+    with HttpClient._waf_solve_lock:
+        solve_counts = dict(HttpClient._waf_solve_counts)
+        
+    with HttpClient._preferred_engine_lock:
+        preferred_engines = dict(HttpClient._preferred_engine_by_host)
+
+    with health_mgr._tier_lock:
+        health_stats = {
+            tier: {
+                "successes": data.get("successes", 0),
+                "failures": data.get("failures", 0),
+                "avg_latency_ms": round(data.get("avg_latency_ms", 0.0), 1),
+                "is_cooling_down": time.monotonic() < data.get("cooldown_until", 0.0),
+            }
+            for tier, data in health_mgr._health.items()
+        }
+
+    return JSONResponse({
+        "status": "success",
+        "solve_counts": solve_counts,
+        "preferred_engines": preferred_engines,
+        "health_stats": health_stats,
+    })
+
 @app.get("/htmx/stats")
 def get_stats():
     from utils.hardware_governor import HardwareLoadGovernor

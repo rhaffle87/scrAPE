@@ -120,8 +120,9 @@ class CrawleeStrategy(StealthStrategy):
 
     def is_available(self) -> bool:
         try:
-            r = httpx.get("http://127.0.0.1:3000/health", timeout=1.0)
-            return r.status_code == 200
+            from utils.crawlee_client import CrawleeClient
+            client = CrawleeClient()
+            return client._is_server_running()
         except Exception:
             return False
 
@@ -326,6 +327,9 @@ class StealthPipeline:
                         client._waf_solve_counts[strategy.name] = (
                             client._waf_solve_counts.get(strategy.name, 0) + 1
                         )
+                    if hasattr(client, "_preferred_engine_by_host"):
+                        with client._preferred_engine_lock:
+                            client._preferred_engine_by_host[host] = strategy.name
 
                     # Auto-persist harvested cookies and user-agent if present
                     if (res.cookies or res.user_agent) and hasattr(client, "_session_pool"):

@@ -14,6 +14,8 @@ def test_stealth_circuit_breaker(monkeypatch):
     def mock_fail(url):
         raise Exception("Mocked browser failure")
 
+    monkeypatch.setattr(client, "_get_with_crawlee_cheerio", mock_fail)
+    monkeypatch.setattr(client, "_get_with_crawlee_puppeteer", mock_fail)
     monkeypatch.setattr(client, "_get_with_crawl4ai", mock_fail)
     monkeypatch.setattr(client, "_get_with_drissionpage", mock_fail)
     monkeypatch.setattr(client, "_get_with_helium", mock_fail)

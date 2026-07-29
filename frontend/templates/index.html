@@ -1549,7 +1549,8 @@
                                             unlimited bandwidth. [Rec: 500-5000]</span>
                                     </span>
                                 </label>
-                                <input type="number" id="dl-speed-input" name="dl_speed_limit" value="0" min="0" step="100">
+                                <input type="number" id="dl-speed-input" name="dl_speed_limit" value="0" min="0"
+                                    step="100">
                             </div>
                             <div class="form-group">
                                 <label for="rate-limit-input">Crawl Rate Limit (req/s)
@@ -1558,7 +1559,8 @@
                                             for unlimited. [Rec: 0.5-5.0]</span>
                                     </span>
                                 </label>
-                                <input type="number" id="rate-limit-input" name="rate_limit" value="0.0" min="0.0" step="0.5">
+                                <input type="number" id="rate-limit-input" name="rate_limit" value="0.0" min="0.0"
+                                    step="0.5">
                             </div>
 
                             <div class="form-group">
@@ -1628,11 +1630,13 @@
                                 <div class="form-grid">
                                     <div class="form-group">
                                         <label for="proxy-input">Proxy Connection</label>
-                                        <input type="text" id="proxy-input" name="proxy" placeholder="http://proxy-host:port">
+                                        <input type="text" id="proxy-input" name="proxy"
+                                            placeholder="http://proxy-host:port">
                                     </div>
                                     <div class="form-group">
                                         <label for="capsolver-key-input">CapSolver API Key</label>
-                                        <input type="text" id="capsolver-key-input" name="capsolver_key" placeholder="Enter API Key">
+                                        <input type="text" id="capsolver-key-input" name="capsolver_key"
+                                            placeholder="Enter API Key">
                                     </div>
                                 </div>
                             </div>
@@ -1701,6 +1705,17 @@
                 <!-- Live Visualizer Split Panel (Network Graph + Live Media Stream Stacked) -->
                 <div class="visualizer-split-container"
                     style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
+                    <!-- WAF Stealth Pipeline Telemetry Card -->
+                    <div class="glass-panel" id="stealth-telemetry-card" style="border: var(--border-heavy); background: var(--bg-surface); padding: 0.75rem 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
+                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.85rem; letter-spacing: 1px;">STEALTH PIPELINE TELEMETRY</span>
+                            <button onclick="refreshStealthTelemetry()" style="background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; cursor: pointer; border-radius: 0 !important;">REFRESH</button>
+                        </div>
+                        <div id="stealth-tier-pills" style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING STEALTH STATS...</span>
+                        </div>
+                    </div>
+
                     <!-- Live Crawl Network Tree Graph (Top) -->
                     <div class="glass-panel"
                         style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
@@ -1710,8 +1725,8 @@
                                 style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE
                                 CRAWL NETWORK TREE</span>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="text" id="graph-search-input" aria-label="Search Node" placeholder="SEARCH NODE..."
-                                    oninput="drawCrawlGraph()"
+                                <input type="text" id="graph-search-input" aria-label="Search Node"
+                                    placeholder="SEARCH NODE..." oninput="drawCrawlGraph()"
                                     style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); width: 110px; outline: none; border-radius: 0 !important;">
                                 <select id="graph-depth-select" aria-label="Filter by depth" onchange="drawCrawlGraph()"
                                     style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); outline: none; border-radius: 0 !important;">
@@ -1727,6 +1742,36 @@
                         </div>
                         <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
                             <canvas id="crawl-graph-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                            <!-- Node Telemetry Inspection Drawer Overlay -->
+                            <div id="node-inspector-drawer"
+                                style="display: none; position: absolute; top: 0; right: 0; width: 260px; height: 100%; background: rgba(11, 13, 12, 0.95); border-left: 2px solid var(--accent); padding: 0.75rem; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; z-index: 20; backdrop-filter: blur(8px); overflow-y: auto; border-radius: 0 !important;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
+                                    <span
+                                        style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); letter-spacing: 1px;">NODE
+                                        TELEMETRY</span>
+                                    <button onclick="closeNodeInspectorDrawer()"
+                                        style="background: transparent; border: none; color: var(--accent); font-weight: bold; cursor: pointer; font-size: 1rem;">✕</button>
+                                </div>
+                                <div style="margin-bottom: 0.5rem;"><span
+                                        style="color: var(--text-muted);">DOMAIN:</span> <strong id="inspector-domain"
+                                        style="color: #00ff88;">-</strong></div>
+                                <div style="margin-bottom: 0.5rem; word-break: break-all;"><span
+                                        style="color: var(--text-muted);">URL:</span> <a id="inspector-url" href="#"
+                                        target="_blank"
+                                        style="color: var(--text-primary); text-decoration: underline;">-</a></div>
+                                <div style="margin-bottom: 0.5rem;"><span
+                                        style="color: var(--text-muted);">DEPTH:</span> <span id="inspector-depth"
+                                        style="color: var(--accent);">0</span></div>
+                                <div style="margin-bottom: 0.5rem;"><span style="color: var(--text-muted);">TYPE:</span>
+                                    <span id="inspector-type" style="color: var(--text-primary);">PAGE</span></div>
+                                <div style="margin-bottom: 0.5rem;"><span
+                                        style="color: var(--text-muted);">STATUS:</span> <span id="inspector-status"
+                                        style="color: #00ff66;">HTTP 200 OK</span></div>
+                                <div style="margin-bottom: 0.5rem;"><span style="color: var(--text-muted);">MEDIA
+                                        YIELD:</span> <span id="inspector-media" style="color: var(--accent);">0
+                                        ASSETS</span></div>
+                            </div>
                         </div>
                     </div>
 
@@ -1925,9 +1970,11 @@
             </div>
 
             <!-- Tactical Auto-Discovery Modal -->
-            <div id="auto-discovery-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();"
+            <div id="auto-discovery-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1"
+                onkeydown="if(event.key === 'Enter') this.click();"
                 onclick="if(event.target===this) closeAutoDiscoveryModal()">
-                <div class="glass-panel" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();"
+                <div class="glass-panel" aria-hidden="true" tabindex="-1"
+                    onkeydown="if(event.key === 'Enter') this.click();"
                     style="width: 700px; max-width: 90vw; background: rgba(10, 10, 15, 0.98); border: 2px solid var(--accent); padding: 1.5rem;"
                     onclick="event.stopPropagation()">
                     <div
@@ -1974,7 +2021,8 @@
                 </div>
             </div>
             <!-- Media Preview Modal -->
-            <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
+            <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1"
+                onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
                 <!-- Close button -->
                 <button class="modal-close-btn" onclick="closePreviewModal()">&times;</button>
 
@@ -1982,7 +2030,8 @@
                 <button class="modal-nav-btn prev-btn" onclick="navigatePreview(-1)">&lsaquo;</button>
 
                 <!-- Active content wrapper -->
-                <div class="modal-content-wrapper" aria-hidden="true" tabindex="-1" onkeydown="if(event.key === 'Enter') this.click();" onclick="event.stopPropagation()">
+                <div class="modal-content-wrapper" aria-hidden="true" tabindex="-1"
+                    onkeydown="if(event.key === 'Enter') this.click();" onclick="event.stopPropagation()">
                     <div id="modal-media-container" class="modal-media-container">
                         <!-- Rendered image or video -->
                     </div>
@@ -2282,6 +2331,15 @@
                     }
                 }
 
+                function escapeHtml(unsafe) {
+                    return (unsafe || "").toString()
+                        .replaceAll("&", "&amp;")
+                        .replaceAll("<", "&lt;")
+                        .replaceAll(">", "&gt;")
+                        .replaceAll('"', "&quot;")
+                        .replaceAll("'", "&#039;");
+                }
+
                 function setRunMode(mode) {
                     const customBtn = document.getElementById('mode-custom');
                     const unlimitedBtn = document.getElementById('mode-unlimited');
@@ -2339,8 +2397,7 @@
                 }
 
                 // Populate seeds select dropdown
-                // NOSONAR
-                async function runScraper(event) {
+                async function populateSeedsDropdown() {
                     try {
                         const res = await fetch('/api/seeds');
                         if (res.ok) {
@@ -2363,6 +2420,8 @@
                         console.error("Failed to load seeds list:", e);
                     }
                 }
+                document.addEventListener('DOMContentLoaded', populateSeedsDropdown);
+                setTimeout(populateSeedsDropdown, 500);
 
                 function onSeedSelected(select) {
                     const val = select.value;
@@ -2819,15 +2878,6 @@
                     resultsEl.innerHTML = "<div style='color: var(--accent);'>PROBING PARALLEL DOMAIN SEARCH MATRIX... PLEASE WAIT...</div>";
                     addBtn.style.display = 'none';
 
-                    function escapeHtml(unsafe) {
-                        return (unsafe || "").toString()
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;")
-                            .replace(/"/g, "&quot;")
-                            .replace(/'/g, "&#039;");
-                    }
-
                     try {
                         const res = await fetch('/api/seeds/discover', {
                             method: 'POST',
@@ -3021,8 +3071,7 @@
 
                     // Heuristic parsing from file downloader log lines
                     if (lower.includes("downloaded") || lower.includes("saved")) {
-                        // NOSONAR
-                        const pathMatch = line.match(/(?:output\/)?([A-Za-z0-9_.\-\/]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
+                        const pathMatch = line.match(/(?:output\/)?([^\s:/]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
                         if (pathMatch) {
                             let relPath = pathMatch[1].replace(/^output\//, '');
                             const isVideo = /\.(mp4|webm|mkv|mov)$/i.test(relPath);
@@ -3068,26 +3117,25 @@
 
                         // Escape HTML to prevent injection
                         formattedMessage = formattedMessage
-                            .split("&").join("&amp;")
-                            .split("<").join("&lt;")
-                            .split(">").join("&gt;");
+                            .replaceAll("&", "&amp;")
+                            .replaceAll("<", "&lt;")
+                            .replaceAll(">", "&gt;");
 
                         // Highlight HTTP request methods and status codes
                         if (formattedMessage.includes("HTTP Request:")) {
-                            // NOSONAR
                             formattedMessage = formattedMessage
                                 .replace("HTTP Request:", `<span style="color: var(--accent); font-weight: 700;">HTTP REQ</span>`)
                                 .replace(/GET (https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
                                 .replace(/POST (https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
-                                .replace(/"HTTP\/1\.1\s+(\d{3})\s+([^"]*?)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
-                                .replace(/"HTTP\/1\.1\s+([45]\d{2})\s+([^"]*?)"/g, `"<span style="color: #cc0000; font-weight: 700;">$1 $2</span>"`);
+                                .replace(/"HTTP\/1\.1 ([0-9]{3}) ([^"]*)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
+                                .replace(/"HTTP\/1\.1 ([45][0-9]{2}) ([^"]*)"/g, `"<span style="color: #cc0000; font-weight: 700;">$1 $2</span>"`);
                         }
 
                         // Highlight media type rejections
                         if (formattedMessage.includes("rejected:")) {
                             formattedMessage = formattedMessage
                                 .replace(/(Image|Video) rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
-                                .replace(/\(reason:\s*([^)]+)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
+                                .replace(/\(reason:\s*([^\n)]*)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
                                 .replace(/(https?:\/\/[^\s()]+)/g, `<span style="color: #5a665f; font-size: 0.85em;">$1</span>`);
                         }
 
@@ -3123,10 +3171,10 @@
                     }
 
                     let safeLine = line.toString()
-                        .split("&").join("&amp;")
-                        .split("<").join("&lt;")
-                        .split(">").join("&gt;");
-                        
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;');
+
                     return {
                         html: `<span style="color: ${fallbackColor};">${safeLine}</span>`,
                         cssClass: fallbackClass
@@ -3391,21 +3439,53 @@
                     });
                 }
 
+                let targetPanX = 0;
+                let targetPanY = 0;
+                let isCameraLerping = false;
+
                 function inspectGraphNode(node) {
                     selectedNode = node;
-                    const drawer = document.getElementById('node-detail-drawer');
+                    const drawer = document.getElementById('node-inspector-drawer');
                     if (!drawer) return;
 
-                    document.getElementById('node-drawer-url').innerText = node.url || 'Unknown';
-                    document.getElementById('node-drawer-domain').innerText = node.domain || 'N/A';
-                    document.getElementById('node-drawer-depth').innerText = node.depth !== undefined ? node.depth : '0';
-                    document.getElementById('node-drawer-type').innerText = node.type || 'page_visited';
+                    const domElem = document.getElementById('inspector-domain');
+                    if (domElem) {
+                        domElem.innerText = node.domain || 'N/A';
+                        domElem.style.color = getDomainColor(node.domain);
+                    }
+                    const urlElem = document.getElementById('inspector-url');
+                    if (urlElem) {
+                        urlElem.innerText = node.url || 'Unknown';
+                        urlElem.href = node.url || '#';
+                    }
+                    const depthElem = document.getElementById('inspector-depth');
+                    if (depthElem) depthElem.innerText = node.depth !== undefined ? node.depth : '0';
+                    const typeElem = document.getElementById('inspector-type');
+                    if (typeElem) typeElem.innerText = (node.type || 'page_visited').toUpperCase();
+                    const statusElem = document.getElementById('inspector-status');
+                    if (statusElem) statusElem.innerText = node.status ? `HTTP ${node.status}` : '200 OK';
+                    const mediaElem = document.getElementById('inspector-media');
+                    if (mediaElem) mediaElem.innerText = `${node.media_count || 0} ASSETS`;
+
                     drawer.style.display = 'block';
+
+                    // Smooth camera focus calculation
+                    const canvas = document.getElementById('crawl-graph-canvas');
+                    if (canvas) {
+                        targetPanX = (canvas.width / 2) - (node.x * canvasScale);
+                        targetPanY = (canvas.height / 2) - (node.y * canvasScale);
+                        isCameraLerping = true;
+                    }
+                }
+
+                function closeNodeInspectorDrawer() {
+                    const drawer = document.getElementById('node-inspector-drawer');
+                    if (drawer) drawer.style.display = 'none';
+                    selectedNode = null;
                 }
 
                 function closeNodeDrawer() {
-                    const drawer = document.getElementById('node-detail-drawer');
-                    if (drawer) drawer.style.display = 'none';
+                    closeNodeInspectorDrawer();
                 }
 
                 function resetCanvasView() {
@@ -3437,10 +3517,16 @@
                             depth: depth,
                             parent: data.parent,
                             type: data.type || 'node',
+                            status: data.status || 200,
+                            media_count: data.media_count || 0,
                             x: x,
                             y: y,
                             color: data.type === 'page_visited' ? '#ff5500' : '#00ff88'
                         });
+
+                        if (parentNode) {
+                            spawnLinkParticle(parentNode, { x: x, y: y }, getDomainColor(data.domain));
+                        }
 
                         const countElem = document.getElementById('graph-node-count');
                         if (countElem) countElem.innerText = `NODES: ${graphNodes.size}`;
@@ -3463,96 +3549,173 @@
                 }
 
 
-                // --- PHYSICS ENGINE ---
+                // --- PHYSICS & PARTICLE ENGINE ---
                 let physicsRunning = false;
+                let activeLinkParticles = [];
+
+                function spawnLinkParticle(sourceNode, targetNode, color) {
+                    if (activeLinkParticles.length > 200) return;
+                    activeLinkParticles.push({
+                        sx: sourceNode.x, sy: sourceNode.y,
+                        tx: targetNode.x, ty: targetNode.y,
+                        progress: 0,
+                        speed: 0.02 + ((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 0.02),
+                        color: color || '#00ff88'
+                    });
+                }
+
                 function startPhysicsLoop() {
                     if (physicsRunning) return;
                     physicsRunning = true;
-                    
+
                     function tick() {
                         const nodes = Array.from(graphNodes.values());
-                        if (nodes.length === 0 || nodes.length > 1500) {
-                            requestAnimationFrame(tick);
-                            return; // Disable for too many nodes to save CPU
+                        const canvas = document.getElementById('crawl-graph-canvas');
+                        const w = canvas ? (canvas.width || 400) : 400;
+                        const h = canvas ? (canvas.height || 260) : 260;
+
+                        // Camera smooth lerp
+                        if (isCameraLerping) {
+                            canvasPanX += (targetPanX - canvasPanX) * 0.1;
+                            canvasPanY += (targetPanY - canvasPanY) * 0.1;
+                            if (Math.hypot(targetPanX - canvasPanX, targetPanY - canvasPanY) < 0.5) {
+                                isCameraLerping = false;
+                            }
                         }
-                        
-                        let moved = false;
-                        const k = 0.05; // spring constant
-                        const repulsion = 4000; // repulsion factor
-                        const damping = 0.8;
-                        
-                        // Initialize velocities if not present
-                        for (let node of nodes) {
-                            if (node.vx === undefined) { node.vx = 0; node.vy = 0; }
-                        }
-                        
-                        // Repulsion (N^2 but fine for <1500 nodes)
-                        for (let i = 0; i < nodes.length; i++) {
-                            for (let j = i + 1; j < nodes.length; j++) {
-                                const a = nodes[i];
-                                const b = nodes[j];
-                                const dx = a.x - b.x;
-                                const dy = a.y - b.y;
-                                const distSq = dx*dx + dy*dy;
-                                if (distSq > 0 && distSq < 15000) {
-                                    const force = repulsion / distSq;
-                                    const fx = (dx / Math.sqrt(distSq)) * force;
-                                    const fy = (dy / Math.sqrt(distSq)) * force;
-                                    a.vx += fx; a.vy += fy;
-                                    b.vx -= fx; b.vy -= fy;
+
+                        if (nodes.length > 0 && nodes.length <= 1500) {
+                            let moved = false;
+                            // Adaptive auto-tuning parameters based on node count
+                            const nodeCount = nodes.length;
+                            const repulsion = Math.max(1200, 4500 / Math.sqrt(1 + (nodeCount / 30)));
+                            const k = Math.min(0.08, 0.03 + (nodeCount * 0.0001));
+                            const damping = 0.82;
+
+                            for (let node of nodes) {
+                                if (node.vx === undefined) { node.vx = 0; node.vy = 0; }
+                            }
+
+                            // Coulomb repulsive force between node pairs
+                            for (let i = 0; i < nodes.length; i++) {
+                                for (let j = i + 1; j < nodes.length; j++) {
+                                    const a = nodes[i];
+                                    const b = nodes[j];
+                                    const dx = a.x - b.x;
+                                    const dy = a.y - b.y;
+                                    const distSq = dx * dx + dy * dy;
+                                    if (distSq > 0 && distSq < 20000) {
+                                        const dist = Math.sqrt(distSq);
+                                        const force = repulsion / distSq;
+                                        const fx = (dx / dist) * force;
+                                        const fy = (dy / dist) * force;
+                                        a.vx += fx; a.vy += fy;
+                                        b.vx -= fx; b.vy -= fy;
+                                        moved = true;
+                                    }
+                                }
+                            }
+
+                            // Hooke spring attraction along parent-child links
+                            for (let node of nodes) {
+                                if (node.parent && graphNodes.has(node.parent)) {
+                                    const p = graphNodes.get(node.parent);
+                                    const dx = p.x - node.x;
+                                    const dy = p.y - node.y;
+                                    const dist = Math.hypot(dx, dy);
+                                    const targetDist = 45;
+                                    if (dist > targetDist) {
+                                        const force = (dist - targetDist) * k;
+                                        const fx = (dx / dist) * force;
+                                        const fy = (dy / dist) * force;
+                                        node.vx += fx; node.vy += fy;
+                                        p.vx -= fx; p.vy -= fy;
+                                        moved = true;
+                                    }
+                                } else {
+                                    // Soft anchor for root seed nodes
+                                    const cx = w / 2;
+                                    const cy = h / 2;
+                                    node.vx += (cx - node.x) * 0.003;
+                                    node.vy += (cy - node.y) * 0.003;
+                                }
+                            }
+
+                            // Soft canvas boundary repulsion
+                            const margin = 25;
+                            for (let node of nodes) {
+                                if (node.x < margin) node.vx += (margin - node.x) * 0.05;
+                                if (node.x > w - margin) node.vx -= (node.x - (w - margin)) * 0.05;
+                                if (node.y < margin) node.vy += (margin - node.y) * 0.05;
+                                if (node.y > h - margin) node.vy -= (node.y - (h - margin)) * 0.05;
+                            }
+
+                            // Apply velocities
+                            for (let node of nodes) {
+                                if (Math.abs(node.vx) > 0.05 || Math.abs(node.vy) > 0.05) {
+                                    node.x += node.vx;
+                                    node.y += node.vy;
+                                    node.vx *= damping;
+                                    node.vy *= damping;
                                     moved = true;
+                                } else {
+                                    node.vx = 0; node.vy = 0;
                                 }
                             }
                         }
-                        
-                        // Attraction (Springs)
-                        for (let node of nodes) {
-                            if (node.parent && graphNodes.has(node.parent)) {
-                                const p = graphNodes.get(node.parent);
-                                const dx = p.x - node.x;
-                                const dy = p.y - node.y;
-                                const dist = Math.hypot(dx, dy);
-                                if (dist > 50) {
-                                    const force = (dist - 50) * k;
-                                    const fx = (dx / dist) * force;
-                                    const fy = (dy / dist) * force;
-                                    node.vx += fx; node.vy += fy;
-                                    p.vx -= fx; p.vy -= fy;
-                                    moved = true;
-                                }
-                            } else {
-                                // Anchor root nodes gently to center
-                                const canvas = document.getElementById('crawl-graph-canvas');
-                                const cx = canvas ? (canvas.width || 400) / 2 : 200;
-                                const cy = canvas ? (canvas.height || 260) / 2 : 130;
-                                const dx = cx - node.x;
-                                const dy = cy - node.y;
-                                node.vx += dx * 0.005;
-                                node.vy += dy * 0.005;
+
+                        // Update link particles
+                        for (let i = activeLinkParticles.length - 1; i >= 0; i--) {
+                            const pt = activeLinkParticles[i];
+                            pt.progress += pt.speed;
+                            if (pt.progress >= 1.0) {
+                                activeLinkParticles.splice(i, 1);
                             }
                         }
-                        
-                        // Apply velocities
-                        for (let node of nodes) {
-                            if (Math.abs(node.vx) > 0.1 || Math.abs(node.vy) > 0.1) {
-                                node.x += node.vx;
-                                node.y += node.vy;
-                                node.vx *= damping;
-                                node.vy *= damping;
-                                moved = true;
-                            } else {
-                                node.vx = 0; node.vy = 0;
-                            }
+
+                        if (moved || activeLinkParticles.length > 0) {
+                            drawCrawlGraph();
                         }
-                        
-                        if (moved) drawCrawlGraph();
                         requestAnimationFrame(tick);
                     }
                     requestAnimationFrame(tick);
                 }
-                
-                // Start physics on first load
-                setTimeout(startPhysicsLoop, 500);
+
+                function refreshStealthTelemetry() {
+                    fetch('/api/telemetry/stealth')
+                        .then(r => r.json())
+                        .then(data => {
+                            const container = document.getElementById('stealth-tier-pills');
+                            if (!container || !data.solve_counts) return;
+
+                            let html = '';
+                            const tiers = ['httpx', 'capsolver', 'crawlee', 'crawl4ai', 'drissionpage', 'helium', 'flaresolverr', 'camoufox'];
+                            tiers.forEach(tier => {
+                                const count = data.solve_counts[tier] || 0;
+                                const health = (data.health_stats && data.health_stats[tier]) || {};
+                                const isCooldown = health.is_cooling_down;
+                                let statusColor = 'var(--text-muted)';
+                                if (isCooldown) {
+                                    statusColor = '#ff3333';
+                                } else if (count > 0) {
+                                    statusColor = '#00ff66';
+                                }
+                                const badgeText = isCooldown ? 'COOLDOWN' : `${count} SOLVES`;
+
+                                html += `
+                                    <div style="border: 1px solid var(--border-heavy); background: var(--bg-base); padding: 0.3rem 0.5rem; display: flex; align-items: center; gap: 0.4rem; border-radius: 0 !important;">
+                                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">${tier}</span>
+                                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: rgba(0,0,0,0.4); color: ${statusColor}; border: 1px solid ${statusColor}; padding: 1px 4px; font-weight: 700;">${badgeText}</span>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = html;
+                        })
+                        .catch(err => console.error("Telemetry fetch error:", err));
+                }
+                setInterval(refreshStealthTelemetry, 4000);
+                setTimeout(refreshStealthTelemetry, 1000);
+
+                setTimeout(startPhysicsLoop, 300);
 
                 // NOSONAR
                 function drawCrawlGraph() {
@@ -3618,9 +3781,20 @@
                         }
                     });
 
+                    // Render byte transfer particles along links
+                    activeLinkParticles.forEach(pt => {
+                        const px = pt.sx + (pt.tx - pt.sx) * pt.progress;
+                        const py = pt.sy + (pt.ty - pt.sy) * pt.progress;
+                        ctx.beginPath();
+                        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                        ctx.fillStyle = pt.color;
+                        ctx.fill();
+                    });
+
                     // Nodes
                     visibleNodes.forEach(node => {
                         const isMatched = searchQuery && (node.url.toLowerCase().includes(searchQuery) || node.domain.toLowerCase().includes(searchQuery));
+                        const isSelected = selectedNode && selectedNode.url === node.url;
                         const color = getDomainColor(node.domain);
 
                         ctx.beginPath();
@@ -3628,7 +3802,13 @@
                         ctx.fillStyle = color;
                         ctx.fill();
 
-                        if (isMatched) {
+                        if (isSelected) {
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, 14, 0, Math.PI * 2);
+                            ctx.strokeStyle = '#ff5500';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        } else if (isMatched) {
                             ctx.beginPath();
                             ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
                             ctx.strokeStyle = '#ff5500';
@@ -3645,6 +3825,7 @@
                             ctx.globalAlpha = 0.5;
                             ctx.lineWidth = 1;
                             ctx.stroke();
+                            ctx.globalAlpha = 1.0;
                         }
                     });
 
@@ -3665,13 +3846,13 @@
                     const card = document.createElement('div');
                     card.className = 'stream-card';
                     card.style.cssText = 'position: relative; border: 1px solid var(--border-heavy); background: #000; overflow: hidden; height: 100%; width: 100%; cursor: pointer; transition: all 0.2s ease;';
-                    
+
                     card.onmouseover = () => { card.style.borderColor = 'var(--accent)'; card.style.transform = 'scale(1.02)'; card.style.zIndex = '10'; };
                     card.onmouseout = () => { card.style.borderColor = 'var(--border-heavy)'; card.style.transform = 'scale(1)'; card.style.zIndex = '1'; };
 
                     let safePath = data.file_path.replaceAll('\\', '/');
                     safePath = encodeURI(safePath).replaceAll('#', '%23').replaceAll('?', '%3F');
-                    
+
                     if (data.media_kind === 'image') {
                         card.innerHTML = `<img src="/${safePath}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important; filter: brightness(0.85); transition: filter 0.2s ease;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='brightness(0.85)'" alt="Media Asset" loading="lazy">`;
                         card.onclick = () => window.open(`/${safePath}`, '_blank');
