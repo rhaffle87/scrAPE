@@ -74,7 +74,7 @@ from utils.telemetry import register_telemetry_listener, broadcast_telemetry_eve
 broadcaster = LogBroadcaster()
 register_telemetry_listener(broadcaster.broadcast)
 
-app = FastAPI(title="scrAPE Web GUI", version="0.20.0")
+app = FastAPI(title="scrAPE Web GUI", version="0.22.0")
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,8 +1,8 @@
 # Changelog
 
-## [0.21.0] — 2026-07-29
+## [0.22.0] — 2026-07-29
 
-### Added & Changed (0.21.0)
+### Added & Changed (0.22.0)
 
 - **CapSolver Auto-Captcha Token Injection & Multi-Challenge Support** (`src/utils/capsolver_strategy.py`, `src/utils/capsolver.py`):
   - Upgraded `CapSolverStrategy` to detect Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha sitekeys and solve tokens via CapSolver API.
