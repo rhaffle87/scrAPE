@@ -777,13 +777,8 @@ async def open_folder(request: Request):
         return HTMLResponse("Invalid path")
 
     try:
-        base_dir = os.path.abspath(str(OUTPUT_DIR))
-        target_path = os.path.abspath(os.path.join(base_dir, clean_name))
-        
-        if not target_path.startswith(base_dir + os.sep) and target_path != base_dir:
-            return HTMLResponse("Invalid path")
-            
-        if os.path.exists(target_path):
+        target_path = OUTPUT_DIR / clean_name
+        if target_path.exists():
             Popen(["explorer", f"/select,{target_path}"])
     except Exception:
         return HTMLResponse("<span>ERR: Status check failed</span>")
