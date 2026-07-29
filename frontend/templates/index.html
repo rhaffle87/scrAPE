@@ -3505,11 +3505,14 @@
                         const depth = data.depth || 0;
                         const parentNode = data.parent ? graphNodes.get(data.parent) : null;
 
-                        let x = parentNode ? parentNode.x + ((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 20 - 10) : (w / 2);
-                        let y = parentNode ? parentNode.y + ((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 20 - 10) : (h / 2);
+                        const randomAngle = (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * Math.PI * 2;
+                        const randomRadius = parentNode ? (35 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 45) : (60 + depth * 35 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 50);
 
-                        x = Math.max(20, Math.min(w - 20, x));
-                        y = Math.max(20, Math.min(h - 20, y));
+                        let x = (parentNode ? parentNode.x : w / 2) + Math.cos(randomAngle) * randomRadius;
+                        let y = (parentNode ? parentNode.y : h / 2) + Math.sin(randomAngle) * randomRadius;
+
+                        x = Math.max(30, Math.min(w - 30, x));
+                        y = Math.max(30, Math.min(h - 30, y));
 
                         graphNodes.set(data.url, {
                             url: data.url,
@@ -3587,9 +3590,9 @@
                             let moved = false;
                             // Adaptive auto-tuning parameters based on node count
                             const nodeCount = nodes.length;
-                            const repulsion = Math.max(1200, 4500 / Math.sqrt(1 + (nodeCount / 30)));
-                            const k = Math.min(0.08, 0.03 + (nodeCount * 0.0001));
-                            const damping = 0.82;
+                            const repulsion = Math.max(3000, 12000 / Math.sqrt(1 + (nodeCount / 20)));
+                            const k = Math.min(0.06, 0.02 + (nodeCount * 0.0001));
+                            const damping = 0.85;
 
                             for (let node of nodes) {
                                 if (node.vx === undefined) { node.vx = 0; node.vy = 0; }
@@ -3603,9 +3606,9 @@
                                     const dx = a.x - b.x;
                                     const dy = a.y - b.y;
                                     const distSq = dx * dx + dy * dy;
-                                    if (distSq > 0 && distSq < 20000) {
-                                        const dist = Math.sqrt(distSq);
-                                        const force = repulsion / distSq;
+                                    if (distSq > 0 && distSq < 60000) {
+                                        const dist = Math.max(12, Math.sqrt(distSq));
+                                        const force = Math.min(15, repulsion / Math.max(144, distSq));
                                         const fx = (dx / dist) * force;
                                         const fy = (dy / dist) * force;
                                         a.vx += fx; a.vy += fy;
@@ -3622,7 +3625,7 @@
                                     const dx = p.x - node.x;
                                     const dy = p.y - node.y;
                                     const dist = Math.hypot(dx, dy);
-                                    const targetDist = 45;
+                                    const targetDist = 65;
                                     if (dist > targetDist) {
                                         const force = (dist - targetDist) * k;
                                         const fx = (dx / dist) * force;
@@ -3635,8 +3638,8 @@
                                     // Soft anchor for root seed nodes
                                     const cx = w / 2;
                                     const cy = h / 2;
-                                    node.vx += (cx - node.x) * 0.003;
-                                    node.vy += (cy - node.y) * 0.003;
+                                    node.vx += (cx - node.x) * 0.0005;
+                                    node.vy += (cy - node.y) * 0.0005;
                                 }
                             }
 
