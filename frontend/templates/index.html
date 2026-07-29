@@ -3746,8 +3746,14 @@
                     const repeats = document.getElementById('export-repeats')?.value || 10;
                     const minRes = document.getElementById('export-min-res')?.value || 512;
 
-                    const downloadUrl = `/api/export/dataset/download/${encodeURIComponent(currentExportSubject)}/${encodeURIComponent(currentExportRunId)}?repeats=${repeats}&min_resolution=${minRes}`;
-                    window.location.href = downloadUrl;
+                    try {
+                        const url = new URL(`/api/export/dataset/download/${encodeURIComponent(currentExportSubject)}/${encodeURIComponent(currentExportRunId)}`, window.location.origin);
+                        url.searchParams.set('repeats', repeats);
+                        url.searchParams.set('min_resolution', minRes);
+                        window.location.assign(url.toString());
+                    } catch (e) {
+                        console.error('Invalid export URL', e);
+                    }
                     closeDatasetExportModal();
                 }
 

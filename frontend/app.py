@@ -28,6 +28,15 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 log_buffer = deque(maxlen=1000)
 _state_lock = threading.Lock()
 
+def _is_safe_path_component(name: str) -> bool:
+    """Strictly validate path component to prevent path traversal and ensure safety."""
+    if not name or ".." in name or "/" in name or "\\" in name:
+        return False
+    if os.path.isabs(name):
+        return False
+    return True
+
+
 class LogBroadcaster:
     """Manages active SSE client subscriber queues and broadcasts log/progress events."""
 
@@ -483,6 +492,7 @@ def run_scrape(req: ScrapeRequest):
 
     _current_process = Popen(
         cmd,
+        executable=sys.executable,
         cwd=str(ROOT_DIR),
         stdout=PIPE,
         stderr=STDOUT,
@@ -738,6 +748,10 @@ def _get_form_int(form: Any, key: str, default: int) -> int:
 async def open_folder(request: Request):
     form = await request.form()
     path_str = _get_form_str(form, "path", "") or ""
+    # Path traversal and injection defense
+    if ".." in path_str or os.path.isabs(path_str):
+        return HTMLResponse("Invalid path")
+    
     try:
         target = (OUTPUT_DIR / path_str).resolve()
         if not str(target).startswith(str(OUTPUT_DIR.resolve())):
@@ -1027,6 +1041,9 @@ def api_dataset_tag(subject: str = Form(""), trigger_tag: str = Form("")):
     """Batch auto-tag downloaded images in a subject run folder."""
     from utils.dataset_tagger import DatasetTagger
     from pathlib import Path
+
+    if not _is_safe_path_component(subject):
+        return {"status": "error", "detail": "Invalid subject name"}
 
     output_dir = Path("output") / subject / "images"
     if not output_dir.exists():
@@ -1662,6 +1679,9 @@ def download_kohya_dataset_zip(
     """Generate and stream Kohya_ss LoRA dataset ZIP file directly to browser."""
     from utils.dataset_exporter import KohyaDatasetExporter
 
+    if not _is_safe_path_component(subject) or not _is_safe_path_component(run_id):
+        raise HTTPException(status_code=400, detail="Invalid path components.")
+
     run_dir = OUTPUT_DIR / subject / "runs" / run_id / "images"
     if not run_dir.exists():
         raise HTTPException(status_code=404, detail="Run image directory not found")
@@ -1687,6 +1707,9 @@ def export_rag_markdown(payload: ExportRAGPayload):
     from urllib.parse import urlparse
 
     try:
+        if not _is_safe_path_component(payload.subject) or not _is_safe_path_component(payload.run_id):
+            raise HTTPException(status_code=400, detail="Invalid path components.")
+            
         run_dir = (OUTPUT_DIR / payload.subject / "runs" / payload.run_id).resolve()
         if not str(run_dir).startswith(str(OUTPUT_DIR.resolve())):
             raise HTTPException(status_code=400, detail="Invalid path components.")
