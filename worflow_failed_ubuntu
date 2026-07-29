@@ -1,0 +1,240 @@
+tests/test_webui_telemetry.py::test_api_telemetry_stream_endpoint[asyncio] PASSED [ 99%]
+tests/test_webui_telemetry.py::test_api_telemetry_stream_endpoint[trio] PASSED [100%]
+
+==================================== ERRORS ====================================
+_________________ ERROR at setup of test_ux_modular_components _________________
+
+server_url = 'http://127.0.0.1:55779', mock_media_folder = 'mock_subject'
+
+    @pytest.fixture(scope="module")
+    def page_session(server_url, mock_media_folder):
+        """Playwright browser page session."""
+>       playwright = sync_playwright().start()
+
+tests/test_frontend_ux.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:84: in start
+    return self.__enter__()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:77: in __enter__
+    dispatcher_fiber.switch()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:56: in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:649: in run_until_complete
+    return future.result()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:303: in run_as_sync
+    await self.run()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:312: in run
+    await self._transport.connect()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:133: in connect
+    raise exc
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:120: in connect
+    self._proc = await asyncio.create_subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/subprocess.py:218: in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1681: in subprocess_exec
+    transport = await self._make_subprocess_transport(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:215: in _make_subprocess_transport
+    await waiter
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_subprocess.py:168: in _connect_pipes
+    _, pipe = await loop.connect_read_pipe(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1576: in connect_read_pipe
+    transport = self._make_read_pipe_transport(pipe, protocol, waiter)
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:189: in _make_read_pipe_transport
+    return _UnixReadPipeTransport(self, pipe, protocol, waiter, extra)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_UnixReadPipeTransport closed fd=None closed>
+loop = <_UnixSelectorEventLoop running=False closed=False debug=False>
+pipe = <test_frontend_ux.MockSubprocess object at 0x7fc0ea452050>
+protocol = <ReadSubprocessPipeProto fd=1 pipe=None>, waiter = <Future pending>
+extra = None
+
+    def __init__(self, loop, pipe, protocol, waiter=None, extra=None):
+        super().__init__(extra)
+        self._extra['pipe'] = pipe
+        self._loop = loop
+        self._pipe = pipe
+        self._fileno = pipe.fileno()
+        self._protocol = protocol
+        self._closing = False
+        self._paused = False
+    
+        mode = os.fstat(self._fileno).st_mode
+        if not (stat.S_ISFIFO(mode) or
+                stat.S_ISSOCK(mode) or
+                stat.S_ISCHR(mode)):
+            self._pipe = None
+            self._fileno = None
+            self._protocol = None
+>           raise ValueError("Pipe transport is for pipes/sockets only.")
+E           ValueError: Pipe transport is for pipes/sockets only.
+
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:468: ValueError
+---------------------------- Captured stderr setup -----------------------------
+INFO:     Started server process [3248]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:55779 (Press CTRL+C to quit)
+2026-07-29 00:43:21 | WARNING  | asyncio | Unknown child process pid 99999, will report returncode 255
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: EpollSelector
+DEBUG    asyncio:selector_events.py:54 Using selector: EpollSelector
+WARNING  asyncio:unix_events.py:1398 Unknown child process pid 99999, will report returncode 255
+__________________ ERROR at setup of test_ux_flow_transitions __________________
+
+server_url = 'http://127.0.0.1:55779', mock_media_folder = 'mock_subject'
+
+    @pytest.fixture(scope="module")
+    def page_session(server_url, mock_media_folder):
+        """Playwright browser page session."""
+>       playwright = sync_playwright().start()
+
+tests/test_frontend_ux.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:84: in start
+    return self.__enter__()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:77: in __enter__
+    dispatcher_fiber.switch()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:56: in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:649: in run_until_complete
+    return future.result()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:303: in run_as_sync
+    await self.run()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:312: in run
+    await self._transport.connect()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:133: in connect
+    raise exc
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:120: in connect
+    self._proc = await asyncio.create_subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/subprocess.py:218: in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1681: in subprocess_exec
+    transport = await self._make_subprocess_transport(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:215: in _make_subprocess_transport
+    await waiter
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_subprocess.py:168: in _connect_pipes
+    _, pipe = await loop.connect_read_pipe(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1576: in connect_read_pipe
+    transport = self._make_read_pipe_transport(pipe, protocol, waiter)
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:189: in _make_read_pipe_transport
+    return _UnixReadPipeTransport(self, pipe, protocol, waiter, extra)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_UnixReadPipeTransport closed fd=None closed>
+loop = <_UnixSelectorEventLoop running=False closed=False debug=False>
+pipe = <test_frontend_ux.MockSubprocess object at 0x7fc0ea452050>
+protocol = <ReadSubprocessPipeProto fd=1 pipe=None>, waiter = <Future pending>
+extra = None
+
+    def __init__(self, loop, pipe, protocol, waiter=None, extra=None):
+        super().__init__(extra)
+        self._extra['pipe'] = pipe
+        self._loop = loop
+        self._pipe = pipe
+        self._fileno = pipe.fileno()
+        self._protocol = protocol
+        self._closing = False
+        self._paused = False
+    
+        mode = os.fstat(self._fileno).st_mode
+        if not (stat.S_ISFIFO(mode) or
+                stat.S_ISSOCK(mode) or
+                stat.S_ISCHR(mode)):
+            self._pipe = None
+            self._fileno = None
+            self._protocol = None
+>           raise ValueError("Pipe transport is for pipes/sockets only.")
+E           ValueError: Pipe transport is for pipes/sockets only.
+
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:468: ValueError
+_____________ ERROR at setup of test_ux_e2e_scraping_and_terminal ______________
+
+server_url = 'http://127.0.0.1:55779', mock_media_folder = 'mock_subject'
+
+    @pytest.fixture(scope="module")
+    def page_session(server_url, mock_media_folder):
+        """Playwright browser page session."""
+>       playwright = sync_playwright().start()
+
+tests/test_frontend_ux.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:84: in start
+    return self.__enter__()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:77: in __enter__
+    dispatcher_fiber.switch()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/sync_api/_context_manager.py:56: in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:649: in run_until_complete
+    return future.result()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:303: in run_as_sync
+    await self.run()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_connection.py:312: in run
+    await self._transport.connect()
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:133: in connect
+    raise exc
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/playwright/_impl/_transport.py:120: in connect
+    self._proc = await asyncio.create_subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/subprocess.py:218: in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1681: in subprocess_exec
+    transport = await self._make_subprocess_transport(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:215: in _make_subprocess_transport
+    await waiter
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_subprocess.py:168: in _connect_pipes
+    _, pipe = await loop.connect_read_pipe(
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/base_events.py:1576: in connect_read_pipe
+    transport = self._make_read_pipe_transport(pipe, protocol, waiter)
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:189: in _make_read_pipe_transport
+    return _UnixReadPipeTransport(self, pipe, protocol, waiter, extra)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <_UnixReadPipeTransport closed fd=None closed>
+loop = <_UnixSelectorEventLoop running=False closed=False debug=False>
+pipe = <test_frontend_ux.MockSubprocess object at 0x7fc0ea452050>
+protocol = <ReadSubprocessPipeProto fd=1 pipe=None>, waiter = <Future pending>
+extra = None
+
+    def __init__(self, loop, pipe, protocol, waiter=None, extra=None):
+        super().__init__(extra)
+        self._extra['pipe'] = pipe
+        self._loop = loop
+        self._pipe = pipe
+        self._fileno = pipe.fileno()
+        self._protocol = protocol
+        self._closing = False
+        self._paused = False
+    
+        mode = os.fstat(self._fileno).st_mode
+        if not (stat.S_ISFIFO(mode) or
+                stat.S_ISSOCK(mode) or
+                stat.S_ISCHR(mode)):
+            self._pipe = None
+            self._fileno = None
+            self._protocol = None
+>           raise ValueError("Pipe transport is for pipes/sockets only.")
+E           ValueError: Pipe transport is for pipes/sockets only.
+
+/opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/asyncio/unix_events.py:468: ValueError
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/fastapi/testclient.py:1
+  /opt/hostedtoolcache/Python/3.10.20/x64/lib/python3.10/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_download_retries.py::test_download_file_retry_on_network_error
+tests/test_download_retries.py::test_download_file_retry_on_server_error
+tests/test_enhanced_features.py::test_media_downloader_unicode_quoting
+tests/test_memory_and_resource_cleanup.py::test_compute_dhash_resource_cleanup
+tests/test_post_run_optimizations.py::test_phash_image_deduplication
+tests/test_post_run_optimizations.py::test_phash_image_deduplication
+tests/test_post_run_optimizations.py::test_phash_image_deduplication
+  /home/runner/work/scrAPE/scrAPE/src/utils/image_helper.py:126: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+    pixels = list(img.getdata())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR tests/test_frontend_ux.py::test_ux_modular_components - ValueError: Pipe transport is for pipes/sockets only.
+ERROR tests/test_frontend_ux.py::test_ux_flow_transitions - ValueError: Pipe transport is for pipes/sockets only.
+ERROR tests/test_frontend_ux.py::test_ux_e2e_scraping_and_terminal - ValueError: Pipe transport is for pipes/sockets only.
+======= 279 passed, 3 skipped, 8 warnings, 3 errors in 132.94s (0:02:12) =======
+Error: Process completed with exit code 1.
