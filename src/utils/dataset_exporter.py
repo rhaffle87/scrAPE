@@ -46,8 +46,7 @@ class KohyaDatasetExporter:
         clean_name = os.path.basename(str(image_dir).strip().rstrip("/\\"))
         if not clean_name or ".." in str(image_dir):
             return b""
-        safe_path_str = os.path.abspath(str(image_dir))
-        safe_dir = Path(safe_path_str)
+        safe_dir = Path(image_dir).resolve()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             if safe_dir.exists() and safe_dir.is_dir():
                 for file_path in safe_dir.iterdir():

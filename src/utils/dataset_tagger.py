@@ -71,8 +71,7 @@ class DatasetTagger:
         clean_name = os.path.basename(str(directory).strip().rstrip("/\\"))
         if not clean_name or ".." in str(directory):
             return {"processed": 0, "sidecars_created": 0}
-        dir_path_str = os.path.abspath(str(directory))
-        safe_dir = Path(dir_path_str)
+        safe_dir = Path(directory).resolve()
         if not safe_dir.exists() or not safe_dir.is_dir():
             return {"processed": 0, "sidecars_created": 0}
 
