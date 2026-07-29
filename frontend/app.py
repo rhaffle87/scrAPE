@@ -957,8 +957,8 @@ def htmx_pause_scrape():
                     except Exception:
                         pass
                 parent.suspend()
-            except Exception as e:
-                return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>PAUSE ERR: {str(e)}</div>")
+            except Exception:
+                return HTMLResponse("<div style='color: red; margin-top: 1rem;'>ERR: Failed to pause scrape process.</div>")
 
             task_state["status"] = "paused"
             log_buffer.append(">>> SCRAPE PAUSED BY USER <<<")
@@ -981,8 +981,8 @@ def htmx_resume_scrape():
                     except Exception:
                         pass
                 parent.resume()
-            except Exception as e:
-                return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>RESUME ERR: {str(e)}</div>")
+            except Exception:
+                return HTMLResponse("<div style='color: red; margin-top: 1rem;'>ERR: Failed to resume scrape process.</div>")
 
             task_state["status"] = "running"
             log_buffer.append(">>> SCRAPE RESUMED BY USER <<<")
@@ -1496,7 +1496,12 @@ def get_seed(filename: str):
     safe_filename = os.path.basename(filename)
     if not safe_filename or not re.match(r"^[\w\-. ]+$", safe_filename):
         raise HTTPException(status_code=400, detail="Invalid filename")
-    target = SEEDS_DIR / safe_filename
+    
+    seeds_base = os.path.abspath(str(SEEDS_DIR))
+    target_path = os.path.abspath(os.path.join(seeds_base, safe_filename))
+    if not target_path.startswith(seeds_base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    target = Path(target_path)
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="Seed file not found")
     content = target.read_text(encoding="utf-8")
@@ -1537,7 +1542,12 @@ def save_seed(payload: SaveSeedPayload):
         raise HTTPException(status_code=400, detail="Invalid filename")
     if not filename.endswith(".txt"):
         filename = f"{filename}.txt"
-    target = SEEDS_DIR / filename
+        
+    seeds_base = os.path.abspath(str(SEEDS_DIR))
+    target_path = os.path.abspath(os.path.join(seeds_base, filename))
+    if not target_path.startswith(seeds_base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    target = Path(target_path)
     if target.exists() and not payload.overwrite:
         raise HTTPException(status_code=409, detail="File already exists")
     
@@ -1550,7 +1560,11 @@ def delete_seed(filename: str):
     safe_filename = os.path.basename(filename)
     if not safe_filename or not re.match(r"^[\w\-. ]+$", safe_filename):
         raise HTTPException(status_code=400, detail="Invalid filename")
-    target = SEEDS_DIR / safe_filename
+    seeds_base = os.path.abspath(str(SEEDS_DIR))
+    target_path = os.path.abspath(os.path.join(seeds_base, safe_filename))
+    if not target_path.startswith(seeds_base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    target = Path(target_path)
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="Seed file not found")
     target.unlink()

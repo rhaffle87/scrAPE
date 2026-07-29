@@ -664,8 +664,8 @@ https://videosite-beta.com/category/subject
 
     # Check all allowed hosts
     allowed = manifest.all_allowed_hosts
-    assert "mediasite-alpha.com" in allowed
-    assert "videosite-beta.com" in allowed
+    assert any(h == "mediasite-alpha.com" for h in allowed)
+    assert any(h == "videosite-beta.com" for h in allowed)
 
 
 def test_disabled_domain_manifest_parsing(tmp_path):
@@ -1086,7 +1086,8 @@ def test_search_pagination_follows_next_page_form():
     soup = BeautifulSoup(html_page1, "html.parser")
     next_url = SearchProviderScraper._extract_next_page_url(soup)
     assert next_url is not None, "Should find next-page URL from form"
-    assert "html.duckduckgo.com" in next_url
+    from urllib.parse import urlparse
+    assert urlparse(next_url).netloc == "html.duckduckgo.com"
     assert "vqd=abc123token" in next_url
     assert "s=30" in next_url
 

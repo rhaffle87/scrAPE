@@ -10,7 +10,9 @@ class HighPriorityPlugin(ExtractorPlugin):
     name = "high_priority_test"
 
     def can_handle(self, url: str) -> bool:
-        return "testdomain.org" in url
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc
+        return netloc == "testdomain.org" or netloc.endswith(".testdomain.org")
 
     def extract(self, url: str) -> SpecializedResult:
         return SpecializedResult(images=["https://testdomain.org/high.jpg"], videos=[])
@@ -21,7 +23,9 @@ class LowPriorityPlugin(ExtractorPlugin):
     name = "low_priority_test"
 
     def can_handle(self, url: str) -> bool:
-        return "testdomain.org" in url
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc
+        return netloc == "testdomain.org" or netloc.endswith(".testdomain.org")
 
     def extract(self, url: str) -> SpecializedResult:
         return SpecializedResult(images=["https://testdomain.org/low.jpg"], videos=[])
@@ -32,7 +36,9 @@ class FailingPlugin(ExtractorPlugin):
     name = "failing_test"
 
     def can_handle(self, url: str) -> bool:
-        return "faildomain.org" in url
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc
+        return netloc == "faildomain.org" or netloc.endswith(".faildomain.org")
 
     def extract(self, url: str) -> SpecializedResult:
         raise RuntimeError("Simulated plugin extraction crash")

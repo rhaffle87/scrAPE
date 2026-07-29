@@ -89,10 +89,11 @@ class AestheticScorer:
 
     def filter_directory(self, dir_path: str | Path, min_score: float = 6.0) -> dict[str, Any]:
         """Process all images in directory and return breakdown of passed vs rejected files."""
-        dir_p = Path(dir_path).resolve()
+        dir_path_str = os.path.abspath(str(dir_path))
         if ".." in str(dir_path):
             return {"status": "error", "message": "Directory traversal not allowed"}
             
+        dir_p = Path(dir_path_str)
         if not dir_p.exists() or not dir_p.is_dir():
             return {"status": "error", "message": f"Directory {dir_path} does not exist"}
 

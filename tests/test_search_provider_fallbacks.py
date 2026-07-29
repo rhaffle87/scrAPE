@@ -35,9 +35,11 @@ def test_search_pages_fallback_to_bing():
     mock_resp_bing.text = bing_html_sample
 
     def mock_get(url, *args, **kwargs):
-        if "duckduckgo" in url:
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc
+        if netloc == "duckduckgo.com" or netloc.endswith(".duckduckgo.com"):
             return mock_resp_ddg
-        if "bing.com" in url:
+        if netloc == "bing.com" or netloc.endswith(".bing.com"):
             return mock_resp_bing
         raise RuntimeError("Unexpected URL")
 
