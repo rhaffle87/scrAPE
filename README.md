@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.21.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.20.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
