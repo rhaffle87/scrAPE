@@ -36,7 +36,11 @@ def is_search_page_url(url: str) -> bool:
         query = parsed.query.lower()
         if re.search(r"/(?:search|find|query)(?:/|\?|$)", path):
             return True
-        if ("search?" in query or "q=" in query or "text=" in query) and ("search" in path or "flickr.com" in parsed.netloc or "vimeo.com" in parsed.netloc):
+        if ("search?" in query or "q=" in query or "text=" in query) and (
+            "search" in path or 
+            parsed.netloc == "flickr.com" or parsed.netloc.endswith(".flickr.com") or 
+            parsed.netloc == "vimeo.com" or parsed.netloc.endswith(".vimeo.com")
+        ):
             return True
     except Exception:
         pass

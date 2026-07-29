@@ -52,11 +52,14 @@ class DatasetCropper:
         target_size: Tuple[int, int] = (1024, 1024),
     ) -> dict[str, Any]:
         """Batch crop all images in source_dir and save to output_dir."""
-        src_p = Path(source_dir)
+        src_p = Path(source_dir).resolve()
+        if ".." in str(source_dir) or (output_dir and ".." in str(output_dir)):
+            return {"status": "error", "message": "Directory traversal not allowed"}
+            
         if not src_p.exists() or not src_p.is_dir():
             return {"status": "error", "message": f"Source directory {source_dir} does not exist"}
 
-        out_p = Path(output_dir) if output_dir else src_p / "cropped"
+        out_p = Path(output_dir).resolve() if output_dir else src_p / "cropped"
         out_p.mkdir(parents=True, exist_ok=True)
 
         valid_exts = {".jpg", ".jpeg", ".png", ".webp", ".avif"}

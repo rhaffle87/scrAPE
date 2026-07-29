@@ -2819,6 +2819,15 @@
                     resultsEl.innerHTML = "<div style='color: var(--accent);'>PROBING PARALLEL DOMAIN SEARCH MATRIX... PLEASE WAIT...</div>";
                     addBtn.style.display = 'none';
 
+                    function escapeHtml(unsafe) {
+                        return (unsafe || "").toString()
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;")
+                            .replace(/"/g, "&quot;")
+                            .replace(/'/g, "&#039;");
+                    }
+
                     try {
                         const res = await fetch('/api/seeds/discover', {
                             method: 'POST',
@@ -2834,17 +2843,17 @@
                                 resultsEl.innerHTML = `<div style="color: #00ff66; font-weight: 700; margin-bottom: 0.5rem;">SUCCESS // DISCOVERED ${data.valid_count} VALID URLS (TESTED ${data.tested_count}):</div>` +
                                     discoveredUrlsBuffer.map(item => `
                                         <div style="margin-bottom: 0.2rem; display: flex; align-items: center; justify-content: space-between;">
-                                            <span style="word-break: break-all;">✦ ${item.url}</span>
+                                            <span style="word-break: break-all;">✦ ${escapeHtml(item.url)}</span>
                                             <span style="color: #00ff66; background: rgba(0,255,102,0.1); padding: 0.1rem 0.4rem; font-size: 0.75rem;">200 OK</span>
                                         </div>
                                     `).join('');
                                 addBtn.style.display = 'block';
                             } else {
-                                resultsEl.innerHTML = `<div style="color: #ffcc00;">TESTED ${data.tested_count} CANDIDATE URLS. NO LIVE 200 OK SEARCH ENDPOINTS DISCOVERED FOR QUERY '${query}'.</div>`;
+                                resultsEl.innerHTML = `<div style="color: #ffcc00;">TESTED ${data.tested_count} CANDIDATE URLS. NO LIVE 200 OK SEARCH ENDPOINTS DISCOVERED FOR QUERY '${escapeHtml(query)}'.</div>`;
                             }
                         }
                     } catch (e) {
-                        resultsEl.innerHTML = `<div style="color: #cc0000;">PROBE FAILED: ${e.message}</div>`;
+                        resultsEl.innerHTML = `<div style="color: #cc0000;">PROBE FAILED: ${escapeHtml(e.message)}</div>`;
                     } finally {
                         progress.style.display = 'none';
                     }
@@ -3113,8 +3122,13 @@
                         fallbackColor = "#00ff66";
                     }
 
+                    let safeLine = line.toString()
+                        .split("&").join("&amp;")
+                        .split("<").join("&lt;")
+                        .split(">").join("&gt;");
+                        
                     return {
-                        html: `<span style="color: ${fallbackColor};">${line}</span>`,
+                        html: `<span style="color: ${fallbackColor};">${safeLine}</span>`,
                         cssClass: fallbackClass
                     };
                 }

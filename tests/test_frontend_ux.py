@@ -123,23 +123,27 @@ def server_url(mock_popen):
         except Exception:
             time.sleep(0.2)
     yield url
+    server.should_exit = True
+    thread.join(timeout=2.0)
 
 
 @pytest.fixture(scope="module")
 def page_session(server_url, mock_media_folder):
     """Playwright browser page session."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        
-        # Capture console messages and errors
-        page.on("console", lambda msg: print(f"\nBROWSER CONSOLE [{msg.type}]: {msg.text}"))
-        page.on("pageerror", lambda err: print(f"\nBROWSER EXCEPTION: {err}"))
-        
-        page.goto(server_url, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_selector("#command-center-view")
-        yield page
-        browser.close()
+    playwright = sync_playwright().start()
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page()
+    
+    # Capture console messages and errors
+    page.on("console", lambda msg: print(f"\nBROWSER CONSOLE [{msg.type}]: {msg.text}"))
+    page.on("pageerror", lambda err: print(f"\nBROWSER EXCEPTION: {err}"))
+    
+    page.goto(server_url, wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_selector("#command-center-view")
+    yield page
+    
+    browser.close()
+    playwright.stop()
 
 
 def test_ux_modular_components(page_session):

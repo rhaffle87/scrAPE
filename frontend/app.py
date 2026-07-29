@@ -2,10 +2,12 @@ import sys
 import subprocess
 import threading
 import asyncio
-from collections import deque
+from collections import deque, defaultdict
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import re
+import html
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, Response
@@ -480,7 +482,8 @@ def run_scrape(req: ScrapeRequest):
     log_buffer.clear()
 
     _current_process = subprocess.Popen(
-        cmd, 
+        cmd,
+        executable=sys.executable, 
         cwd=str(ROOT_DIR),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -665,27 +668,35 @@ def htmx_gallery(keyword: str = "apple", domain: str = "", page: int = 1, limit:
     html_chunks = []
     for i, f in enumerate(paginated_files):
         rel_path = f.relative_to(OUTPUT_DIR).as_posix()
+        safe_rel_path = quote(rel_path)
+        safe_name = html.escape(f.name)
+        
         is_last = (i == len(paginated_files) - 1) and (end_idx < len(all_files))
         
         htmx_attrs = ""
         if is_last:
-            next_url = f"/htmx/gallery?keyword={keyword}&domain={domain}&page={page+1}&limit={limit}&media_kind={media_kind}"
-            htmx_attrs = f' hx-get="{next_url}" hx-trigger="revealed" hx-swap="afterend"'
+            safe_keyword = quote(keyword)
+            safe_domain = quote(domain) if domain else ""
+            safe_media_kind = quote(media_kind)
+            next_url = f"/htmx/gallery?keyword={safe_keyword}&domain={safe_domain}&page={page+1}&limit={limit}&media_kind={safe_media_kind}"
+            safe_next_url = html.escape(next_url)
+            htmx_attrs = f' hx-get="{safe_next_url}" hx-trigger="revealed" hx-swap="afterend"'
             
         card_html = []
         card_html.append(f'<div class="media-card"{htmx_attrs}>')
         if f.suffix.lower() in [".mp4", ".webm", ".mkv", ".ogv"]:
-            card_html.append(f'<video src="/{rel_path}" controls preload="metadata" controlsList="nodownload" disablePictureInPicture></video>')
+            card_html.append(f'<video src="/{safe_rel_path}" controls preload="metadata" controlsList="nodownload" disablePictureInPicture></video>')
         else:
-            card_html.append(f'<img src="/{rel_path}" loading="lazy" />')
+            card_html.append(f'<img src="/{safe_rel_path}" loading="lazy" />')
             
+        safe_folder_path = html.escape(rel_path)
         card_html.append(f'''
         <div class="overlay">
             <div class="overlay-buttons">
-                <button hx-post="/htmx/open-folder" hx-vals=\'{{"path": "{rel_path}"}}\' hx-swap="none" class="btn-overlay">FOLDER</button>
-                <button hx-delete="/htmx/media?path={rel_path}" hx-target="closest .media-card" hx-swap="outerHTML swap:0.2s" class="btn-overlay delete">DELETE</button>
+                <button hx-post="/htmx/open-folder" hx-vals=\'{{"path": "{safe_folder_path}"}}\' hx-swap="none" class="btn-overlay">FOLDER</button>
+                <button hx-delete="/htmx/media?path={safe_rel_path}" hx-target="closest .media-card" hx-swap="outerHTML swap:0.2s" class="btn-overlay delete">DELETE</button>
             </div>
-            <div class="media-filename">{f.name}</div>
+            <div class="media-filename">{safe_name}</div>
         </div>
         </div>
         ''')
@@ -728,10 +739,16 @@ def _get_form_int(form: Any, key: str, default: int) -> int:
 async def open_folder(request: Request):
     form = await request.form()
     path_str = _get_form_str(form, "path", "") or ""
-    target = OUTPUT_DIR / path_str
-    if path_str and target.exists():
+    try:
+        target = (OUTPUT_DIR / path_str).resolve()
+        if not str(target).startswith(str(OUTPUT_DIR.resolve())):
+            return HTMLResponse("Invalid path")
+    except Exception:
+        return HTMLResponse("Invalid path")
+        
+    if target.exists():
         # Windows only
-        subprocess.Popen(f'explorer /select,"{target.resolve()}"')
+        subprocess.Popen(["explorer", f"/select,{target}"])
     return HTMLResponse("")
 
 @app.get("/htmx/stats")
@@ -1670,7 +1687,13 @@ def download_kohya_dataset_zip(
 def export_rag_markdown(payload: ExportRAGPayload):
     from urllib.parse import urlparse
 
-    run_dir = OUTPUT_DIR / payload.subject / "runs" / payload.run_id
+    try:
+        run_dir = (OUTPUT_DIR / payload.subject / "runs" / payload.run_id).resolve()
+        if not str(run_dir).startswith(str(OUTPUT_DIR.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path components.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path.")
+    
     results_path = run_dir / "results.json"
     if not results_path.exists():
         raise HTTPException(status_code=404, detail=f"results.json not found for run {payload.run_id}")
@@ -1681,7 +1704,14 @@ def export_rag_markdown(payload: ExportRAGPayload):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to load results.json: {exc}")
 
-    target_root = ROOT_DIR / "rag_ingestion" / f"{payload.subject}_{payload.run_id}_rag"
+    try:
+        rag_dir = ROOT_DIR / "rag_ingestion"
+        target_root = (rag_dir / f"{payload.subject}_{payload.run_id}_rag").resolve()
+        if not str(target_root).startswith(str(rag_dir.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid path components.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path.")
+
     target_root.mkdir(parents=True, exist_ok=True)
 
     page_reports = data.get("page_reports", [])

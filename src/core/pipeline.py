@@ -33,7 +33,7 @@ class MediaPipeline:
     def __init__(
         self,
         result: ScrapeResult,
-        result_lock: threading.Lock,
+        result_lock: threading.RLock,
         options,
         media_queue: queue.Queue,
         add_rejected_cb,

@@ -378,7 +378,7 @@ class VideoScraper:
         if not href:
             return ""
         parsed = urlparse(href)
-        if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
+        if (parsed.netloc == "duckduckgo.com" or parsed.netloc.endswith(".duckduckgo.com")) and parsed.path.startswith("/l/"):
             return parse_qs(parsed.query).get("uddg", [""])[0]
         return href
 

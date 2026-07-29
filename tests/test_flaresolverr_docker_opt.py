@@ -17,7 +17,30 @@ def test_is_search_page_url_query_params():
     assert is_search_page_url("https://example.com/posts/123") is False
 
 
-def test_transform_to_highres_domain_config_and_wordpress():
+def test_transform_to_highres_domain_config_and_wordpress(monkeypatch):
+    import json
+    
+    mock_config = {
+        "highres_transforms": {
+            "booru": {
+                "host_contains": ["rule34", "booru"],
+                "rules": [
+                    {"pattern": r"\.pic\d+\.(jpe?g|png|webp)$", "replacement": r".\1", "target": "path"}
+                ]
+            }
+        }
+    }
+    
+    def mock_exists(self):
+        return True
+        
+    def mock_read_text(self, encoding=None):
+        return json.dumps(mock_config)
+        
+    import pathlib
+    monkeypatch.setattr(pathlib.Path, "exists", mock_exists)
+    monkeypatch.setattr(pathlib.Path, "read_text", mock_read_text)
+
     # Domain-config-driven thumbnail replacement (loaded from data/domain_config.json)
     # Uses a booru-style URL since that pattern is in highres_transforms
     booru_thumb = "https://rule34.example.com/images/sample.pic256.jpg"

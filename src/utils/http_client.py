@@ -871,7 +871,7 @@ class HttpClient:
             return True
         parsed = urlparse(url)
         host = parsed.netloc or parsed.hostname or ""
-        if "duckduckgo.com" in host:
+        if host == "duckduckgo.com" or host.endswith(".duckduckgo.com"):
             lower_html = html.lower()
             if (
                 "if this persists, please email us" in lower_html

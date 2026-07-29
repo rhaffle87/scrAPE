@@ -67,7 +67,8 @@ class DatasetTagger:
         self, directory: Path, metadata_map: dict[str, dict[str, Any]] | None = None
     ) -> dict[str, int]:
         """Batch tag all image files in a directory."""
-        if not directory.exists() or not directory.is_dir():
+        safe_dir = directory.resolve()
+        if not safe_dir.exists() or not safe_dir.is_dir():
             return {"processed": 0, "sidecars_created": 0}
 
         metadata_map = metadata_map or {}
@@ -75,7 +76,7 @@ class DatasetTagger:
         processed = 0
         created = 0
 
-        for file_path in directory.iterdir():
+        for file_path in safe_dir.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                 processed += 1
                 meta = metadata_map.get(file_path.name, {})

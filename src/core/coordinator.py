@@ -72,112 +72,134 @@ class CrawlCoordinator:
         )
         pipeline.start()
 
-        pages_to_fetch = ordered_pages
-        pages_iter = iter(pages_to_fetch)
+        from collections import deque
+        pages_queue = deque(ordered_pages)
         
         futures = {}
         current_concurrency = self.workers
         
         with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="scraper") as executor:
             def submit_next():
-                try:
-                    while True:
-                        next_page, next_depth = next(pages_iter)
+                while True:
+                    skipped = []
+                    while pages_queue:
+                        next_page, next_depth = pages_queue.popleft()
                         host = urlparse(next_page).netloc.lower()
-                        # If the governor blocks the host, skip it for now.
+                        
                         if not self.governor.is_host_available(host):
+                            with self.governor.lock:
+                                is_failed = host in self.governor.failed_hosts
+                            if not is_failed:
+                                skipped.append((next_page, next_depth))
+                            else:
+                                with self.result_lock:
+                                    self.result.page_reports.append(
+                                        PageReport(
+                                            url=next_page, depth=next_depth,
+                                            status="skipped", reason="host_failed_skipped",
+                                            discovered_links=0, images_found=0, videos_found=0
+                                        )
+                                    )
                             continue
                         
+                        pages_queue.extend(skipped)
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
                         futures[fut] = (next_page, next_depth, time.monotonic())
                         return True
-                except StopIteration:
+                        
+                    if skipped:
+                        pages_queue.extend(skipped)
+                        if not futures:
+                            time.sleep(0.5)
+                            continue
+                        return False
                     return False
 
             for _ in range(current_concurrency):
                 if not submit_next():
                     break
 
-            while futures:
-                done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
-                for future in done:
-                    if future not in futures:
-                        continue
-                    page, depth, start_time = futures.pop(future)
-                    latency = time.monotonic() - start_time
-                    host = urlparse(page).netloc.lower()
+            while futures or pages_queue:
+                if futures:
+                    done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
+                    for future in done:
+                        if future not in futures:
+                            continue
+                        page, depth, start_time = futures.pop(future)
+                        latency = time.monotonic() - start_time
+                        host = urlparse(page).netloc.lower()
 
-                    try:
-                        page, depth, page_images, page_videos, scrape_status = future.result()
-                    except Exception as exc:
-                        LOGGER.warning("Worker failed for %s: %s", page, exc)
-                        page_images, page_videos, scrape_status = [], [], f"worker_error:{type(exc).__name__}"
+                        try:
+                            page, depth, page_images, page_videos, scrape_status = future.result()
+                        except Exception as exc:
+                            LOGGER.warning("Worker failed for %s: %s", page, exc)
+                            page_images, page_videos, scrape_status = [], [], f"worker_error:{type(exc).__name__}"
 
-                    is_block = "429" in scrape_status or "403" in scrape_status or "cooldown" in scrape_status or "blacklisted" in scrape_status
-                    is_worker_error = "worker_error" in scrape_status or "fetch_error" in scrape_status
+                        is_block = "429" in scrape_status or "403" in scrape_status or "cooldown" in scrape_status or "blacklisted" in scrape_status
+                        is_worker_error = "worker_error" in scrape_status or "fetch_error" in scrape_status
                     
-                    if is_block:
-                        self.governor.report_429(host)
-                        current_concurrency = max(1, current_concurrency - 2)
-                    elif scrape_status == "fetch_error:login_wall":
-                        self.governor.report_error(host, is_login_wall=True)
-                    elif is_worker_error:
-                        self.governor.report_error(host)
-                    elif scrape_status == "ok":
-                        self.governor.report_success(host)
-                        
-                    net_latency = self.search_provider.http.last_net_latency
-                    if not isinstance(net_latency, (int, float)):
-                        net_latency = 0.0
-                    effective_latency = net_latency if net_latency > 0.0 else latency
-                    
-                    if not is_block:
-                        if effective_latency > 2.0:
-                            current_concurrency = max(1, current_concurrency - 1)
-                        else:
-                            if current_concurrency < self.workers:
-                                current_concurrency += 1
-
-                    with self.result_lock:
-                        if host not in self.result.domain_stats:
-                            self.result.domain_stats[host] = {
-                                "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
-                                "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
-                            }
-                        stats = self.result.domain_stats[host]
-                        if scrape_status == "ok":
-                            pass 
-                        elif is_block:
-                            stats["error_429_count"] += 1
+                        if is_block:
+                            self.governor.report_429(host)
+                            current_concurrency = max(1, current_concurrency - 2)
+                        elif scrape_status == "fetch_error:login_wall":
+                            self.governor.report_error(host, is_login_wall=True)
                         elif is_worker_error:
-                            stats["error_other_count"] += 1
-                            
-                        self.result.scanned_pages.append(page)
-                        self.result.page_reports.append(
-                            PageReport(
-                                url=page, depth=depth,
-                                status="success" if scrape_status == "ok" else "skipped",
-                                reason="" if scrape_status == "ok" else scrape_status,
-                                discovered_links=discovered_links_counts.get(page, 0),
-                                images_found=len(page_images), videos_found=len(page_videos)
-                            )
-                        )
-                        if scrape_status == "ok" and self.state_cache:
-                            self.state_cache.mark_processed(normalize_url(page))
-
-                    if scrape_status == "ok":
-                        self.media_queue.put((page, page_images, page_videos))
-
-                    with self.result_lock:
-                        target_met = self.max_results > 0 and _is_target_met(self.result, self.options, self.max_results)
+                            self.governor.report_error(host)
+                        elif scrape_status == "ok":
+                            self.governor.report_success(host)
                         
-                    if target_met:
-                        LOGGER.info("Target media limits met early. Cancelling remaining page fetches.")
-                        pages_iter = iter([])
-                        for f in list(futures.keys()):
-                            if not f.done():
-                                f.cancel()
-                        break
+                        net_latency = self.search_provider.http.last_net_latency
+                        if not isinstance(net_latency, (int, float)):
+                            net_latency = 0.0
+                        effective_latency = net_latency if net_latency > 0.0 else latency
+                    
+                        if not is_block:
+                            if effective_latency > 2.0:
+                                current_concurrency = max(1, current_concurrency - 1)
+                            else:
+                                if current_concurrency < self.workers:
+                                    current_concurrency += 1
+
+                        with self.result_lock:
+                            if host not in self.result.domain_stats:
+                                self.result.domain_stats[host] = {
+                                    "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
+                                    "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
+                                }
+                            stats = self.result.domain_stats[host]
+                            if scrape_status == "ok":
+                                pass 
+                            elif is_block:
+                                stats["error_429_count"] += 1
+                            elif is_worker_error:
+                                stats["error_other_count"] += 1
+                            
+                            self.result.scanned_pages.append(page)
+                            self.result.page_reports.append(
+                                PageReport(
+                                    url=page, depth=depth,
+                                    status="success" if scrape_status == "ok" else "skipped",
+                                    reason="" if scrape_status == "ok" else scrape_status,
+                                    discovered_links=discovered_links_counts.get(page, 0),
+                                    images_found=len(page_images), videos_found=len(page_videos)
+                                )
+                            )
+                            if scrape_status == "ok" and self.state_cache:
+                                self.state_cache.mark_processed(normalize_url(page))
+
+                        if scrape_status == "ok":
+                            self.media_queue.put((page, page_images, page_videos))
+
+                        with self.result_lock:
+                            target_met = self.max_results > 0 and _is_target_met(self.result, self.options, self.max_results)
+                        
+                        if target_met:
+                            LOGGER.info("Target media limits met early. Cancelling remaining page fetches.")
+                            pages_queue.clear()
+                            for f in list(futures.keys()):
+                                if not f.done():
+                                    f.cancel()
+                            break
 
                 while len(futures) < current_concurrency:
                     if not submit_next():

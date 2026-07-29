@@ -42,9 +42,10 @@ class KohyaDatasetExporter:
         seen_hashes: list[int] = []
         exported_count = 0
 
+        safe_dir = image_dir.resolve()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            if image_dir.exists() and image_dir.is_dir():
-                for file_path in image_dir.iterdir():
+            if safe_dir.exists() and safe_dir.is_dir():
+                for file_path in safe_dir.iterdir():
                     if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                         try:
                             file_bytes = file_path.read_bytes()
