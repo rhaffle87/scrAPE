@@ -777,7 +777,13 @@ async def open_folder(request: Request):
         return HTMLResponse("Invalid path")
 
     try:
-        target_path = OUTPUT_DIR / clean_name
+        base_dir = OUTPUT_DIR.resolve()
+        target_path = (base_dir / clean_name).resolve()
+        try:
+            target_path.relative_to(base_dir)
+        except ValueError:
+            return HTMLResponse("Invalid path")
+
         if target_path.exists():
             Popen(["explorer", f"/select,{target_path}"])
     except Exception:
