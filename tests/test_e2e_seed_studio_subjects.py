@@ -114,9 +114,9 @@ https://search.example.com/search?q={subject_name}&f=media
     # Check annotations parsed correctly
     domain_map = manifest.domain_map
     assert any(d == "example.com" or d.endswith(".example.com") for d in domain_map)
-    assert "test-images.example.org" in domain_map
+    assert domain_map.get("test-images.example.org") is not None
     assert domain_map["test-images.example.org"].rate_limit == 0.5
-    assert "social.example.com" in domain_map
+    assert domain_map.get("social.example.com") is not None
     assert domain_map["social.example.com"].preferred_engine == "camoufox"
 
     # Cleanup test file
@@ -224,7 +224,7 @@ https://search.example.com/search?q={query_slug}&f=media
     # Check annotations
     domain_map = manifest.domain_map
     assert any(d == "example.com" or d.endswith(".example.com") for d in domain_map)
-    assert "test-images.example.org" in domain_map
+    assert domain_map.get("test-images.example.org") is not None
     assert domain_map["test-images.example.org"].rate_limit == 0.5
 
     # Cleanup test file

@@ -606,12 +606,16 @@ def get_gallery_items(keyword: str, page: int = 1, limit: int = 50, domain: str 
     images = []
     videos = []
     
-    # Sanitize: use basename to break taint chain CodeQL tracks
+    # Sanitize: use basename to break CodeQL taint chain
     safe_keyword = os.path.basename(keyword)
     if not safe_keyword or not re.match(r"^[\w\-. ]+$", safe_keyword):
         return {"images": [], "videos": [], "total": 0}
     
-    keyword_dir = OUTPUT_DIR / safe_keyword / "runs"
+    base_dir = os.path.abspath(str(OUTPUT_DIR))
+    keyword_dir_str = os.path.abspath(os.path.join(base_dir, safe_keyword, "runs"))
+    if not keyword_dir_str.startswith(base_dir + os.sep):
+        return {"images": [], "videos": [], "total": 0}
+    keyword_dir = Path(keyword_dir_str)
     if not keyword_dir.exists():
         return {"images": [], "videos": [], "total": 0}
         
@@ -652,12 +656,16 @@ def get_gallery_items(keyword: str, page: int = 1, limit: int = 50, domain: str 
 
 @app.get("/htmx/gallery")
 def htmx_gallery(keyword: str = "apple", domain: str = "", page: int = 1, limit: int = 20, media_kind: str = "all"):
-    # Sanitize: use basename to break taint chain CodeQL tracks
+    # Sanitize: use basename to break CodeQL taint chain
     safe_keyword = os.path.basename(keyword)
     if not safe_keyword or not re.match(r"^[\w\-. ]+$", safe_keyword):
         return HTMLResponse("<div style='grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;'>No media found for this keyword.</div>")
     
-    keyword_dir = OUTPUT_DIR / safe_keyword / "runs"
+    base_dir = os.path.abspath(str(OUTPUT_DIR))
+    keyword_dir_str = os.path.abspath(os.path.join(base_dir, safe_keyword, "runs"))
+    if not keyword_dir_str.startswith(base_dir + os.sep):
+        return HTMLResponse("<div style='grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;'>No media found for this keyword.</div>")
+    keyword_dir = Path(keyword_dir_str)
     if not keyword_dir.exists():
         return HTMLResponse("<div style='grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;'>No media found for this keyword.</div>")
         
@@ -1119,25 +1127,22 @@ def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
     """Evaluate aesthetic quality scores for images in a subject folder."""
     from utils.aesthetic_scorer import AestheticScorer
 
-    # Sanitize: use basename to break CodeQL taint chain
     safe_subject = os.path.basename(subject)
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
         return {"status": "error", "detail": "Invalid subject name"}
 
-    # Try OUTPUT_DIR first, then cwd-relative (for test compatibility with monkeypatch.chdir)
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
+    if not output_path.startswith(base_dir + os.sep):
+        return {"status": "error", "detail": "Invalid path"}
+        
     output_dir = Path(output_path)
     if not output_dir.exists():
-        output_dir = Path(base_dir) / safe_subject
-    if not output_dir.exists():
-        # Fallback to cwd-relative path (for tests using monkeypatch.chdir)
-        cwd_path = Path("output") / safe_subject / "images"
-        if cwd_path.exists():
-            output_dir = cwd_path
+        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
+        if fallback_path.startswith(base_dir + os.sep):
+            output_dir = Path(fallback_path)
         else:
-            cwd_fallback = Path("output") / safe_subject
-            output_dir = cwd_fallback
+            output_dir = Path("output") / safe_subject
 
     scorer = AestheticScorer()
     res = scorer.filter_directory(output_dir, min_score=min_score)
@@ -1149,24 +1154,22 @@ def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: i
     """Batch smart-crop images in a subject folder to specified aspect ratio/resolution."""
     from utils.dataset_cropper import DatasetCropper
 
-    # Sanitize: use basename to break CodeQL taint chain
     safe_subject = os.path.basename(subject)
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
         return {"status": "error", "detail": "Invalid subject name"}
 
-    # Try OUTPUT_DIR first, then cwd-relative (for test compatibility with monkeypatch.chdir)
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
+    if not output_path.startswith(base_dir + os.sep):
+        return {"status": "error", "detail": "Invalid path"}
+        
     output_dir = Path(output_path)
     if not output_dir.exists():
-        output_dir = Path(base_dir) / safe_subject
-    if not output_dir.exists():
-        cwd_path = Path("output") / safe_subject / "images"
-        if cwd_path.exists():
-            output_dir = cwd_path
+        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
+        if fallback_path.startswith(base_dir + os.sep):
+            output_dir = Path(fallback_path)
         else:
-            cwd_fallback = Path("output") / safe_subject
-            output_dir = cwd_fallback
+            output_dir = Path("output") / safe_subject
 
     cropper = DatasetCropper(default_target_size=(width, height))
     res = cropper.crop_directory(output_dir, target_size=(width, height))
