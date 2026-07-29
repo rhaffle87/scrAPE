@@ -746,8 +746,10 @@ class SearchProviderScraper(BaseSearchScraper):
         if not href:
             return ""
         parsed = urlparse(href)
-        if "duckduckgo.com" in parsed.netloc and parsed.path.startswith("/l/"):
-            return parse_qs(parsed.query).get("uddg", [""])[0]
+        # Use endswith for exact domain match to avoid incomplete URL substring issues
+        if parsed.netloc == "duckduckgo.com" or parsed.netloc.endswith(".duckduckgo.com"):
+            if parsed.path.startswith("/l/"):
+                return parse_qs(parsed.query).get("uddg", [""])[0]
         return href
 
     @staticmethod
@@ -756,7 +758,8 @@ class SearchProviderScraper(BaseSearchScraper):
             return ""
         from urllib.parse import unquote
         parsed = urlparse(href)
-        if "bing.com" in parsed.netloc:
+        # Use exact match / endswith to avoid incomplete URL substring issues
+        if parsed.netloc == "bing.com" or parsed.netloc.endswith(".bing.com"):
             query_params = parse_qs(parsed.query)
             if "url" in query_params:
                 return unquote(query_params["url"][0])
