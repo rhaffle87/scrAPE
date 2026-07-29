@@ -32,6 +32,9 @@ def _is_safe_path_component(name: str) -> bool:
     """Strictly validate path component to prevent path traversal and ensure safety."""
     if not name or not isinstance(name, str):
         return False
+    # Use os.path.basename to satisfy CodeQL's requirement for path component
+    if os.path.basename(name) != name:
+        return False
     # Use a strict regex that CodeQL recognizes as a sanitizer
     if not re.match(r"^[\w\-. ]+$", name):
         return False
@@ -759,9 +762,14 @@ async def open_folder(request: Request):
         return HTMLResponse("Invalid path")
     
     try:
-        target = (OUTPUT_DIR / path_str).resolve()
-        if not str(target).startswith(str(OUTPUT_DIR.resolve())):
+        base_dir = os.path.abspath(str(OUTPUT_DIR))
+        target_path = os.path.abspath(os.path.join(base_dir, path_str))
+        
+        # CodeQL recognized pattern: check if it starts with safe_dir + sep
+        if not target_path.startswith(base_dir + os.sep) and target_path != base_dir:
             return HTMLResponse("Invalid path")
+            
+        target = Path(target_path)
     except Exception as e:
         return HTMLResponse("<span>ERR: Status check failed</span>")
         
@@ -1686,10 +1694,23 @@ def download_kohya_dataset_zip(
     """Generate and stream Kohya_ss LoRA dataset ZIP file directly to browser."""
     from utils.dataset_exporter import KohyaDatasetExporter
 
+    subject = os.path.basename(subject)
+    run_id = os.path.basename(run_id)
+
     if not _is_safe_path_component(subject) or not _is_safe_path_component(run_id):
         raise HTTPException(status_code=400, detail="Invalid path components.")
 
-    run_dir = OUTPUT_DIR / subject / "runs" / run_id / "images"
+    try:
+        base_dir = os.path.abspath(str(OUTPUT_DIR))
+        target_path = os.path.abspath(os.path.join(base_dir, subject, "runs", run_id, "images"))
+        
+        if not target_path.startswith(base_dir + os.sep):
+            raise HTTPException(status_code=400, detail="Invalid path components.")
+            
+        run_dir = Path(target_path)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path.")
+
     if not run_dir.exists():
         raise HTTPException(status_code=404, detail="Run image directory not found")
 
@@ -1713,31 +1734,42 @@ def download_kohya_dataset_zip(
 def export_rag_markdown(payload: ExportRAGPayload):
     from urllib.parse import urlparse
 
+    # CodeQL expects os.path.basename to sanitize path components
+    subject = os.path.basename(payload.subject)
+    run_id = os.path.basename(payload.run_id)
+
     try:
-        if not _is_safe_path_component(payload.subject) or not _is_safe_path_component(payload.run_id):
+        if not _is_safe_path_component(subject) or not _is_safe_path_component(run_id):
             raise HTTPException(status_code=400, detail="Invalid path components.")
             
-        run_dir = (OUTPUT_DIR / payload.subject / "runs" / payload.run_id).resolve()
-        if not str(run_dir).startswith(str(OUTPUT_DIR.resolve())):
+        base_dir = os.path.abspath(str(OUTPUT_DIR))
+        target_path = os.path.abspath(os.path.join(base_dir, subject, "runs", run_id))
+        
+        if not target_path.startswith(base_dir + os.sep):
             raise HTTPException(status_code=400, detail="Invalid path components.")
+            
+        run_dir = Path(target_path)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid path.")
     
     results_path = run_dir / "results.json"
     if not results_path.exists():
-        raise HTTPException(status_code=404, detail=f"results.json not found for run {payload.run_id}")
+        raise HTTPException(status_code=404, detail=f"results.json not found for run {run_id}")
 
     try:
         with open(results_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to load results.json: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to load results.json")
 
     try:
-        rag_dir = ROOT_DIR / "rag_ingestion"
-        target_root = (rag_dir / f"{payload.subject}_{payload.run_id}_rag").resolve()
-        if not str(target_root).startswith(str(rag_dir.resolve())):
+        rag_dir_str = os.path.abspath(str(ROOT_DIR / "rag_ingestion"))
+        rag_target = os.path.abspath(os.path.join(rag_dir_str, f"{subject}_{run_id}_rag"))
+        
+        if not rag_target.startswith(rag_dir_str + os.sep):
             raise HTTPException(status_code=400, detail="Invalid path components.")
+            
+        target_root = Path(rag_target)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid path.")
 
