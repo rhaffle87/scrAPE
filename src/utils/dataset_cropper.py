@@ -53,16 +53,22 @@ class DatasetCropper:
         target_size: Tuple[int, int] = (1024, 1024),
     ) -> dict[str, Any]:
         """Batch crop all images in source_dir and save to output_dir."""
-        clean_src = os.path.basename(str(source_dir).strip().rstrip("/\\"))
-        if not clean_src or ".." in str(source_dir) or (output_dir and ".." in str(output_dir)):
+        if ".." in str(source_dir) or (output_dir and ".." in str(output_dir)):
             return {"status": "error", "message": "Directory traversal not allowed"}
             
         src_abs = os.path.abspath(str(source_dir))
+        base_dir = os.path.abspath(os.path.dirname(src_abs))
+        if not src_abs.startswith(base_dir + os.sep) and src_abs != base_dir:
+            return {"status": "error", "message": "Invalid directory path"}
+
         src_p = Path(src_abs)
         if not src_p.exists() or not src_p.is_dir():
             return {"status": "error", "message": f"Source directory {source_dir} does not exist"}
 
         out_path_str = os.path.abspath(str(output_dir)) if output_dir else os.path.join(src_abs, "cropped")
+        out_base = os.path.abspath(os.path.dirname(out_path_str))
+        if not out_path_str.startswith(out_base + os.sep) and out_path_str != out_base:
+            return {"status": "error", "message": "Invalid output path"}
         out_p = Path(out_path_str)
         out_p.mkdir(parents=True, exist_ok=True)
 

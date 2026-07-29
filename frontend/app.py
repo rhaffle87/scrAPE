@@ -778,20 +778,16 @@ async def open_folder(request: Request):
         return HTMLResponse("Invalid path")
     
     try:
-        base_dir = os.path.abspath(str(OUTPUT_DIR))
-        target_path = os.path.abspath(os.path.join(base_dir, path_str))
+        safe_base = os.path.abspath(str(OUTPUT_DIR))
+        target_path = os.path.abspath(os.path.join(safe_base, path_str.lstrip("/\\")))
         
-        # CodeQL recognized pattern: check if it starts with safe_dir + sep
-        if not target_path.startswith(base_dir + os.sep) and target_path != base_dir:
+        if not target_path.startswith(safe_base + os.sep) and target_path != safe_base:
             return HTMLResponse("Invalid path")
             
-        target = Path(target_path)
-    except Exception as e:
+        if os.path.exists(target_path):
+            Popen(["explorer", f"/select,{target_path}"])
+    except Exception:
         return HTMLResponse("<span>ERR: Status check failed</span>")
-        
-    if target.exists():
-        # Windows only
-        Popen(["explorer", f"/select,{target}"])
     return HTMLResponse("")
 
 @app.get("/htmx/stats")
