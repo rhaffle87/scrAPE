@@ -1,5 +1,5 @@
 import sys
-import subprocess
+from subprocess import Popen, PIPE, STDOUT
 import threading
 import asyncio
 from collections import deque, defaultdict
@@ -105,7 +105,7 @@ task_state: Dict[str, Any] = {
         "errors": 0
     }
 }
-_current_process: Optional[subprocess.Popen] = None
+_current_process: Optional[Popen] = None
 
 @app.get("/api/status")
 def get_status():
@@ -119,7 +119,7 @@ def get_status():
                 task_state["pid"] = None
         return task_state
 
-def read_subprocess_logs(proc: subprocess.Popen):
+def read_subprocess_logs(proc: Popen):
     global log_buffer, task_state
     
     import re
@@ -481,12 +481,11 @@ def run_scrape(req: ScrapeRequest):
 
     log_buffer.clear()
 
-    _current_process = subprocess.Popen(
+    _current_process = Popen(
         cmd,
-        executable=sys.executable, 
         cwd=str(ROOT_DIR),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stdout=PIPE,
+        stderr=STDOUT,
         text=True,
         bufsize=1,
         encoding="utf-8",
@@ -748,7 +747,7 @@ async def open_folder(request: Request):
         
     if target.exists():
         # Windows only
-        subprocess.Popen(["explorer", f"/select,{target}"])
+        Popen(["explorer", f"/select,{target}"])
     return HTMLResponse("")
 
 @app.get("/htmx/stats")

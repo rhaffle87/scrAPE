@@ -71,7 +71,7 @@ class MockSubprocess:
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_popen():
-    with patch("frontend.app.subprocess.Popen", side_effect=MockSubprocess) as mock:
+    with patch("frontend.app.Popen", side_effect=MockSubprocess) as mock:
         yield mock
 
 
