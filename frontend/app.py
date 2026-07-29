@@ -770,21 +770,21 @@ def _get_form_int(form: Any, key: str, default: int) -> int:
 async def open_folder(request: Request):
     form = await request.form()
     path_str = _get_form_str(form, "path", "") or ""
-    # Path traversal and injection defense
     if not path_str or ".." in path_str or os.path.isabs(path_str):
         return HTMLResponse("Invalid path")
+    clean_name = os.path.basename(path_str.strip().rstrip("/\\"))
+    if not clean_name or not re.match(r"^[\w\-. ]+$", clean_name):
+        return HTMLResponse("Invalid path")
+
     try:
-        clean_name = os.path.basename(path_str.strip().rstrip("/\\"))
-        if not clean_name or not re.match(r"^[\w\-. ]+$", clean_name):
+        base_dir = os.path.abspath(str(OUTPUT_DIR))
+        target_path = os.path.abspath(os.path.join(base_dir, clean_name))
+        
+        if not target_path.startswith(base_dir + os.sep) and target_path != base_dir:
             return HTMLResponse("Invalid path")
             
-        safe_path = (OUTPUT_DIR / clean_name).resolve()
-        base_dir = OUTPUT_DIR.resolve()
-        if safe_path != base_dir and safe_path.parent != base_dir and not safe_path.is_relative_to(base_dir):
-            return HTMLResponse("Invalid path")
-            
-        if safe_path.exists():
-            Popen(["explorer", f"/select,{safe_path}"])
+        if os.path.exists(target_path):
+            Popen(["explorer", f"/select,{target_path}"])
     except Exception:
         return HTMLResponse("<span>ERR: Status check failed</span>")
     return HTMLResponse("")
