@@ -6,7 +6,7 @@ from PIL import Image
 import pytest
 from fastapi.testclient import TestClient
 
-from frontend.app import app
+from frontend.app import app, OUTPUT_DIR
 from src.utils.aesthetic_scorer import AestheticScorer
 from src.utils.dataset_cropper import DatasetCropper
 from src.cli.main import build_parser
@@ -57,7 +57,7 @@ def test_api_dataset_score_and_crop_endpoints(tmp_path: Path, monkeypatch):
 
     # Mock output directory structure using generic subject name
     subject_name = "sample_subject"
-    subject_dir = tmp_path / "output" / subject_name / "images"
+    subject_dir = OUTPUT_DIR / subject_name / "images"
     subject_dir.mkdir(parents=True, exist_ok=True)
     sample_img = Image.new("RGB", (1200, 800), color=(100, 200, 100))
     sample_img.save(subject_dir / "sample.jpg")

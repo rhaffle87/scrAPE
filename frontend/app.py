@@ -1129,19 +1129,14 @@ def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
 
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
-    if output_path.startswith(base_dir + os.sep):
-        output_dir = Path(output_path)
-        if not output_dir.exists():
-            output_dir = Path(base_dir) / safe_subject
-    else:
-        output_dir = Path("output") / safe_subject
-
+    if not output_path.startswith(base_dir + os.sep):
+        return {"status": "error", "detail": "Invalid path"}
+        
+    output_dir = Path(output_path)
     if not output_dir.exists():
-        cwd_images = os.path.abspath(os.path.join("output", safe_subject, "images"))
-        if os.path.exists(cwd_images):
-            output_dir = Path(cwd_images)
-        else:
-            output_dir = Path(os.path.abspath(os.path.join("output", safe_subject)))
+        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
+        if fallback_path.startswith(base_dir + os.sep):
+            output_dir = Path(fallback_path)
 
     scorer = AestheticScorer()
     res = scorer.filter_directory(output_dir, min_score=min_score)
@@ -1159,19 +1154,14 @@ def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: i
 
     base_dir = os.path.abspath(str(OUTPUT_DIR))
     output_path = os.path.abspath(os.path.join(base_dir, safe_subject, "images"))
-    if output_path.startswith(base_dir + os.sep):
-        output_dir = Path(output_path)
-        if not output_dir.exists():
-            output_dir = Path(base_dir) / safe_subject
-    else:
-        output_dir = Path("output") / safe_subject
-
+    if not output_path.startswith(base_dir + os.sep):
+        return {"status": "error", "detail": "Invalid path"}
+        
+    output_dir = Path(output_path)
     if not output_dir.exists():
-        cwd_images = os.path.abspath(os.path.join("output", safe_subject, "images"))
-        if os.path.exists(cwd_images):
-            output_dir = Path(cwd_images)
-        else:
-            output_dir = Path(os.path.abspath(os.path.join("output", safe_subject)))
+        fallback_path = os.path.abspath(os.path.join(base_dir, safe_subject))
+        if fallback_path.startswith(base_dir + os.sep):
+            output_dir = Path(fallback_path)
 
     cropper = DatasetCropper(default_target_size=(width, height))
     res = cropper.crop_directory(output_dir, target_size=(width, height))
