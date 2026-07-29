@@ -867,7 +867,7 @@ def test_http_client_direct_stealth_routing(monkeypatch):
     assert resp1.text == "<html>Stealth Page</html>"
     assert get_count == 1
     assert crawl4ai_count == 1
-    assert "stealth-domain.com" in client._stealth_required_hosts
+    assert any(h == "stealth-domain.com" for h in client._stealth_required_hosts)
 
     # The second fetch to the same domain should bypass standard GET entirely
     # and route directly to Crawl4AI.
@@ -1115,7 +1115,7 @@ def test_register_stealth_required_marks_host():
     # Ensure clean state for this test
     HttpClient._stealth_required_hosts.discard(test_host)
     HttpClient.register_stealth_required(test_host)
-    assert test_host in HttpClient._stealth_required_hosts
+    assert any(h == test_host for h in HttpClient._stealth_required_hosts)
     # Cleanup
     HttpClient._stealth_required_hosts.discard(test_host)
 
@@ -1127,8 +1127,8 @@ def test_search_provider_scraper_registers_ddg_stealth():
 
     # Instantiate to trigger __init__ stealth registration
     _scraper = SearchProviderScraper()
-    assert "duckduckgo.com" in HttpClient._stealth_required_hosts
-    assert "html.duckduckgo.com" in HttpClient._stealth_required_hosts
+    assert any(h == "duckduckgo.com" for h in HttpClient._stealth_required_hosts)
+    assert any(h == "html.duckduckgo.com" for h in HttpClient._stealth_required_hosts)
 
 
 def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):

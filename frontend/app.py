@@ -30,9 +30,12 @@ _state_lock = threading.Lock()
 
 def _is_safe_path_component(name: str) -> bool:
     """Strictly validate path component to prevent path traversal and ensure safety."""
-    if not name or ".." in name or "/" in name or "\\" in name:
+    if not name or not isinstance(name, str):
         return False
-    if os.path.isabs(name):
+    # Use a strict regex that CodeQL recognizes as a sanitizer
+    if not re.match(r"^[\w\-. ]+$", name):
+        return False
+    if ".." in name:
         return False
     return True
 
@@ -749,15 +752,18 @@ async def open_folder(request: Request):
     form = await request.form()
     path_str = _get_form_str(form, "path", "") or ""
     # Path traversal and injection defense
-    if ".." in path_str or os.path.isabs(path_str):
+    if not path_str or ".." in path_str or os.path.isabs(path_str):
+        return HTMLResponse("Invalid path")
+    # CodeQL sanitizer for path injection
+    if not re.match(r"^[\w\-. /]+$", path_str):
         return HTMLResponse("Invalid path")
     
     try:
         target = (OUTPUT_DIR / path_str).resolve()
         if not str(target).startswith(str(OUTPUT_DIR.resolve())):
             return HTMLResponse("Invalid path")
-    except Exception:
-        return HTMLResponse("Invalid path")
+    except Exception as e:
+        return HTMLResponse("<span>ERR: Status check failed</span>")
         
     if target.exists():
         # Windows only
@@ -893,7 +899,8 @@ async def htmx_run(request: Request):
         broadcaster.broadcast("status", {"status": "running"})
         return render_control_buttons()
     except Exception as e:
-        return HTMLResponse(f"<div style='color: red; margin-top: 1rem;'>ERR: {str(e)}</div>")
+        # Avoid Information exposure through an exception by not returning str(e)
+        return HTMLResponse("<div style='color: red; margin-top: 1rem;'>ERR: An internal error occurred. Please check logs.</div>")
 
 @app.post("/htmx/kill")
 def kill_scrape():

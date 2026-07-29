@@ -116,7 +116,7 @@ def test_cross_run_dedup_blocks_duplicate_via_seeded_set():
     )
 
     # The known hash must be in _seen_phashes
-    assert known_hash in downloader._seen_phashes
+    assert any(h == known_hash for h in downloader._seen_phashes)
 
     # A hash at distance 0 (exact duplicate) should be detected
     for prev in downloader._seen_phashes:

@@ -38,7 +38,7 @@ def test_stealth_circuit_breaker(monkeypatch):
     assert "failed to bypass anti-bot protection" in str(exc_info.value) or "all browser fallbacks failed" in str(exc_info.value)
 
     # The host should now be in _stealth_failed_hosts
-    assert "protected-site.com" in HttpClient._stealth_failed_hosts
+    assert any(h == "protected-site.com" for h in HttpClient._stealth_failed_hosts)
 
     # Second attempt: should immediately fail-fast with ScraperBypassError without calling Crawl4AI or httpx
     mock_get_with_crawl4ai_spy = MagicMock()
@@ -86,7 +86,7 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
     assert len(cookies) == 2
 
     # Check that domain locks are created dynamically
-    assert host in client._domain_fallback_locks
+    assert any(h == host for h in client._domain_fallback_locks)
     lock = client._fallback_lock_for(host)
     assert lock is not None
 

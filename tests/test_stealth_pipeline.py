@@ -87,7 +87,7 @@ def test_stealth_circuit_breaker(monkeypatch):
         client.get("https://protected-site.com/page1")
 
     assert "failed to bypass anti-bot protection" in str(exc_info.value) or "all browser fallbacks failed" in str(exc_info.value)
-    assert "protected-site.com" in HttpClient._stealth_failed_hosts
+    assert any(h == "protected-site.com" for h in HttpClient._stealth_failed_hosts)
 
 
 def test_flaresolverr_fallback_success(monkeypatch):
