@@ -68,10 +68,13 @@ class DatasetTagger:
         self, directory: Path, metadata_map: dict[str, dict[str, Any]] | None = None
     ) -> dict[str, int]:
         """Batch tag all image files in a directory."""
-        clean_name = os.path.basename(str(directory).strip().rstrip("/\\"))
-        if not clean_name or ".." in str(directory):
+        if ".." in str(directory):
             return {"processed": 0, "sidecars_created": 0}
-        safe_dir = ROOT_DIR / "output" / clean_name
+        safe_path = os.path.abspath(str(directory))
+        clean_name = os.path.basename(safe_path)
+        if not clean_name:
+            return {"processed": 0, "sidecars_created": 0}
+        safe_dir = Path(safe_path)
         if not safe_dir.exists() or not safe_dir.is_dir():
             return {"processed": 0, "sidecars_created": 0}
 
