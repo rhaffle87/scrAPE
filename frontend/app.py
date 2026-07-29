@@ -773,13 +773,13 @@ async def open_folder(request: Request):
     # Path traversal and injection defense
     if not path_str or ".." in path_str or os.path.isabs(path_str):
         return HTMLResponse("Invalid path")
-    # CodeQL sanitizer for path injection
-    if not re.match(r"^[\w\-. /]+$", path_str):
+    clean_name = os.path.basename(path_str.strip().rstrip("/\\"))
+    if not clean_name or not re.match(r"^[\w\-. ]+$", clean_name):
         return HTMLResponse("Invalid path")
-    
+
     try:
         safe_base = os.path.abspath(str(OUTPUT_DIR))
-        target_path = os.path.abspath(os.path.join(safe_base, path_str.lstrip("/\\")))
+        target_path = os.path.abspath(os.path.join(safe_base, clean_name))
         
         if not target_path.startswith(safe_base + os.sep) and target_path != safe_base:
             return HTMLResponse("Invalid path")
