@@ -1352,7 +1352,7 @@
                 <rect x="168" y="168" width="6" height="6" fill="#ff5500" />
             </svg>
             <span class="logo-text">scrAPE</span>
-            <span class="logo-version">v0.20.0</span>
+            <span class="logo-version">v0.21.0</span>
         </div>
         <nav class="sidebar-nav">
             <button type="button" class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
@@ -3926,11 +3926,13 @@
                 function triggerDatasetZipDownload() {
                     const repeats = document.getElementById('export-repeats')?.value || 10;
                     const minRes = document.getElementById('export-min-res')?.value || 512;
+                    const minScore = document.getElementById('export-min-score')?.value || 0.0;
 
                     try {
                         const url = new URL(`/api/export/dataset/download/${encodeURIComponent(currentExportSubject)}/${encodeURIComponent(currentExportRunId)}`, window.location.origin);
                         url.searchParams.set('repeats', repeats);
                         url.searchParams.set('min_resolution', minRes);
+                        url.searchParams.set('min_aesthetic_score', minScore);
                         window.location.assign(url.toString());
                     } catch (e) {
                         console.error('Invalid export URL', e);
@@ -4052,6 +4054,17 @@
                             <option value="512" selected>512px x 512px</option>
                             <option value="768">768px x 768px</option>
                             <option value="1024">1024px x 1024px</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label for="export-min-score"
+                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">AESTHETIC SCORE THRESHOLD:</label>
+                        <select id="export-min-score"
+                            style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
+                            <option value="0.0" selected>Disabled (Include All Quality)</option>
+                            <option value="5.0">>= 5.0 (Basic Quality)</option>
+                            <option value="5.5">>= 5.5 (Recommended for LoRA)</option>
+                            <option value="6.5">>= 6.5 (High Quality Masterpiece)</option>
                         </select>
                     </div>
                     <button onclick="triggerDatasetZipDownload()"

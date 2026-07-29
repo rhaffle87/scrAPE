@@ -186,7 +186,7 @@ def run_scraper(
 
 
 def notify_telegram(message: str) -> None:
-    """Send Telegram alert if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are configured."""
+    """Send alert via TelegramBotNotifier and multi-channel NotificationPipeline."""
     try:
         from utils.telegram_bot import TelegramBotNotifier
 
@@ -198,11 +198,20 @@ def notify_telegram(message: str) -> None:
     except Exception as e:
         print(f"[{datetime.now().isoformat()}] Telegram alert dispatch failed: {e}")
 
+    try:
+        from utils.notification_manager import NotificationPipeline, TelegramNotifier
+
+        pipeline = NotificationPipeline()
+        pipeline.providers = [p for p in pipeline.providers if not isinstance(p, TelegramNotifier)]
+        pipeline.notify_watchdog_status(message)
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] Multi-channel alert dispatch failed: {e}")
+
 
 def notify_telegram_summary(
     keyword: str, cycle: int, code: int, yield_info: tuple[int, int, int] | None
 ) -> None:
-    """Send structured HTML summary digest card after a subject watchdog cycle."""
+    """Send structured summary digest card after a subject watchdog cycle."""
     if yield_info:
         imgs, vids, rejs = yield_info
         status = "✅ SUCCESS" if code == 0 else f"⚠️ FAILED ({code})"

@@ -20,10 +20,12 @@ class KohyaDatasetExporter:
         repeats: int = 10,
         concept_name: str = "concept",
         min_resolution: int = 512,
+        min_aesthetic_score: float = 0.0,
     ):
         self.repeats = repeats
         self.concept_name = (concept_name or "concept").strip().replace(" ", "_")
         self.min_resolution = min_resolution
+        self.min_aesthetic_score = min_aesthetic_score
 
     def create_dataset_zip_bytes(
         self, image_dir: Path, metadata_list: list[dict[str, Any]] | None = None
@@ -42,6 +44,15 @@ class KohyaDatasetExporter:
 
         seen_hashes: list[int] = []
         exported_count = 0
+
+        # Lazy load AestheticScorer if score gate is enabled
+        scorer = None
+        if self.min_aesthetic_score > 0.0:
+            try:
+                from utils.aesthetic_scorer import AestheticScorer
+                scorer = AestheticScorer()
+            except Exception as exc:
+                LOGGER.debug("AestheticScorer initialization skipped: %s", exc)
 
         if ".." in str(image_dir) or not str(image_dir).strip():
             return b""
@@ -79,6 +90,13 @@ class KohyaDatasetExporter:
                                 continue
                             seen_hashes.append(img_hash)
 
+                        # 3. Aesthetic Score Threshold check
+                        if scorer and self.min_aesthetic_score > 0.0:
+                            score = scorer.score_image(file_bytes)
+                            if score < self.min_aesthetic_score:
+                                LOGGER.debug("Skipping low aesthetic score image %s (%.2f < %.2f)", file_path.name, score, self.min_aesthetic_score)
+                                continue
+
                         # Write image file into folder_prefix
                         archive_image_path = f"{folder_prefix}/{file_path.name}"
                         zf.write(file_path, archive_image_path)
@@ -99,6 +117,7 @@ class KohyaDatasetExporter:
                 "concept": self.concept_name,
                 "repeats": self.repeats,
                 "min_resolution": self.min_resolution,
+                "min_aesthetic_score": self.min_aesthetic_score,
                 "total_images": exported_count,
             }
             zf.writestr("metadata.json", json.dumps(dataset_meta, indent=2))

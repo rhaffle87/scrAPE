@@ -20,6 +20,7 @@ src/utils/http_client.py            — Rate limiting, session pooling, 429 circ
 src/utils/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
 src/utils/capsolver.py              — CapSolver auto-captcha solving API integration
 src/utils/telegram_bot.py           — Telegram Bot alerts & interactive command handler
+src/utils/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
 src/utils/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
 src/utils/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
 src/utils/blacklist.py              — Persistent domain blacklist (data/blacklist.json)

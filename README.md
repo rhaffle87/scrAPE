@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.20.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.21.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
@@ -71,15 +71,16 @@ python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt --max-resu
 
 ## Key Features
 
-- **Dynamic HTMX Tactical WebUI** — Fully decoupled dashboard (`frontend/`) featuring context-aware telemetry stat cards (switching between global totals and per-subject counts with `/ N total` comparisons), real-time OS hardware telemetry (CPU, RAM, Disk), process abort controls, dual speed limiters, and physical file management directly inside the Media Vault.
+- **Dynamic HTMX Tactical WebUI & Canvas Physics Visualizer** — Fully decoupled dashboard (`frontend/`) featuring an interactive HTML5 Canvas crawl network tree (`#crawl-graph-canvas`) with force-directed spring physics, search filters, depth controls, Node Inspector drawer, context-aware telemetry stat cards, real-time hardware telemetry (CPU, RAM, Disk), process controls, and dual speed limiters.
+- **WAF & Turnstile 8-Tier Fallback + CapSolver Auto-Solving** — Defeats Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha, Auth walls, and anti-bot protections using an 8-tier escalation chain (`Local Cookies` → `Crawl4AI` → `Crawlee Cheerio` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver` → `Camoufox` → `FlareSolverr`) with per-host preferred engine learning (`_preferred_engine_by_host`) and automated CapSolver token injection.
+- **Pluggable Multi-Channel Webhook Notifier Architecture** — Extensible `BaseNotifier` framework supporting Telegram Bot alerts (`src/utils/telegram_bot.py`), Discord rich embeds (`#00ff66` completion, `#ff5500` WAF alerts), Slack Block Kit JSON, and generic Custom Webhooks (Apprise, N8N, Zapier, Matrix, Pushover) with POST `/api/notifications/test` endpoint.
+- **AI Dataset Auto-Tagging & Multi-Stage Quality Export** — Hybrid vision model auto-tagger (`DatasetTagger`) with opt-in WD14 Booru ViT classification (`landscape`, `portrait`, `highres`), paired with `KohyaDatasetExporter` Stage 3 Aesthetic Quality Gate (`min_aesthetic_score: float = 5.5`), 64-bit perceptual `dHash` near-duplicate filtering (Hamming distance $\le 4$), min resolution filter ($\ge 512\text{px}$), and WebUI LoRA Export modal aesthetic controls.
 - **Dual Speed & Rate Limiting System** — Token-Bucket rate-limiting on outgoing page requests (`--rate-limit` / `RPS`) paired with network bandwidth throttling on media asset downloads (`--dl-speed-limit` / `KBPS`), accessible via WebUI and CLI.
 - **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for taskbar legibility.
-- **WAF & Turnstile 8-Tier Fallback** — Defeats Cloudflare Turnstile, Auth walls, and anti-bot protections using an 8-tier escalation chain: `Local Cookies` → `Crawl4AI` → `Crawlee Cheerio` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver` → `Camoufox` → `FlareSolverr`.
 - **FlareSolverr Docker Auto-Start & Session Reuse** — Native binding to `http://127.0.0.1:8191/v1` with automatic background Docker container launch (`docker start flaresolverr`) and host session cookie enrichment for downstream CDN streaming media.
 - **High-Resolution URL Transformation Heuristics** — Automatic path transformations for Erome (`/t/` / `/th/` → `/v/`), WordPress (`-scaled.jpg` stripping), Twitter (`name=large`), and WordPress dimension patterns (`-1024x768.png`).
 - **Low & Zero-Yield Domain Cutoff Policy** — Automated host filtering that halts crawling on unseeded external domains hitting 15 pages with 0 yield, 20+ pages with <5% yield, or 3 consecutive WAF errors.
 - **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) and per-host download semaphores (`_host_semaphore_for`).
-- **AI Dataset Curation & Perceptual Deduplication** — Calculates 64-bit difference hashes (`dHash`) to reject visually identical or resized images (Hamming distance <= 4), generating `dataset.jsonl` manifests + individual caption sidecar files for direct LoRA/SD training pipelines.
 - **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, and ArtStation.
 
 ---

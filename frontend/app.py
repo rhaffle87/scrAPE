@@ -74,7 +74,7 @@ from utils.telemetry import register_telemetry_listener, broadcast_telemetry_eve
 broadcaster = LogBroadcaster()
 register_telemetry_listener(broadcaster.broadcast)
 
-app = FastAPI(title="scrAPE Web GUI", version="0.20.0")
+app = FastAPI(title="scrAPE Web GUI", version="0.21.0")
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
@@ -1822,7 +1822,7 @@ def export_ai_dataset(payload: ExportDatasetPayload):
 
 @app.get("/api/export/dataset/download/{subject}/{run_id}")
 def download_kohya_dataset_zip(
-    subject: str, run_id: str, repeats: int = 10, min_resolution: int = 512
+    subject: str, run_id: str, repeats: int = 10, min_resolution: int = 512, min_aesthetic_score: float = 0.0
 ):
     """Generate and stream Kohya_ss LoRA dataset ZIP file directly to browser."""
     from utils.dataset_exporter import KohyaDatasetExporter
@@ -1848,7 +1848,7 @@ def download_kohya_dataset_zip(
         raise HTTPException(status_code=404, detail="Run image directory not found")
 
     exporter = KohyaDatasetExporter(
-        repeats=repeats, concept_name=subject, min_resolution=min_resolution
+        repeats=repeats, concept_name=subject, min_resolution=min_resolution, min_aesthetic_score=min_aesthetic_score
     )
     zip_bytes = exporter.create_dataset_zip_bytes(run_dir)
     if not zip_bytes:
@@ -1862,6 +1862,16 @@ def download_kohya_dataset_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@app.post("/api/notifications/test")
+def test_notification_channels():
+    """Trigger a test ping across all registered notification providers (Telegram, Discord, Slack, etc.)."""
+    from utils.notification_manager import NotificationPipeline
+
+    pipeline = NotificationPipeline()
+    results = pipeline.notify_watchdog_status("scrAPE Test Ping: Notification pipeline is operational!", "INFO")
+    return {"status": "ok", "delivered_providers": results}
 
 @app.post("/api/export/rag")
 def export_rag_markdown(payload: ExportRAGPayload):

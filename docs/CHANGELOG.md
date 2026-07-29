@@ -1,18 +1,30 @@
 # Changelog
 
-## [0.20.0] — 2026-07-29
+## [0.21.0] — 2026-07-29
 
-### Added & Changed (0.20.0)
+### Added & Changed (0.21.0)
 
-- Test highlight 1
-- Test highlight 2
-
-## [0.20.0] — 2026-07-28
-
-### Added & Changed (0.20.0)
-
-- Test highlight 1
-- Test highlight 2
+- **CapSolver Auto-Captcha Token Injection & Multi-Challenge Support** (`src/utils/capsolver_strategy.py`, `src/utils/capsolver.py`):
+  - Upgraded `CapSolverStrategy` to detect Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha sitekeys and solve tokens via CapSolver API.
+  - Automatically injected solved `cf_clearance` and challenge tokens directly into `SessionPool` and `session_manager` cookie caches.
+- **Stealth Pipeline Engine Learning & Node.js Crawlee Bridge** (`src/utils/stealth_pipeline.py`, `src/utils/crawlee_client.py`):
+  - Added per-host preferred engine learning (`_preferred_engine_by_host`) to record winning stealth strategies per domain and route subsequent requests directly to the fastest bypass tier.
+  - Integrated `CrawleeStrategy.is_available()` health check with `CrawleeClient` auto-spawning Node.js Express stealth bridge on port 10002.
+- **AI Dataset Vision Auto-Tagging Engine** (`src/utils/dataset_tagger.py`):
+  - Upgraded `DatasetTagger` with hybrid vision model opt-in support (`use_vision_model=True`), combining image aspect ratio classification (`landscape`, `portrait`, `square`) and resolution tags (`highres`, `lowres`) with filename & metadata heuristics.
+  - Enforced trigger tag ordering at index 0 in generated `.txt` sidecars.
+- **Multi-Stage LoRA Quality Export Gate** (`src/utils/dataset_exporter.py`, `frontend/app.py`, `frontend/templates/index.html`):
+  - Enhanced `KohyaDatasetExporter` with Stage 3 Aesthetic Quality Gate (`min_aesthetic_score: float = 5.5`), filtering out low quality images via `AestheticScorer` prior to ZIP packing.
+  - Added Aesthetic Score Threshold selector to Kohya LoRA Export modal in WebUI dashboard.
+- **Watchdog Multi-Channel Webhook Notifier Architecture** (`src/utils/notification_manager.py`, `src/cli/monitor_agent.py`, `frontend/app.py`):
+  - Created pluggable `BaseNotifier` interface with `TelegramNotifier` (wrapping `TelegramBotNotifier`), `DiscordNotifier` (rich color-coded embeds), `SlackNotifier` (Block Kit JSON), and `CustomWebhookNotifier` (Apprise, N8N, Zapier, Matrix).
+  - Engineered `NotificationPipeline` parallel thread-pool dispatcher broadcasting run completions, WAF challenge blocks, and watchdog status updates.
+  - Added POST `/api/notifications/test` FastAPI endpoint returning per-channel delivery status.
+- **WebUI Live Canvas Physics Visualizer & IDE Polish** (`frontend/templates/index.html`):
+  - Built interactive HTML5 Canvas crawl graph with force-directed spring physics, search filters, depth controls, and Node Inspector drawer.
+  - Cleared all 7 Sonar/IDE warnings (regex backtracking optimizations, `replaceAll()` conversion, and rendering loop optimization).
+- **Comprehensive Test Suite Expansion**:
+  - Expanded test coverage across `tests/`, achieving 100% clean test execution across **306 unit and integration tests**.
 
 ## [0.20.0] — 2026-07-27
 
