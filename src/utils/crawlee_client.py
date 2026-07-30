@@ -63,7 +63,7 @@ class CrawleeClient:
             self._process = None
             if hasattr(self, '_log_file') and self._log_file:
                 self._log_file.close()
-            logger.info("Crawlee bridge server stopped.")
+
 
 
     def _is_server_running(self):
