@@ -1062,7 +1062,7 @@ def test_http_client_escalating_timeout_and_adaptive_rate_limit(monkeypatch):
 
     monkeypatch.setattr(client.client, "get", mock_get_429)
     monkeypatch.setattr(
-        client, "_get_with_crawl4ai", lambda url: "<html>Mocked Crawl4AI Page</html>"
+        client, "_execute_fallbacks", lambda url, skip_httpx=False, preferred_engine=None: ("<html>Mocked Crawl4AI Page</html>", [])
     )
 
     resp = client.get("https://example-test-429.com/path")
