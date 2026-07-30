@@ -64,11 +64,24 @@ import subprocess
 @pytest.fixture(autouse=True)
 def block_subprocess(monkeypatch):
     """Globally block external subprocess calls (e.g., Node/Playwright)."""
+    original_run = subprocess.run
+    original_popen_init = subprocess.Popen.__init__
+    
+    def is_allowed_cmd(cmd_args):
+        if not cmd_args:
+            return False
+        cmd = cmd_args[0] if isinstance(cmd_args, (list, tuple)) else cmd_args
+        return cmd in ('/sbin/ldconfig', 'ver')
+
     def blocked_run(*args, **kwargs):
-        raise RuntimeError("Subprocess execution is blocked in tests by default. Explicitly mock it if needed.")
+        if args and is_allowed_cmd(args[0]):
+            return original_run(*args, **kwargs)
+        raise RuntimeError(f"Subprocess execution is blocked in tests by default. Explicitly mock it if needed. Args: {args}")
     
     def blocked_popen_init(self, *args, **kwargs):
-        raise RuntimeError("Subprocess execution is blocked in tests by default. Explicitly mock it if needed.")
+        if args and is_allowed_cmd(args[0]):
+            return original_popen_init(self, *args, **kwargs)
+        raise RuntimeError(f"Subprocess execution is blocked in tests by default. Explicitly mock it if needed. Args: {args}")
     
     monkeypatch.setattr(subprocess, "run", blocked_run)
     monkeypatch.setattr(subprocess.Popen, "__init__", blocked_popen_init)
