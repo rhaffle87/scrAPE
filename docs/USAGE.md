@@ -43,6 +43,9 @@ scrape
 | `--inject-cookies` | `str` | `None` | Imports JSON or Netscape `cookies.txt` file |
 | `--domain` | `str` | `None` | Target domain to associate with injected cookies |
 | `--proxy-list` | `str` | `None` | Path to proxy file (`ip:port` or `http://user:pass@host:port`) |
+| `--captcha-provider`| `str` | `capsolver` | Universal provider for solving captchas (`capsolver`, `2captcha`, `anticaptcha`) |
+| `--captcha-key` | `str` | `None` | API key for the captcha provider |
+| `--max-captcha-spend`| `float`| `None` | Maximum spending limit (in USD) for captcha solving |
 
 ---
 

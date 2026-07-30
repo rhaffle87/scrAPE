@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from frontend.app import app
-from utils.notification_manager import (
+from notifications.notification_manager import (
     BaseNotifier,
     NotificationPipeline,
     TelegramNotifier,
@@ -96,7 +96,7 @@ def test_slack_notifier_formatting(monkeypatch):
 def test_api_test_notifications_endpoint():
     from unittest.mock import patch
     
-    with patch("utils.notification_manager.NotificationPipeline.notify_watchdog_status") as mock_notify:
+    with patch("notifications.notification_manager.NotificationPipeline.notify_watchdog_status") as mock_notify:
         mock_notify.return_value = {"MockNotifier": True}
         res = client.post("/api/notifications/test")
         assert res.status_code == 200

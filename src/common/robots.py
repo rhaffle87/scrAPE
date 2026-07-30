@@ -3,8 +3,8 @@ from __future__ import annotations
 from urllib import robotparser
 from urllib.parse import urljoin, urlparse
 
-from utils.http_client import HttpClient
-from utils.logger import get_logger
+from network.http_client import HttpClient
+from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
 

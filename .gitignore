@@ -1,7 +1,12 @@
-# Environments and credentials
-.env
+# ------------------------------------------------------------------------------
+# scrAPE .gitignore
+# ------------------------------------------------------------------------------
 
-# Python bytecode and caches
+# --- Environments and Credentials ---
+.env
+src/config/*.json
+
+# --- Python Bytecode and Virtual Envs ---
 __pycache__/
 .pycache/
 *.py[cod]
@@ -11,56 +16,49 @@ __pycache__/
 venv/
 env/
 
-# Test & Linter Caches
+# --- Test, Linter, and Tool Caches ---
 .pytest_cache/
 .ruff_cache/
 .cache/
+*.cache
 out/
 har/
-__pycache__/
-output/*
-!output/README.md
-.pytest_cache/
-*.cache
-.ruff_cache/
-.ruff_cache/*
 
-# Seed URL files
-seeds/*
-
-# Logs and temporary files
-logs/
-*.log
-*.tmp
-*.bak
-
-# Ad-hoc scratch/debug scripts (may contain private URLs or hardcoded subjects)
-scratch/
-
-# Persistent runtime data
-data/*
-
-# Runtime data
-runtime_data/*
-
-# Node modules
-node_modules/
-crawlee_bridge/node_modules/
-/storage/
-crawlee_bridge/storage/
-datasets/
-rag_ingestion/
-
-# Python packaging builds
+# --- Build and Package Files ---
 *.egg-info/
 build/
 dist/
 
-# IDE, Editor & OS Files
+# --- Node.js / JS Dependencies ---
+node_modules/
+crawlee_bridge/node_modules/
+/storage/
+crawlee_bridge/storage/
+
+# --- Application Outputs & Runtime Data ---
+output/*
+!output/README.md
+data/*
+runtime_data/*
+logs/
+*.log
+tasks/*
+
+# --- Datasets and ML ---
+datasets/
+rag_ingestion/
+
+# --- Seed Configuration ---
+seeds/*
+
+# --- Ad-hoc / Temp Files ---
+scratch/
+*.tmp
+*.bak
+
+# --- IDE, Editor, and OS Files ---
 .vscode/
 .idea/
 .qodo/
 .DS_Store
 Thumbs.db
-
-tasks/*

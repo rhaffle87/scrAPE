@@ -18,7 +18,7 @@ import json
 import psutil
 import os
 
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT_DIR / "output"
@@ -69,7 +69,7 @@ class LogBroadcaster:
                 except Exception:
                     pass
 
-from utils.telemetry import register_telemetry_listener, broadcast_telemetry_event
+from monitoring.telemetry import register_telemetry_listener, broadcast_telemetry_event
 
 broadcaster = LogBroadcaster()
 register_telemetry_listener(broadcaster.broadcast)
@@ -268,8 +268,8 @@ async def stream_logs(request: Request):
 @app.get("/api/telemetry/stats")
 def get_telemetry_stats():
     """Return instant snapshot of system and crawl telemetry metrics."""
-    from utils.proxy_manager import ProxyPoolManager
-    from utils.hardware_governor import HardwareLoadGovernor
+    from network.proxy_manager import ProxyPoolManager
+    from monitoring.hardware_governor import HardwareLoadGovernor
     from storage.db_store import get_state_store, PostgresStateStore
 
     gov = HardwareLoadGovernor()
@@ -793,9 +793,9 @@ async def open_folder(request: Request):
 @app.get("/api/telemetry/stealth")
 def get_stealth_telemetry():
     """Return live WAF stealth pipeline statistics, solve counts, circuit breaker cooldowns, CapSolver spend, and Proxy pool bandwidth stats."""
-    from utils.http_client import HttpClient, StealthTierHealthManager
-    from utils.capsolver import CapSolverClient
-    from utils.proxy_manager import ProxyPoolManager
+    from network.http_client import HttpClient, StealthTierHealthManager
+    from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+    from network.proxy_manager import ProxyPoolManager
     import config
     import time
     
@@ -822,7 +822,7 @@ def get_stealth_telemetry():
     total_bytes = proxy_mgr.get_total_bytes_transferred()
     max_bytes = proxy_mgr.max_bandwidth_bytes
 
-    capsolver = CapSolverClient(api_key=getattr(config, "CAPSOLVER_API_KEY", ""))
+    capsolver = CapSolverProvider(api_key=getattr(config, "CAPSOLVER_API_KEY", ""))
 
     return JSONResponse({
         "status": "success",
@@ -830,7 +830,7 @@ def get_stealth_telemetry():
         "preferred_engines": preferred_engines,
         "health_stats": health_stats,
         "capsolver_run_spend": capsolver.current_run_spend,
-        "capsolver_max_spend": capsolver.max_spend_per_run,
+        "capsolver_max_spend": capsolver.max_spend,
         "capsolver_balance": capsolver.cached_balance or 0.0,
         "proxy_total_bytes": total_bytes,
         "proxy_max_bytes": max_bytes,
@@ -838,7 +838,7 @@ def get_stealth_telemetry():
 
 @app.get("/htmx/stats")
 def get_stats():
-    from utils.hardware_governor import HardwareLoadGovernor
+    from monitoring.hardware_governor import HardwareLoadGovernor
     from storage.db_store import get_state_store, PostgresStateStore
 
     gov = HardwareLoadGovernor()
@@ -1094,7 +1094,7 @@ def get_capsolver_balance(key: str | None = None):
 @app.get("/htmx/proxy-status")
 def render_proxy_status():
     """Return HTMX status cards for Proxy Pool Manager."""
-    from utils.proxy_manager import ProxyPoolManager
+    from network.proxy_manager import ProxyPoolManager
     pm = ProxyPoolManager.get_instance()
     pool = pm.get_pool_status()
     total = len(pool)
@@ -1112,7 +1112,7 @@ def render_proxy_status():
 @app.post("/api/dataset/tag")
 def api_dataset_tag(subject: str = Form(""), trigger_tag: str = Form("")):
     """Batch auto-tag downloaded images in a subject run folder."""
-    from utils.dataset_tagger import DatasetTagger
+    from ml.dataset_tagger import DatasetTagger
 
     # Sanitize: use basename to break CodeQL taint chain
     safe_subject = os.path.basename(subject)
@@ -1167,7 +1167,7 @@ def save_dataset_sidecar(path: str = Form(...), tags: str = Form(...)):
 @app.post("/api/dataset/score")
 def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
     """Evaluate aesthetic quality scores for images in a subject folder."""
-    from utils.aesthetic_scorer import AestheticScorer
+    from ml.aesthetic_scorer import AestheticScorer
 
     safe_subject = os.path.basename(subject)
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
@@ -1192,7 +1192,7 @@ def api_dataset_score(subject: str = Form(""), min_score: float = Form(6.0)):
 @app.post("/api/dataset/crop")
 def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: int = Form(1024)):
     """Batch smart-crop images in a subject folder to specified aspect ratio/resolution."""
-    from utils.dataset_cropper import DatasetCropper
+    from ml.dataset_cropper import DatasetCropper
 
     safe_subject = os.path.basename(subject)
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
@@ -1218,7 +1218,7 @@ def api_dataset_crop(subject: str = Form(""), width: int = Form(1024), height: i
 def export_dataset_zip(subject: str, repeats: int = 10, concept: str = "concept"):
     """Export Kohya_ss formatted LoRA dataset ZIP archive."""
     from fastapi.responses import Response
-    from utils.dataset_exporter import KohyaDatasetExporter
+    from ml.dataset_exporter import KohyaDatasetExporter
 
     # Sanitize: use basename to break CodeQL taint chain
     safe_subject = os.path.basename(subject)
@@ -1272,7 +1272,7 @@ def update_telegram_config(token: str = Form(""), chat_id: str = Form(""), enabl
 @app.post("/api/telegram/test")
 def test_telegram_notification(token: str = Form(""), chat_id: str = Form("")):
     """Send a test notification message via Telegram Bot API."""
-    from utils.telegram_bot import TelegramBotNotifier
+    from notifications.telegram_bot import TelegramBotNotifier
 
     tok = token.strip() or telegram_config.get("token", "")
     cid = chat_id.strip() or telegram_config.get("chat_id", "")
@@ -1628,7 +1628,7 @@ async def discover_search_urls(payload: DiscoverSeedPayload):
     import urllib.parse
     import asyncio
     import random
-    from src.utils.http_client import HttpClient
+    from src.network.http_client import HttpClient
     
     query = payload.query.strip()
     if not query:
@@ -1841,7 +1841,7 @@ def download_kohya_dataset_zip(
     subject: str, run_id: str, repeats: int = 10, min_resolution: int = 512, min_aesthetic_score: float = 0.0
 ):
     """Generate and stream Kohya_ss LoRA dataset ZIP file directly to browser."""
-    from utils.dataset_exporter import KohyaDatasetExporter
+    from ml.dataset_exporter import KohyaDatasetExporter
 
     subject = os.path.basename(subject)
     run_id = os.path.basename(run_id)
@@ -1883,7 +1883,7 @@ def download_kohya_dataset_zip(
 @app.post("/api/notifications/test")
 def test_notification_channels():
     """Trigger a test ping across all registered notification providers (Telegram, Discord, Slack, etc.)."""
-    from utils.notification_manager import NotificationPipeline
+    from notifications.notification_manager import NotificationPipeline
 
     pipeline = NotificationPipeline()
     results = pipeline.notify_watchdog_status("scrAPE Test Ping: Notification pipeline is operational!", "INFO")

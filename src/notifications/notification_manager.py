@@ -7,7 +7,7 @@ import os
 from typing import Any
 import requests
 
-from utils.telegram_bot import TelegramBotNotifier
+from notifications.telegram_bot import TelegramBotNotifier
 
 LOGGER = logging.getLogger(__name__)
 

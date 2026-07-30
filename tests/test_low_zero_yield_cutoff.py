@@ -6,7 +6,7 @@ import httpx
 from core.engine import ScrapingEngine
 from core.models import ImageItem, VideoItem, EngineOptions, ScrapeResult
 from core.seed_manifest import DomainProfile
-from utils.http_client import ScraperBypassError
+from network.http_client import ScraperBypassError
 
 def test_consecutive_failures_circuit_breaker():
     """Verify domains with 3 consecutive fetch errors are cut off from crawling completely."""
@@ -127,7 +127,7 @@ def test_auth_wall_redirect_cutoff():
 
 def test_cached_response_has_request(tmp_path):
     """Verify that HttpClient._load_cache returns an httpx.Response with request and url populated."""
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     client = HttpClient()
     url = "https://cached-site.com/subpage"

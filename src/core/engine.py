@@ -22,7 +22,7 @@ from scraper.google_images import SearchProviderScraper
 from scraper.video_scraper import VideoScraper
 from storage.file_downloader import MediaDownloader
 from storage.state_cache import StateCache
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -85,7 +85,9 @@ class ScrapingEngine:
         use_state_cache: bool = False,
         proxy: str | None = None,
         proxy_list: str | None = None,
-        capsolver_key: str | None = None,
+        captcha_provider: str | None = None,
+        captcha_key: str | None = None,
+        max_captcha_spend: float | None = None,
         dl_speed_limit_kbps: int = 0,
         global_rate_limit_rps: float = 0.0,
     ) -> None:
@@ -97,12 +99,14 @@ class ScrapingEngine:
             ignore_robots=ignore_robots,
             proxy=proxy,
             proxy_list=proxy_list,
-            capsolver_key=capsolver_key,
+            captcha_provider=captcha_provider,
+            captcha_key=captcha_key,
+            max_captcha_spend=max_captcha_spend,
         )
         if global_rate_limit_rps > 0.0:
             self.search_provider.http.global_rate_limit_rps = global_rate_limit_rps
 
-        self.video_scraper = VideoScraper(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, capsolver_key=capsolver_key)
+        self.video_scraper = VideoScraper(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, captcha_provider=captcha_provider, captcha_key=captcha_key, max_captcha_spend=max_captcha_spend)
         # Share the scraper's HttpClient with the downloader for connection pool reuse
         self.downloader = MediaDownloader(http=self.search_provider.http, speed_limit_kbps=dl_speed_limit_kbps)
         self.state_cache = StateCache() if use_state_cache else None

@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from core.filters import transform_to_highres, is_search_page_url
 from storage.file_downloader import _host_semaphore_for
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 def test_transform_to_highres_extended_rules():

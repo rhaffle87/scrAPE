@@ -10,10 +10,10 @@ import httpx
 
 from core.models import EngineOptions, ImageItem, VideoItem, ScrapeResult
 from core.engine import ScrapingEngine, _is_target_met
-from utils.http_client import HttpClient
-from utils.robots import RobotsChecker
+from network.http_client import HttpClient
+from common.robots import RobotsChecker
 from core.seed_manifest import DomainProfile
-from utils.rate_limiter import RateLimiter
+from network.rate_limiter import RateLimiter
 
 
 @pytest.fixture(autouse=True)
@@ -59,7 +59,7 @@ def test_robots_txt_404_fast_fail():
 
 def test_cooldown_escalation_and_blacklisting():
     """Verify that consecutive 429 errors escalate cooldowns and blacklist the domain."""
-    from utils.blacklist import remove_from_blacklist
+    from common.blacklist import remove_from_blacklist
 
     test_domain = "test-cooldown-domain.org"
     url = f"https://{test_domain}/page.jpg"
@@ -91,7 +91,7 @@ def test_cooldown_escalation_and_blacklisting():
 
         # 4th get call should raise ScraperBypassError without hitting the mock client again
         mock_client.get.reset_mock()
-        from utils.http_client import ScraperBypassError
+        from network.http_client import ScraperBypassError
 
         with pytest.raises(ScraperBypassError):
             http.get(url)

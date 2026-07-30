@@ -18,6 +18,8 @@ except ImportError:
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 CAPSOLVER_API_KEY: str = os.getenv("CAPSOLVER_API_KEY", "").strip()
+TWOCAPTCHA_API_KEY: str = os.getenv("TWOCAPTCHA_API_KEY", "").strip()
+ANTICAPTCHA_API_KEY: str = os.getenv("ANTICAPTCHA_API_KEY", "").strip()
 
 ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True

@@ -77,11 +77,15 @@ scrape-dashboard/
 │   │   └── state_cache.py       — Persistent SQLite state cache in WAL mode
 │   └── utils/
 │       ├── blacklist.py         — Circuit breaker persistent domain blacklist
+│       ├── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
+│       ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
 │       ├── crawlee_client.py    — Python client for Crawlee Express bridge
+│       ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
 │       ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
 │       ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
 │       ├── robots.py            — Thread-safe RobotsChecker parser cache
-│       └── session.py           — Secure session cookie store (0o600 permissions)
+│       ├── session.py           — Secure session cookie store (0o600 permissions)
+│       └── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
 │
 ├── data/                        — JSON Configurations & Registries
 │   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides
@@ -108,9 +112,10 @@ The core architecture is decoupled across specialized managers inside `src/core/
 - **`MediaProcessor`**: Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
 - **`DomainRulesManager`**: Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
 
-### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/utils/http_client.py`)
+### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/utils/http_client.py` & `src/utils/stealth_pipeline.py`)
 
-When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching:
+When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching.
+The `StealthPipeline` uses a `HardwareLoadGovernor` to dynamically adjust worker concurrency (1x to 3x scaling) based on real-time system RAM and CPU telemetry, automatically forcing garbage collection when approaching OOM limits:
 
 ```mermaid
 flowchart LR
@@ -127,6 +132,7 @@ flowchart LR
 #### WAF Engine Overrides & Host Memory
 - **Seed Manifest Annotations**: `# engine: <name>` (e.g. `# engine: camoufox`) forces a specific fallback engine to run first.
 - **Host Engine Memory**: Successful solver choices are automatically cached per host (`HttpClient._preferred_engine_by_host`) and prioritized on subsequent requests.
+- **Universal Captcha Strategy**: During challenge loops, the `ThirdPartyCaptchaStrategy` automatically delegates CAPTCHA solving (Turnstile, reCAPTCHA, hCaptcha) to configured providers (`CapSolver`, `2Captcha`, `AntiCaptcha`) and caches the tokens.
 - **Camoufox Fingerprint Tuning**: Matches host OS platform (`win`/`mac`/`lin`), enables humanized cursor/scrolling (`humanize=True`), 1920x1080 viewport, and escalates to visible headful mode for 20s if Turnstile challenge is detected on a GUI system.
 - **FlareSolverr Service Integration**: Binds natively to `http://127.0.0.1:8191/v1` with dual-stack fallback (`localhost:8191`). If port 8191 is unreachable, executes background Docker auto-start (`docker start flaresolverr`) and waits 3.5s before re-pinging. Automatically forwards proxies (`self.get_proxy()`), reuses domain-keyed browser sessions (`session_domain_slug`), and enriches downstream CDN streaming media requests with session cookies. If FlareSolverr is offline, auto-disables for the run to avoid connection timeout overhead.
 

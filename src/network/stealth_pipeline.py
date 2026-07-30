@@ -120,7 +120,7 @@ class CrawleeStrategy(StealthStrategy):
 
     def is_available(self) -> bool:
         try:
-            from utils.crawlee_client import CrawleeClient
+            from network.crawlee_client import CrawleeClient
             client = CrawleeClient()
             return client._is_server_running()
         except Exception:
@@ -263,7 +263,7 @@ class StealthPipeline:
     """Orchestrates sequential execution of StealthStrategy instances with per-tier circuit-breaking."""
 
     def __init__(self, strategies: list[StealthStrategy] | None = None) -> None:
-        from utils.capsolver_strategy import CapSolverStrategy
+        from captcha.captcha_strategy import ThirdPartyCaptchaStrategy
 
         self.circuit_breaker = _StrategyCircuitBreaker()
         if strategies is not None:
@@ -271,7 +271,7 @@ class StealthPipeline:
         else:
             self.strategies = [
                 HttpxStrategy(),
-                CapSolverStrategy(),
+                ThirdPartyCaptchaStrategy(),
                 CrawleeStrategy(),
                 Crawl4AIStrategy(),
                 DrissionPageStrategy(),
@@ -296,13 +296,16 @@ class StealthPipeline:
     def execute(
         self, url: str, client: Any, skip_httpx: bool = False, preferred_engine: str | None = None
     ) -> StealthResponse:
-        from utils.http_client import ScraperBypassError
-        from utils.logger import get_logger
+        import concurrent.futures
+        from network.http_client import ScraperBypassError
+        from monitoring.logger import get_logger
+        from monitoring.hardware_governor import get_governor
 
         logger = get_logger(__name__)
         host = client._hostname(url)
         ordered_strategies = self.get_ordered_strategies(host, client=client, preferred_engine=preferred_engine)
 
+        valid_strategies = []
         for strategy in ordered_strategies:
             if skip_httpx and strategy.name == "httpx":
                 continue
@@ -317,42 +320,53 @@ class StealthPipeline:
                     host,
                 )
                 continue
+                
+            valid_strategies.append(strategy)
 
+        if not valid_strategies:
+            raise ScraperBypassError(f"No available stealth fallback tiers for {url}")
+
+        def _run_strategy(strategy: StealthStrategy) -> StealthResponse | None:
+            logger.info("Attempting stealth fallback tier '%s' for %s", strategy.name, url)
             try:
-                logger.info("Attempting stealth fallback tier '%s' for %s", strategy.name, url)
                 res = strategy.execute(url, client)
                 if res is not None and res.status_code < 400:
-                    self.circuit_breaker.record_success(strategy.name, host)
-                    with client._waf_solve_lock:
-                        client._waf_solve_counts[strategy.name] = (
-                            client._waf_solve_counts.get(strategy.name, 0) + 1
-                        )
-                    if hasattr(client, "_preferred_engine_by_host"):
-                        with client._preferred_engine_lock:
-                            client._preferred_engine_by_host[host] = strategy.name
-
-                    # Auto-persist harvested cookies and user-agent if present
-                    if (res.cookies or res.user_agent) and hasattr(client, "_session_pool"):
-                        try:
-                            client._session_pool.update_session(host, cookies=res.cookies, user_agent=res.user_agent)
-                            if hasattr(client, "session_manager"):
-                                existing = client.session_manager.load_session(host) or {}
-                                if res.cookies:
-                                    existing.update(res.cookies)
-                                client.session_manager.save_session(host, existing)
-                        except Exception as c_err:
-                            logger.warning(
-                                "Failed to persist harvested session for %s: %s", host, c_err
-                            )
-
                     return res
             except Exception as e:
-                logger.debug(
-                    "Strategy '%s' execution error on %s: %s", strategy.name, url, e
-                )
+                logger.debug("Strategy '%s' execution error on %s: %s", strategy.name, url, e)
+            return None
 
-            # Record failure if tier did not yield a clean response
-            self.circuit_breaker.record_failure(strategy.name, host)
+        # Sequential fallback execution
+        for strategy in valid_strategies:
+            res = _run_strategy(strategy)
+            
+            if res is not None:
+                self.circuit_breaker.record_success(strategy.name, host)
+                with client._waf_solve_lock:
+                    client._waf_solve_counts[strategy.name] = (
+                        client._waf_solve_counts.get(strategy.name, 0) + 1
+                    )
+                if hasattr(client, "_preferred_engine_by_host"):
+                    with client._preferred_engine_lock:
+                        client._preferred_engine_by_host[host] = strategy.name
+
+                # Auto-persist harvested cookies and user-agent if present
+                if (res.cookies or res.user_agent) and hasattr(client, "_session_pool"):
+                    try:
+                        client._session_pool.update_session(host, cookies=res.cookies, user_agent=res.user_agent)
+                        if hasattr(client, "session_manager"):
+                            existing = client.session_manager.load_session(host) or {}
+                            if res.cookies:
+                                existing.update(res.cookies)
+                            client.session_manager.save_session(host, existing)
+                    except Exception as c_err:
+                        logger.warning(
+                            "Failed to persist harvested session for %s: %s", host, c_err
+                        )
+                return res
+            else:
+                # Record failure if tier did not yield a clean response
+                self.circuit_breaker.record_failure(strategy.name, host)
 
         raise ScraperBypassError(
             f"All stealth fallback tiers failed to bypass anti-bot protection for {url}"

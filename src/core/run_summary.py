@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
 
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 
 if TYPE_CHECKING:
     from core.models import ScrapeResult

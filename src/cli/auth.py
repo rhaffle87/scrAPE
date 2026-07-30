@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
-from utils.logger import get_logger
-from utils.session import SessionManager
+from monitoring.logger import get_logger
+from network.session import SessionManager
 
 logger = get_logger(__name__)
 

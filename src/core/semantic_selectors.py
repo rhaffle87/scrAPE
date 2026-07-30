@@ -12,7 +12,7 @@ from core.filters import (
     is_probable_image,
     is_probable_video,
 )
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
 

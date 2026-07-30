@@ -4,8 +4,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from frontend.app import app, OUTPUT_DIR
-from utils.dataset_tagger import DatasetTagger
-from utils.dataset_exporter import KohyaDatasetExporter
+from ml.dataset_tagger import DatasetTagger
+from ml.dataset_exporter import KohyaDatasetExporter
 
 client = TestClient(app)
 

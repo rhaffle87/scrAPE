@@ -7,8 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from frontend.app import app, OUTPUT_DIR
-from src.utils.aesthetic_scorer import AestheticScorer
-from src.utils.dataset_cropper import DatasetCropper
+from src.ml.aesthetic_scorer import AestheticScorer
+from src.ml.dataset_cropper import DatasetCropper
 from src.cli.main import build_parser
 
 

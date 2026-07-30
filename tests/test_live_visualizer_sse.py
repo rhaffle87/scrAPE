@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import pytest
-from utils.telemetry import (
+from monitoring.telemetry import (
     register_telemetry_listener,
     unregister_telemetry_listener,
     broadcast_telemetry_event,

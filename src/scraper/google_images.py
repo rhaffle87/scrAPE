@@ -17,9 +17,9 @@ from core.models import ImageItem, VideoItem
 from core.parser import parse_html
 from scraper.base import BaseSearchScraper
 from scraper.video_scraper import extract_videos_from_html
-from utils.http_client import HttpClient
-from utils.logger import get_logger
-from utils.robots import RobotsChecker
+from network.http_client import HttpClient
+from monitoring.logger import get_logger
+from common.robots import RobotsChecker
 
 LOGGER = get_logger(__name__)
 
@@ -45,13 +45,17 @@ class SearchProviderScraper(BaseSearchScraper):
         self, domain_delays: dict[str, float] | None = None, ignore_robots: bool = False,
         proxy: str | None = None,
         proxy_list: str | None = None,
-        capsolver_key: str | None = None,
+        captcha_provider: str | None = None,
+        captcha_key: str | None = None,
+        max_captcha_spend: float | None = None,
     ) -> None:
         self.http = HttpClient(
             domain_delays=domain_delays,
             proxy=proxy,
             proxy_list=proxy_list,
-            capsolver_key=capsolver_key,
+            captcha_provider=captcha_provider,
+            captcha_key=captcha_key,
+            max_captcha_spend=max_captcha_spend,
         )
         self.robots = RobotsChecker(self.http, ignore_robots=ignore_robots)
         # Route all DuckDuckGo requests through browser stealth to avoid bot blocks.

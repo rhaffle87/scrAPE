@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 def test_flaresolverr_proxy_and_session_forwarding(monkeypatch):
@@ -95,7 +95,7 @@ def test_waf_solve_counts_telemetry(monkeypatch):
         return "<html>FlareSolverr Telemetry</html>", []
 
     monkeypatch.setattr(client, "_get_with_flaresolverr", mock_flaresolverr)
-    monkeypatch.setattr("utils.stealth_pipeline.FlareSolverrStrategy.is_available", lambda self: True)
+    monkeypatch.setattr("network.stealth_pipeline.FlareSolverrStrategy.is_available", lambda self: True)
 
     html, _ = client._execute_fallbacks(url, preferred_engine="flaresolverr")
     assert html is not None

@@ -7,7 +7,7 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from utils.notification_manager import NotificationPipeline
+from notifications.notification_manager import NotificationPipeline
 
 LOGGER = logging.getLogger(__name__)
 

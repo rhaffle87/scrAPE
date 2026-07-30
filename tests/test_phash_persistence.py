@@ -101,7 +101,7 @@ def test_cross_run_dedup_blocks_duplicate_via_seeded_set():
     Verify that _seen_phashes seeded from StateCache prevents a duplicate
     image from passing the Hamming-distance check.
     """
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
     from storage.file_downloader import hamming_distance
 
     cache = _make_cache()

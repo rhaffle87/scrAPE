@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from unittest.mock import MagicMock, patch
 import httpx
 from storage.file_downloader import MediaDownloader
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 def test_downloader_sticky_user_agent():

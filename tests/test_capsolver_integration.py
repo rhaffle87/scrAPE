@@ -4,20 +4,21 @@ test_capsolver_integration.py — Unit tests for CapSolverStrategy and WAF auto-
 
 import pytest
 from unittest.mock import MagicMock
-from utils.capsolver_strategy import CapSolverStrategy
-from utils.stealth_pipeline import StealthPipeline, StealthResponse
+from captcha.captcha_strategy import ThirdPartyCaptchaStrategy
+from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+from network.stealth_pipeline import StealthPipeline, StealthResponse
 
 
 def test_capsolver_strategy_availability():
-    strategy_no_key = CapSolverStrategy(api_key="")
+    strategy_no_key = ThirdPartyCaptchaStrategy(provider=CapSolverProvider(api_key=""))
     assert strategy_no_key.is_available() is False
 
-    strategy_with_key = CapSolverStrategy(api_key="TEST_KEY_123")
+    strategy_with_key = ThirdPartyCaptchaStrategy(provider=CapSolverProvider(api_key="TEST_KEY_123"))
     assert strategy_with_key.is_available() is True
 
 
 def test_capsolver_sitekey_extraction():
-    strategy = CapSolverStrategy(api_key="TEST_KEY_123")
+    strategy = ThirdPartyCaptchaStrategy(provider=CapSolverProvider(api_key="TEST_KEY_123"))
 
     html_turnstile = '<div class="cf-turnstile" data-sitekey="0x4AAAAAAATestKey12345"></div>'
     extracted = strategy._extract_sitekey(html_turnstile)
@@ -33,7 +34,8 @@ def test_capsolver_sitekey_extraction():
 
 
 def test_capsolver_strategy_execute_success(monkeypatch):
-    strategy = CapSolverStrategy(api_key="TEST_KEY_123")
+    provider = CapSolverProvider(api_key="TEST_KEY_123")
+    strategy = ThirdPartyCaptchaStrategy(provider=provider)
 
     mock_client = MagicMock()
     mock_client._is_cloudflare_challenge.side_effect = lambda html: "Just a moment..." in html
@@ -48,19 +50,19 @@ def test_capsolver_strategy_execute_success(monkeypatch):
     ]
 
     # Mock CapSolver Client solve_turnstile
-    monkeypatch.setattr(strategy.client, "solve_turnstile", lambda website_url, website_key, timeout: "SOLVED_TOKEN_ABC")
+    monkeypatch.setattr(strategy.provider, "solve_turnstile", lambda website_url, website_key, timeout, proxy=None, user_agent=None: "SOLVED_TOKEN_ABC")
 
     res = strategy.execute("https://mitaku.net/test", mock_client)
     assert res is not None
     assert res.status_code == 200
     assert res.text == "<html>Unlocked Content</html>"
     assert res.cookies == {"cf_clearance": "cleared_val_123"}
-    assert res.strategy_name == "capsolver"
+    assert res.strategy_name == "third_party_captcha"
     mock_client._save_domain_cookies.assert_called_once()
 
 
 def test_capsolver_strategy_fallback_when_disabled():
-    strategy = CapSolverStrategy(api_key="")
+    strategy = ThirdPartyCaptchaStrategy(provider=CapSolverProvider(api_key=""))
     mock_client = MagicMock()
     res = strategy.execute("https://mitaku.net/test", mock_client)
     assert res is None

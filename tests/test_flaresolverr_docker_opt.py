@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 from core.filters import is_search_page_url, transform_to_highres
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 def test_is_search_page_url_query_params():

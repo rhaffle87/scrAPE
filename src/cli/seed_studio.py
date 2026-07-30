@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
 

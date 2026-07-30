@@ -5,7 +5,7 @@ Unit tests for _DomainCooldownState.adaptive_jitter() and the live-jitter
 propagation in HttpClient._rate_limiter_for().
 """
 
-from utils.http_client import _DomainCooldownState
+from network.http_client import _DomainCooldownState
 from config import RATE_LIMIT_JITTER_SECONDS
 
 
@@ -63,7 +63,7 @@ def test_rate_limiter_jitter_updates_after_429(tmp_path):
     import sys, pathlib
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     client = HttpClient()
     url = "https://adaptive-jitter-test-domain.example/page"

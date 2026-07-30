@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from utils.stealth_pipeline import (
+from network.stealth_pipeline import (
     _StrategyCircuitBreaker,
     StealthPipeline,
     StealthResponse,
     StealthStrategy,
 )
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 class MockSuccessStrategy(StealthStrategy):

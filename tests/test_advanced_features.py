@@ -10,8 +10,8 @@ from bs4 import BeautifulSoup
 
 from core.models import ImageItem
 from core.engine import ScrapingEngine
-from utils.session_pool import SessionPool
-from utils.http_client import HttpClient
+from network.session_pool import SessionPool
+from network.http_client import HttpClient
 from core.semantic_selectors import (
     extract_semantic_fallback_images,
     extract_semantic_fallback_videos,

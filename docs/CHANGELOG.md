@@ -4,9 +4,12 @@
 
 ### Added & Changed (0.22.0)
 
-- **CapSolver Auto-Captcha Token Injection & Multi-Challenge Support** (`src/utils/capsolver_strategy.py`, `src/utils/capsolver.py`):
-  - Upgraded `CapSolverStrategy` to detect Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha sitekeys and solve tokens via CapSolver API.
-  - Automatically injected solved `cf_clearance` and challenge tokens directly into `SessionPool` and `session_manager` cookie caches.
+- **Universal Captcha Provider Auto-Solving (CapSolver, 2Captcha, AntiCaptcha)** (`src/utils/captcha_solvers/`, `src/utils/captcha_strategy.py`):
+  - Abstracted captcha logic into `CaptchaSolverProvider` interface and `ThirdPartyCaptchaStrategy`.
+  - Added support for dynamically instantiating CapSolver, 2Captcha, or AntiCaptcha via CLI args (`--captcha-provider`, `--captcha-key`, `--max-captcha-spend`).
+  - Automatically injects solved tokens (Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha) directly into `SessionPool` and `session_manager` cookie caches.
+- **Dynamic Memory-Aware Concurrency Scaling** (`src/utils/hardware_governor.py`, `src/utils/stealth_pipeline.py`):
+  - Created `HardwareLoadGovernor` to monitor real-time system RAM and CPU usage, dynamically scaling `StealthPipeline` concurrency (1x-3x) and forcing garbage collection to prevent out-of-memory errors.
 - **Stealth Pipeline Engine Learning & Node.js Crawlee Bridge** (`src/utils/stealth_pipeline.py`, `src/utils/crawlee_client.py`):
   - Added per-host preferred engine learning (`_preferred_engine_by_host`) to record winning stealth strategies per domain and route subsequent requests directly to the fastest bypass tier.
   - Integrated `CrawleeStrategy.is_available()` health check with `CrawleeClient` auto-spawning Node.js Express stealth bridge on port 10002.

@@ -3,8 +3,8 @@ import os
 import json
 from fastapi.testclient import TestClient
 from frontend.app import app
-from utils.http_client import HttpClient
-from utils.session import SessionManager
+from network.http_client import HttpClient
+from network.session import SessionManager
 
 client = TestClient(app)
 

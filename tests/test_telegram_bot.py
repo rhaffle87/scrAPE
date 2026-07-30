@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from utils.telegram_bot import TelegramBotNotifier, TelegramCommandHandler
+from notifications.telegram_bot import TelegramBotNotifier, TelegramCommandHandler
 
 
 def test_telegram_bot_notifier_formatting():

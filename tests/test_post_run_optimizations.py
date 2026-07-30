@@ -7,8 +7,8 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
-from utils.image_helper import compute_dhash, hamming_distance
-from utils.session import SessionManager
+from common.image_helper import compute_dhash, hamming_distance
+from network.session import SessionManager
 from frontend.app import app
 
 client = TestClient(app)

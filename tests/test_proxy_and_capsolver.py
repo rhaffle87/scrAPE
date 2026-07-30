@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import pytest
-from utils.capsolver import CapSolverClient
-from utils.proxy_manager import ProxyPoolManager, ProxyInfo
+from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+from network.proxy_manager import ProxyPoolManager, ProxyInfo
 
 
 def test_capsolver_payload_and_balance(requests_mock=None):
     """Test CapSolver API payload generation and balance querying."""
-    client = CapSolverClient(api_key="test_api_key")
+    client = CapSolverProvider(api_key="test_api_key")
     assert client.api_key == "test_api_key"
 
     # Test balance fallback when key is empty
-    empty_client = CapSolverClient(api_key="")
+    empty_client = CapSolverProvider(api_key="")
     assert empty_client.get_balance() == 0.0
 
 

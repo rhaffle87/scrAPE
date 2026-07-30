@@ -13,7 +13,7 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "src"))
 
 import pytest
-from utils.session import SessionManager
+from network.session import SessionManager
 from frontend.app import app, DiscoverSeedPayload, discover_search_urls
 
 
@@ -45,7 +45,7 @@ def test_multi_engine_discovery_probe_live_graceful():
         domains=["wallhaven.cc", "deviantart.com"]
     )
     
-    with patch("src.utils.http_client.HttpClient.get") as mock_get:
+    with patch("src.network.http_client.HttpClient.get") as mock_get:
          
         mock_resp = httpx.Response(200, request=httpx.Request("GET", "https://example.com"))
         mock_get.return_value = mock_resp

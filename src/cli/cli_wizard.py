@@ -502,8 +502,11 @@ def mode_create_dataset():
     print(
         f"  3) {CLR_CYAN}{CLR_BOLD}Media-Type Grouped{CLR_END} (Subfolders for 'images' and 'videos')"
     )
+    print(
+        f"  4) {CLR_WARNING}{CLR_BOLD}Kohya_ss LoRA ZIP{CLR_END} (Creates a .zip archive with sidecar .txt files and resolution/aesthetic filtering)"
+    )
 
-    style = get_input("Select layout (1-3)", default="1")
+    style = get_input("Select layout (1-4)", default="1")
 
     target_root = Path("datasets") / f"{subject_name}_{run_dir.name}_dataset"
     target_root.mkdir(parents=True, exist_ok=True)
@@ -517,9 +520,10 @@ def mode_create_dataset():
     # We can load results.json if we want to know source domain or alt text details
     results_path = run_dir / "results.json"
     url_to_domain = {}
+    data = {}
+    import json
+    
     if results_path.exists():
-        import json
-
         try:
             with open(results_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -533,6 +537,41 @@ def mode_create_dataset():
                 )
         except Exception:
             pass
+
+    if style == "4":
+        from ml.dataset_exporter import KohyaDatasetExporter
+        concept_name = get_input("Enter concept name", default=subject_name or "")
+        repeats = int(get_input("Enter repeats per image", default="10", val_fn=validate_number))
+        min_res = int(get_input("Enter minimum resolution (e.g. 512)", default="512", val_fn=validate_number))
+        
+        def val_float(v):
+            try:
+                float(v)
+                return True, ""
+            except:
+                return False, "Must be a float"
+                
+        min_score = float(get_input("Enter minimum aesthetic score (0.0 to disable)", default="0.0", val_fn=val_float))
+        
+        print(f"\nBuilding LoRA dataset ZIP... (this might take a moment)")
+        exporter = KohyaDatasetExporter(
+            repeats=repeats,
+            concept_name=concept_name,
+            min_resolution=min_res,
+            min_aesthetic_score=min_score
+        )
+        
+        # Data should already be loaded above, no need for the locals() check.
+        
+        zip_bytes = exporter.create_dataset_zip_bytes(image_src, data.get("images", []))
+        if zip_bytes:
+            zip_path = Path("datasets") / f"{subject_name}_{run_dir.name}_lora.zip"
+            zip_path.parent.mkdir(parents=True, exist_ok=True)
+            zip_path.write_bytes(zip_bytes)
+            print(f"\n {CLR_GREEN}Success!{CLR_END} Exported Kohya_ss ZIP to: {zip_path.name}")
+        else:
+            print(f"\n {CLR_FAIL}Failed!{CLR_END} No images were exported.")
+        return
 
     for src_dir, kind in [(image_src, "images"), (video_src, "videos")]:
         if not src_dir.exists():
@@ -756,6 +795,115 @@ def mode_rag_ingest():
     )
 
 
+def mode_domain_config():
+    import json
+    
+    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Domain & Rate Limit Configurator ───{CLR_END}\n")
+    config_path = Path("data/domain_config.json")
+    if not config_path.exists():
+        print(f" {CLR_FAIL}Config file not found at {config_path}.{CLR_END}")
+        return
+        
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f" {CLR_FAIL}Error reading JSON: {e}{CLR_END}")
+        return
+        
+    domain = get_input("Enter domain to configure (e.g., example.com)", val_fn=validate_not_empty).lower()
+    
+    # Rate limit
+    current_rl = data.get("rate_limits", {}).get(domain, "")
+    rl_input = get_input(f"Requests per second (0.0 - 100.0, empty to unset)", default=str(current_rl))
+    if rl_input:
+        if "rate_limits" not in data: data["rate_limits"] = {}
+        try:
+            data["rate_limits"][domain] = float(rl_input)
+        except:
+            pass
+            
+    # TLS Impersonate
+    current_tls = data.get("tls_impersonate", {}).get(domain, "")
+    tls_input = get_input("TLS impersonate profile (e.g. chrome120, empty to unset)", default=current_tls)
+    if tls_input:
+        if "tls_impersonate" not in data: data["tls_impersonate"] = {}
+        data["tls_impersonate"][domain] = tls_input
+        
+    # Stealth
+    is_stealth = domain in data.get("stealth_required", [])
+    if get_bool_input(f"Require Stealth/WAF mode for {domain}?", default=is_stealth):
+        if "stealth_required" not in data: data["stealth_required"] = []
+        if domain not in data["stealth_required"]:
+            data["stealth_required"].append(domain)
+    elif "stealth_required" in data and domain in data["stealth_required"]:
+        data["stealth_required"].remove(domain)
+        
+    # Auth Gated
+    is_auth = domain in data.get("auth_gated", [])
+    if get_bool_input(f"Require Authentication/Cookies for {domain}?", default=is_auth):
+        if "auth_gated" not in data: data["auth_gated"] = []
+        if domain not in data["auth_gated"]:
+            data["auth_gated"].append(domain)
+    elif "auth_gated" in data and domain in data["auth_gated"]:
+        data["auth_gated"].remove(domain)
+        
+    # Hotlink protected
+    is_hotlink = domain in data.get("hotlink_protected", [])
+    if get_bool_input(f"Is {domain} hotlink protected?", default=is_hotlink):
+        if "hotlink_protected" not in data: data["hotlink_protected"] = []
+        if domain not in data["hotlink_protected"]:
+            data["hotlink_protected"].append(domain)
+    elif "hotlink_protected" in data and domain in data["hotlink_protected"]:
+        data["hotlink_protected"].remove(domain)
+        
+    # Referer
+    current_ref = data.get("referer_overrides", {}).get(domain, "")
+    ref_input = get_input("Referer override URL (empty to unset)", default=current_ref)
+    if ref_input:
+        if "referer_overrides" not in data: data["referer_overrides"] = {}
+        data["referer_overrides"][domain] = ref_input
+        
+    # Save
+    config_path.write_text(json.dumps(data, indent=4), encoding="utf-8")
+    print(f"\n {CLR_GREEN}Success!{CLR_END} Domain {domain} configuration saved.")
+
+
+def mode_proxy_auth():
+    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Proxy & Authentication Setup ───{CLR_END}\n")
+    print(f"  1) {CLR_GREEN}{CLR_BOLD}Add Proxy Server{CLR_END}")
+    print(f"  2) {CLR_BLUE}{CLR_BOLD}Inject Session Cookies (Auth){CLR_END}")
+    print(f"  3) {CLR_WARNING}{CLR_BOLD}Clear Session Cookies{CLR_END}")
+    
+    choice = get_input("Select action (1-3)", default="1")
+    
+    if choice == "1":
+        proxy_url = get_input("Enter proxy URL (e.g. http://user:pass@host:port)", val_fn=validate_not_empty)
+        proxy_path = Path("data/proxies.txt")
+        proxy_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(proxy_path, "a", encoding="utf-8") as f:
+            f.write(f"{proxy_url}\n")
+        print(f"\n {CLR_GREEN}Success!{CLR_END} Proxy appended to data/proxies.txt")
+    elif choice == "2":
+        from network.session import SessionManager
+        import json
+        domain = get_input("Enter domain (e.g., example.com)", val_fn=validate_not_empty).lower()
+        print("Paste your JSON cookie string below:")
+        cookie_str = get_input("Cookies JSON", val_fn=validate_not_empty)
+        try:
+            cookies = json.loads(cookie_str)
+            sm = SessionManager()
+            sm.save_session(domain, cookies)
+            print(f"\n {CLR_GREEN}Success!{CLR_END} Session saved for {domain}.")
+        except Exception as e:
+            print(f"\n {CLR_FAIL}Error parsing JSON:{CLR_END} {e}")
+    elif choice == "3":
+        from network.session import SessionManager
+        domain = get_input("Enter domain to clear (e.g., example.com)", val_fn=validate_not_empty).lower()
+        sm = SessionManager()
+        sm.evict_session(domain)
+        print(f"\n {CLR_GREEN}Success!{CLR_END} Session evicted for {domain}.")
+
+
 def main():
     while True:
         clear_screen()
@@ -779,10 +927,17 @@ def main():
         print(
             f"   {CLR_GREEN}{CLR_BOLD}5.{CLR_END} Enterprise LLM RAG Ingestion   (Extract clean markdown texts for vector DBs)"
         )
+        print(f"\n {CLR_CYAN}▼ CONFIGURATION{CLR_END}")
+        print(
+            f"   {CLR_GREEN}{CLR_BOLD}6.{CLR_END} Domain & Rate Limit Configurator (Manage domain rules)"
+        )
+        print(
+            f"   {CLR_GREEN}{CLR_BOLD}7.{CLR_END} Proxy & Authentication Setup       (Proxies & session cookies)"
+        )
         print(f"\n {CLR_CYAN}▼ SYSTEM{CLR_END}")
-        print(f"   {CLR_FAIL}{CLR_BOLD}6.{CLR_END} Exit\n")
+        print(f"   {CLR_FAIL}{CLR_BOLD}8.{CLR_END} Exit\n")
 
-        choice = get_input("Enter selection (1-6)", default="1")
+        choice = get_input("Enter selection (1-8)", default="1")
 
         clear_screen()
         print_banner()
@@ -798,10 +953,14 @@ def main():
         elif choice == "5":
             mode_rag_ingest()
         elif choice == "6":
+            mode_domain_config()
+        elif choice == "7":
+            mode_proxy_auth()
+        elif choice == "8":
             print(f"\n {CLR_GREEN}Goodbye!{CLR_END}\n")
             break
         else:
-            print(f" {CLR_FAIL}Invalid option '{choice}'. Please select 1-6.{CLR_END}")
+            print(f" {CLR_FAIL}Invalid option '{choice}'. Please select 1-8.{CLR_END}")
             time.sleep(2)
             continue
 

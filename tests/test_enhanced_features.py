@@ -4,7 +4,7 @@ import pytest
 
 from core.models import ImageItem
 from scraper.google_images import SearchProviderScraper
-from utils.image_helper import get_image_dimensions
+from common.image_helper import get_image_dimensions
 
 def _get_valid_png():
     from PIL import Image
@@ -499,7 +499,7 @@ def test_refined_preview_markers_and_context_aware_filtering():
 
 def test_http_client_crawl4ai_fallback(monkeypatch):
     import httpx
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     client = HttpClient()
     # Isolate from other tests
@@ -514,8 +514,8 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
 
     monkeypatch.setattr(client.client, "get", mock_get)
 
-    from utils.stealth_pipeline import CrawleeStrategy
-    from utils.capsolver_strategy import CapSolverStrategy
+    from network.stealth_pipeline import CrawleeStrategy
+    from captcha.captcha_strategy import ThirdPartyCaptchaStrategy as CapSolverStrategy
 
     monkeypatch.setattr(CrawleeStrategy, "is_available", lambda self: False)
     monkeypatch.setattr(CapSolverStrategy, "is_available", lambda self: False)
@@ -537,7 +537,7 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
 
 
 def test_http_client_cloudflare_detection():
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     client = HttpClient()
 
@@ -569,8 +569,8 @@ def test_http_client_cloudflare_detection():
 
 def test_http_client_no_retry_on_bypass_failure(monkeypatch):
     import httpx
-    from utils.http_client import HttpClient, ScraperBypassError
-    from utils.stealth_pipeline import (
+    from network.http_client import HttpClient, ScraperBypassError
+    from network.stealth_pipeline import (
         HttpxStrategy,
         Crawl4AIStrategy,
         DrissionPageStrategy,
@@ -595,8 +595,8 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
         call_count += 1
         raise ScraperBypassError("Mocked WAF Bypass Failure")
 
-    from utils.capsolver_strategy import CapSolverStrategy
-    from utils.stealth_pipeline import HeliumStrategy
+    from captcha.captcha_strategy import ThirdPartyCaptchaStrategy as CapSolverStrategy
+    from network.stealth_pipeline import HeliumStrategy
 
     monkeypatch.setattr(Crawl4AIStrategy, "execute", mock_fail)
     monkeypatch.setattr(DrissionPageStrategy, "execute", mock_fail)
@@ -716,7 +716,7 @@ https://activesite.com/page
 
 
 def test_http_client_rate_limiting_delay_conversion():
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     # Supplying a delay of 2.5 seconds per request for a domain
     client = HttpClient(domain_delays={"example-site.com": 2.5})
@@ -839,7 +839,7 @@ def test_media_downloader_unicode_quoting(monkeypatch):
 
 
 def test_http_client_direct_stealth_routing(monkeypatch):
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
     import httpx
 
     client = HttpClient()
@@ -1017,7 +1017,7 @@ def test_trailing_slash_detection_and_parsing():
 def test_http_client_escalating_timeout_and_adaptive_rate_limit(monkeypatch):
     import time
     import httpx
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     # 1. Test timeout escalation retry
     client = HttpClient(timeout=5.0)
@@ -1121,7 +1121,7 @@ def test_search_pagination_returns_none_on_missing_form():
 
 def test_register_stealth_required_marks_host():
     """register_stealth_required should add the hostname to the class-level set."""
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     test_host = "stealth-test-host.example"
     # Ensure clean state for this test
@@ -1134,7 +1134,7 @@ def test_register_stealth_required_marks_host():
 
 def test_search_provider_scraper_registers_ddg_stealth():
     """SearchProviderScraper.__init__ must register DDG hosts as stealth-required."""
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
     from scraper.google_images import SearchProviderScraper
 
     # Instantiate to trigger __init__ stealth registration
@@ -1144,8 +1144,8 @@ def test_search_provider_scraper_registers_ddg_stealth():
 
 
 def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
-    from utils.http_client import HttpClient
-    from utils.stealth_pipeline import (
+    from network.http_client import HttpClient
+    from network.stealth_pipeline import (
         Crawl4AIStrategy,
         Crawl4AIStrategy,
         DrissionPageStrategy,
@@ -1195,7 +1195,7 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
 
 def test_get_with_helium_launches_chrome_first_then_firefox(monkeypatch):
     """Test that _get_with_helium attempts start_chrome, and if it fails, falls back to start_firefox."""
-    from utils.http_client import HttpClient
+    from network.http_client import HttpClient
 
     client = HttpClient()
 

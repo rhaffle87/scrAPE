@@ -7,13 +7,13 @@ import os
 import pytest
 from unittest.mock import MagicMock
 
-from utils.capsolver import CapSolverClient
-from utils.proxy_manager import ProxyInfo, ProxyPoolManager
-from utils.notification_manager import NotificationPipeline
+from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+from network.proxy_manager import ProxyInfo, ProxyPoolManager
+from notifications.notification_manager import NotificationPipeline
 
 
 def test_capsolver_spend_limit_guardrail(monkeypatch):
-    client = CapSolverClient(api_key="test_key", max_spend_per_run=0.010, min_balance_threshold=0.05)
+    client = CapSolverProvider(api_key="test_key", max_spend_per_run=0.010, min_balance_threshold=0.05)
 
     # Mock get_balance to return a healthy balance of $1.00
     monkeypatch.setattr(client, "get_balance", lambda: 1.00)
@@ -41,7 +41,7 @@ def test_capsolver_spend_limit_guardrail(monkeypatch):
 
 
 def test_capsolver_minimum_balance_threshold(monkeypatch):
-    client = CapSolverClient(api_key="test_key", max_spend_per_run=0.50, min_balance_threshold=0.20)
+    client = CapSolverProvider(api_key="test_key", max_spend_per_run=0.50, min_balance_threshold=0.20)
 
     # Mock get_balance to return low balance $0.10 (< $0.20 threshold)
     monkeypatch.setattr(client, "get_balance", lambda: 0.10)

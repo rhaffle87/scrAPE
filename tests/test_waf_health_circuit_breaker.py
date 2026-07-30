@@ -1,5 +1,5 @@
 import time
-from utils.http_client import StealthTierHealthManager
+from network.http_client import StealthTierHealthManager
 
 
 def test_stealth_tier_health_manager_recording():

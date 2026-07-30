@@ -23,7 +23,7 @@ from config import (
 from core.engine import ScrapingEngine
 from storage.csv_writer import write_csv
 from storage.json_writer import write_json
-from utils.logger import (
+from monitoring.logger import (
     configure_logging,
     get_logger,
     log_run_start,
@@ -158,9 +158,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="A text file containing one proxy URL per line. The system will rotate through them on failures.",
     )
     parser.add_argument(
-        "--capsolver-key",
+        "--captcha-provider",
         type=str,
-        help="API key for CapSolver to automatically solve captchas.",
+        choices=["capsolver", "2captcha", "anticaptcha"],
+        help="The third-party Captcha solving provider to use.",
+    )
+    parser.add_argument(
+        "--captcha-key",
+        type=str,
+        help="API key for the selected captcha provider.",
+    )
+    parser.add_argument(
+        "--max-captcha-spend",
+        type=float,
+        help="Maximum per-run budget for captcha solving.",
     )
     parser.add_argument(
         "--workers",
@@ -306,12 +317,12 @@ def main() -> None:
     args = build_parser().parse_args()
 
     if args.headless:
-        import utils.http_client
-        utils.http_client.FORCE_HEADLESS = True
+        import network.http_client
+        network.http_client.FORCE_HEADLESS = True
 
     if args.stealth_headful:
-        import utils.http_client
-        utils.http_client.STEALTH_HEADFUL = True
+        import network.http_client
+        network.http_client.STEALTH_HEADFUL = True
 
     if args.validate_seed:
         from core.seed_manifest import SeedManifest
@@ -544,7 +555,7 @@ def main() -> None:
                 )
             # Register Cloudflare-blocked domains so HttpClient skips Crawl4AI fallback
             if getattr(profile, "cloudflare_blocked", False):
-                from utils.http_client import HttpClient
+                from network.http_client import HttpClient
 
                 HttpClient.register_cloudflare_blocked(profile.domain)
                 logger.info(
@@ -559,13 +570,15 @@ def main() -> None:
         use_state_cache=args.use_state_cache,
         proxy=args.proxy,
         proxy_list=str(args.proxy_list) if args.proxy_list else None,
-        capsolver_key=args.capsolver_key,
+        captcha_provider=args.captcha_provider,
+        captcha_key=args.captcha_key,
+        max_captcha_spend=args.max_captcha_spend,
         dl_speed_limit_kbps=getattr(args, "dl_speed_limit", 0),
         global_rate_limit_rps=getattr(args, "rate_limit", 0.0),
     )
     engine.downloader.workers = args.dl_workers
     if getattr(args, "aesthetic_score", None) is not None:
-        from utils.aesthetic_scorer import AestheticScorer
+        from ml.aesthetic_scorer import AestheticScorer
         engine.downloader.min_aesthetic_score = args.aesthetic_score
         engine.downloader.aesthetic_scorer = AestheticScorer()
         logger.info("Aesthetic quality filter enabled: min_score=%.1f", args.aesthetic_score)
@@ -625,7 +638,7 @@ def main() -> None:
     result.run_metadata.update(metadata_updates)
 
     if args.auto_crop and args.download_media:
-        from utils.dataset_cropper import DatasetCropper
+        from ml.dataset_cropper import DatasetCropper
         images_dir = OUTPUT_DIR / result.keyword_slug / "images"
         if images_dir.exists():
             logger.info("Executing post-run smart face/body auto-cropping on %s...", images_dir)

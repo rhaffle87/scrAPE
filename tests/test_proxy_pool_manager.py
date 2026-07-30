@@ -1,4 +1,4 @@
-from utils.proxy_manager import ProxyPoolManager, ProxyInfo
+from network.proxy_manager import ProxyPoolManager, ProxyInfo
 
 
 def test_proxy_info_recording_and_cooldown():

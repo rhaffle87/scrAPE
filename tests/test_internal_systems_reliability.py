@@ -4,9 +4,9 @@ import sqlite3
 import time
 from pathlib import Path
 from src.storage.state_cache import StateCache, retry_on_db_lock
-from src.utils.stealth_pipeline import StealthPipeline, _StrategyCircuitBreaker
+from src.network.stealth_pipeline import StealthPipeline, _StrategyCircuitBreaker
 from src.storage.file_downloader import MediaDownloader
-from src.utils.hardware_governor import HardwareLoadGovernor
+from src.monitoring.hardware_governor import HardwareLoadGovernor
 
 
 def test_stealth_circuit_breaker_auto_heal():

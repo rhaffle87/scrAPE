@@ -62,11 +62,11 @@ from config import (
     FORCE_HEADLESS,
     STEALTH_HEADFUL,
 )
-from utils.rate_limiter import RateLimiter
-from utils.session_pool import SessionPool
-from utils.blacklist import is_blacklisted
-from utils.session import SessionManager
-from utils.logger import get_logger
+from network.rate_limiter import RateLimiter
+from network.session_pool import SessionPool
+from common.blacklist import is_blacklisted
+from network.session import SessionManager
+from monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -335,7 +335,7 @@ class _DomainCooldownState:
 
 def _apply_playwright_channel_patch() -> None:
     """Patch playwright and patchright launch_persistent_context to respect BrowserConfig channel."""
-    from utils.logger import get_logger
+    from monitoring.logger import get_logger
 
     logger = get_logger(__name__)
 
@@ -597,7 +597,9 @@ class HttpClient:
         domain_delays: dict[str, float] | None = None,
         proxy: str | None = None,
         proxy_list: str | None = None,
-        capsolver_key: str | None = None,
+        captcha_provider: str | None = None,
+        captcha_key: str | None = None,
+        max_captcha_spend: float | None = None,
         global_rate_limit_rps: float = 0.0,
     ) -> None:
         """
@@ -608,7 +610,9 @@ class HttpClient:
             global_rate_limit_rps: Maximum global page request rate limit in req/s (0.0 = unlimited).
         """
         self.timeout = timeout
-        self.capsolver_key = capsolver_key
+        self.captcha_provider = captcha_provider
+        self.captcha_key = captcha_key
+        self.max_captcha_spend = max_captcha_spend
         self.global_rate_limit_rps = max(0.0, global_rate_limit_rps)
         
         self.proxy_list = []
@@ -649,7 +653,7 @@ class HttpClient:
         # Per-domain serialization locks for Crawl4AI fallback
         self._domain_fallback_locks: dict[str, threading.Lock] = {}
         self._fallback_lock = threading.Lock()
-        from utils.stealth_pipeline import StealthPipeline
+        from network.stealth_pipeline import StealthPipeline
         self.stealth_pipeline = StealthPipeline()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         # Thread-local storage: tracks the pure *network* latency for the most
@@ -666,7 +670,7 @@ class HttpClient:
 
     def _save_domain_cookies(self, url: str, cookies: dict | list) -> None:
         """Save solved cookies to persistent disk session and session pool."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
         logger = get_logger(__name__)
         host = self._hostname(url)
         cookie_dict = {}
@@ -691,7 +695,7 @@ class HttpClient:
         with self._proxy_lock:
             if not self.proxy_list:
                 return None
-            from utils.proxy_manager import ProxyPoolManager
+            from network.proxy_manager import ProxyPoolManager
 
             pool = ProxyPoolManager.get_instance()
             pool.set_proxies(self.proxy_list)
@@ -702,7 +706,7 @@ class HttpClient:
         with self._proxy_lock:
             if not self.proxy_list:
                 return None
-            from utils.proxy_manager import ProxyPoolManager
+            from network.proxy_manager import ProxyPoolManager
 
             pool = ProxyPoolManager.get_instance()
             pool.set_proxies(self.proxy_list)
@@ -1094,7 +1098,7 @@ class HttpClient:
         if not ENABLE_COOKIE_HARVESTING:
             return {}
 
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
         import os
         import sys
 
@@ -1180,21 +1184,21 @@ class HttpClient:
 
     def _get_with_crawlee_cheerio(self, url: str) -> tuple[str, list[dict]]:
         """Fetch URL using Crawlee Cheerio (fast parser)"""
-        from utils.crawlee_client import CrawleeClient
+        from network.crawlee_client import CrawleeClient
         client = CrawleeClient()
         html = client.get_with_cheerio(url, proxy=self.get_proxy())
         return html, []
 
     def _get_with_crawlee_puppeteer(self, url: str) -> tuple[str, list[dict]]:
         """Fetch URL using Crawlee Puppeteer (stealth browser)"""
-        from utils.crawlee_client import CrawleeClient
+        from network.crawlee_client import CrawleeClient
         client = CrawleeClient()
         html, cookies = client.get_with_puppeteer(url, proxy=self.get_proxy())
         return html, cookies
 
     def _get_with_drissionpage(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using DrissionPage to bypass Turnstile/WAF locally."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         logger = get_logger(__name__)
 
@@ -1293,7 +1297,7 @@ class HttpClient:
 
     def _get_with_helium(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using Helium as a browser fallback (supports Firefox if Chrome is missing)."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         logger = get_logger(__name__)
 
@@ -1403,7 +1407,7 @@ class HttpClient:
 
     def _get_with_uc(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using undetected-chromedriver as the deepest fallback tier."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         logger = get_logger(__name__)
 
@@ -1473,9 +1477,9 @@ class HttpClient:
                 html = driver.page_source
                 if not self._is_cloudflare_challenge(html):
                     break
-                if self.capsolver_key and not capsolver_attempted:
-                    # Attempt Capsolver bypass
-                    success = self._solve_cloudflare_capsolver_uc(driver, url)
+                if self.captcha_provider and self.captcha_key and not capsolver_attempted:
+                    # Attempt provider bypass
+                    success = self._solve_cloudflare_captcha_uc(driver, url)
                     capsolver_attempted = True
                     if success:
                         solve_timeout += 10.0  # Give it extra time to reload
@@ -1528,18 +1532,30 @@ class HttpClient:
                 except Exception:
                     pass
 
-    def _solve_cloudflare_capsolver_uc(self, driver, url: str) -> bool:
-        if not self.capsolver_key:
+    def _solve_cloudflare_captcha_uc(self, driver, url: str) -> bool:
+        if not self.captcha_provider or not self.captcha_key:
             return False
-        import capsolver
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
         logger = get_logger(__name__)
-        capsolver.api_key = self.capsolver_key
         
+        provider_name = self.captcha_provider.lower()
+        provider = None
+        if provider_name == "capsolver":
+            from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+            provider = CapSolverProvider(api_key=self.captcha_key, max_spend_per_run=self.max_captcha_spend)
+        elif provider_name == "2captcha":
+            from captcha.captcha_solvers.twocaptcha_provider import TwoCaptchaProvider
+            provider = TwoCaptchaProvider(api_key=self.captcha_key, max_spend=self.max_captcha_spend)
+        elif provider_name == "anticaptcha":
+            from captcha.captcha_solvers.anticaptcha_provider import AntiCaptchaProvider
+            provider = AntiCaptchaProvider(api_key=self.captcha_key, max_spend=self.max_captcha_spend)
+        else:
+            logger.warning(f"Unknown captcha provider: {provider_name}")
+            return False
+            
         html = driver.page_source
         sitekey = None
         
-        # Look for data-sitekey="xxx" or similar Turnstile identifiers
         import re
         match = re.search(r'data-sitekey=["\']([^"\']+)["\']', html)
         if match:
@@ -1550,22 +1566,18 @@ class HttpClient:
                 sitekey = match.group(1)
         
         if not sitekey:
-            logger.warning("CapSolver: Cloudflare Turnstile detected, but sitekey not found in HTML.")
+            logger.warning(f"{provider_name}: Cloudflare Turnstile detected, but sitekey not found in HTML.")
             return False
             
-        logger.info("CapSolver: Solving Turnstile for sitekey %s...", sitekey)
+        logger.info(f"{provider_name}: Solving Turnstile for sitekey {sitekey}...")
         try:
-            solution = capsolver.solve({
-                "type": "AntiCloudflareTask",
-                "websiteURL": url,
-                "websiteKey": sitekey,
-            })
-            token = solution.get("token")
+            token = provider.solve_turnstile(website_url=url, website_key=sitekey, timeout=60)
             if not token:
-                logger.warning("CapSolver: No token returned in solution.")
+                logger.warning(f"{provider_name}: No token returned in solution.")
                 return False
                 
-            logger.info("CapSolver: Got token. Injecting into page...")
+            # Inject token into page context
+            logger.info(f"{provider_name}: Injecting token...")
             script = f"""
             let input = document.querySelector('[name="cf-turnstile-response"]');
             if (input) {{
@@ -1603,18 +1615,18 @@ class HttpClient:
             """
             success = driver.execute_script(script)
             if success:
-                logger.info("CapSolver: Token injected and form submitted.")
+                logger.info(f"{provider_name}: Token injected and form submitted.")
                 return True
             else:
-                logger.warning("CapSolver: Failed to locate cf-turnstile-response input or form to submit.")
+                logger.warning(f"{provider_name}: Failed to locate cf-turnstile-response input or form to submit.")
                 return False
         except Exception as e:
-            logger.error("CapSolver API failed: %s", repr(e))
+            logger.error(f"{provider_name} API failed: {repr(e)}")
             return False
 
     def _get_with_camoufox(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using Camoufox stealth browser with fingerprint & headful escalation tuning."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
         logger = get_logger(__name__)
 
         try:
@@ -1690,7 +1702,7 @@ class HttpClient:
 
     def _get_with_flaresolverr(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using FlareSolverr proxy service with session reuse & proxy forwarding."""
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
         logger = get_logger(__name__)
 
         fs_url = FLARESOLVERR_URL or "http://127.0.0.1:8191/v1"
@@ -1824,7 +1836,7 @@ class HttpClient:
             UndetectedAdapter,
         )
         from crawl4ai.async_crawler_strategy import AsyncPlaywrightCrawlerStrategy
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         logger = get_logger(__name__)
 
@@ -1847,7 +1859,7 @@ class HttpClient:
                 raise Exception(res.error_message if res else "Unknown crawler error")
 
         async def _run_crawler() -> tuple[str, list[dict]]:
-            from utils.logger import get_logger
+            from monitoring.logger import get_logger
 
             logger = get_logger(__name__)
 
@@ -2073,7 +2085,7 @@ class HttpClient:
         ``httpx.HTTPError`` network errors.  ``ScraperBypassError`` and
         domain-cooldown errors are NOT retried.
         """
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         logger = get_logger(__name__)
         domain = urlparse(url).netloc
@@ -2282,7 +2294,7 @@ class HttpClient:
                                 cooldown_duration,
                             )
                             if cd_state.is_blacklisted:
-                                from utils.blacklist import add_to_blacklist
+                                from common.blacklist import add_to_blacklist
 
                                 add_to_blacklist(host, reason="consecutive_429s")
 
@@ -2497,7 +2509,7 @@ class HttpClient:
                         cooldown_duration,
                     )
                     if cd_state.is_blacklisted:
-                        from utils.blacklist import add_to_blacklist
+                        from common.blacklist import add_to_blacklist
 
                         add_to_blacklist(host, reason="consecutive_failures")
                 raise exc

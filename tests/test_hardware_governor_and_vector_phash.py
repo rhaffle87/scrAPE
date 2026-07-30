@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 from PIL import Image
-from src.utils.hardware_governor import HardwareLoadGovernor
-from src.utils.vector_phash import VectorizedPHashCalculator
+from src.monitoring.hardware_governor import HardwareLoadGovernor
+from src.ml.vector_phash import VectorizedPHashCalculator
 
 
 def test_hardware_governor_normal_load(tmp_path):

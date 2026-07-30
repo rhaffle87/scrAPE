@@ -19,7 +19,7 @@ from core.models import (
     VideoItem,
 )
 from core.engine import _video_resolution_hint
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 from core.filters import (
     normalize_url,
     score_image_relevance,
@@ -293,13 +293,12 @@ class MediaProcessor:
                 continue
             seen.add(item.url)
             kept.append(item)
+        from core.filters import contains_subject_text, safe_join
         kept.sort(
             key=lambda item: (
                 item.score,
                 contains_subject_text(
-                    " ".join(
-                        [item.url, item.source_page, item.alt_text or "", item.page_title or ""]
-                    ).lower(),
+                    safe_join([item.url, item.source_page, item.alt_text, item.page_title]).lower(),
                     options.keyword,
                     options.entity_tokens,
                 ),
@@ -340,11 +339,12 @@ class MediaProcessor:
                 continue
             seen.add(item.url)
             kept.append(item)
+        from core.filters import contains_subject_text, safe_join
         kept.sort(
             key=lambda item: (
                 item.score,
                 contains_subject_text(
-                    " ".join([item.url, item.source_page, item.page_title or ""]).lower(),
+                    safe_join([item.url, item.source_page, item.page_title]).lower(),
                     options.keyword,
                     options.entity_tokens,
                 ),
@@ -358,7 +358,7 @@ class MediaProcessor:
             dead_urls_list = sorted(list(self.downloader._dead_urls))
         if dead_urls_list:
             import json
-            from utils.logger import get_logger
+            from monitoring.logger import get_logger
             LOGGER = get_logger(__name__)
             # 1. Save to subject directory (persistent)
             subject_dead_file = options.output_dir / result.keyword_slug / "dead_urls.json"
@@ -388,7 +388,7 @@ class MediaProcessor:
             DEFAULT_DOWNLOAD_VIDEOS_SUBDIR,
             CONCURRENT_DOWNLOADS,
         )
-        from utils.logger import get_logger
+        from monitoring.logger import get_logger
 
         LOGGER = get_logger(__name__)
 
@@ -673,7 +673,7 @@ class CrawlOrchestrator:
         # Fix 3: Register Cloudflare-blocked domains early so the HttpClient
         # skips all browser fallback tiers immediately for protected domains.
         # This prevents ~30s timeouts per page when Turnstile is active.
-        from utils.http_client import HttpClient
+        from network.http_client import HttpClient
 
         if options.domain_profiles:
             for _domain, _profile in options.domain_profiles.items():
@@ -782,7 +782,7 @@ class CrawlOrchestrator:
                 ordered_pages.append((normalized_page, current_depth))
 
                 try:
-                    from utils.telemetry import broadcast_telemetry_event
+                    from monitoring.telemetry import broadcast_telemetry_event
                     broadcast_telemetry_event("crawl_graph_node", {
                         "url": normalized_page,
                         "domain": host,
@@ -872,7 +872,7 @@ class CrawlOrchestrator:
                     ).append(normalized_link)
 
                     try:
-                        from utils.telemetry import broadcast_telemetry_event
+                        from monitoring.telemetry import broadcast_telemetry_event
                         broadcast_telemetry_event("crawl_graph_node", {
                             "url": normalized_link,
                             "domain": link_host,

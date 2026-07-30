@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 import json
 import httpx
-from utils.session_pool import Session, FlatCookies
+from network.session_pool import Session, FlatCookies
 from core.filters import is_thumbnail_url
 from storage.file_downloader import MediaDownloader
 from core.models import ScrapeResult

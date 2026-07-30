@@ -5,8 +5,8 @@ from pathlib import Path
 import zipfile
 import pytest
 
-from utils.dataset_tagger import DatasetTagger
-from utils.dataset_exporter import KohyaDatasetExporter
+from ml.dataset_tagger import DatasetTagger
+from ml.dataset_exporter import KohyaDatasetExporter
 
 
 def test_dataset_tagger_sidecar_generation(tmp_path):

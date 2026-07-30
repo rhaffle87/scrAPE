@@ -23,7 +23,7 @@ def test_notify_telegram(monkeypatch):
     mock_notifier = MagicMock()
     mock_notifier.is_configured.return_value = True
 
-    monkeypatch.setattr("utils.telegram_bot.TelegramBotNotifier", lambda token, chat_id: mock_notifier)
+    monkeypatch.setattr("notifications.telegram_bot.TelegramBotNotifier", lambda token, chat_id: mock_notifier)
 
     notify_telegram("Test Watchdog Alert")
     mock_notifier.send_message.assert_called_once_with("Test Watchdog Alert")

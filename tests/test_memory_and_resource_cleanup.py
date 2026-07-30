@@ -6,7 +6,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from utils.image_helper import compute_dhash, get_image_dimensions, hamming_distance
+from common.image_helper import compute_dhash, get_image_dimensions, hamming_distance
 
 
 def test_compute_dhash_resource_cleanup():

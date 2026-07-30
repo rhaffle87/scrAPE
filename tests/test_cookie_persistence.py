@@ -1,5 +1,5 @@
 import json
-from utils.session_pool import Session
+from network.session_pool import Session
 
 
 def test_session_cookie_persistence(tmp_path):

@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import time
 import pytest
-from utils.bandwidth_limiter import BandwidthLimiter
-from utils.http_client import HttpClient
+from network.bandwidth_limiter import BandwidthLimiter
+from network.http_client import HttpClient
 from cli.main import build_parser
 
 

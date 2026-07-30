@@ -38,7 +38,7 @@ class ExtractorPlugin(ABC):
     def get_domain_cookies(self, domain: str) -> dict[str, str]:
         """Fetch active session cookies from SessionPool for *domain* if available."""
         try:
-            from utils.session_pool import SessionPool
+            from network.session_pool import SessionPool
             pool = SessionPool()
             session = pool.get_session(domain)
             if hasattr(session, "session") and hasattr(session.session, "cookies"):

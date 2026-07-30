@@ -188,7 +188,7 @@ def run_scraper(
 def notify_telegram(message: str) -> None:
     """Send alert via TelegramBotNotifier and multi-channel NotificationPipeline."""
     try:
-        from utils.telegram_bot import TelegramBotNotifier
+        from notifications.telegram_bot import TelegramBotNotifier
 
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
         chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -199,7 +199,7 @@ def notify_telegram(message: str) -> None:
         print(f"[{datetime.now().isoformat()}] Telegram alert dispatch failed: {e}")
 
     try:
-        from utils.notification_manager import NotificationPipeline, TelegramNotifier
+        from notifications.notification_manager import NotificationPipeline, TelegramNotifier
 
         pipeline = NotificationPipeline()
         pipeline.providers = [p for p in pipeline.providers if not isinstance(p, TelegramNotifier)]

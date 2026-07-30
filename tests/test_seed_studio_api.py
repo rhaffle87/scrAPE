@@ -73,7 +73,7 @@ def test_api_discover_urls_pattern_generation():
     from unittest.mock import patch
     import httpx
     
-    with patch("src.utils.http_client.HttpClient.get") as mock_get:
+    with patch("src.network.http_client.HttpClient.get") as mock_get:
         
         mock_resp = httpx.Response(200, request=httpx.Request("GET", "https://example.com"))
         mock_get.return_value = mock_resp

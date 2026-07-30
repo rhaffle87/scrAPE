@@ -10,7 +10,7 @@ import httpx
 from config import USER_AGENTS
 import json
 from pathlib import Path
-from utils.logger import get_logger
+from monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 

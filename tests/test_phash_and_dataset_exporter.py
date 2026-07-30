@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from utils.image_helper import hamming_distance
+from common.image_helper import hamming_distance
 from storage.dataset_exporter import DatasetExporter
 
 

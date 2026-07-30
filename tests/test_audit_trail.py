@@ -9,7 +9,7 @@ import httpx
 from core.models import ImageItem, VideoItem, ScrapeResult
 from core.engine import ScrapingEngine
 from core.filters import is_allowed_path
-from utils.http_client import HttpClient, ScraperBypassError
+from network.http_client import HttpClient, ScraperBypassError
 
 
 def test_item_default_audit_fields():
@@ -80,7 +80,7 @@ def test_engine_in_place_audit_mapping():
     engine.downloader._download_file = mock_download
 
     # Execute engine run which will crawl the page and trigger downloads
-    with patch("utils.http_client.HttpClient.get") as mock_get:
+    with patch("network.http_client.HttpClient.get") as mock_get:
         mock_response = httpx.Response(200, text="<html></html>", request=httpx.Request("GET", "https://example.com/page.html"))
         mock_get.return_value = mock_response
         result = engine.run(
@@ -119,7 +119,7 @@ def test_stealth_timed_block_expiry():
     assert host not in HttpClient._stealth_failed_hosts
 
     # Simulate a stealth failure (normally added on Crawl4AI fallback exception)
-    with patch("utils.http_client.time.time", return_value=1000.0):
+    with patch("network.http_client.time.time", return_value=1000.0):
         # Trigger fallback failure directly or simulate adding it
         with HttpClient._failed_stealth_lock:
             HttpClient._stealth_failed_hosts[host] = 1000.0 + 1800.0
@@ -127,14 +127,14 @@ def test_stealth_timed_block_expiry():
     assert HttpClient._stealth_failed_hosts[host] == 2800.0
 
     # Verify that requesting while cooldown is active throws ScraperBypassError
-    with patch("utils.http_client.time.time", return_value=2000.0):
+    with patch("network.http_client.time.time", return_value=2000.0):
         with pytest.raises(ScraperBypassError) as exc_info:
             client.get(url)
         assert "Stealth cooldown active" in str(exc_info.value)
 
     # Verify that requesting after expiry removes the host and attempts standard flow
     with (
-        patch("utils.http_client.time.time", return_value=3000.0),
+        patch("network.http_client.time.time", return_value=3000.0),
         patch.object(client.client, "get") as mock_get,
     ):
         mock_get.return_value = httpx.Response(

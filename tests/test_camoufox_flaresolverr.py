@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 
 def test_flaresolverr_fallback_success(monkeypatch):

@@ -27,10 +27,10 @@ from config import (
 )
 from core.filters import should_keep_image, should_keep_video
 from core.models import ScrapeResult
-from utils.image_helper import get_image_dimensions, compute_dhash, hamming_distance
-from utils.http_client import HttpClient
-from utils.logger import get_logger
-from utils.rate_limiter import RateLimiter
+from common.image_helper import get_image_dimensions, compute_dhash, hamming_distance
+from network.http_client import HttpClient
+from monitoring.logger import get_logger
+from network.rate_limiter import RateLimiter
 
 
 LOGGER = get_logger(__name__)
@@ -100,8 +100,8 @@ class MediaDownloader:
         keyword: str = "",
         min_aesthetic_score: float | None = None,
     ) -> None:
-        from utils.bandwidth_limiter import BandwidthLimiter
-        from utils.aesthetic_scorer import AestheticScorer
+        from network.bandwidth_limiter import BandwidthLimiter
+        from ml.aesthetic_scorer import AestheticScorer
 
         self.http = http if http is not None else HttpClient()
         self.workers = max(1, workers)
@@ -704,7 +704,7 @@ class MediaDownloader:
                         relative_path = str(target)
 
                 try:
-                    from utils.telemetry import broadcast_telemetry_event
+                    from monitoring.telemetry import broadcast_telemetry_event
                     broadcast_telemetry_event("media_downloaded", {
                         "url": url,
                         "file_path": relative_path.replace("\\", "/"),
@@ -936,7 +936,7 @@ class MediaDownloader:
 
             w, h = None, None
             if media_kind == "image":
-                from utils.image_helper import get_image_dimensions
+                from common.image_helper import get_image_dimensions
                 w, h = get_image_dimensions(content)
                 if w is not None and h is not None:
                     limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH

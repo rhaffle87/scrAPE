@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.utils.http_client import HttpClient
-from src.utils.logger import get_logger, configure_logging
+from src.network.http_client import HttpClient
+from src.monitoring.logger import get_logger, configure_logging
 
 configure_logging()
 logger = get_logger(__name__)

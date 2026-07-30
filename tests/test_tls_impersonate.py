@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.utils.http_client import HttpClient
+from src.network.http_client import HttpClient
 
 
 # ---------------------------------------------------------------------------

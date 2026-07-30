@@ -68,9 +68,11 @@ class HardwareLoadGovernor:
         # Critical load threshold check
         if cpu >= 95.0 or ram_avail <= 5.0:
             LOGGER.warning("CRITICAL SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.25x.", cpu, ram_avail)
+            self.trigger_memory_cleanup()
             return 0.25
         elif cpu >= self.max_cpu_percent or ram_avail <= self.min_ram_percent:
             LOGGER.warning("HIGH SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.50x.", cpu, ram_avail)
+            self.trigger_memory_cleanup()
             return 0.50
 
         return 1.0
@@ -81,3 +83,13 @@ class HardwareLoadGovernor:
         collected = gc.collect()
         LOGGER.info("HardwareLoadGovernor: Explicit GC cycle collected %d unreferenced objects.", collected)
         return collected
+
+
+_GOVERNOR_INSTANCE: HardwareLoadGovernor | None = None
+
+def get_governor() -> HardwareLoadGovernor:
+    """Returns a globally shared singleton instance of the HardwareLoadGovernor."""
+    global _GOVERNOR_INSTANCE
+    if _GOVERNOR_INSTANCE is None:
+        _GOVERNOR_INSTANCE = HardwareLoadGovernor()
+    return _GOVERNOR_INSTANCE

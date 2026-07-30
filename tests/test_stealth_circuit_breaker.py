@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from utils.http_client import HttpClient, ScraperBypassError
+from network.http_client import HttpClient, ScraperBypassError
 
 
 def test_stealth_circuit_breaker(monkeypatch):
@@ -79,7 +79,7 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        "utils.http_client._run_coroutine_sync", mock_run_coroutine_sync
+        "network.http_client._run_coroutine_sync", mock_run_coroutine_sync
     )
 
     # Trigger directly

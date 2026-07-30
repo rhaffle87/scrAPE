@@ -7,7 +7,7 @@ import os
 import zipfile
 from pathlib import Path
 from typing import Any
-from utils.image_helper import get_image_dimensions, compute_dhash, hamming_distance
+from common.image_helper import get_image_dimensions, compute_dhash, hamming_distance
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class KohyaDatasetExporter:
         scorer = None
         if self.min_aesthetic_score > 0.0:
             try:
-                from utils.aesthetic_scorer import AestheticScorer
+                from ml.aesthetic_scorer import AestheticScorer
                 scorer = AestheticScorer()
             except Exception as exc:
                 LOGGER.debug("AestheticScorer initialization skipped: %s", exc)

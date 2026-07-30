@@ -15,7 +15,7 @@ from src.core.seed_manifest import SeedManifest
 client = TestClient(app)
 
 
-@patch("src.utils.http_client.HttpClient.get")
+@patch("src.network.http_client.HttpClient.get")
 def test_e2e_seed_studio_subject_alpha(mock_http_get):
     """End-to-end Seed Studio creation and validation for a generic subject."""
     mock_resp = MagicMock()
@@ -124,7 +124,7 @@ https://search.example.com/search?q={subject_name}&f=media
         target_file.unlink()
 
 
-@patch("src.utils.http_client.HttpClient.get")
+@patch("src.network.http_client.HttpClient.get")
 def test_e2e_seed_studio_subject_beta(mock_http_get):
     """End-to-end Seed Studio creation and validation for a second generic subject."""
     mock_resp = MagicMock()

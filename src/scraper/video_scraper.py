@@ -16,7 +16,7 @@ from core.filters import (
     normalize_url,
 )
 from core.models import VideoItem
-from utils.http_client import HttpClient
+from network.http_client import HttpClient
 
 YOUTUBE_PATTERNS = [
     re.compile(r"https?://(?:www\.)?youtube\.com/watch\?v=[\w-]+"),
@@ -287,9 +287,11 @@ class VideoScraper:
         domain_delays: dict[str, float] | None = None,
         proxy: str | None = None,
         proxy_list: str | None = None,
-        capsolver_key: str | None = None,
+        captcha_provider: str | None = None,
+        captcha_key: str | None = None,
+        max_captcha_spend: float | None = None,
     ) -> None:
-        self.http = HttpClient(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, capsolver_key=capsolver_key)
+        self.http = HttpClient(domain_delays=domain_delays, proxy=proxy, proxy_list=proxy_list, captcha_provider=captcha_provider, captcha_key=captcha_key, max_captcha_spend=max_captcha_spend)
         # Route DDG through browser stealth to bypass bot-detection.
         for ddg_host in self._DDG_HOSTS:
             HttpClient.register_stealth_required(ddg_host)

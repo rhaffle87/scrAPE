@@ -18,7 +18,7 @@ src/scraper/google_images.py        — Search provider + page scraper + link/me
 src/storage/file_downloader.py      — Concurrent media downloader with MIME/size validation
 src/utils/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
 src/utils/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
-src/utils/capsolver.py              — CapSolver auto-captcha solving API integration
+src/utils/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
 src/utils/telegram_bot.py           — Telegram Bot alerts & interactive command handler
 src/utils/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
 src/utils/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
@@ -50,7 +50,7 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
 ## 2. Tech Stack & Core Rules
 
 - **Core Engine**: Python 3.10+ (`src/core/`), FastAPI (`frontend/app.py`), HTMX, SQLite (WAL mode).
-- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/utils/stealth_pipeline.py`), CapSolver auto-captcha solver (`src/utils/capsolver.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
+- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/utils/stealth_pipeline.py`), Universal Captcha Auto-Solving (`src/utils/captcha_strategy.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
 - **WebUI Design System**: Utilitarian Brutalism — strict 90° square corners (`border-radius: 0 !important`), `Oswald` headers, `JetBrains Mono` body/forms, high-contrast dark theme (`#0b0d0c` / `#ff5500` accent), HTML5 Canvas live crawl network tree.
 
 ### Mandatory Coding Rules
