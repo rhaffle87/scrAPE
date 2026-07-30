@@ -94,8 +94,12 @@ def test_slack_notifier_formatting(monkeypatch):
 
 
 def test_api_test_notifications_endpoint():
-    res = client.post("/api/notifications/test")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "ok"
-    assert "delivered_providers" in data
+    from unittest.mock import patch
+    
+    with patch("utils.notification_manager.NotificationPipeline.notify_watchdog_status") as mock_notify:
+        mock_notify.return_value = {"MockNotifier": True}
+        res = client.post("/api/notifications/test")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert "delivered_providers" in data

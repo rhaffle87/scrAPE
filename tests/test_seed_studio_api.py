@@ -70,9 +70,17 @@ def test_api_save_validate_and_delete_seed():
     assert del_res.json()["success"] is True
 
 def test_api_discover_urls_pattern_generation():
-    discover_res = client.post("/api/seeds/discover", json={"query": "testsubject", "domains": ["example.com"]})
-    assert discover_res.status_code == 200
-    data = discover_res.json()
-    assert "discovered_urls" in data
-    assert "tested_count" in data
-    assert data["tested_count"] >= 10
+    from unittest.mock import patch
+    import httpx
+    
+    with patch("src.utils.http_client.HttpClient.get") as mock_get:
+        
+        mock_resp = httpx.Response(200, request=httpx.Request("GET", "https://example.com"))
+        mock_get.return_value = mock_resp
+        
+        discover_res = client.post("/api/seeds/discover", json={"query": "testsubject", "domains": ["example.com"]})
+        assert discover_res.status_code == 200
+        data = discover_res.json()
+        assert "discovered_urls" in data
+        assert "tested_count" in data
+        assert data["tested_count"] >= 10

@@ -80,14 +80,17 @@ def test_engine_in_place_audit_mapping():
     engine.downloader._download_file = mock_download
 
     # Execute engine run which will crawl the page and trigger downloads
-    result = engine.run(
-        keyword="test",
-        max_results=10,
-        output_format="json",
-        download_media=True,
-        use_search=False,
-        seed_urls=["https://example.com/page.html"],
-    )
+    with patch("utils.http_client.HttpClient.get") as mock_get:
+        mock_response = httpx.Response(200, text="<html></html>", request=httpx.Request("GET", "https://example.com/page.html"))
+        mock_get.return_value = mock_response
+        result = engine.run(
+            keyword="test",
+            max_results=10,
+            output_format="json",
+            download_media=True,
+            use_search=False,
+            seed_urls=["https://example.com/page.html"],
+        )
 
     # Assert changes were made in-place and both kept in results
     assert img.status == "downloaded"

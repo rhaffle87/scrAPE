@@ -904,12 +904,12 @@ class CrawlOrchestrator:
         result = coordinator.execute(pages_to_fetch, discovered_links_counts)
         
         # Sort the final lists of kept items by score for output consistency (as was done in the original)
-        from core.filters import contains_subject_text
+        from core.filters import contains_subject_text, safe_join
         result.images.sort(
             key=lambda item: (
                 item.score,
                 contains_subject_text(
-                    " ".join([item.url, item.source_page, item.alt_text, item.page_title]).lower(),
+                    safe_join([item.url, item.source_page, item.alt_text, item.page_title]).lower(),
                     options.keyword,
                     options.entity_tokens,
                 ),
@@ -920,7 +920,7 @@ class CrawlOrchestrator:
             key=lambda item: (
                 item.score,
                 contains_subject_text(
-                    " ".join([item.url, item.source_page, item.page_title]).lower(),
+                    safe_join([item.url, item.source_page, item.page_title]).lower(),
                     options.keyword,
                     options.entity_tokens,
                 ),

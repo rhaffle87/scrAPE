@@ -37,16 +37,24 @@ def test_session_manager_persistence_and_eviction():
 def test_multi_engine_discovery_probe_live_graceful():
     """Test /api/seeds/discover endpoint with multi-engine probe matrix and graceful network fallback."""
     import asyncio
+    from unittest.mock import patch
+    import httpx
+    
     payload = DiscoverSeedPayload(
         query="test_subject",
         domains=["wallhaven.cc", "deviantart.com"]
     )
     
-    result = asyncio.run(discover_search_urls(payload))
-    
-    assert "discovered_urls" in result
-    assert "tested_count" in result
-    assert "valid_count" in result
-    tested_cnt = result["tested_count"]
-    assert isinstance(tested_cnt, int) and tested_cnt > 0
-    assert isinstance(result["discovered_urls"], list)
+    with patch("src.utils.http_client.HttpClient.get") as mock_get:
+         
+        mock_resp = httpx.Response(200, request=httpx.Request("GET", "https://example.com"))
+        mock_get.return_value = mock_resp
+        
+        result = asyncio.run(discover_search_urls(payload))
+        
+        assert "discovered_urls" in result
+        assert "tested_count" in result
+        assert "valid_count" in result
+        tested_cnt = result["tested_count"]
+        assert isinstance(tested_cnt, int) and tested_cnt > 0
+        assert isinstance(result["discovered_urls"], list)

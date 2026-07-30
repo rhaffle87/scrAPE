@@ -39,7 +39,6 @@ scratch/
 
 # Persistent runtime data
 data/*
-src/config/*
 
 # Runtime data
 runtime_data/*
