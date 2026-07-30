@@ -4,22 +4,22 @@
 
 ### Added & Changed (0.22.0)
 
-- **Universal Captcha Provider Auto-Solving (CapSolver, 2Captcha, AntiCaptcha)** (`src/utils/captcha_solvers/`, `src/utils/captcha_strategy.py`):
+- **Universal Captcha Provider Auto-Solving (CapSolver, 2Captcha, AntiCaptcha)** (`src/captcha/captcha_solvers/`, `src/captcha/captcha_strategy.py`):
   - Abstracted captcha logic into `CaptchaSolverProvider` interface and `ThirdPartyCaptchaStrategy`.
   - Added support for dynamically instantiating CapSolver, 2Captcha, or AntiCaptcha via CLI args (`--captcha-provider`, `--captcha-key`, `--max-captcha-spend`).
   - Automatically injects solved tokens (Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha) directly into `SessionPool` and `session_manager` cookie caches.
-- **Dynamic Memory-Aware Concurrency Scaling** (`src/utils/hardware_governor.py`, `src/utils/stealth_pipeline.py`):
+- **Dynamic Memory-Aware Concurrency Scaling** (`src/monitoring/hardware_governor.py`, `src/network/stealth_pipeline.py`):
   - Created `HardwareLoadGovernor` to monitor real-time system RAM and CPU usage, dynamically scaling `StealthPipeline` concurrency (1x-3x) and forcing garbage collection to prevent out-of-memory errors.
-- **Stealth Pipeline Engine Learning & Node.js Crawlee Bridge** (`src/utils/stealth_pipeline.py`, `src/utils/crawlee_client.py`):
+- **Stealth Pipeline Engine Learning & Node.js Crawlee Bridge** (`src/network/stealth_pipeline.py`, `src/network/crawlee_client.py`):
   - Added per-host preferred engine learning (`_preferred_engine_by_host`) to record winning stealth strategies per domain and route subsequent requests directly to the fastest bypass tier.
   - Integrated `CrawleeStrategy.is_available()` health check with `CrawleeClient` auto-spawning Node.js Express stealth bridge on port 10002.
-- **AI Dataset Vision Auto-Tagging Engine** (`src/utils/dataset_tagger.py`):
+- **AI Dataset Vision Auto-Tagging Engine** (`src/ml/dataset_tagger.py`):
   - Upgraded `DatasetTagger` with hybrid vision model opt-in support (`use_vision_model=True`), combining image aspect ratio classification (`landscape`, `portrait`, `square`) and resolution tags (`highres`, `lowres`) with filename & metadata heuristics.
   - Enforced trigger tag ordering at index 0 in generated `.txt` sidecars.
-- **Multi-Stage LoRA Quality Export Gate** (`src/utils/dataset_exporter.py`, `frontend/app.py`, `frontend/templates/index.html`):
+- **Multi-Stage LoRA Quality Export Gate** (`src/ml/dataset_exporter.py`, `frontend/app.py`, `frontend/templates/index.html`):
   - Enhanced `KohyaDatasetExporter` with Stage 3 Aesthetic Quality Gate (`min_aesthetic_score: float = 5.5`), filtering out low quality images via `AestheticScorer` prior to ZIP packing.
   - Added Aesthetic Score Threshold selector to Kohya LoRA Export modal in WebUI dashboard.
-- **Watchdog Multi-Channel Webhook Notifier Architecture** (`src/utils/notification_manager.py`, `src/cli/monitor_agent.py`, `frontend/app.py`):
+- **Watchdog Multi-Channel Webhook Notifier Architecture** (`src/notifications/notification_manager.py`, `src/cli/monitor_agent.py`, `frontend/app.py`):
   - Created pluggable `BaseNotifier` interface with `TelegramNotifier` (wrapping `TelegramBotNotifier`), `DiscordNotifier` (rich color-coded embeds), `SlackNotifier` (Block Kit JSON), and `CustomWebhookNotifier` (Apprise, N8N, Zapier, Matrix).
   - Engineered `NotificationPipeline` parallel thread-pool dispatcher broadcasting run completions, WAF challenge blocks, and watchdog status updates.
   - Added POST `/api/notifications/test` FastAPI endpoint returning per-channel delivery status.
@@ -33,25 +33,25 @@
 
 ### Added & Changed (0.20.0)
 
-- **8-Tier Stealth WAF Fallback Pipeline & Circuit Breaker** (`src/utils/stealth_pipeline.py`, `src/utils/http_client.py`):
+- **8-Tier Stealth WAF Fallback Pipeline & Circuit Breaker** (`src/network/stealth_pipeline.py`, `src/network/http_client.py`):
   - Engineered 8-tier WAF fallback pipeline orchestrator (`Httpx`, `FlareSolverr`, `Crawlee`, `DrissionPage`, `Camoufox`, `Helium`, `NoDriver`, `Crawl4AI`).
   - Added `_StrategyCircuitBreaker` tracking per-host strategy latency and enforcing a 5-minute cooldown after consecutive failures.
   - Implemented `skip_httpx=True` on 403 HTTP status fallback execution to prevent duplicate secondary requests.
-- **Thread Safety & Lock Resolution** (`src/utils/proxy_manager.py`):
+- **Thread Safety & Lock Resolution** (`src/network/proxy_manager.py`):
   - Upgraded `ProxyPoolManager` locks (`_lock`, `_pool_lock`) to reentrant `threading.RLock()`, resolving recursive deadlock when `get_proxy_for_domain()` invokes `get_best_proxy()`.
 - **Environment Configuration & Credential Management** (`.env`, `.env.example`, `src/config/__init__.py`):
   - Created `.env` and `.env.example` supporting `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and `CAPSOLVER_API_KEY`. Added `.env` to `.gitignore` to safeguard credentials.
   - Dynamically load environment variables in `src/config/__init__.py` via `python-dotenv` / `os.getenv()`.
-- **Telegram Bot Alerts & Interactive Control Handler** (`src/utils/telegram_bot.py`):
+- **Telegram Bot Alerts & Interactive Control Handler** (`src/notifications/telegram_bot.py`):
   - Created `TelegramBotNotifier` sending HTML-formatted alert messages for completed runs, WAF blocks, and yield targets.
   - Created `TelegramCommandHandler` daemon thread polling Telegram updates to respond to interactive commands (`/status`, `/stats`, `/pause`, `/resume`).
   - Added WebUI Telegram settings panel with API endpoints `/api/telegram/config` and `/api/telegram/test`.
-- **AI Fine-Tuning & Dataset Studio** (`src/utils/dataset_tagger.py`, `src/utils/dataset_exporter.py`):
+- **AI Fine-Tuning & Dataset Studio** (`src/ml/dataset_tagger.py`, `src/ml/dataset_exporter.py`):
   - Created `DatasetTagger` for generating comma-separated tag `.txt` sidecars alongside downloaded images with trigger tag support.
   - Created `KohyaDatasetExporter` packaging images, `.txt` sidecars, and `metadata.json` into Kohya_ss / `sd-scripts` formatted LoRA dataset `.zip` archives.
-- **CapSolver Captcha Auto-Solving Integration** (`src/utils/capsolver.py`):
+- **CapSolver Captcha Auto-Solving Integration** (`src/captcha/captcha_solvers/capsolver_provider.py`):
   - Created `CapSolverClient` for auto-solving Cloudflare Turnstile, reCAPTCHA v2/v3, and hCaptcha tokens during WAF challenge resolution. Added live balance endpoint `/api/capsolver/balance`.
-- **Advanced Proxy Pool Health & Sticky Domain Binding** (`src/utils/proxy_manager.py`):
+- **Advanced Proxy Pool Health & Sticky Domain Binding** (`src/network/proxy_manager.py`):
   - Added latency auto-rotation, 5-minute auto-quarantine for slow (>3000ms) or failing proxies, and sticky domain-to-proxy binding (`bind_domain_proxy`).
 - **WebUI Live Crawl Network Visualizer & High-Throughput Cockpit** (`frontend/templates/index.html`, `frontend/app.py`):
   - Built HTML5 Canvas live crawl network tree graph (`#crawl-graph-canvas`) and real-time streaming media grid feed (`#live-media-stream-grid`).
@@ -75,7 +75,7 @@
 
 ### Added & Changed (0.20.0)
 
-- **Domain Blacklist System & Dynamic Unblacklisting** (`src/utils/blacklist.py`):
+- **Domain Blacklist System & Dynamic Unblacklisting** (`src/common/blacklist.py`):
   - Added `remove_from_blacklist(domain: str)` to cleanly remove domain entries from `data/blacklist.json` in-memory and on disk.
   - Hardened unit tests (`scratch/test_performance_quality_features.py`) with isolated test domains (`test-cooldown-domain.org`) and guaranteed `try...finally` teardown cleanup to prevent test pollution of persistent blacklist records.
 - **Text-Embedded Video & Media Extraction** (`src/scraper/video_scraper.py`):
@@ -84,7 +84,7 @@
 - **Strict BeautifulSoup `Tag` & Type Safety Guards** (`src/core/semantic_selectors.py`, `src/scraper/video_scraper.py`, `src/scraper/google_images.py`, `src/cli/cleanup.py`):
   - Added `_get_attr_str()` helper and explicit `isinstance(el, Tag)` type guards across `extract_semantic_fallback_images()`, `extract_semantic_fallback_videos()`, `extract_videos_from_html()`, and layout container detectors to satisfy static type checking and eliminate runtime attribute errors on text/string nodes.
   - Refined `format_size(size: float | int)` signature in `src/cli/cleanup.py` to fix in-place float division assignment type mismatches.
-- **SSE Real-Time WebUI Log Streaming** (`frontend/app.py`, `src/utils/logger.py`):
+- **SSE Real-Time WebUI Log Streaming** (`frontend/app.py`, `src/monitoring/logger.py`):
   - Integrated `LogBroadcaster` Pub-Sub SSE endpoint (`/api/logs/stream`) for streaming server logs directly to HTMX frontend consoles over async generators, while retaining full backward compatibility for `/api/logs?offset=N` legacy polling.
 - **Domain Rules & Search Provider Resilience** (`src/core/managers.py`, `src/scraper/google_images.py`):
   - Consolidated thread-safe `DomainRulesManager` with automatic `mtime` disk reload for `data/domain_config.json` and `data/url_normalisation_rules.json`.
@@ -96,7 +96,7 @@
 
 ### Added & Changed (0.19.0)
 
-- **FlareSolverr 127.0.0.1 Binding & Docker Auto-Start** (`src/config/__init__.py`, `src/utils/http_client.py`):
+- **FlareSolverr 127.0.0.1 Binding & Docker Auto-Start** (`src/config/__init__.py`, `src/network/http_client.py`):
   - Updated default `FLARESOLVERR_URL` to `"http://127.0.0.1:8191/v1"` with dual-stack fallback (`localhost:8191`), eliminating Windows IPv6 DNS resolution latency.
   - Added background Docker container auto-start (`docker start flaresolverr`) when port 8191 is unreachable on initial health checks.
   - Enriched downstream CDN streaming media requests with harvested domain session cookies (`session_id`).
@@ -115,11 +115,11 @@
 
 ### Added & Changed (0.18.0)
 
-- **8-Tier WAF Anti-Bot Bypass Pipeline** (`src/utils/http_client.py`): Integrated **Camoufox** (Tier 7, stealth Firefox engine with host OS fingerprint matching, `humanize=True` cursor movement, 1920x1080 viewport, and 20s headful Turnstile escalation) and **FlareSolverr** (Tier 8, service integration with domain session reuse and proxy forwarding). Enforced a **60.0s total fallback timeout budget**.
-- **Headless FlareSolverr Auto-Escalation** (`src/utils/http_client.py`): Added automatic safety-net escalation to FlareSolverr API when `--headless` mode prevents visible headful windows and browser fallbacks hit Cloudflare Turnstile challenge timeouts.
+- **8-Tier WAF Anti-Bot Bypass Pipeline** (`src/network/http_client.py`): Integrated **Camoufox** (Tier 7, stealth Firefox engine with host OS fingerprint matching, `humanize=True` cursor movement, 1920x1080 viewport, and 20s headful Turnstile escalation) and **FlareSolverr** (Tier 8, service integration with domain session reuse and proxy forwarding). Enforced a **60.0s total fallback timeout budget**.
+- **Headless FlareSolverr Auto-Escalation** (`src/network/http_client.py`): Added automatic safety-net escalation to FlareSolverr API when `--headless` mode prevents visible headful windows and browser fallbacks hit Cloudflare Turnstile challenge timeouts.
 - **Dynamic Download Host Concurrency Scaling** (`src/storage/file_downloader.py`): Updated `_host_semaphore_for` to scale per-host download concurrency ceiling dynamically (`max(8, dl_workers)`) to resolve the download phase bottleneck on high-volume asset hosts.
 - **Extended High-Resolution Upscaling Rules** (`src/core/filters.py`): Extended `transform_to_highres(url)` with regular expressions for WordPress image dimension suffixes (`-150x150`, `-300x200`), thumbnail subpath replacements (`/thumbs/` → `/images/`, `/video_thumbs/` → `/video_sources/`), and Twitter image quality parameters (`name=large`).
-- **502/503 Exponential Backoff Retries** (`src/utils/http_client.py`): Replaced rapid 1-second retries with exponential backoff (`[4s, 8s, 16s]`) on 502 Bad Gateway and 503 Service Unavailable HTTP status errors to prevent premature domain cutoffs during transient server glitches.
+- **502/503 Exponential Backoff Retries** (`src/network/http_client.py`): Replaced rapid 1-second retries with exponential backoff (`[4s, 8s, 16s]`) on 502 Bad Gateway and 503 Service Unavailable HTTP status errors to prevent premature domain cutoffs during transient server glitches.
 - **Search Query Endpoint Detection** (`src/core/filters.py`): Added `is_search_page_url()` to detect un-crawlable search query endpoints (`/search?q=...`, `/search/`).
 - **Multi-Platform Extractor Plugins** (`src/plugins/`):
   - `CivitaiExtractor`: Direct JSON API extraction for high-res images, prompt, negative prompt, sampler, seed, and model metadata tags (`civitai.com/images/...`, `civitai.com/models/...`).
@@ -128,7 +128,7 @@
   - `ArtStationExtractor`: ArtStation portfolio projects API extraction for full-res artwork assets.
   - `YtDlpExtractor`: Added `DEFAULT_VIDEO_QUALITY = "best"` format selection and auto-escalation for `.m3u8` master playlists and `.mpd` manifests.
 - **Resumable Crawl & Download Checkpointing** (`src/storage/checkpoint_db.py`, `src/storage/file_downloader.py`): Thread-safe SQLite database (`output/.crawl_state.sqlite`) storing `visited_urls`, `frontier_queue`, and `download_checkpoints`. HTTP `Range: bytes={existing_size}-` byte download resumption on HTTP 206 Partial Content.
-- **AI Dataset Curation & Perceptual Hashing** (`src/utils/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
+- **AI Dataset Curation & Perceptual Hashing** (`src/common/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
 - **WebUI WAF Telemetry & Badges** (`frontend/app.py`): Added `_waf_solve_counts` telemetry counters to `HttpClient`. Rendered live WAF engine badges (`CAMOUFOX`, `FLARESOLVERR`, `CRAWL4AI`) inside the WebUI Command Center telemetry bar (`/htmx/stats`).
 - **Comprehensive Test Suite Expansion**: Added `scratch/test_system_optimizations.py`, `scratch/test_camoufox_flaresolverr.py`, `scratch/test_flaresolverr_advanced.py`, `scratch/test_stream_ytdlp_escalation.py`, `scratch/test_multi_platform_extractors.py`, `scratch/test_checkpoint_and_range_resume.py`, and `scratch/test_phash_and_dataset_exporter.py` (totaling **124 test cases** passing cleanly).
 
@@ -162,7 +162,7 @@
 
 - **Resumable Media Downloads (Range Retries)** (`src/storage/file_downloader.py`): Integrated HTTP `Range` request support (`bytes=X-`) for chunk-based downloads. If a download is interrupted, it checks for existing `.tmp` files and requests the remainder (HTTP 206 Partial Content). Handles standard HTTP 200 responses by truncating and re-downloading, and unlinks corrupted/invalid chunks on HTTP 416 (Range Not Satisfiable).
 - **Post-Download Integrity Verification**: Moved SHA-256 hash calculation from streaming chunk iteration in memory to post-download disk-based reading. This guarantees correct file integrity validation across multiple resume iterations.
-- **WAF & Auth Wall Cutoff Circuit Breakers** (`src/core/managers.py`, `src/utils/http_client.py`): Prevents thread hangs and wasted resources on protected domains by halting crawling on a domain after 3 consecutive worker errors or upon redirection to authentication routes (`/login`, `/signin`, `/signup`, `/auth`).
+- **WAF & Auth Wall Cutoff Circuit Breakers** (`src/core/managers.py`, `src/network/http_client.py`): Prevents thread hangs and wasted resources on protected domains by halting crawling on a domain after 3 consecutive worker errors or upon redirection to authentication routes (`/login`, `/signin`, `/signup`, `/auth`).
 - **Low-Resolution Path Pre-Filtering** (`src/core/filters.py`): Optimized link extraction by running `has_low_res_path_pattern` pre-filtering (checking for `/320x180/` screenshots and similar patterns) directly inside `is_thumbnail_url()`, avoiding scheduling and downloading low-resolution frame screenshots.
 - **Testing Suite Expansion** (`scratch/test_resumable_downloads.py`): Created dedicated unit tests verifying append (206), overwrite (200), and invalid range retry (416) behaviors. Expanded test suite coverage to 100 tests.
 
@@ -179,15 +179,15 @@
 ### Added & Changed (0.14.0)
 
 - **SQLite WAL Concurrency Optimization** (`src/storage/state_cache.py`): Upgraded the `StateCache` SQLite connection to use Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This eliminates disk I/O lock contention during massive multi-threaded crawls, significantly increasing concurrency throughput.
-- **Secure Local Session Storage** (`src/utils/session.py`): Hardened harvested cookie storage by enforcing strict Unix file permissions (`0o600` for files, `0o700` for the `data/sessions` directory), securing authenticated sessions against local privilege escalation or unauthorized read access.
+- **Secure Local Session Storage** (`src/storage/session.py`): Hardened harvested cookie storage by enforcing strict Unix file permissions (`0o600` for files, `0o700` for the `data/sessions` directory), securing authenticated sessions against local privilege escalation or unauthorized read access.
 - **Network Isolation & Path Sanitization** (`crawlee_bridge/index.mjs`, `src/cli/webui.py`): Explicitly bound the Node.js `crawlee_bridge` proxy to `127.0.0.1` to prevent exposure on local networks. Added strict path validation in the FastAPI web UI to prevent directory traversal attacks when loading seed files.
 
 ## [0.13.0] — 2026-07-17
 
 ### Added (0.13.0)
 
-- **Crawlee Node.js Bridge Integration** (`crawlee_bridge/index.mjs`, `src/utils/crawlee_client.py`): Integrated Apify's Crawlee via a local Express bridge server to drastically improve TLS fingerprint spoofing and stealth extraction capabilities. Added two new robust fallback tiers: `Crawlee Cheerio` (fast static TLS spoofing via `got-scraping`) and `Crawlee Puppeteer` (heavy JS-rendering with stealth plugins).
-- **Expanded 7-Tier WAF Fallback Pipeline** (`src/utils/http_client.py`): Redesigned the `HttpClient` fallback system into a comprehensive 7-tier escalation chain (`Local Cookies` -> `Crawlee Cheerio` -> `Crawl4AI` -> `DrissionPage` -> `Crawlee Puppeteer` -> `Helium` -> `undetected-chromedriver`) to systematically defeat WAFs, Cloudflare Turnstile, and heavy browser fingerprinting.
+- **Crawlee Node.js Bridge Integration** (`crawlee_bridge/index.mjs`, `src/network/crawlee_client.py`): Integrated Apify's Crawlee via a local Express bridge server to drastically improve TLS fingerprint spoofing and stealth extraction capabilities. Added two new robust fallback tiers: `Crawlee Cheerio` (fast static TLS spoofing via `got-scraping`) and `Crawlee Puppeteer` (heavy JS-rendering with stealth plugins).
+- **Expanded 7-Tier WAF Fallback Pipeline** (`src/network/http_client.py`): Redesigned the `HttpClient` fallback system into a comprehensive 7-tier escalation chain (`Local Cookies` -> `Crawlee Cheerio` -> `Crawl4AI` -> `DrissionPage` -> `Crawlee Puppeteer` -> `Helium` -> `undetected-chromedriver`) to systematically defeat WAFs, Cloudflare Turnstile, and heavy browser fingerprinting.
 - **Robust Empty-Page Cloudflare Detection**: Patched a critical issue where empty HTML bodies returned from 403 Cloudflare challenges were incorrectly evaluated as successful responses, ensuring the scraper always falls through to heavier browser tiers when encountering aggressive anti-bot protections.
 
 ## [0.12.0] — 2026-07-17
@@ -274,8 +274,8 @@
 
 ### Added (0.7.0)
 
-- **Persistent Blacklist**: Active domain-level blacklisting (`src/utils/blacklist.py`) for domains consistently returning HTTP 404/403/Cloudflare challenge errors.
-- **Session Persistence**: Implemented `SessionManager` (`src/utils/session.py`) for caching and loading cookies across run sessions.
+- **Persistent Blacklist**: Active domain-level blacklisting (`src/common/blacklist.py`) for domains consistently returning HTTP 404/403/Cloudflare challenge errors.
+- **Session Persistence**: Implemented `SessionManager` (`src/storage/session.py`) for caching and loading cookies across run sessions.
 - **Dynamic Domain Configurations**: Replaced hardcoded domains in `src/config.py` and `src/core/engine.py` with dynamic loaded configuration profiles from `data/domain_config.json`.
 - **Dynamic Referer and Header Overrides**: Decoupled domain-specific HTTP header bypasses into the `referer_overrides` mapping in `data/domain_config.json`.
 - **Dynamic Blacklisting Circuit Breaker Persistence**: Integrated domain blacklisting hooks (`add_to_blacklist`) with `HttpClient`'s 429 and error-rate circuit breaker thresholds, saving domain bans to the persistent JSON blacklist dynamically.

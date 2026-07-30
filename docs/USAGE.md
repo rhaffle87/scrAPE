@@ -22,30 +22,44 @@ scrape
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `--keyword` | `str` | **required** | Primary search keyword / subject name |
-| `--seed` | `str` | `seed.txt` | Path to seed manifest file |
-| `--max-results` | `int` | `50` | Maximum kept images and videos per run |
-| `--output-dir` | `str` | `./output` | Root directory for output runs and media |
-| `--workers` | `int` | `8` | Number of concurrent page fetching crawler threads |
-| `--dl-workers` | `int` | `6` | Number of concurrent media downloading threads |
-| `--rate-limit` | `float` | `0.0` | Token-Bucket rate limit on outgoing page requests (RPS) |
-| `--dl-speed-limit` | `int` | `0` | Network download speed throttling ceiling (KB/s) |
-| `--page-limit` | `int` | `100` | Hard cap on total pages scanned across all domains |
-| `--crawl-depth` | `int` | `2` | Maximum BFS link graph traversal depth |
-| `--download-media` | flag | `False` | Enables downloading files to disk (default dry metadata only) |
-| `--ignore-robots` | flag | `False` | Bypasses `robots.txt` disallow checks |
-| `--entity-token` | `str[]` | `[]` | Additional subject keywords/synonyms (repeatable) |
-| `--dry-run` | flag | `False` | Parses and validates seed manifest without crawling |
-| `--validate-seed` | flag | `False` | Validates seed manifest syntax and prints domain profiles |
-| `--run-id` | `str` | auto | Custom run identifier directory name |
-| `--keyword-slug` | `str` | auto | Custom output directory slug |
-| `--login` | `str` | `None` | Opens headful browser to log into a protected domain and save cookies |
-| `--inject-cookies` | `str` | `None` | Imports JSON or Netscape `cookies.txt` file |
-| `--domain` | `str` | `None` | Target domain to associate with injected cookies |
-| `--proxy-list` | `str` | `None` | Path to proxy file (`ip:port` or `http://user:pass@host:port`) |
-| `--captcha-provider`| `str` | `capsolver` | Universal provider for solving captchas (`capsolver`, `2captcha`, `anticaptcha`) |
-| `--captcha-key` | `str` | `None` | API key for the captcha provider |
-| `--max-captcha-spend`| `float`| `None` | Maximum spending limit (in USD) for captcha solving |
+| `--keyword` | `str` | `None` | Keyword query to search for. |
+| `--login` | `str` | `None` | Interactive headful login for the specified domain to save session cookies. |
+| `--inject-cookies` | `str` | `None` | Import a JSON or Netscape `cookies.txt` file. |
+| `--domain` | `str` | `None` | Domain to associate with the injected cookies. |
+| `--max-results` | `int` | `50` (or dynamic) | Maximum number of media items per type to keep. Use 0 for unlimited. |
+| `--output` | `{json,csv,both}` | `json` | Output format. |
+| `--download-media` | flag | `False` | Download discovered media into the output directory. |
+| `--seed-url` | `str[]` | `[]` | Seed page URL to scrape directly. Repeat for multiple URLs. |
+| `--seed-file` | `str` | `None` | Text file containing one seed URL per line. |
+| `--seed-domain` | `str[]` | `[]` | Additional domain roots to treat as in-scope for strict-domain mode. |
+| `--allow-domain` | `str[]` | `[]` | Restrict scraping to these domains. Repeat for multiple domains. |
+| `--block-domain` | `str[]` | `[]` | Skip these domains. Repeat for multiple domains. |
+| `--entity-token` | `str[]` | `[]` | Extra name/entity token to boost relevance scoring. Repeat as needed. |
+| `--skip-search` | flag | `False` | Disable keyword search and only scrape provided seed URLs. |
+| `--page-limit` | `int` | `100` | Maximum number of pages to visit during the crawl. Use 0 for unlimited. |
+| `--crawl-depth` | `int` | `2` | Maximum depth for recursive link traversal. Use 0 for unlimited. |
+| `--strict-domain` | flag | `False` | Keep crawl candidates inside the seed domain set. |
+| `--site-tree-only` | flag | `False` | Keep discovered links within the same seed path subtree. |
+| `--domain-delay` | `str[]` | `[]` | Override the per-domain request rate (e.g. `example.com=3.0`). |
+| `--proxy` | `str` | `None` | A single HTTP/SOCKS proxy URL to use for all requests. |
+| `--proxy-list` | `str` | `None` | A text file containing one proxy URL per line for rotation. |
+| `--captcha-provider` | `str` | `None` | Provider for solving captchas (`capsolver`, `2captcha`, `anticaptcha`). |
+| `--captcha-key` | `str` | `None` | API key for the selected captcha provider. |
+| `--max-captcha-spend` | `float`| `None` | Maximum per-run budget for captcha solving (USD). |
+| `--workers` | `int` | `6` | Number of pages to fetch concurrently. |
+| `--dl-workers` | `int` | `16` | Number of media files to download concurrently. |
+| `--enable-governor` | flag | `False` | Enable dynamic system CPU/RAM load governor to scale worker threads dynamically. |
+| `--dl-speed-limit` | `float`| `0.0` | Maximum total media download bandwidth limit in KB/s (0 = unlimited). |
+| `--rate-limit` | `float`| `0.0` | Maximum global page request rate limit in req/sec (0.0 = unlimited). |
+| `--force-search` | flag | `False` | Force DuckDuckGo keyword search even when a seed file is present. |
+| `--clear-cache` | flag | `False` | Wipe the entire cache directory before starting the crawl. |
+| `--ignore-robots` | flag | `False` | Bypass `robots.txt` rules and fetch all URLs. |
+| `--use-state-cache` | flag | `False` | Use a persistent SQLite state cache to prevent re-crawling URLs across runs. |
+| `--headless` | flag | `False` | Force the browser to run in headless mode. |
+| `--stealth-headful` | flag | `False` | Run stealth browser fallbacks in headful mode (visible browser). |
+| `--validate-seed` | `str` | `None` | Validate the syntax and annotations of the specified seed file, then exit. |
+| `--aesthetic-score` | `float`| `None` | Minimum aesthetic quality score threshold (1.0-10.0) for downloaded images. |
+| `--auto-crop` | flag | `False` | Automatically generate smart face/body-centered cropped images for LoRA training. |
 
 ---
 

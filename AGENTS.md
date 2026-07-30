@@ -16,18 +16,18 @@ src/core/filters.py                 — URL classification, media detection, rel
 src/core/models.py                  — ScrapeResult, ImageItem, VideoItem dataclasses
 src/scraper/google_images.py        — Search provider + page scraper + link/media extraction
 src/storage/file_downloader.py      — Concurrent media downloader with MIME/size validation
-src/utils/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
-src/utils/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
-src/utils/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
-src/utils/telegram_bot.py           — Telegram Bot alerts & interactive command handler
-src/utils/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
-src/utils/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
-src/utils/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
-src/utils/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
-src/utils/session.py                — Persistent cookie cache (data/sessions/)
-src/utils/session_pool.py           — Per-domain sticky sessions with disk persistence
-src/utils/proxy_manager.py          — Proxy pool manager with latency auto-quarantine & domain binding
-src/utils/crawlee_client.py         — Python bridge client for Node.js Crawlee operations
+src/network/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
+src/network/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
+src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
+src/notifications/telegram_bot.py           — Telegram Bot alerts & interactive command handler
+src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
+src/ml/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
+src/ml/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
+src/common/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
+src/network/session.py                — Persistent cookie cache (data/sessions/)
+src/network/session_pool.py           — Per-domain sticky sessions with disk persistence
+src/network/proxy_manager.py          — Proxy pool manager with latency auto-quarantine & domain binding
+src/network/crawlee_client.py         — Python bridge client for Node.js Crawlee operations
 crawlee_bridge/                     — Node.js Express server running Cheerio/Puppeteer stealth modes
 .env / .env.example                 — Environment variables & secret credentials
 data/domain_config.json             — Dynamic domain overrides (rate limits, referer, hotlink, deep scrape)
@@ -50,7 +50,7 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
 ## 2. Tech Stack & Core Rules
 
 - **Core Engine**: Python 3.10+ (`src/core/`), FastAPI (`frontend/app.py`), HTMX, SQLite (WAL mode).
-- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/utils/stealth_pipeline.py`), Universal Captcha Auto-Solving (`src/utils/captcha_strategy.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
+- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/network/stealth_pipeline.py`), Universal Captcha Auto-Solving (`src/captcha/captcha_strategy.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
 - **WebUI Design System**: Utilitarian Brutalism — strict 90° square corners (`border-radius: 0 !important`), `Oswald` headers, `JetBrains Mono` body/forms, high-contrast dark theme (`#0b0d0c` / `#ff5500` accent), HTML5 Canvas live crawl network tree.
 
 ### Mandatory Coding Rules

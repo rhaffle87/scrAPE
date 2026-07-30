@@ -58,34 +58,62 @@ scrape-dashboard/
 │   │   ├── launcher.py          — Interactive launcher & custom PIL RGBA 64x64 system tray renderer
 │   │   ├── cli_wizard.py        — Interactive wizard for crawls, watchdog, and AI dataset formatting
 │   │   ├── monitor_agent.py     — Continuous watchdog monitoring loop
-│   │   └── auth.py              — Interactive headful login browser & cookie importer
+│   │   ├── auth.py              — Interactive headful login browser & cookie importer
+│   │   ├── cleanup.py           — Output and cache cleanup utilities
+│   │   ├── release.py           — Automated release packaging script
+│   │   └── seed_studio.py       — AI-assisted seed generation and discovery
 │   ├── core/
 │   │   ├── engine.py            — ScrapingEngine main orchestration entry point
 │   │   ├── managers.py          — CrawlOrchestrator, MediaProcessor, DomainRulesManager
 │   │   ├── filters.py           — Relevance scoring, low-res detection, path pre-filtering
 │   │   ├── models.py            — ScrapeResult, EngineOptions, DomainProfile data models
-│   │   └── seed_manifest.py     — SeedManifest parser & domain annotation builder
+│   │   ├── seed_manifest.py     — SeedManifest parser & domain annotation builder
+│   │   ├── coordinator.py       — Cross-manager state synchronization
+│   │   ├── governor.py          — Concurrency governor base classes
+│   │   ├── parser.py            — HTML structure and link extraction
+│   │   ├── pipeline.py          — Extractor processing pipeline
+│   │   ├── run_summary.py       — Run outcome report generation
+│   │   └── semantic_selectors.py — CSS selector heuristics
 │   ├── scraper/
+│   │   ├── base.py              — Base Scraper classes
 │   │   ├── google_images.py     — Search provider & fallback page scraper
-│   │   └── specialized.py       — SpecializedExtractor plugin loader
+│   │   ├── specialized.py       — SpecializedExtractor plugin loader
+│   │   └── video_scraper.py     — Video extraction handling
 │   ├── plugins/
 │   │   ├── base.py              — ExtractorPlugin abstract base class
 │   │   ├── reddit_extractor.py  — Reddit API extraction plugin
 │   │   └── ytdlp_extractor.py   — YouTube/Generic video extraction plugin
-│   ├── storage/
-│   │   ├── file_downloader.py   — Resumable Range HTTP fetcher, Pillow sanitization, post-hashing
-│   │   └── state_cache.py       — Persistent SQLite state cache in WAL mode
-│   └── utils/
-│       ├── blacklist.py         — Circuit breaker persistent domain blacklist
-│       ├── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
-│       ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
-│       ├── crawlee_client.py    — Python client for Crawlee Express bridge
-│       ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
-│       ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
-│       ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
-│       ├── robots.py            — Thread-safe RobotsChecker parser cache
-│       ├── session.py           — Secure session cookie store (0o600 permissions)
-│       └── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
+│   ├── captcha/
+│   │   ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
+│   │   └── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
+│   ├── common/
+│   │   ├── blacklist.py         — Circuit breaker persistent domain blacklist
+│   │   ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
+│   │   └── robots.py            — Thread-safe RobotsChecker parser cache
+│   ├── ml/
+│   │   ├── dataset_tagger.py    — AI dataset auto-tagging
+│   │   └── dataset_exporter.py  — Kohya_ss LoRA dataset ZIP exporter
+│   ├── monitoring/
+│   │   ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
+│   │   └── logger.py            — Telemetry and structured logging
+│   ├── network/
+│   │   ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
+│   │   ├── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
+│   │   ├── session.py           — Secure session cookie store (0o600 permissions)
+│   │   ├── session_pool.py      — Per-domain sticky sessions with disk persistence
+│   │   ├── proxy_manager.py     — Proxy pool manager with latency auto-quarantine & domain binding
+│   │   └── crawlee_client.py    — Python client for Crawlee Express bridge
+│   ├── notifications/
+│   │   ├── telegram_bot.py      — Telegram Bot alerts & interactive command handler
+│   │   └── notification_manager.py — Pluggable multi-channel notification pipeline
+│   └── storage/
+│       ├── file_downloader.py   — Resumable Range HTTP fetcher, Pillow sanitization, post-hashing
+│       ├── state_cache.py       — Persistent SQLite state cache in WAL mode
+│       ├── checkpoint_db.py     — Persistent crawling checkpoints
+│       ├── db_store.py          — General SQLite data store wrappers
+│       ├── csv_writer.py        — Flat CSV exporter
+│       ├── json_writer.py       — JSON object lines exporter
+│       └── rag_exporter.py      — Markdown/JSONL RAG ingestion formats
 │
 ├── data/                        — JSON Configurations & Registries
 │   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides
@@ -112,7 +140,7 @@ The core architecture is decoupled across specialized managers inside `src/core/
 - **`MediaProcessor`**: Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
 - **`DomainRulesManager`**: Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
 
-### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/utils/http_client.py` & `src/utils/stealth_pipeline.py`)
+### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/network/http_client.py` & `src/network/stealth_pipeline.py`)
 
 When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching.
 The `StealthPipeline` uses a `HardwareLoadGovernor` to dynamically adjust worker concurrency (1x to 3x scaling) based on real-time system RAM and CPU telemetry, automatically forcing garbage collection when approaching OOM limits:

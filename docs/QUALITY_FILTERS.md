@@ -16,14 +16,14 @@ flowchart TD
 
     C2 --> C3{"3. Low-Res Detection<br/>(Query Param or Path)"}
     C3 -- Yes --> R3["Reject: low_resolution_hint"]
-    C3 -- No --> C4["4. Archive / Index Penalty<br/>(-3 Score Penalty)"]
+    C3 -- No --> C4["4. Archive / Index Penalty<br/>(-15 Score Penalty)"]
 
     C4 --> C5{"5. Preview Markers<br/>(thumb, preview, small)"}
     C5 -- Yes --> R5["Reject: preview_or_thumbnail"]
     C5 -- No --> C6{"6. Placeholder Rejection<br/>(Generic Path + No Tokens)"}
 
     C6 -- Yes --> R6["Reject: placeholder_asset"]
-    C6 -- No --> C7{"7. Relevance Threshold<br/>(Image >= 3, Video >= 2)"}
+    C6 -- No --> C7{"7. Relevance Threshold<br/>(Score >= 1)"}
     C7 -- No --> R7["Reject: low_subject_relevance"]
     C7 -- Yes --> C8{"8. Max Results Cap"}
     C8 -- Full --> R8["Reject: max_results_limit"]
@@ -34,25 +34,47 @@ flowchart TD
 
 ## 2. Relevance Scoring Formula
 
-Relevance scoring is calculated via `weighted_subject_score()` in `src/core/filters.py`:
+Relevance scoring is calculated via `weighted_subject_score()` and media-specific functions in `src/core/filters.py`.
 
-$$\text{Score} = (3 \times \text{URL Matches}) + (2 \times \text{Alt Text Matches}) + (1 \times \text{Title Matches}) + \text{Entity Bonus}$$
+### Base Token Score
+A base token score is calculated by concatenating all available asset metadata (URL, page title, alt text, anchor text) and searching for keyword and entity tokens:
+- **Exact Token Matches**: `+5` points per exact token match (bounded by word boundaries).
+- **Partial/Substring Matches**: `+3` points if the token appears as a substring.
 
-### Token Field Weighting
+### 2.1 Image Asset Scoring Modifiers (`score_image_relevance`)
 
-| Field | Weight Multiplier | Description |
-|---|---|---|
-| **URL Path & Filename** | **3×** | Matches in the asset URL or filename string |
-| **Alt Text & Caption** | **2×** | Matches in `alt=""`, `title=""`, or surrounding anchor text |
-| **Source Page Title** | **1×** | Matches in the parent web page `<title>` tag |
-| **Entity Token Bonus** | **+2 Bonus** | Awarded when an entity token is matched in high-weight fields |
+| Condition | Score Adjustment |
+|---|---|
+| Has Alt Text | +1 |
+| Has Page Title | +1 |
+| Contains generic asset term (e.g. `bg`, `logo`) | -3 |
+| Contains placeholder term (e.g. `captcha`, `blank`) | -4 |
+| Contains preview markers (`thumb`, `small`, etc.) | -6 (per marker) |
+| Contains image term (`photo`, `gallery`, etc.) | +1 |
+| Is probable image (by extension) | +2 |
+| URL contains dimension queries (`w=150`, etc.) | -3 |
+| In layout container | -20 |
+| Width or Height < 300px | -20 |
+| Domain profile expects `image` | +3 |
+| Archive/Index page without subject match | -15 |
+
+### 2.2 Video Asset Scoring Modifiers (`score_video_relevance`)
+
+| Condition | Score Adjustment |
+|---|---|
+| Has Page Title | +1 |
+| Known video provider (`youtube`, `vimeo`, `hls`, etc.) | +2 |
+| Contains video term (`video`, `clip`, `watch`, etc.) | +1 |
+| Is probable video (by extension) | +2 |
+| In layout container | -20 |
+| Domain profile expects `video` | +3 |
+| Archive/Index page without subject match | -15 |
 
 ### Score Acceptance Thresholds
 
 | Media Kind | Minimum Required Score | Exception |
 |---|---|---|
-| **Image Asset** | `Score >= 3` | Whitelisted CDN host asset (non-archive) |
-| **Video Asset** | `Score >= 2` | Whitelisted CDN host asset (non-archive) |
+| **All Assets** | `Score >= 1` | Whitelisted CDN host asset (bypasses archive penalty) |
 
 ---
 
@@ -105,7 +127,7 @@ Accumulating $\ge 4$ marker points flags the asset with rejection reason `previe
 
 ## 5. Archive & Index Page Penalties
 
-Pages matching archive or index path patterns (`/`, `/index.html`, `/page/`, `/archive/`, `/tag/`, `/category/`, `/search/`) receive a **-3 score penalty**. 
+Pages matching archive or index path patterns (`/`, `/index.html`, `/page/`, `/archive/`, `/tag/`, `/category/`, `/search/`) receive a **-15 score penalty** unless they explicitly contain a subject keyword match. 
 
 ### CDN Whitelist Bypass
 Assets hosted on domain profiles annotated with `# [CDN] hostname` **bypass archive penalties entirely**, ensuring dedicated media hosts keep legitimate assets regardless of page layout.

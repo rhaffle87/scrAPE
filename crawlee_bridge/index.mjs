@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/scrape', async (req, res) => {
-    const { url, mode, proxy } = req.body;
+    const { url, mode, proxy, userDataDir } = req.body;
 
     if (!url) {
         return res.status(400).json({ error: 'URL is required' });
@@ -71,15 +71,21 @@ app.post('/scrape', async (req, res) => {
         }
         else if (mode === 'puppeteer') {
             const rq = await RequestQueue.open(uniqueId);
+            
+            const launchOptions = {
+                headless: "new",
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            };
+            if (userDataDir) {
+                launchOptions.userDataDir = userDataDir;
+            }
+
             const crawler = new PuppeteerCrawler({
                 proxyConfiguration,
                 requestQueue: rq,
                 launchContext: {
                     launcher: puppeteerExtra,
-                    launchOptions: {
-                        headless: "new",
-                        args: ['--no-sandbox', '--disable-setuid-sandbox']
-                    }
+                    launchOptions: launchOptions
                 },
                 requestHandler: async ({ page, request }) => {
                     // Bypass WAF by dynamically waiting for the challenge to clear

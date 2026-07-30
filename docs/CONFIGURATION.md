@@ -22,6 +22,7 @@ Seed files (`seeds/*.txt`) configure extraction rules per domain. Annotations ar
 | `# min_image_size` | `# min_image_size: WxH` | `None` | Minimum image dimension filter (e.g. `800x600`). Smaller images are rejected. |
 | `# thumbnail_prefix` | `# thumbnail_prefix: <pattern>` | `None` | Path prefix pattern used to identify and skip thumbnail URLs early. |
 | `# requires_referer` | `# requires_referer` | `false` | Sends page URL as HTTP Referer header during file download to bypass hotlink protection. |
+| `# google-fallback` | `# google-fallback: true` | `false` | Fall back to Google Images when page returns 0 images. |
 
 ### Example Seed Manifest
 

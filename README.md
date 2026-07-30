@@ -61,10 +61,10 @@ pip install -r requirements.txt
 .\run_frontend.bat
 
 # Or run via CLI with a keyword and seed file
-python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt
+python src/cli/main.py --keyword <subject> --seed-file seeds/<subject>.txt
 
 # Production run with custom concurrency & downloading
-python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt --max-results 0 --page-limit 0 --workers 12 --dl-workers 16 --download-media --headless
+python src/cli/main.py --keyword <subject> --seed-file seeds/<subject>.txt --max-results 0 --page-limit 0 --workers 12 --dl-workers 16 --download-media --headless
 ```
 
 ---
@@ -73,7 +73,7 @@ python src/cli/main.py --keyword <subject> --seed seeds/<subject>.txt --max-resu
 
 - **Dynamic HTMX Tactical WebUI & Canvas Physics Visualizer** — Fully decoupled dashboard (`frontend/`) featuring an interactive HTML5 Canvas crawl network tree (`#crawl-graph-canvas`) with force-directed spring physics, search filters, depth controls, Node Inspector drawer, context-aware telemetry stat cards, real-time hardware telemetry (CPU, RAM, Disk), process controls, and dual speed limiters.
 - **WAF & Turnstile 8-Tier Fallback + Universal Captcha Auto-Solving** — Defeats Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha, Auth walls, and anti-bot protections using an 8-tier escalation chain (`Local Cookies` → `Crawl4AI` → `Crawlee Cheerio` → `DrissionPage` → `Crawlee Puppeteer` → `Helium` → `undetected-chromedriver` → `Camoufox` → `FlareSolverr`) with per-host preferred engine learning (`_preferred_engine_by_host`) and automated token injection via `CapSolver`, `2Captcha`, or `AntiCaptcha`.
-- **Pluggable Multi-Channel Webhook Notifier Architecture** — Extensible `BaseNotifier` framework supporting Telegram Bot alerts (`src/utils/telegram_bot.py`), Discord rich embeds (`#00ff66` completion, `#ff5500` WAF alerts), Slack Block Kit JSON, and generic Custom Webhooks (Apprise, N8N, Zapier, Matrix, Pushover) with POST `/api/notifications/test` endpoint.
+- **Pluggable Multi-Channel Webhook Notifier Architecture** - Extensible `BaseNotifier` framework supporting Telegram Bot alerts (`src/notifications/telegram_bot.py`), Discord rich embeds (`#00ff66` completion, `#ff5500` WAF alerts), Slack Block Kit JSON, and generic Custom Webhooks (Apprise, N8N, Zapier, Matrix, Pushover) with POST `/api/notifications/test` endpoint.
 - **AI Dataset Auto-Tagging & Multi-Stage Quality Export** — Hybrid vision model auto-tagger (`DatasetTagger`) with opt-in WD14 Booru ViT classification (`landscape`, `portrait`, `highres`), paired with `KohyaDatasetExporter` Stage 3 Aesthetic Quality Gate (`min_aesthetic_score: float = 5.5`), 64-bit perceptual `dHash` near-duplicate filtering (Hamming distance $\le 4$), min resolution filter ($\ge 512\text{px}$), and WebUI LoRA Export modal aesthetic controls.
 - **HardwareLoadGovernor & Dual Speed Limiters** — Dynamic system RAM & CPU monitoring that overrides the pipeline's concurrency factor (scales 1x to 3x) and forces garbage collection under load. Plus Token-Bucket rate-limiting on outgoing page requests (`--rate-limit` / `RPS`) paired with network bandwidth throttling on media asset downloads (`--dl-speed-limit` / `KBPS`), accessible via WebUI and CLI.
 - **Vector Branding & System Tray Runner** — Embedded SVG vector artwork across web and terminal interfaces, zero-dependency inline SVG favicon loading, and a custom hand-crafted high-contrast PIL system tray runner (`src/cli/launcher.py`, RGBA 64×64) tuned for taskbar legibility.

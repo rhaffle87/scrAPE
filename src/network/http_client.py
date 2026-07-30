@@ -660,7 +660,11 @@ class HttpClient:
         # recent get() call on this thread (excludes rate-limiter sleep time).
         # The engine's adaptive concurrency scaler reads this to avoid penalising
         # all domains when one slow domain is simply waiting for its rate limit.
+        # thread-local storage tracking
         self._thread_local = threading.local()
+
+        # Run automated cleanup for old persistent browser profiles
+        self._cleanup_stale_profiles()
 
     def _fallback_lock_for(self, host: str) -> threading.Lock:
         with self._fallback_lock:
@@ -729,6 +733,33 @@ class HttpClient:
     # ------------------------------------------------------------------
     # Domain helpers
     # ------------------------------------------------------------------
+
+    def _get_browser_profile_path(self, host: str) -> str:
+        """Return the absolute path to the persistent browser profile for *host*."""
+        domain_slug = re.sub(r"[^\w\-]", "_", host)
+        profile_path = Path("data/profiles") / domain_slug
+        profile_path.mkdir(parents=True, exist_ok=True)
+        return str(profile_path.resolve())
+
+    def _cleanup_stale_profiles(self) -> None:
+        """Deletes physical browser profiles in data/profiles/ that are older than 30 days."""
+        import shutil
+        profiles_dir = Path("data/profiles")
+        if not profiles_dir.exists():
+            return
+            
+        now = time.time()
+        thirty_days = 30 * 24 * 3600
+        
+        for profile in profiles_dir.iterdir():
+            if profile.is_dir():
+                try:
+                    mtime = profile.stat().st_mtime
+                    if now - mtime > thirty_days:
+                        logger.info("Cleaning up stale browser profile: %s", profile.name)
+                        shutil.rmtree(profile, ignore_errors=True)
+                except Exception as e:
+                    logger.warning("Failed to clean up profile %s: %s", profile.name, e)
 
     @staticmethod
     def _hostname(url: str) -> str:
@@ -1193,7 +1224,9 @@ class HttpClient:
         """Fetch URL using Crawlee Puppeteer (stealth browser)"""
         from network.crawlee_client import CrawleeClient
         client = CrawleeClient()
-        html, cookies = client.get_with_puppeteer(url, proxy=self.get_proxy())
+        host = self._hostname(url)
+        profile_path = self._get_browser_profile_path(host)
+        html, cookies = client.get_with_puppeteer(url, proxy=self.get_proxy(), user_data_dir=profile_path)
         return html, cookies
 
     def _get_with_drissionpage(self, url: str) -> tuple[str, list[dict]]:
@@ -1644,11 +1677,14 @@ class HttpClient:
 
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
+            host = self._hostname(url)
+            profile_path = self._get_browser_profile_path(host)
             kwargs = {
                 "headless": is_headless,
                 "os": camou_os,
                 "humanize": True,
                 "window_size": (1920, 1080),
+                "user_data_dir": profile_path,
             }
             with Camoufox(**kwargs) as browser:
                 page = browser.new_page()
@@ -1867,8 +1903,7 @@ class HttpClient:
             parsed = urlparse(url)
             host = parsed.netloc or parsed.hostname or ""
             domain_slug = re.sub(r"[^\w\-]", "_", host)
-            profile_path = Path("data/profiles") / domain_slug
-            profile_path.parent.mkdir(parents=True, exist_ok=True)
+            profile_path = Path(self._get_browser_profile_path(host))
 
             is_windows = sys.platform.startswith("win")
             is_macos = sys.platform == "darwin"
