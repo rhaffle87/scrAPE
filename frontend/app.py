@@ -791,9 +791,13 @@ async def open_folder(request: Request):
 
 @app.get("/api/telemetry/stealth")
 def get_stealth_telemetry():
-    """Return live WAF stealth pipeline statistics, solve counts, and circuit breaker cooldowns."""
+    """Return live WAF stealth pipeline statistics, solve counts, circuit breaker cooldowns, CapSolver spend, and Proxy pool bandwidth stats."""
     from utils.http_client import HttpClient, StealthTierHealthManager
+    from utils.capsolver import CapSolverClient
+    from utils.proxy_manager import ProxyPoolManager
+    import config
     import time
+    
     health_mgr = StealthTierHealthManager.get_instance()
     
     with HttpClient._waf_solve_lock:
@@ -813,11 +817,22 @@ def get_stealth_telemetry():
             for tier, data in health_mgr._health.items()
         }
 
+    proxy_mgr = ProxyPoolManager.get_instance()
+    total_bytes = proxy_mgr.get_total_bytes_transferred()
+    max_bytes = proxy_mgr.max_bandwidth_bytes
+
+    capsolver = CapSolverClient(api_key=getattr(config, "CAPSOLVER_API_KEY", ""))
+
     return JSONResponse({
         "status": "success",
         "solve_counts": solve_counts,
         "preferred_engines": preferred_engines,
         "health_stats": health_stats,
+        "capsolver_run_spend": capsolver.current_run_spend,
+        "capsolver_max_spend": capsolver.max_spend_per_run,
+        "capsolver_balance": capsolver.cached_balance or 0.0,
+        "proxy_total_bytes": total_bytes,
+        "proxy_max_bytes": max_bytes,
     })
 
 @app.get("/htmx/stats")

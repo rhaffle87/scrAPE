@@ -942,6 +942,20 @@
             transform: scale(1);
         }
 
+        /* Fullscreen Canvas View Mode */
+        .canvas-fullscreen-mode {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 99999 !important;
+            margin: 0 !important;
+            background: #050706 !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+
         /* Footer Toolbar */
         .modal-footer-toolbar {
             width: 100%;
@@ -1706,18 +1720,26 @@
                 <div class="visualizer-split-container"
                     style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
                     <!-- WAF Stealth Pipeline Telemetry Card -->
-                    <div class="glass-panel" id="stealth-telemetry-card" style="border: var(--border-heavy); background: var(--bg-surface); padding: 0.75rem 1rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
-                            <span style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.85rem; letter-spacing: 1px;">STEALTH PIPELINE TELEMETRY</span>
-                            <button onclick="refreshStealthTelemetry()" style="background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; cursor: pointer; border-radius: 0 !important;">REFRESH</button>
+                    <div class="glass-panel" id="stealth-telemetry-card"
+                        style="border: var(--border-heavy); background: var(--bg-surface); padding: 0.75rem 1rem;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
+                            <span
+                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.85rem; letter-spacing: 1px;">STEALTH
+                                PIPELINE TELEMETRY</span>
+                            <button onclick="refreshStealthTelemetry()"
+                                style="background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; cursor: pointer; border-radius: 0 !important;">REFRESH</button>
                         </div>
-                        <div id="stealth-tier-pills" style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
-                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING STEALTH STATS...</span>
+                        <div id="stealth-tier-pills"
+                            style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+                            <span
+                                style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING
+                                STEALTH STATS...</span>
                         </div>
                     </div>
 
                     <!-- Live Crawl Network Tree Graph (Top) -->
-                    <div class="glass-panel"
+                    <div class="glass-panel" id="crawl-graph-card"
                         style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base); gap: 0.5rem; flex-wrap: wrap;">
@@ -1738,10 +1760,53 @@
                                 <span id="graph-node-count"
                                     style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES:
                                     0</span>
+                                <button type="button" id="btn-toggle-fullscreen"
+                                    title="Open Fullscreen View Mode (ESC to exit)" onclick="toggleFullscreenCanvas()"
+                                    style="background: var(--bg-surface); color: var(--accent); border: 1px solid var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; cursor: pointer; border-radius: 0 !important; text-transform: uppercase; display: flex; align-items: center; gap: 4px; transition: all 0.15s ease;">⛶
+                                    FULLSCREEN</button>
                             </div>
                         </div>
                         <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
-                            <canvas id="crawl-graph-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                            <canvas id="crawl-graph-canvas"
+                                style="width: 100%; height: 100%; display: block; cursor: grab; touch-action: none;"></canvas>
+
+                            <!-- Interactive Zoom & Physics Toolbar Overlay -->
+                            <div id="graph-controls-overlay"
+                                style="position: absolute; top: 10px; left: 10px; display: flex; gap: 4px; z-index: 15; background: rgba(11, 13, 12, 0.9); border: 1px solid var(--border-heavy); padding: 4px; border-radius: 0 !important; backdrop-filter: blur(4px);">
+                                <button type="button" title="Zoom In (+)" onclick="zoomGraph(1.25)"
+                                    style="background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.85rem; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 !important;">+</button>
+                                <button type="button" title="Zoom Out (-)" onclick="zoomGraph(0.8)"
+                                    style="background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.85rem; width: 26px; height: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 !important;">−</button>
+                                <button type="button" title="Reset View & Scale" onclick="resetCanvasView()"
+                                    style="background: var(--bg-surface); color: var(--accent); border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.65rem; height: 26px; padding: 0 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 !important; text-transform: uppercase;">⟲
+                                    FIT</button>
+                                <button type="button" id="btn-toggle-physics" title="Pause/Resume Physics Simulation"
+                                    onclick="toggleGraphPhysics()"
+                                    style="background: var(--bg-surface); color: #00ff88; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.65rem; height: 26px; padding: 0 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 !important; text-transform: uppercase;">⏸
+                                    LIVE</button>
+                            </div>
+
+                            <!-- Live Hover Node Tooltip Overlay Card -->
+                            <div id="graph-hover-tooltip"
+                                style="display: none; position: fixed; pointer-events: none; z-index: 100; background: #0b0d0c; border: 2px solid var(--accent); color: #ffffff; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; box-shadow: 4px 4px 0 #000; border-radius: 0 !important; max-width: 320px; line-height: 1.4;">
+                                <div
+                                    style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-heavy); padding-bottom: 4px; margin-bottom: 4px;">
+                                    <span id="tooltip-domain-dot"
+                                        style="display: inline-block; width: 8px; height: 8px; background: var(--accent);"></span>
+                                    <span id="tooltip-domain"
+                                        style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.8rem; letter-spacing: 0.5px;">-</span>
+                                    <span id="tooltip-depth-badge"
+                                        style="margin-left: auto; background: rgba(255,85,0,0.2); color: var(--accent); border: 1px solid var(--accent); padding: 0 4px; font-size: 0.6rem; font-weight: bold;">D0</span>
+                                </div>
+                                <div id="tooltip-url"
+                                    style="color: var(--text-muted); font-size: 0.65rem; word-break: break-all; margin-bottom: 4px;">
+                                    -</div>
+                                <div style="display: flex; gap: 8px; font-size: 0.65rem;">
+                                    <span style="color: #00ff66;" id="tooltip-status">HTTP 200</span>
+                                    <span style="color: var(--accent);" id="tooltip-media">0 ASSETS</span>
+                                </div>
+                            </div>
+
                             <!-- Node Telemetry Inspection Drawer Overlay -->
                             <div id="node-inspector-drawer"
                                 style="display: none; position: absolute; top: 0; right: 0; width: 260px; height: 100%; background: rgba(11, 13, 12, 0.95); border-left: 2px solid var(--accent); padding: 0.75rem; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; z-index: 20; backdrop-filter: blur(8px); overflow-y: auto; border-radius: 0 !important;">
@@ -1764,7 +1829,8 @@
                                         style="color: var(--text-muted);">DEPTH:</span> <span id="inspector-depth"
                                         style="color: var(--accent);">0</span></div>
                                 <div style="margin-bottom: 0.5rem;"><span style="color: var(--text-muted);">TYPE:</span>
-                                    <span id="inspector-type" style="color: var(--text-primary);">PAGE</span></div>
+                                    <span id="inspector-type" style="color: var(--text-primary);">PAGE</span>
+                                </div>
                                 <div style="margin-bottom: 0.5rem;"><span
                                         style="color: var(--text-muted);">STATUS:</span> <span id="inspector-status"
                                         style="color: #00ff66;">HTTP 200 OK</span></div>
@@ -2800,7 +2866,7 @@
                         if (res.ok) {
                             currentStudioFilename = filename;
                             await loadStudioSeedsList();
-                            await loadSeeds(); // Sync Command Center dropdown
+                            await populateSeedsDropdown(); // Sync Command Center dropdown
                             document.getElementById('studio-status-indicator').innerText = `[ SAVED ${filename} ]`;
                             alert(`Seed manifest '${filename}' saved successfully!`);
                         }
@@ -2820,7 +2886,7 @@
                             if (res.ok) {
                                 currentStudioFilename = "";
                                 await loadStudioSeedsList();
-                                await loadSeeds();
+                                await populateSeedsDropdown();
                                 onStudioSeedSelectChange(document.getElementById('studio-seed-select'));
                                 alert("Seed file deleted.");
                             }
@@ -3287,8 +3353,7 @@
                                 }
 
                                 if (!isPollingLogs) {
-                                    isPollingLogs = true;
-                                    pollLogsInterval = setInterval(pollLogs, 1000);
+                                    onInitiateScrape();
                                 }
                             } else if (data.status === 'paused') {
                                 badge.innerText = 'STATUS: PAUSED [' + (data.current_keyword || 'ACTIVE') + ']';
@@ -3364,7 +3429,7 @@
                     }
                 }
 
-                // --- Live Crawl Graph & Media Visualizer with Zoom/Pan & Node Inspector ---
+                // --- Live Crawl Graph & Media Visualizer with Zoom/Pan, Tooltips & Inspector ---
                 const graphNodes = new Map();
                 let streamedAssetsCount = 0;
 
@@ -3375,6 +3440,108 @@
                 let startPanX = 0;
                 let startPanY = 0;
                 let selectedNode = null;
+                let hoveredNode = null;
+                let isPhysicsActive = true;
+
+                function zoomGraph(factor) {
+                    const canvas = document.getElementById('crawl-graph-canvas');
+                    if (!canvas) return;
+                    const cx = canvas.width / 2;
+                    const cy = canvas.height / 2;
+                    const worldX = (cx - canvasPanX) / canvasScale;
+                    const worldY = (cy - canvasPanY) / canvasScale;
+                    canvasScale = Math.max(0.2, Math.min(5.0, canvasScale * factor));
+                    canvasPanX = cx - worldX * canvasScale;
+                    canvasPanY = cy - worldY * canvasScale;
+                    drawCrawlGraph();
+                }
+
+                function toggleGraphPhysics() {
+                    isPhysicsActive = !isPhysicsActive;
+                    const btn = document.getElementById('btn-toggle-physics');
+                    if (btn) {
+                        btn.innerText = isPhysicsActive ? '⏸ LIVE' : '▶ PAUSED';
+                        btn.style.color = isPhysicsActive ? '#00ff88' : '#ff5500';
+                    }
+                }
+
+                let isCanvasFullscreen = false;
+
+                function toggleFullscreenCanvas() {
+                    const card = document.getElementById('crawl-graph-card') || document.querySelector('#crawl-graph-canvas')?.parentElement?.parentElement;
+                    const btn = document.getElementById('btn-toggle-fullscreen');
+                    if (!card) return;
+
+                    if (!isCanvasFullscreen) {
+                        isCanvasFullscreen = true;
+                        card.classList.add('canvas-fullscreen-mode');
+                        if (card.requestFullscreen) {
+                            card.requestFullscreen().catch(err => console.log('Native fullscreen fallback active:', err));
+                        } else if (card.webkitRequestFullscreen) {
+                            card.webkitRequestFullscreen();
+                        }
+                        if (btn) {
+                            btn.innerHTML = '✕ EXIT FULLSCREEN';
+                            btn.style.color = '#ff5500';
+                            btn.style.borderColor = '#ff5500';
+                        }
+                    } else {
+                        exitFullscreenCanvas();
+                    }
+                    setTimeout(() => {
+                        const canvas = document.getElementById('crawl-graph-canvas');
+                        if (canvas && canvas.parentElement) {
+                            canvas.width = canvas.parentElement.clientWidth;
+                            canvas.height = canvas.parentElement.clientHeight;
+                            drawCrawlGraph();
+                        }
+                    }, 50);
+                }
+
+                function exitFullscreenCanvas() {
+                    const card = document.getElementById('crawl-graph-card') || document.querySelector('#crawl-graph-canvas')?.parentElement?.parentElement;
+                    const btn = document.getElementById('btn-toggle-fullscreen');
+                    isCanvasFullscreen = false;
+                    if (card) {
+                        card.classList.remove('canvas-fullscreen-mode');
+                    }
+                    if (document.fullscreenElement || document.webkitFullscreenElement) {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen().catch(() => { });
+                        } else if (document.webkitExitFullscreen) {
+                            document.webkitExitFullscreen();
+                        }
+                    }
+                    if (btn) {
+                        btn.innerHTML = '⛶ FULLSCREEN';
+                        btn.style.color = 'var(--accent)';
+                        btn.style.borderColor = 'var(--accent)';
+                    }
+                    setTimeout(() => {
+                        const canvas = document.getElementById('crawl-graph-canvas');
+                        if (canvas && canvas.parentElement) {
+                            canvas.width = canvas.parentElement.clientWidth;
+                            canvas.height = canvas.parentElement.clientHeight;
+                            drawCrawlGraph();
+                        }
+                    }, 50);
+                }
+
+                document.addEventListener('fullscreenchange', () => {
+                    if (!document.fullscreenElement && isCanvasFullscreen) {
+                        exitFullscreenCanvas();
+                    }
+                });
+                document.addEventListener('webkitfullscreenchange', () => {
+                    if (!document.webkitFullscreenElement && isCanvasFullscreen) {
+                        exitFullscreenCanvas();
+                    }
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && isCanvasFullscreen) {
+                        exitFullscreenCanvas();
+                    }
+                });
 
                 function initCrawlGraphCanvas() {
                     const canvas = document.getElementById('crawl-graph-canvas');
@@ -3393,42 +3560,128 @@
                     }
                     resizeCanvas();
 
-                    // Mouse wheel zoom
+                    // Smart mouse wheel zoom centered at mouse pointer
                     canvas.addEventListener('wheel', (e) => {
                         e.preventDefault();
-                        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                        canvasScale = Math.max(0.4, Math.min(3.0, canvasScale * zoomFactor));
-                        drawCrawlGraph();
-                    });
+                        const rect = canvas.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
 
-                    // Mouse drag pan
-                    canvas.addEventListener('mousedown', (e) => {
-                        isPanning = true;
+                        const worldX = (mouseX - canvasPanX) / canvasScale;
+                        const worldY = (mouseY - canvasPanY) / canvasScale;
+
+                        const factor = e.deltaY < 0 ? 1.15 : 0.85;
+                        const newScale = Math.max(0.2, Math.min(5.0, canvasScale * factor));
+
+                        canvasPanX = mouseX - worldX * newScale;
+                        canvasPanY = mouseY - worldY * newScale;
+                        canvasScale = newScale;
+
+                        drawCrawlGraph();
+                    }, { passive: false });
+
+                    let isMouseDown = false;
+                    let dragStartX = 0;
+                    let dragStartY = 0;
+                    let hasDragged = false;
+
+                    canvas.addEventListener('dragstart', (e) => e.preventDefault());
+
+                    // Pointer/Mouse drag pan & Hover tooltip tracking
+                    canvas.addEventListener('pointerdown', (e) => {
+                        if (e.button !== 0) return;
+                        isMouseDown = true;
+                        hasDragged = false;
+                        isCameraLerping = false; // Instantly cancel any camera focus lerp
+                        dragStartX = e.clientX;
+                        dragStartY = e.clientY;
                         startPanX = e.clientX - canvasPanX;
                         startPanY = e.clientY - canvasPanY;
+                        canvas.style.cursor = 'grabbing';
+                        try { canvas.setPointerCapture(e.pointerId); } catch (_) { }
                     });
 
-                    window.addEventListener('mousemove', (e) => {
-                        if (!isPanning) return;
-                        canvasPanX = e.clientX - startPanX;
-                        canvasPanY = e.clientY - startPanY;
-                        drawCrawlGraph();
+                    canvas.addEventListener('pointermove', (e) => {
+                        if (isMouseDown) {
+                            const dist = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+                            if (dist > 3) {
+                                isPanning = true;
+                                hasDragged = true;
+                                isCameraLerping = false;
+                            }
+                        }
+
+                        if (isPanning) {
+                            canvasPanX = e.clientX - startPanX;
+                            canvasPanY = e.clientY - startPanY;
+                            drawCrawlGraph();
+                            return;
+                        }
+
+                        // Hover logic using precise canvas-relative coordinates
+                        const mouseX = (e.offsetX - canvasPanX) / canvasScale;
+                        const mouseY = (e.offsetY - canvasPanY) / canvasScale;
+
+                        let found = null;
+                        graphNodes.forEach(node => {
+                            const hitRadius = node.depth === 0 ? 16 : (node.type === 'page_visited' ? 12 : 9);
+                            const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
+                            if (dist <= hitRadius) {
+                                found = node;
+                            }
+                        });
+
+                        if (found !== hoveredNode) {
+                            hoveredNode = found;
+                            if (hoveredNode) {
+                                showHoverTooltip(hoveredNode, e.clientX, e.clientY);
+                            } else {
+                                hideHoverTooltip();
+                            }
+                            drawCrawlGraph();
+                        } else if (hoveredNode) {
+                            updateHoverTooltipPos(e.clientX, e.clientY);
+                        }
                     });
 
-                    window.addEventListener('mouseup', () => {
-                        isPanning = false;
+                    const endPan = (e) => {
+                        isMouseDown = false;
+                        if (isPanning) {
+                            isPanning = false;
+                        }
+                        canvas.style.cursor = 'grab';
+                        if (e && e.pointerId) {
+                            try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
+                        }
+                    };
+
+                    window.addEventListener('pointerup', endPan);
+                    window.addEventListener('pointercancel', endPan);
+
+                    canvas.addEventListener('pointerleave', (e) => {
+                        if (!isMouseDown) {
+                            if (hoveredNode) {
+                                hoveredNode = null;
+                                hideHoverTooltip();
+                                drawCrawlGraph();
+                            }
+                        }
                     });
 
                     // Node click inspector
                     canvas.addEventListener('click', (e) => {
-                        const rect = canvas.getBoundingClientRect();
-                        const clickX = (e.clientX - rect.left - canvasPanX) / canvasScale;
-                        const clickY = (e.clientY - rect.top - canvasPanY) / canvasScale;
+                        if (hasDragged) {
+                            hasDragged = false;
+                            return;
+                        }
+                        const clickX = (e.offsetX - canvasPanX) / canvasScale;
+                        const clickY = (e.offsetY - canvasPanY) / canvasScale;
 
                         let clicked = null;
                         graphNodes.forEach(node => {
+                            const hitRadius = node.depth === 0 ? 16 : 12;
                             const dist = Math.hypot(node.x - clickX, node.y - clickY);
-                            if (dist <= 12) {
+                            if (dist <= hitRadius) {
                                 clicked = node;
                             }
                         });
@@ -3437,6 +3690,46 @@
                             inspectGraphNode(clicked);
                         }
                     });
+                }
+
+                function showHoverTooltip(node, clientX, clientY) {
+                    const tooltip = document.getElementById('graph-hover-tooltip');
+                    if (!tooltip) return;
+
+                    const domDot = document.getElementById('tooltip-domain-dot');
+                    const domText = document.getElementById('tooltip-domain');
+                    const urlText = document.getElementById('tooltip-url');
+                    const depthBadge = document.getElementById('tooltip-depth-badge');
+                    const statusText = document.getElementById('tooltip-status');
+                    const mediaText = document.getElementById('tooltip-media');
+
+                    const color = getDomainColor(node.domain);
+                    if (domDot) domDot.style.background = color;
+                    if (domText) {
+                        domText.innerText = (node.domain || 'SEED').toUpperCase();
+                        domText.style.color = color;
+                    }
+                    if (urlText) urlText.innerText = node.url || '';
+                    if (depthBadge) depthBadge.innerText = `D${node.depth !== undefined ? node.depth : 0}`;
+                    if (statusText) statusText.innerText = node.status ? `HTTP ${node.status}` : 'HTTP 200';
+                    if (mediaText) mediaText.innerText = `${node.media_count || 0} ASSETS`;
+
+                    tooltip.style.display = 'block';
+                    updateHoverTooltipPos(clientX, clientY);
+                }
+
+                function updateHoverTooltipPos(clientX, clientY) {
+                    const tooltip = document.getElementById('graph-hover-tooltip');
+                    if (!tooltip) return;
+                    const x = Math.min(window.innerWidth - 330, clientX + 14);
+                    const y = Math.min(window.innerHeight - 100, clientY + 14);
+                    tooltip.style.left = `${x}px`;
+                    tooltip.style.top = `${y}px`;
+                }
+
+                function hideHoverTooltip() {
+                    const tooltip = document.getElementById('graph-hover-tooltip');
+                    if (tooltip) tooltip.style.display = 'none';
                 }
 
                 let targetPanX = 0;
@@ -3501,24 +3794,25 @@
                     const w = canvas.width || 400;
                     const h = canvas.height || 260;
 
-                    if (!graphNodes.has(data.url)) {
+                    // Normalize URL by removing trailing slash for consistent mapping
+                    const normUrl = (data.url || '').replace(/\/+$/, '');
+                    const normParent = data.parent ? data.parent.replace(/\/+$/, '') : null;
+
+                    if (!graphNodes.has(normUrl)) {
                         const depth = data.depth || 0;
-                        const parentNode = data.parent ? graphNodes.get(data.parent) : null;
+                        const parentNode = normParent ? graphNodes.get(normParent) : null;
 
-                        const randomAngle = (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * Math.PI * 2;
-                        const randomRadius = parentNode ? (35 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 45) : (60 + depth * 35 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 50);
+                        const angle = (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * Math.PI * 2;
+                        const radius = parentNode ? (35 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 45) : (70 + (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967295) * 90);
 
-                        let x = (parentNode ? parentNode.x : w / 2) + Math.cos(randomAngle) * randomRadius;
-                        let y = (parentNode ? parentNode.y : h / 2) + Math.sin(randomAngle) * randomRadius;
+                        let x = (parentNode ? parentNode.x : w / 2) + Math.cos(angle) * radius;
+                        let y = (parentNode ? parentNode.y : h / 2) + Math.sin(angle) * radius;
 
-                        x = Math.max(30, Math.min(w - 30, x));
-                        y = Math.max(30, Math.min(h - 30, y));
-
-                        graphNodes.set(data.url, {
-                            url: data.url,
+                        graphNodes.set(normUrl, {
+                            url: normUrl,
                             domain: data.domain || '',
                             depth: depth,
-                            parent: data.parent,
+                            parent: normParent,
                             type: data.type || 'node',
                             status: data.status || 200,
                             media_count: data.media_count || 0,
@@ -3534,6 +3828,39 @@
                         const countElem = document.getElementById('graph-node-count');
                         if (countElem) countElem.innerText = `NODES: ${graphNodes.size}`;
                         drawCrawlGraph();
+                    } else {
+                        // Update existing node properties
+                        const existingNode = graphNodes.get(normUrl);
+                        let updated = false;
+
+                        if (normParent && !existingNode.parent) {
+                            existingNode.parent = normParent;
+                            const parentNode = graphNodes.get(normParent);
+                            if (parentNode) {
+                                spawnLinkParticle(parentNode, existingNode, getDomainColor(existingNode.domain));
+                            }
+                            updated = true;
+                        }
+
+                        if (data.type === 'page_visited' && existingNode.type !== 'page_visited') {
+                            existingNode.type = 'page_visited';
+                            existingNode.color = '#ff5500';
+                            updated = true;
+                        }
+
+                        if (data.status && existingNode.status !== data.status) {
+                            existingNode.status = data.status;
+                            updated = true;
+                        }
+
+                        if (data.media_count && existingNode.media_count !== data.media_count) {
+                            existingNode.media_count = data.media_count;
+                            updated = true;
+                        }
+
+                        if (updated) {
+                            drawCrawlGraph();
+                        }
                     }
                 }
 
@@ -3586,19 +3913,18 @@
                             }
                         }
 
-                        if (nodes.length > 0 && nodes.length <= 1500) {
+                        if (isPhysicsActive && nodes.length > 0 && nodes.length <= 2000) {
                             let moved = false;
-                            // Adaptive auto-tuning parameters based on node count
                             const nodeCount = nodes.length;
-                            const repulsion = Math.max(3000, 12000 / Math.sqrt(1 + (nodeCount / 20)));
-                            const k = Math.min(0.06, 0.02 + (nodeCount * 0.0001));
-                            const damping = 0.85;
+                            const repulsion = Math.max(5000, 8000 + nodeCount * 12);
+                            const k = 0.03;
+                            const damping = 0.82;
 
                             for (let node of nodes) {
                                 if (node.vx === undefined) { node.vx = 0; node.vy = 0; }
                             }
 
-                            // Coulomb repulsive force between node pairs
+                            // 1. Coulomb repulsion + Hard collision separation
                             for (let i = 0; i < nodes.length; i++) {
                                 for (let j = i + 1; j < nodes.length; j++) {
                                     const a = nodes[i];
@@ -3606,9 +3932,22 @@
                                     const dx = a.x - b.x;
                                     const dy = a.y - b.y;
                                     const distSq = dx * dx + dy * dy;
-                                    if (distSq > 0 && distSq < 60000) {
-                                        const dist = Math.max(12, Math.sqrt(distSq));
-                                        const force = Math.min(15, repulsion / Math.max(144, distSq));
+
+                                    if (distSq > 0 && distSq < 160000) {
+                                        const dist = Math.sqrt(distSq);
+                                        const minDist = (a.type === 'page_visited' ? 22 : 16) + (b.type === 'page_visited' ? 22 : 16);
+
+                                        // Overlap prevention force
+                                        if (dist < minDist) {
+                                            const overlap = (minDist - dist) * 0.5;
+                                            const nx = (dx / dist) * overlap;
+                                            const ny = (dy / dist) * overlap;
+                                            a.x += nx; a.y += ny;
+                                            b.x -= nx; b.vy -= ny;
+                                            moved = true;
+                                        }
+
+                                        const force = Math.min(20, repulsion / Math.max(200, distSq));
                                         const fx = (dx / dist) * force;
                                         const fy = (dy / dist) * force;
                                         a.vx += fx; a.vy += fy;
@@ -3618,14 +3957,14 @@
                                 }
                             }
 
-                            // Hooke spring attraction along parent-child links
+                            // 2. Hooke spring attraction along parent-child links
                             for (let node of nodes) {
                                 if (node.parent && graphNodes.has(node.parent)) {
                                     const p = graphNodes.get(node.parent);
                                     const dx = p.x - node.x;
                                     const dy = p.y - node.y;
                                     const dist = Math.hypot(dx, dy);
-                                    const targetDist = 65;
+                                    const targetDist = node.depth === 0 ? 70 : 50;
                                     if (dist > targetDist) {
                                         const force = (dist - targetDist) * k;
                                         const fx = (dx / dist) * force;
@@ -3634,27 +3973,18 @@
                                         p.vx -= fx; p.vy -= fy;
                                         moved = true;
                                     }
-                                } else {
-                                    // Soft anchor for root seed nodes
+                                } else if (node.depth === 0) {
+                                    // Soft central anchor ONLY for root seed nodes (depth 0)
                                     const cx = w / 2;
                                     const cy = h / 2;
-                                    node.vx += (cx - node.x) * 0.0005;
-                                    node.vy += (cy - node.y) * 0.0005;
+                                    node.vx += (cx - node.x) * 0.001;
+                                    node.vy += (cy - node.y) * 0.001;
                                 }
                             }
 
-                            // Soft canvas boundary repulsion
-                            const margin = 25;
+                            // 3. Apply velocities
                             for (let node of nodes) {
-                                if (node.x < margin) node.vx += (margin - node.x) * 0.05;
-                                if (node.x > w - margin) node.vx -= (node.x - (w - margin)) * 0.05;
-                                if (node.y < margin) node.vy += (margin - node.y) * 0.05;
-                                if (node.y > h - margin) node.vy -= (node.y - (h - margin)) * 0.05;
-                            }
-
-                            // Apply velocities
-                            for (let node of nodes) {
-                                if (Math.abs(node.vx) > 0.05 || Math.abs(node.vy) > 0.05) {
+                                if (Math.abs(node.vx) > 0.04 || Math.abs(node.vy) > 0.04) {
                                     node.x += node.vx;
                                     node.y += node.vy;
                                     node.vx *= damping;
@@ -3675,7 +4005,7 @@
                             }
                         }
 
-                        if (moved || activeLinkParticles.length > 0) {
+                        if (isPhysicsActive || isCameraLerping || activeLinkParticles.length > 0 || isPanning) {
                             drawCrawlGraph();
                         }
                         requestAnimationFrame(tick);
@@ -3720,9 +4050,8 @@
 
                 setTimeout(startPhysicsLoop, 300);
 
-                // NOSONAR
+                // High-Craft Canvas Rendering Engine
                 function drawCrawlGraph() {
-
                     const canvas = document.getElementById('crawl-graph-canvas');
                     if (!canvas) return;
                     const ctx = canvas.getContext('2d');
@@ -3738,21 +4067,40 @@
                     ctx.translate(canvasPanX, canvasPanY);
                     ctx.scale(canvasScale, canvasScale);
 
-                    // Grid background
-                    ctx.strokeStyle = '#121614';
+                    // High-craft tactical grid background sliding smoothly in world coordinates
+                    ctx.strokeStyle = '#111614';
                     ctx.lineWidth = 1;
-                    for (let x = -w; x < w * 2; x += 25) {
+                    const gridSize = 30;
+                    const minWorldX = -canvasPanX / canvasScale;
+                    const maxWorldX = (w - canvasPanX) / canvasScale;
+                    const minWorldY = -canvasPanY / canvasScale;
+                    const maxWorldY = (h - canvasPanY) / canvasScale;
+
+                    const startX = Math.floor(minWorldX / gridSize) * gridSize - gridSize * 2;
+                    const endX = Math.ceil(maxWorldX / gridSize) * gridSize + gridSize * 2;
+                    const startY = Math.floor(minWorldY / gridSize) * gridSize - gridSize * 2;
+                    const endY = Math.ceil(maxWorldY / gridSize) * gridSize + gridSize * 2;
+
+                    for (let x = startX; x <= endX; x += gridSize) {
                         ctx.beginPath();
-                        ctx.moveTo(x, -h);
-                        ctx.lineTo(x, h * 2);
+                        ctx.moveTo(x, startY);
+                        ctx.lineTo(x, endY);
                         ctx.stroke();
                     }
-                    for (let y = -h; y < h * 2; y += 25) {
+                    for (let y = startY; y <= endY; y += gridSize) {
                         ctx.beginPath();
-                        ctx.moveTo(-w, y);
-                        ctx.lineTo(w * 2, y);
+                        ctx.moveTo(startX, y);
+                        ctx.lineTo(endX, y);
                         ctx.stroke();
                     }
+
+                    // Tactical origin axis crosshair (visual feedback for 2D pan position)
+                    ctx.strokeStyle = 'rgba(255, 85, 0, 0.35)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-30, 0); ctx.lineTo(30, 0);
+                    ctx.moveTo(0, -30); ctx.lineTo(0, 30);
+                    ctx.stroke();
 
                     // Filter nodes by depth
                     const visibleNodes = new Map();
@@ -3769,51 +4117,90 @@
                         }
                     });
 
-                    // Connections
+                    // Render connections with smooth opacity
                     visibleNodes.forEach(node => {
                         if (node.parent && visibleNodes.has(node.parent)) {
                             const p = visibleNodes.get(node.parent);
+                            const color = getDomainColor(node.domain);
                             ctx.beginPath();
                             ctx.moveTo(p.x, p.y);
                             ctx.lineTo(node.x, node.y);
-                            ctx.strokeStyle = getDomainColor(node.domain);
-                            ctx.globalAlpha = 0.35;
-                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = color;
+                            ctx.globalAlpha = 0.3;
+                            ctx.lineWidth = node.depth === 1 ? 1.8 : 1.0;
                             ctx.stroke();
                             ctx.globalAlpha = 1.0;
                         }
                     });
 
-                    // Render byte transfer particles along links
+                    // Render animated byte transfer particles along links
                     activeLinkParticles.forEach(pt => {
                         const px = pt.sx + (pt.tx - pt.sx) * pt.progress;
                         const py = pt.sy + (pt.ty - pt.sy) * pt.progress;
+                        ctx.save();
+                        ctx.shadowColor = pt.color;
+                        ctx.shadowBlur = 6;
                         ctx.beginPath();
                         ctx.arc(px, py, 2.5, 0, Math.PI * 2);
                         ctx.fillStyle = pt.color;
                         ctx.fill();
+                        ctx.restore();
                     });
 
-                    // Nodes
+                    // Render Nodes with glows, pulse rings & hover states
+                    const now = Date.now();
                     visibleNodes.forEach(node => {
                         const isMatched = searchQuery && (node.url.toLowerCase().includes(searchQuery) || node.domain.toLowerCase().includes(searchQuery));
                         const isSelected = selectedNode && selectedNode.url === node.url;
+                        const isHovered = hoveredNode && hoveredNode.url === node.url;
                         const color = getDomainColor(node.domain);
 
+                        ctx.save();
+
+                        // 1. Radial Domain Aura Glow for Root/Hub Nodes
+                        if (node.depth === 0 || isSelected || isHovered) {
+                            ctx.shadowColor = isSelected || isHovered ? '#ff5500' : color;
+                            ctx.shadowBlur = isSelected ? 16 : (isHovered ? 12 : 8);
+                        }
+
+                        // 2. Animated Sonar Pulse Ring for Seed Root Nodes
+                        if (node.depth === 0) {
+                            const pulseRadius = 12 + Math.sin(now / 300) * 3;
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, pulseRadius, 0, Math.PI * 2);
+                            ctx.strokeStyle = color;
+                            ctx.globalAlpha = 0.4;
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+                            ctx.globalAlpha = 1.0;
+                        }
+
+                        // 3. Node Core Body
+                        const coreRadius = node.depth === 0 ? 8 : (node.type === 'page_visited' ? 5.5 : 3.5);
                         ctx.beginPath();
-                        ctx.arc(node.x, node.y, node.type === 'page_visited' ? 6 : 3.5, 0, Math.PI * 2);
-                        ctx.fillStyle = color;
+                        ctx.arc(node.x, node.y, coreRadius, 0, Math.PI * 2);
+                        ctx.fillStyle = isSelected ? '#ff5500' : (isHovered ? '#ffffff' : color);
                         ctx.fill();
 
+                        // 4. Hover Highlight State
+                        if (isHovered) {
+                            ctx.beginPath();
+                            ctx.arc(node.x, node.y, coreRadius + 6, 0, Math.PI * 2);
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+
+                        // 5. Selected Node Highlight Double Ring
                         if (isSelected) {
                             ctx.beginPath();
-                            ctx.arc(node.x, node.y, 14, 0, Math.PI * 2);
+                            ctx.arc(node.x, node.y, coreRadius + 8, 0, Math.PI * 2);
                             ctx.strokeStyle = '#ff5500';
                             ctx.lineWidth = 2;
                             ctx.stroke();
                         } else if (isMatched) {
                             ctx.beginPath();
-                            ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
+                            ctx.arc(node.x, node.y, coreRadius + 6, 0, Math.PI * 2);
                             ctx.strokeStyle = '#ff5500';
                             ctx.lineWidth = 2;
                             ctx.stroke();
@@ -3821,15 +4208,9 @@
                             ctx.font = '10px "JetBrains Mono", monospace';
                             ctx.fillStyle = '#ffffff';
                             ctx.fillText(node.domain || node.url, node.x + 14, node.y + 4);
-                        } else if (node.type === 'page_visited') {
-                            ctx.beginPath();
-                            ctx.arc(node.x, node.y, 8, 0, Math.PI * 2);
-                            ctx.strokeStyle = color;
-                            ctx.globalAlpha = 0.5;
-                            ctx.lineWidth = 1;
-                            ctx.stroke();
-                            ctx.globalAlpha = 1.0;
                         }
+
+                        ctx.restore();
                     });
 
                     ctx.restore();
@@ -3870,7 +4251,7 @@
 
                     container.insertBefore(card, container.firstChild);
 
-                    while (container.children.length > 25) {
+                    while (container.children.length > 18) {
                         container.lastChild.remove();
                     }
                 }
@@ -3958,7 +4339,7 @@
                 }
 
                 document.addEventListener('DOMContentLoaded', () => {
-                    loadSeeds();
+                    populateSeedsDropdown();
                     setInterval(checkGlobalStatus, 2000);
                     checkGlobalStatus();
                     initCrawlGraphCanvas();
@@ -4061,7 +4442,8 @@
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                         <label for="export-min-score"
-                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">AESTHETIC SCORE THRESHOLD:</label>
+                            style="font-size: 0.75rem; color: var(--accent); font-weight: 700;">AESTHETIC SCORE
+                            THRESHOLD:</label>
                         <select id="export-min-score"
                             style="background: var(--bg-surface); border: 1px solid var(--accent); color: #fff; padding: 0.5rem; font-family: 'JetBrains Mono', monospace;">
                             <option value="0.0" selected>Disabled (Include All Quality)</option>

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from typing import Any
 from urllib.parse import urlparse
-import requests
+
+from utils.notification_manager import NotificationPipeline
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class ProxyInfo:
         self.total_latency_ms: float = 0.0
         self.avg_latency_ms: float = 0.0
         self.cooldown_until: float = 0.0
+        self.bytes_transferred: int = 0
 
     def record_success(self, latency_ms: float) -> None:
         self.successes += 1
@@ -53,20 +56,31 @@ class ProxyInfo:
                 self.url,
             )
 
+    def record_bytes(self, num_bytes: int) -> None:
+        if num_bytes > 0:
+            self.bytes_transferred += num_bytes
+
     def is_healthy(self) -> bool:
         return time.monotonic() >= self.cooldown_until
 
 
 class ProxyPoolManager:
-    """Thread-safe Proxy Pool Manager handling health probing, latency sorting, sticky domain binding, and auto-eviction."""
+    """Thread-safe Proxy Pool Manager handling health probing, latency sorting, bandwidth quota, and auto-eviction."""
 
     _instance: ProxyPoolManager | None = None
     _lock = threading.RLock()
 
-    def __init__(self) -> None:
+    def __init__(self, max_bandwidth_mb: float | None = None) -> None:
         self._pool_lock = threading.RLock()
         self._proxies: dict[str, ProxyInfo] = {}
         self._domain_bindings: dict[str, str] = {}
+
+        env_max_mb = float(os.getenv("PROXY_MAX_BANDWIDTH_MB", "500.0"))
+        mb = max_bandwidth_mb if max_bandwidth_mb is not None else env_max_mb
+        self.max_bandwidth_bytes: int = int(mb * 1024 * 1024)
+
+        self._warning_sent: bool = False
+        self._halt_sent: bool = False
 
     @classmethod
     def get_instance(cls) -> ProxyPoolManager:
@@ -74,6 +88,58 @@ class ProxyPoolManager:
             if cls._instance is None:
                 cls._instance = cls()
             return cls._instance
+
+    def reset_bandwidth_stats(self) -> None:
+        """Reset bandwidth stats and quota warning flags."""
+        with self._pool_lock:
+            for p in self._proxies.values():
+                p.bytes_transferred = 0
+            self._warning_sent = False
+            self._halt_sent = False
+
+    def get_total_bytes_transferred(self) -> int:
+        with self._pool_lock:
+            return sum(p.bytes_transferred for p in self._proxies.values())
+
+    def record_bytes_transferred(self, proxy_url_or_domain: str, num_bytes: int) -> None:
+        """Record bandwidth consumption for a proxy URL or bound domain."""
+        if num_bytes <= 0:
+            return
+
+        with self._pool_lock:
+            target_proxy = None
+            if proxy_url_or_domain in self._proxies:
+                target_proxy = self._proxies[proxy_url_or_domain]
+            elif proxy_url_or_domain.lower() in self._domain_bindings:
+                bound_url = self._domain_bindings[proxy_url_or_domain.lower()]
+                target_proxy = self._proxies.get(bound_url)
+
+            if target_proxy:
+                target_proxy.record_bytes(num_bytes)
+
+            total_bytes = self.get_total_bytes_transferred()
+            quota_80 = int(0.80 * self.max_bandwidth_bytes)
+
+            if total_bytes >= quota_80 and not self._warning_sent:
+                self._warning_sent = True
+                LOGGER.warning(
+                    "Proxy pool bandwidth usage (%.2f MB) reached 80%% quota warning limit (%.2f MB).",
+                    total_bytes / (1024 * 1024),
+                    self.max_bandwidth_bytes / (1024 * 1024),
+                )
+                NotificationPipeline().notify_watchdog_status(
+                    "Proxy pool bandwidth usage reached 80% quota warning limit."
+                )
+
+            if total_bytes >= self.max_bandwidth_bytes and not self._halt_sent:
+                self._halt_sent = True
+                LOGGER.warning(
+                    "Proxy pool bandwidth usage (%.2f MB) reached 100%% quota limit. Auto-halting proxy routing.",
+                    total_bytes / (1024 * 1024),
+                )
+                NotificationPipeline().notify_watchdog_status(
+                    "Proxy pool bandwidth quota exhausted (500 MB). Auto-halting proxy routing."
+                )
 
     def set_proxies(self, proxy_list: list[str]) -> None:
         """Register or update proxy URLs in the pool."""
@@ -93,8 +159,12 @@ class ProxyPoolManager:
             self._domain_bindings[domain_clean] = cleaned_proxy
 
     def get_best_proxy(self) -> str | None:
-        """Return the lowest-latency healthy proxy from the pool."""
+        """Return the lowest-latency healthy proxy from the pool, or None if quota exhausted."""
         with self._pool_lock:
+            if self.get_total_bytes_transferred() >= self.max_bandwidth_bytes:
+                LOGGER.warning("Proxy pool bandwidth quota exhausted. Halting proxy routing.")
+                return None
+
             healthy = [p for p in self._proxies.values() if p.is_healthy()]
             if not healthy:
                 return None
@@ -104,6 +174,10 @@ class ProxyPoolManager:
     def get_proxy_for_domain(self, domain: str) -> str | None:
         """Return sticky assigned proxy for *domain*, or assign best available proxy."""
         with self._pool_lock:
+            if self.get_total_bytes_transferred() >= self.max_bandwidth_bytes:
+                LOGGER.warning("Proxy pool bandwidth quota exhausted. Halting proxy routing for %s.", domain)
+                return None
+
             domain_clean = domain.lower().strip()
             bound_url = self._domain_bindings.get(domain_clean)
             if bound_url and bound_url in self._proxies and self._proxies[bound_url].is_healthy():
@@ -136,6 +210,7 @@ class ProxyPoolManager:
                     "failures": p.failures,
                     "consecutive_failures": p.consecutive_failures,
                     "avg_latency_ms": p.avg_latency_ms,
+                    "bytes_transferred": p.bytes_transferred,
                 }
                 for p in self._proxies.values()
             ]

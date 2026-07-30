@@ -861,33 +861,33 @@ def test_http_client_direct_stealth_routing(monkeypatch):
 
     monkeypatch.setattr(client.client, "get", mock_get)
 
-    # Mock _get_with_crawl4ai
-    crawl4ai_count = 0
+    # Mock _execute_fallbacks
+    fallback_count = 0
 
-    def mock_crawl4ai(url):
-        nonlocal crawl4ai_count
-        crawl4ai_count += 1
-        return "<html>Stealth Page</html>"
+    def mock_fallbacks(url, skip_httpx=True, preferred_engine=None):
+        nonlocal fallback_count
+        fallback_count += 1
+        return "<html>Stealth Page</html>", {}
 
-    monkeypatch.setattr(client, "_get_with_crawl4ai", mock_crawl4ai)
+    monkeypatch.setattr(client, "_execute_fallbacks", mock_fallbacks)
 
-    # We expect the first fetch to hit standard HTTP GET, fail with 403, fall back to Crawl4AI,
+    # We expect the first fetch to hit standard HTTP GET, fail with 403, fall back to stealth pipeline,
     # and then record the domain as requiring stealth.
     url1 = "https://stealth-domain.com/page1"
     resp1 = client.get(url1)
     assert resp1.text == "<html>Stealth Page</html>"
     assert get_count == 1
-    assert crawl4ai_count == 1
+    assert fallback_count == 1
     assert any(h == "stealth-domain.com" for h in client._stealth_required_hosts)
 
     # The second fetch to the same domain should bypass standard GET entirely
-    # and route directly to Crawl4AI.
+    # and route directly to the stealth pipeline.
     url2 = "https://stealth-domain.com/page2"
     resp2 = client.get(url2)
     assert resp2.text == "<html>Stealth Page</html>"
-    # get_count should remain 1 (bypassed standard GET completely), crawl4ai_count should be 2.
+    # get_count should remain 1 (bypassed standard GET completely), fallback_count should be 2.
     assert get_count == 1
-    assert crawl4ai_count == 2
+    assert fallback_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -1147,12 +1147,17 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
     from utils.http_client import HttpClient
     from utils.stealth_pipeline import (
         Crawl4AIStrategy,
+        Crawl4AIStrategy,
         DrissionPageStrategy,
+        CrawleeStrategy,
         StealthResponse,
     )
     import httpx
 
     client = HttpClient()
+
+    def mock_crawlee_fail(self, url, options):
+        raise Exception("Crawlee failed")
 
     def mock_crawl4ai_fail(self, url, options):
         raise Exception("Crawl4AI failed")
@@ -1170,6 +1175,7 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
             }
         ]
 
+    monkeypatch.setattr(CrawleeStrategy, "execute", mock_crawlee_fail)
     monkeypatch.setattr(Crawl4AIStrategy, "execute", mock_crawl4ai_fail)
     monkeypatch.setattr(DrissionPageStrategy, "execute", mock_drission_fail)
     monkeypatch.setattr(client, "_get_with_helium", mock_helium_success)
