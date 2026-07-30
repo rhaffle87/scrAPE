@@ -34,7 +34,7 @@ STEALTH_HEADFUL: bool = False
 
 DEFAULT_MAX_RESULTS = 0
 DEFAULT_OUTPUT_FORMAT = "json"
-DEFAULT_REQUESTS_PER_SECOND = 1.0
+DEFAULT_REQUESTS_PER_SECOND = 2.0
 DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_CACHE_TTL_SECONDS = 3600
@@ -45,7 +45,7 @@ DEFAULT_GLOBAL_CRAWL_RATE_RPS = 0.0
 
 # Per-request jitter added on top of the rate-limit interval (seconds).
 # Spreads concurrent requests across domains to reduce 429 clustering.
-RATE_LIMIT_JITTER_SECONDS = 0.4
+RATE_LIMIT_JITTER_SECONDS = 0.5
 
 # Per-domain rate-limit overrides (requests/second).
 # Domains not listed here fall back to DEFAULT_REQUESTS_PER_SECOND.
@@ -68,9 +68,9 @@ DOMAIN_COOLDOWN_SECONDS = [30, 60, 120]
 
 # Concurrency controls
 # Max pages fetched concurrently across different domains.
-CONCURRENT_PAGES_PER_BATCH = 12
+CONCURRENT_PAGES_PER_BATCH = 32
 # Max simultaneous media file downloads.
-CONCURRENT_DOWNLOADS = 16
+CONCURRENT_DOWNLOADS = 64
 
 OUTPUT_DIR = Path("output")
 CACHE_DIR = Path(".cache")
