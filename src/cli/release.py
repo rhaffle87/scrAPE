@@ -34,42 +34,28 @@ def bump_all_versions(version_clean: str) -> dict[str, bool]:
         f'version = "{version_clean}"',
     )
 
-    # 2. launcher.py
-    results["launcher.py"] = update_file_content(
-        ROOT_DIR / "src" / "cli" / "launcher.py",
-        r'VERSION = "v[0-9]+\.[0-9]+\.[0-9]+"',
-        f'VERSION = "{version_tag}"',
-    )
-
-    # 3. frontend/app.py
-    results["frontend/app.py"] = update_file_content(
-        ROOT_DIR / "frontend" / "app.py",
-        r'version="[0-9]+\.[0-9]+\.[0-9]+"',
-        f'version="{version_clean}"',
-    )
-
-    # 4. frontend/templates/index.html
+    # 2. frontend/templates/index.html
     results["frontend/index.html"] = update_file_content(
         ROOT_DIR / "frontend" / "templates" / "index.html",
         r'<span class="logo-version">v[0-9]+\.[0-9]+\.[0-9]+</span>',
         f'<span class="logo-version">{version_tag}</span>',
     )
 
-    # 5. crawlee_bridge/package.json
+    # 3. crawlee_bridge/package.json
     results["crawlee_bridge/package.json"] = update_file_content(
         ROOT_DIR / "crawlee_bridge" / "package.json",
         r'"version": "[0-9]+\.[0-9]+\.[0-9]+"',
         f'"version": "{version_clean}"',
     )
 
-    # 6. README.md
+    # 4. README.md
     results["README.md"] = update_file_content(
         ROOT_DIR / "README.md",
         r'RELEASE-V[0-9]+\.[0-9]+\.[0-9]+-orange',
         f'RELEASE-V{version_clean}-orange',
     )
 
-    # 7. DESIGN.md
+    # 5. DESIGN.md
     results["DESIGN.md"] = update_file_content(
         ROOT_DIR / "DESIGN.md",
         r'`v[0-9]+\.[0-9]+\.[0-9]+` version badge',

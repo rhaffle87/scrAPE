@@ -5,6 +5,8 @@ import json
 import os
 import re as _re
 
+from .version import VERSION, VERSION_TAG
+
 # Attempt to load .env file if available
 try:
     from dotenv import load_dotenv

@@ -46,3 +46,42 @@ def ensure_config_files_exist():
         domain_config_path.unlink(missing_ok=True)
     if created_subject_profiles:
         subject_profiles_path.unlink(missing_ok=True)
+
+# -----------------------------------------------------------------------------
+# STRICT ISOLATION FIXTURES
+# -----------------------------------------------------------------------------
+
+def pytest_runtest_setup():
+    """Globally disable network sockets, allowing only loopback."""
+    try:
+        import pytest_socket
+        pytest_socket.socket_allow_hosts(["127.0.0.1", "localhost", "::1"])
+    except ImportError:
+        pass
+
+import subprocess
+
+@pytest.fixture(autouse=True)
+def block_subprocess(monkeypatch):
+    """Globally block external subprocess calls (e.g., Node/Playwright)."""
+    def blocked_run(*args, **kwargs):
+        raise RuntimeError("Subprocess execution is blocked in tests by default. Explicitly mock it if needed.")
+    
+    def blocked_popen_init(self, *args, **kwargs):
+        raise RuntimeError("Subprocess execution is blocked in tests by default. Explicitly mock it if needed.")
+    
+    monkeypatch.setattr(subprocess, "run", blocked_run)
+    monkeypatch.setattr(subprocess.Popen, "__init__", blocked_popen_init)
+
+@pytest.fixture(autouse=True)
+def isolate_filesystem(tmp_path, monkeypatch):
+    """Override global config paths to a temporary directory to prevent state leaks."""
+    try:
+        import src.config as config
+        monkeypatch.setattr(config, "OUTPUT_DIR", tmp_path / "output")
+        monkeypatch.setattr(config, "CACHE_DIR", tmp_path / "cache")
+        # LOG_DIR might not be in config directly, but let's patch it if it is
+        if hasattr(config, "LOG_DIR"):
+            monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    except ImportError:
+        pass

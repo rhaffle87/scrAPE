@@ -16,6 +16,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from src.config.version import VERSION_TAG as VERSION
+
 # Fix for pythonw.exe on Windows where sys.stdout and sys.stderr are None
 if sys.stdout is None:
     sys.stdout = open(os.devnull, 'w')
@@ -151,8 +153,6 @@ def main():
         return
 
     check_and_install_dependencies()
-
-    VERSION = "v0.22.0"
     
     clear_screen()
     print("========================================")
