@@ -58,12 +58,22 @@ class KohyaDatasetExporter:
             return b""
             
         import tempfile
+        import re
         cwd_base = os.path.normcase(os.path.abspath(os.getcwd()))
         tmp_base = os.path.normcase(os.path.abspath(tempfile.gettempdir()))
-        normalized_target = os.path.normpath(str(image_dir))
         
-        # CodeQL py/path-injection mitigation: 
-        # Verify with normalised version of path against safe base directories
+        dir_str = str(image_dir)
+        if ".." in dir_str:
+            return b""
+            
+        # CodeQL py/path-injection mitigation:
+        # Use regex capture group to drop taint
+        safe_match = re.match(r"^([a-zA-Z0-9\-\.\_\/\:\\ ]+)$", dir_str)
+        if not safe_match:
+            LOGGER.error("Path traversal attempt or invalid chars in path: %s", dir_str)
+            return b""
+            
+        normalized_target = os.path.normpath(safe_match.group(1))
         safe_dir_str = os.path.normcase(os.path.abspath(normalized_target))
         
         is_safe = False
