@@ -62,16 +62,17 @@ class SearchProviderScraper(BaseSearchScraper):
         for ddg_host in self._DDG_HOSTS:
             HttpClient.register_stealth_required(ddg_host)
 
-    def search_pages(
+    def _search_duckduckgo(
         self,
         keyword: str,
         max_results: int,
         allow_domains: list[str] | None = None,
         block_domains: list[str] | None = None,
     ) -> list[str]:
-        allow_domains = allow_domains or []
-        block_domains = block_domains or []
-        # kp=-2 disables SafeSearch; browser stealth is already registered for DDG.
+        if allow_domains is None:
+            allow_domains = []
+        if block_domains is None:
+            block_domains = []
         search_url: str | None = (
             f"https://duckduckgo.com/html/?q={quote_plus(keyword)}&kp=-2"
         )
@@ -108,7 +109,7 @@ class SearchProviderScraper(BaseSearchScraper):
                 if max_results > 0 and len(links) >= max_results:
                     break
 
-            LOGGER.info("Page yielded %d links (total: %d)", page_count, len(links))
+            LOGGER.info("DDG page yielded %d links (total: %d)", page_count, len(links))
             if max_results > 0 and len(links) >= max_results:
                 break
 
@@ -116,18 +117,50 @@ class SearchProviderScraper(BaseSearchScraper):
             search_url = self._extract_next_page_url(soup)
 
         LOGGER.info("Search provider (DDG) returned %s candidate pages total", len(links))
-        if not links:
-            LOGGER.info("DuckDuckGo yielded 0 results or failed; falling back to Bing search...")
-            links = self._search_bing(keyword, max_results, allow_domains, block_domains)
-            LOGGER.info("Search provider (Bing) returned %s candidate pages total", len(links))
-        if not links:
-            LOGGER.info("Bing yielded 0 results; falling back to SearXNG search...")
-            links = self._search_searxng(keyword, max_results, allow_domains, block_domains)
-            LOGGER.info("Search provider (SearXNG) returned %s candidate pages total", len(links))
-        if not links:
-            LOGGER.info("SearXNG yielded 0 results; falling back to StartPage search...")
-            links = self._search_startpage(keyword, max_results, allow_domains, block_domains)
-            LOGGER.info("Search provider (StartPage) returned %s candidate pages total", len(links))
+        return links
+
+    def search_pages(
+        self,
+        keyword: str,
+        max_results: int,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[str]:
+        if allow_domains is None:
+            allow_domains = []
+        if block_domains is None:
+            block_domains = []
+        
+        links: list[str] = []
+        
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        search_funcs = [
+            self._search_duckduckgo,
+            self._search_bing,
+            self._search_searxng,
+            self._search_startpage
+        ]
+        
+        with ThreadPoolExecutor(max_workers=len(search_funcs), thread_name_prefix="search") as executor:
+            future_to_provider = {
+                executor.submit(func, keyword, max_results, allow_domains, block_domains): func.__name__
+                for func in search_funcs
+            }
+            
+            for future in as_completed(future_to_provider):
+                provider_name = future_to_provider[future]
+                try:
+                    results = future.result()
+                    for r in results:
+                        if r not in links:
+                            links.append(r)
+                except Exception as exc:
+                    LOGGER.warning("%s search failed: %s", provider_name, exc)
+                    
+        LOGGER.info("Aggregated search across providers returned %s candidate pages total", len(links))
+        if max_results > 0:
+            links = links[:max_results]
+            
         return links
 
     def scrape_page(
@@ -136,8 +169,10 @@ class SearchProviderScraper(BaseSearchScraper):
         allow_domains: list[str] | None = None,
         block_domains: list[str] | None = None,
     ) -> tuple[list[ImageItem], list[VideoItem], str]:
-        allow_domains = allow_domains or []
-        block_domains = block_domains or []
+        if allow_domains is None:
+            allow_domains = []
+        if block_domains is None:
+            block_domains = []
         if not is_allowed_domain(url, allow_domains, block_domains):
             LOGGER.info("Skipping %s because it does not match domain rules", url)
             return [], [], "domain_blocked"

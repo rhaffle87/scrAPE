@@ -58,8 +58,37 @@ class CrawlCoordinator:
             )
             return True
 
+    async def _run_preflight(self, urls: List[str]) -> List[str]:
+        import httpx
+        import asyncio
+        valid_urls = []
+        
+        async def check_url(client, url):
+            try:
+                resp = await client.head(url, follow_redirects=True, timeout=3.0)
+                if resp.status_code < 400 or resp.status_code == 405: # allow Method Not Allowed for HEAD
+                    valid_urls.append(url)
+                else:
+                    LOGGER.info(f"Pre-flight failed for {url} (status {resp.status_code})")
+            except Exception as e:
+                LOGGER.info(f"Pre-flight failed for {url} (error {e})")
+
+        async with httpx.AsyncClient(verify=False) as client:
+            tasks = [check_url(client, u) for u in urls]
+            await asyncio.gather(*tasks)
+            
+        return valid_urls
+
     def execute(self, ordered_pages: List[Tuple[str, int]], discovered_links_counts: dict) -> ScrapeResult:
         """Execute the fetching and media extraction using a controlled ThreadPool."""
+        import asyncio
+        if ordered_pages:
+            urls = [p for p, d in ordered_pages]
+            LOGGER.info(f"Running lightweight pre-flight probes for {len(urls)} URLs...")
+            valid_urls = set(asyncio.run(self._run_preflight(urls)))
+            ordered_pages = [(p, d) for p, d in ordered_pages if p in valid_urls]
+            LOGGER.info(f"Pre-flight complete. {len(ordered_pages)} URLs passed.")
+
         from core.engine import _is_target_met
         
         # 1. Start the MediaPipeline thread
@@ -101,7 +130,11 @@ class CrawlCoordinator:
                                         )
                                     )
                             continue
+                        if not self.governor.can_acquire_worker(host):
+                            skipped.append((next_page, next_depth))
+                            continue
                         
+                        self.governor.increment_worker(host)
                         pages_queue.extend(skipped)
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
                         futures[fut] = (next_page, next_depth, time.monotonic())
@@ -115,7 +148,7 @@ class CrawlCoordinator:
                         return False
                     return False
 
-            for _ in range(current_concurrency):
+            for _ in range(self.workers):
                 if not submit_next():
                     break
 
@@ -129,8 +162,11 @@ class CrawlCoordinator:
                         latency = time.monotonic() - start_time
                         host = urlparse(page).netloc.lower()
 
+                        self.governor.decrement_worker(host)
+
                         try:
                             page, depth, page_images, page_videos, scrape_status = future.result()
+                            self.governor.report_yield(host, len(page_images) + len(page_videos))
                         except Exception as exc:
                             LOGGER.warning("Worker failed for %s: %s", page, exc)
                             page_images, page_videos, scrape_status = [], [], f"worker_error:{type(exc).__name__}"
