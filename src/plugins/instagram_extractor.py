@@ -35,7 +35,13 @@ class InstagramExtractor(ExtractorPlugin):
                 "Accept": "application/json",
             }
             api_url = url.split("?")[0].rstrip("/") + "/?__a=1&__d=dis"
-            resp = requests.get(api_url, headers=headers, cookies=cookies, timeout=10.0)
+            
+            if http_client:
+                # Let the http_client inject its stealth headers, proxy, and cookies
+                resp = http_client.get(api_url, headers=headers, timeout=10.0)
+            else:
+                resp = requests.get(api_url, headers=headers, cookies=cookies, timeout=10.0)
+                
             if resp.status_code == 200:
                 data = resp.json()
                 items = data.get("graphql", {}).get("shortcode_media", {}) or data.get("items", [{}])[0]
@@ -70,6 +76,11 @@ class InstagramExtractor(ExtractorPlugin):
                 if cookies:
                     cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
                     ydl_opts["http_headers"] = {"Cookie": cookie_header}
+                
+                if http_client:
+                    proxy = http_client.get_proxy()
+                    if proxy:
+                        ydl_opts["proxy"] = proxy
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                     info = ydl.extract_info(url, download=False)

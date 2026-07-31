@@ -39,7 +39,12 @@ class TwitterExtractor(ExtractorPlugin):
                     "Accept": "application/json",
                 }
                 api_url = f"https://api.vxtwitter.com/Twitter/status/{status_id}"
-                resp = requests.get(api_url, headers=headers, timeout=10.0)
+                
+                if http_client:
+                    resp = http_client.get(api_url, headers=headers, timeout=10.0)
+                else:
+                    resp = requests.get(api_url, headers=headers, timeout=10.0)
+                    
                 if resp.status_code == 200:
                     data = resp.json()
                     media_list = data.get("media_extended", []) or data.get("mediaURLs", [])
@@ -87,6 +92,11 @@ class TwitterExtractor(ExtractorPlugin):
                 if cookies:
                     cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
                     ydl_opts["http_headers"] = {"Cookie": cookie_header}
+                    
+                if http_client:
+                    proxy = http_client.get_proxy()
+                    if proxy:
+                        ydl_opts["proxy"] = proxy
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                     info = ydl.extract_info(url, download=False)

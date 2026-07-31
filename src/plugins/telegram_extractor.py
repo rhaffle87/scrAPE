@@ -38,8 +38,12 @@ class TelegramExtractor(ExtractorPlugin):
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             }
-            resp = requests.get(web_url, headers=headers, timeout=10.0)
-            resp.raise_for_status()
+            if http_client:
+                resp = http_client.get(web_url, headers=headers, timeout=10.0)
+                resp.raise_for_status()
+            else:
+                resp = requests.get(web_url, headers=headers, timeout=10.0)
+                resp.raise_for_status()
 
             soup = BeautifulSoup(resp.text, "lxml")
 

@@ -34,43 +34,49 @@ class CivitaiExtractor(ExtractorPlugin):
         }
 
         try:
-            with httpx.Client(timeout=15.0, headers=headers) as client:
-                # 1. Direct Image Page: civitai.com/images/<id>
-                if len(path_parts) >= 2 and path_parts[0] == "images":
-                    image_id = path_parts[1]
-                    api_url = f"https://civitai.com/api/v1/images?imageId={image_id}"
-                    res = client.get(api_url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        items = data.get("items", [])
-                        for item in items:
-                            img_url = item.get("url")
+            def _fetch(api_url: str):
+                if http_client:
+                    return http_client.get(api_url, headers=headers, timeout=15.0)
+                else:
+                    with httpx.Client(timeout=15.0, headers=headers) as client:
+                        return client.get(api_url)
+
+            # 1. Direct Image Page: civitai.com/images/<id>
+            if len(path_parts) >= 2 and path_parts[0] == "images":
+                image_id = path_parts[1]
+                api_url = f"https://civitai.com/api/v1/images?imageId={image_id}"
+                res = _fetch(api_url)
+                if res.status_code == 200:
+                    data = res.json()
+                    items = data.get("items", [])
+                    for item in items:
+                        img_url = item.get("url")
+                        if img_url:
+                            images.append(img_url)
+
+            # 2. Model Page: civitai.com/models/<id>
+            elif len(path_parts) >= 2 and path_parts[0] == "models":
+                model_id = path_parts[1]
+                api_url = f"https://civitai.com/api/v1/models/{model_id}"
+                res = _fetch(api_url)
+                if res.status_code == 200:
+                    data = res.json()
+                    for version in data.get("modelVersions", []):
+                        for img in version.get("images", []):
+                            img_url = img.get("url")
                             if img_url:
                                 images.append(img_url)
 
-                # 2. Model Page: civitai.com/models/<id>
-                elif len(path_parts) >= 2 and path_parts[0] == "models":
-                    model_id = path_parts[1]
-                    api_url = f"https://civitai.com/api/v1/models/{model_id}"
-                    res = client.get(api_url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        for version in data.get("modelVersions", []):
-                            for img in version.get("images", []):
-                                img_url = img.get("url")
-                                if img_url:
-                                    images.append(img_url)
-
-                # Fallback: civitai images search API
-                if not images:
-                    api_url = f"https://civitai.com/api/v1/images?limit=20"
-                    res = client.get(api_url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        for item in data.get("items", []):
-                            img_url = item.get("url")
-                            if img_url:
-                                images.append(img_url)
+            # Fallback: civitai images search API
+            if not images:
+                api_url = f"https://civitai.com/api/v1/images?limit=20"
+                res = _fetch(api_url)
+                if res.status_code == 200:
+                    data = res.json()
+                    for item in data.get("items", []):
+                        img_url = item.get("url")
+                        if img_url:
+                            images.append(img_url)
 
         except Exception as exc:
             LOGGER.warning("Civitai API extraction failed for %s: %s", url, exc)

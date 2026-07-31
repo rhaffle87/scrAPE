@@ -762,25 +762,36 @@ class CrawlOrchestrator:
             current_depth = min(active_depths)
             depth_queues = queues[current_depth]
 
-            # Get the list of hosts that have queued pages at this depth
-            active_hosts = [host for host, q in depth_queues.items() if q]
-
-            # Pop one page from each active host in round-robin fashion
-            # This balances crawls across multiple hosts at the same depth
-            for host in active_hosts:
-                if len(ordered_pages) >= resolved_page_limit:
+            # Collect a batch of pages to process in parallel
+            batch = []
+            while len(batch) < self.workers and len(ordered_pages) < resolved_page_limit:
+                active_hosts = [host for host, q in depth_queues.items() if q]
+                if not active_hosts:
                     break
+                
+                # Pop one page from each active host in round-robin fashion
+                for host in active_hosts:
+                    if len(batch) >= self.workers or len(ordered_pages) >= resolved_page_limit:
+                        break
 
-                page = depth_queues[host].popleft()
-                normalized_page = normalize_url(page)
-                if normalized_page in visited_pages:
-                    continue
-                if self.state_cache and self.state_cache.is_processed(normalized_page):
-                    LOGGER.debug(f"Skipping already processed page: {normalized_page}")
-                    continue
-                visited_pages.add(normalized_page)
-                ordered_pages.append((normalized_page, current_depth))
+                    page = depth_queues[host].popleft()
+                    normalized_page = normalize_url(page)
+                    
+                    if normalized_page in visited_pages:
+                        continue
+                    if self.state_cache and self.state_cache.is_processed(normalized_page):
+                        LOGGER.debug(f"Skipping already processed page: {normalized_page}")
+                        continue
+                    
+                    visited_pages.add(normalized_page)
+                    ordered_pages.append((normalized_page, current_depth))
+                    batch.append((host, normalized_page, current_depth))
 
+            if not batch:
+                continue
+
+            def _process_page(item):
+                host, normalized_page, current_depth = item
                 try:
                     from monitoring.telemetry import broadcast_telemetry_event
                     broadcast_telemetry_event("crawl_graph_node", {
@@ -793,83 +804,68 @@ class CrawlOrchestrator:
                     pass
 
                 profile = options.domain_profiles.get(host)
-                if profile and profile.crawl_depth is not None:
-                    domain_depth_limit = profile.crawl_depth
-                else:
-                    domain_depth_limit = resolved_crawl_depth
+                domain_depth_limit = (
+                    profile.crawl_depth if profile and profile.crawl_depth is not None 
+                    else resolved_crawl_depth
+                )
                 
                 if current_depth >= domain_depth_limit:
-                    continue
+                    return normalized_page, []
 
-                # ── Per-domain crawl strategy ──────────────────────────────
                 # 'direct' or skip_link_discovery: skip link discovery
                 if profile and (
                     profile.crawl_strategy == "direct"
                     or getattr(profile, "skip_link_discovery", False)
                 ):
-                    discovered_links = []
-                    discovered_links_counts[normalized_page] = 0
-                else:
-                    discovered_links = self.search_provider.discover_links(
-                        normalized_page,
-                        allow_domains=options.allow_domains,
-                        block_domains=options.block_domains,
-                        keyword=options.keyword if current_depth > 0 else None,
-                        entity_tokens=options.entity_tokens
-                        if current_depth > 0
-                        else None,
-                    )
-                    # 'index→detail': at depth 0 only follow concrete detail links
-                    # (deeper path than the seed URL, not pagination siblings)
-                    if (
-                        profile
-                        and profile.crawl_strategy != "direct"
-                        and current_depth == 0
-                    ):
-                        seed_for_host = next(
-                            (
-                                s
-                                for s in options.seed_urls
-                                if urlparse(s).netloc.lower() == host
-                            ),
-                            normalized_page,
-                        )
-                        discovered_links = [
-                            lnk
-                            for lnk in discovered_links
-                            if self.rules_manager.is_detail_page(
-                                lnk,
-                                seed_for_host,
-                                options.keyword,
-                                options.entity_tokens,
-                            )
-                        ]
-                    discovered_links_counts[normalized_page] = len(discovered_links)
+                    return normalized_page, []
 
+                discovered_links = self.search_provider.discover_links(
+                    normalized_page,
+                    allow_domains=options.allow_domains,
+                    block_domains=options.block_domains,
+                    keyword=options.keyword if current_depth > 0 else None,
+                    entity_tokens=options.entity_tokens if current_depth > 0 else None,
+                )
+
+                # 'index→detail': at depth 0 only follow concrete detail links
+                if profile and profile.crawl_strategy != "direct" and current_depth == 0:
+                    seed_for_host = next(
+                        (s for s in options.seed_urls if urlparse(s).netloc.lower() == host),
+                        normalized_page,
+                    )
+                    discovered_links = [
+                        lnk for lnk in discovered_links
+                        if self.rules_manager.is_detail_page(
+                            lnk, seed_for_host, options.keyword, options.entity_tokens
+                        )
+                    ]
+                return normalized_page, discovered_links
+
+            # Execute the batch concurrently
+            with ThreadPoolExecutor(max_workers=self.workers) as executor:
+                results = list(executor.map(_process_page, batch))
+
+            # Process discovered links sequentially to update shared graph queues safely
+            for normalized_page, discovered_links in results:
+                discovered_links_counts[normalized_page] = len(discovered_links)
+                
                 for link in discovered_links:
                     normalized_link = normalize_url(link)
                     if looks_like_media(normalized_link):
                         continue
-                    scope_reason = self.rules_manager.scope_rejection_reason(
-                        normalized_link, options
-                    )
+                    
+                    scope_reason = self.rules_manager.scope_rejection_reason(normalized_link, options)
                     if scope_reason:
-                        add_rejected(
-                            "page", normalized_link, normalized_page, scope_reason
-                        )
+                        add_rejected("page", normalized_link, normalized_page, scope_reason)
                         continue
-                    if (
-                        normalized_link in visited_pages
-                        or normalized_link in queued_pages
-                    ):
+                    
+                    if normalized_link in visited_pages or normalized_link in queued_pages:
                         continue
                     queued_pages.add(normalized_link)
 
                     # Enqueue link at depth + 1 under its own host
                     link_host = urlparse(normalized_link).netloc.lower()
-                    queues.setdefault(current_depth + 1, {}).setdefault(
-                        link_host, deque()
-                    ).append(normalized_link)
+                    queues.setdefault(current_depth + 1, {}).setdefault(link_host, deque()).append(normalized_link)
 
                     try:
                         from monitoring.telemetry import broadcast_telemetry_event

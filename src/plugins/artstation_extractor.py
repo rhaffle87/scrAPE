@@ -38,19 +38,23 @@ class ArtStationExtractor(ExtractorPlugin):
                 hash_id = path_parts[1]
                 api_url = f"https://www.artstation.com/projects/{hash_id}.json"
 
-                with httpx.Client(timeout=15.0, headers=headers) as client:
-                    res = client.get(api_url)
-                    if res.status_code == 200:
-                        data = res.json()
-                        assets = data.get("assets", [])
-                        for asset in assets:
-                            asset_type = asset.get("asset_type")
-                            image_url = asset.get("image_url")
-                            if image_url:
-                                if asset_type == "video" or image_url.endswith(".mp4"):
-                                    videos.append(image_url)
-                                else:
-                                    images.append(image_url)
+                if http_client:
+                    res = http_client.get(api_url, headers=headers, timeout=15.0)
+                else:
+                    with httpx.Client(timeout=15.0, headers=headers) as client:
+                        res = client.get(api_url)
+
+                if res.status_code == 200:
+                    data = res.json()
+                    assets = data.get("assets", [])
+                    for asset in assets:
+                        asset_type = asset.get("asset_type")
+                        image_url = asset.get("image_url")
+                        if image_url:
+                            if asset_type == "video" or image_url.endswith(".mp4"):
+                                videos.append(image_url)
+                            else:
+                                images.append(image_url)
 
         except Exception as exc:
             LOGGER.warning("ArtStation API extraction failed for %s: %s", url, exc)

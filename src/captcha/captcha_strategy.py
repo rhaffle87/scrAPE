@@ -58,6 +58,14 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
             self.provider = TwoCaptchaProvider(api_key=TWOCAPTCHA_API_KEY)
         elif ANTICAPTCHA_API_KEY:
             self.provider = AntiCaptchaProvider(api_key=ANTICAPTCHA_API_KEY)
+        else:
+            try:
+                from captcha.captcha_solvers.free_audio_provider import FreeAudioCaptchaProvider
+                self.provider = FreeAudioCaptchaProvider()
+                if not self.provider.is_available():
+                    self.provider = None
+            except ImportError:
+                pass
 
     def is_available(self) -> bool:
         return bool(self.provider and self.provider.is_available())

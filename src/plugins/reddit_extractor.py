@@ -36,8 +36,12 @@ class RedditExtractor(ExtractorPlugin):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "application/json"
             }
-            resp = requests.get(json_url, headers=headers)
-            resp.raise_for_status()
+            if http_client:
+                resp = http_client.get(json_url, headers=headers, timeout=10.0)
+                resp.raise_for_status()
+            else:
+                resp = requests.get(json_url, headers=headers)
+                resp.raise_for_status()
             data = resp.json()
 
             images = []

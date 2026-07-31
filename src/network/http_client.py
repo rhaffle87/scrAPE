@@ -1277,10 +1277,24 @@ class HttpClient:
             # Fast-fail wait for Turnstile challenge to be solved
             solve_timeout = 8.0
             start_time = time.time()
+            clicked = False
             while time.time() - start_time < solve_timeout:
                 html = page.html
                 if not self._is_cloudflare_challenge(html):
                     break
+                
+                # Active Turnstile clicker
+                if not clicked:
+                    try:
+                        cf_iframe = page.ele('@src^https://challenges.cloudflare.com', timeout=1)
+                        if cf_iframe:
+                            logger.info("Found Cloudflare Turnstile iframe, simulating human click.")
+                            # DrissionPage handles shadow-root and coordinates automatically
+                            cf_iframe.click(by_js=False)
+                            clicked = True
+                    except Exception as e:
+                        logger.debug("Turnstile auto-clicker exception: %s", repr(e))
+
                 time.sleep(0.5)
 
             html = page.html

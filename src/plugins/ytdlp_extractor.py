@@ -71,6 +71,11 @@ class YtDlpExtractor(ExtractorPlugin):
             cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
             ydl_opts["http_headers"] = {"Cookie": cookie_header}
 
+        if http_client:
+            proxy = http_client.get_proxy()
+            if proxy:
+                ydl_opts["proxy"] = proxy
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore[arg-type]
                 info = ydl.extract_info(url, download=False)

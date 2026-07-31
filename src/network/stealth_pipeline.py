@@ -211,11 +211,26 @@ class HeliumStrategy(StealthStrategy):
 
 class FlareSolverrStrategy(StealthStrategy):
     name = "flaresolverr"
+    _monitor = None
 
     def is_available(self) -> bool:
         from config import FLARESOLVERR_URL, ENABLE_FLARESOLVERR_FALLBACK
         if not ENABLE_FLARESOLVERR_FALLBACK or not FLARESOLVERR_URL:
             return False
+            
+        # Check Docker telemetry health to avoid routing to a stuck FlareSolverr instance
+        try:
+            from network.flaresolverr_monitor import FlareSolverrMonitor
+            # Use a singleton pattern or class variable to keep the thread alive
+            if self.__class__._monitor is None:
+                self.__class__._monitor = FlareSolverrMonitor()
+                self.__class__._monitor.start()  # type: ignore
+            
+            if not self.__class__._monitor.is_healthy():  # type: ignore
+                return False
+        except ImportError:
+            pass
+
         try:
             base_url = FLARESOLVERR_URL.rsplit("/v1", 1)[0] or FLARESOLVERR_URL
             r = httpx.get(base_url, timeout=1.5)
