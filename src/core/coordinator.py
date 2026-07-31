@@ -281,7 +281,7 @@ class CrawlCoordinator:
             
         if SpecializedExtractor.is_supported(page):
             LOGGER.info(f"Routing {page} to specialized extractor.")
-            spec_result = SpecializedExtractor.extract(page)
+            spec_result = SpecializedExtractor.extract(page, self.search_provider.http)
             from core.models import ImageItem, VideoItem
             page_images = [ImageItem(url=u, source_page=page, status="pending") for u in spec_result.images]
             page_videos = [VideoItem(url=u, source_page=page, type="direct", status="pending") for u in spec_result.videos]

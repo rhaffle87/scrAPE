@@ -1,7 +1,10 @@
 import logging
 import urllib.parse
+from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
 
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 LOGGER = logging.getLogger(__name__)
 
 
@@ -15,7 +18,7 @@ class BooruExtractor(ExtractorPlugin):
             host = host[4:]
         return host in ["danbooru.donmai.us", "gelbooru.com", "safebooru.org"]
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         import httpx
 
         images = []

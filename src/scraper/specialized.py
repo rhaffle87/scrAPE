@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult, PluginRegistry
+
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,5 +22,5 @@ class SpecializedExtractor:
         return PluginRegistry.get_instance().is_supported(url)
 
     @classmethod
-    def extract(cls, url: str) -> SpecializedResult:
-        return PluginRegistry.get_instance().extract(url)
+    def extract(cls, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
+        return PluginRegistry.get_instance().extract(url, http_client)

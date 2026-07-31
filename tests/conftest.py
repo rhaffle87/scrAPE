@@ -98,3 +98,15 @@ def isolate_filesystem(tmp_path, monkeypatch):
             monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
     except ImportError:
         pass
+
+@pytest.fixture(autouse=True)
+def mock_preflight(request, monkeypatch):
+    if "test_preflight" in request.node.name or "test_preflight" in str(request.node.fspath):
+        return
+    async def mock_run_preflight(self, urls):
+        return urls
+    try:
+        from core.coordinator import CrawlCoordinator
+        monkeypatch.setattr(CrawlCoordinator, '_run_preflight', mock_run_preflight)
+    except ImportError:
+        pass

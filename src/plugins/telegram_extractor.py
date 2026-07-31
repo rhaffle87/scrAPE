@@ -1,7 +1,11 @@
 import logging
 import urllib.parse
 import re
+from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
+
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +19,7 @@ class TelegramExtractor(ExtractorPlugin):
             host = host[4:]
         return host in ["t.me", "telegram.me"]
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         images = []
         videos = []
 

@@ -2,7 +2,11 @@ import json
 import logging
 import re
 import urllib.parse
+from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
+
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +21,7 @@ class PinterestExtractor(ExtractorPlugin):
             host = host[4:]
         return host in ["pinterest.com", "pinterest.co.uk", "pinimg.com", "i.pinimg.com"]
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         import httpx
 
         images = []

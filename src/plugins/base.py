@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 import importlib
 import inspect
 import logging
@@ -31,7 +34,7 @@ class ExtractorPlugin(ABC):
         pass
 
     @abstractmethod
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         """Extract media from the given URL."""
         pass
 
@@ -129,13 +132,13 @@ class PluginRegistry:
     def is_supported(self, url: str) -> bool:
         return self.get_plugin_for_url(url) is not None
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         plugin = self.get_plugin_for_url(url)
         if plugin is None:
             return SpecializedResult([], [])
 
         try:
-            return plugin.extract(url)
+            return plugin.extract(url, http_client)
         except Exception as e:
             LOGGER.warning("Plugin '%s' failed during extraction for %s: %s", plugin.name, url, e)
             return SpecializedResult([], [])

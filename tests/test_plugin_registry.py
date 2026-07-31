@@ -14,7 +14,7 @@ class HighPriorityPlugin(ExtractorPlugin):
         netloc = urlparse(url).netloc
         return netloc == "testdomain.org" or netloc.endswith(".testdomain.org")
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client=None) -> SpecializedResult:
         return SpecializedResult(images=["https://testdomain.org/high.jpg"], videos=[])
 
 
@@ -27,7 +27,7 @@ class LowPriorityPlugin(ExtractorPlugin):
         netloc = urlparse(url).netloc
         return netloc == "testdomain.org" or netloc.endswith(".testdomain.org")
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client=None) -> SpecializedResult:
         return SpecializedResult(images=["https://testdomain.org/low.jpg"], videos=[])
 
 
@@ -40,7 +40,7 @@ class FailingPlugin(ExtractorPlugin):
         netloc = urlparse(url).netloc
         return netloc == "faildomain.org" or netloc.endswith(".faildomain.org")
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client=None) -> SpecializedResult:
         raise RuntimeError("Simulated plugin extraction crash")
 
 
@@ -57,7 +57,7 @@ def test_plugin_registry_priority_sorting_and_dynamic_registration():
     assert selected is not None
     assert selected.name == "high_priority_test"
 
-    res = registry.extract("https://testdomain.org/post/1")
+    res = registry.extract("https://testdomain.org/post/1", None)
     assert res.images == ["https://testdomain.org/high.jpg"]
 
     # Clean up test plugins
@@ -71,7 +71,7 @@ def test_plugin_registry_graceful_error_isolation():
     registry.register(fail_p)
 
     assert registry.is_supported("https://faildomain.org/post/1") is True
-    res = registry.extract("https://faildomain.org/post/1")
+    res = registry.extract("https://faildomain.org/post/1", None)
     assert res.images == []
     assert res.videos == []
 
@@ -81,6 +81,6 @@ def test_plugin_registry_graceful_error_isolation():
 def test_specialized_extractor_proxy_compatibility():
     # Verify backward compatible calls via SpecializedExtractor
     assert isinstance(SpecializedExtractor.is_supported("https://youtube.com/watch?v=123"), bool)
-    res = SpecializedExtractor.extract("https://nonexistent-site-12345.com/post")
+    res = SpecializedExtractor.extract("https://nonexistent-site-12345.com/post", None)
     assert res.images == []
     assert res.videos == []

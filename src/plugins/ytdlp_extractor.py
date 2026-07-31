@@ -1,6 +1,10 @@
 import logging
 import urllib.parse
+from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
+
+if TYPE_CHECKING:
+    from network.http_client import HttpClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class YtDlpExtractor(ExtractorPlugin):
 
         return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com"]
 
-    def extract(self, url: str) -> SpecializedResult:
+    def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         try:
             import yt_dlp
         except ImportError:
