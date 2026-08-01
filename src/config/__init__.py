@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import os
 import re as _re
+import logging
 
 from .version import VERSION, VERSION_TAG
 
@@ -180,10 +181,14 @@ AUTH_GATED_DOMAINS: set[str] = set()
 # Each entry is a (compiled_re.Pattern, replacement_str) tuple applied in order
 # by normalize_url() in core/filters.py.  Edit the JSON file to add or change
 # rules — do NOT hardcode domain patterns here or in any logic file.
+
+# Map domains to paths that indicate an empty search fallback
+EMPTY_SEARCH_REDIRECTS: dict[str, list[str]] = {}
+
 URL_NORMALISATION_RULES: list[tuple] = []
 
 def _load_dynamic_config() -> None:
-    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS
+    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS, EMPTY_SEARCH_REDIRECTS
     # ── domain_config.json ────────────────────────────────────────────────
     try:
         with open("data/domain_config.json", "r") as f:
@@ -193,8 +198,9 @@ def _load_dynamic_config() -> None:
             REFERER_OVERRIDES.update(cfg.get("referer_overrides", {}))
             STEALTH_REQUIRED_DOMAINS.update(cfg.get("stealth_required", []))
             AUTH_GATED_DOMAINS.update(cfg.get("auth_gated", []))
-    except Exception:
-        pass
+            EMPTY_SEARCH_REDIRECTS.update(cfg.get("empty_search_redirects", {}))
+    except Exception as e:
+        logging.getLogger(__name__).warning("Failed to load data/domain_config.json: %s", e)
 
     # ── url_normalisation_rules.json ──────────────────────────────────────
     try:

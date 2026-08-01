@@ -468,6 +468,16 @@ def main() -> None:
 
             manifest = SeedManifest.from_file(active_seed_file)
             domain_profiles = manifest.domain_map
+            
+            # Smart Media Type Resolution: If the seed has both 'image' and 'video' domains, 
+            # it means the subject produces both. Upgrade all strict profiles to 'mixed' to prevent rejection.
+            types = {prof.media_type for prof in domain_profiles.values() if prof.media_type}
+            if "image" in types and "video" in types:
+                logger.info("Seed file specifies both 'image' and 'video' domains. Auto-upgrading to 'mixed' intent.")
+                for prof in domain_profiles.values():
+                    if prof.media_type in ("image", "video"):
+                        prof.media_type = "mixed"
+                        
             log_domain_profile_summary(logger, manifest)
 
             # Filter out seed URLs belonging to disabled domains
@@ -675,6 +685,19 @@ def main() -> None:
         output_dir=output_root.resolve(),
     )
 
+
+import atexit
+import os
+
+def _silence_win32_com_errors():
+    """Suppress noisy 'Win32 exception occurred releasing IUnknown' during Python teardown."""
+    if sys.platform.startswith("win"):
+        try:
+            sys.stderr = open(os.devnull, "w")
+        except Exception:
+            pass
+
+atexit.register(_silence_win32_com_errors)
 
 if __name__ == "__main__":
     main()

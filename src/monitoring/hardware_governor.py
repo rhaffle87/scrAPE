@@ -21,11 +21,16 @@ class HardwareLoadGovernor:
         max_cpu_percent: float = 85.0,
         min_ram_percent: float = 15.0,
         poll_interval_s: float = 5.0,
+        min_disk_percent: float = 10.0,
     ):
         self.config_path = Path(config_path)
         self.max_cpu_percent = max_cpu_percent
         self.min_ram_percent = min_ram_percent
         self.poll_interval_s = poll_interval_s
+        self.min_disk_percent = min_disk_percent
+        
+        self.disk_critical = False
+        self._disk_alert_sent = False
 
         self._last_poll_time = 0.0
         self._cached_metrics: dict[str, float] = {"cpu_percent": 0.0, "ram_percent_available": 100.0}
@@ -39,6 +44,7 @@ class HardwareLoadGovernor:
                 self.max_cpu_percent = float(gov_cfg.get("max_cpu_percent", self.max_cpu_percent))
                 self.min_ram_percent = float(gov_cfg.get("min_ram_percent", self.min_ram_percent))
                 self.poll_interval_s = float(gov_cfg.get("poll_interval_s", self.poll_interval_s))
+                self.min_disk_percent = float(gov_cfg.get("min_disk_percent", self.min_disk_percent))
             except Exception as e:
                 LOGGER.warning("Failed to load hardware_governor config from %s: %s", self.config_path, e)
 
@@ -50,10 +56,33 @@ class HardwareLoadGovernor:
                 cpu = psutil.cpu_percent(interval=None)
                 ram_mem = psutil.virtual_memory()
                 ram_avail_pct = (ram_mem.available / ram_mem.total) * 100.0
+                
+                # Check disk space
+                disk = psutil.disk_usage('/')
+                disk_avail_pct = (disk.free / disk.total) * 100.0
+                
                 self._cached_metrics = {
                     "cpu_percent": cpu,
                     "ram_percent_available": ram_avail_pct,
+                    "disk_percent_available": disk_avail_pct
                 }
+                
+                # Update critical disk state
+                was_critical = self.disk_critical
+                self.disk_critical = disk_avail_pct < self.min_disk_percent
+                
+                if self.disk_critical and not self._disk_alert_sent:
+                    LOGGER.critical("🚨 DISK SPACE CRITICAL: Only %.1f%% free. Downloads will be paused.", disk_avail_pct)
+                    try:
+                        from notifications.notification_manager import NotificationPipeline
+                        NotificationPipeline().notify_watchdog_status(f"🚨 <b>DISK SPACE CRITICAL</b>\nOnly {disk_avail_pct:.1f}% free space remaining. Downloads are paused until space is freed.")
+                        self._disk_alert_sent = True
+                    except Exception:
+                        pass
+                elif not self.disk_critical and was_critical:
+                    LOGGER.info("✅ Disk space recovered to %.1f%%. Resuming downloads.", disk_avail_pct)
+                    self._disk_alert_sent = False
+                    
                 self._last_poll_time = now
             except Exception as e:
                 LOGGER.warning("HardwareLoadGovernor psutil metric poll failed: %s", e)

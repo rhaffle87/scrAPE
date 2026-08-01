@@ -143,7 +143,7 @@ class CrawlCoordinator:
                     if skipped:
                         pages_queue.extend(skipped)
                         if not futures:
-                            time.sleep(0.5)
+                            time.sleep(1.0)
                             continue
                         return False
                     return False

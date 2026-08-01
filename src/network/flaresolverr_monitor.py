@@ -69,8 +69,23 @@ class FlareSolverrMonitor:
                     is_failing = any(pattern.lower() in logs.lower() for pattern in self.failure_patterns)
                     
                     if is_failing and self._is_healthy:
-                        LOGGER.warning("FlareSolverr monitor detected Cloudflare bypass failures in Docker logs! Quarantining...")
+                        LOGGER.warning("FlareSolverr monitor detected Cloudflare bypass failures in Docker logs! Restarting container...")
                         self._is_healthy = False
+                        
+                        try:
+                            LOGGER.info(f"Executing: docker restart {self.container_name}")
+                            subprocess.run(
+                                f"docker restart {self.container_name}",
+                                shell=True,
+                                check=True,
+                                timeout=20.0
+                            )
+                            LOGGER.info("FlareSolverr container restarted successfully. Backing off for 30s to allow startup...")
+                            time.sleep(30.0)
+                            self._is_healthy = True
+                        except Exception as restart_exc:
+                            LOGGER.error(f"Failed to restart FlareSolverr container: {restart_exc}")
+                            
                     elif not is_failing and not self._is_healthy:
                         LOGGER.info("FlareSolverr logs are clear again. Restoring health status.")
                         self._is_healthy = True

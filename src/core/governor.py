@@ -14,20 +14,46 @@ class CrawlGovernor:
         self.max_concurrency = initial_concurrency
         
         # Internal state
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         
         # Host tracking
         self.failed_hosts: Set[str] = set()
         self.host_cooldowns: Dict[str, float] = {}  # host -> unpause time
         self.consecutive_host_failures: Dict[str, int] = {}
         
+        self.config_path = "data/domain_config.json"
+        self._last_config_load = 0.0
+        self._quarantined_domains: Set[str] = set()
+        
         # Dynamic concurrency tracking
         self.active_workers: Dict[str, int] = {}
         self.host_yield: Dict[str, int] = {}
         
+    def _refresh_quarantine_config(self):
+        now = time.monotonic()
+        if now - self._last_config_load > 10.0:
+            self._last_config_load = now
+            import json
+            from pathlib import Path
+            p = Path(self.config_path)
+            if not p.is_absolute():
+                _project_root = Path(__file__).resolve().parent.parent.parent
+                p = _project_root / self.config_path
+            if p.exists():
+                try:
+                    data = json.loads(p.read_text(encoding="utf-8"))
+                    quarantined = data.get("quarantined_domains", [])
+                    self._quarantined_domains = set(quarantined)
+                except Exception:
+                    pass
+
     def is_host_available(self, host: str) -> bool:
         """Checks if a host is currently allowed to be fetched."""
         with self.lock:
+            self._refresh_quarantine_config()
+            if host in self._quarantined_domains:
+                return False
+                
             if host in self.failed_hosts:
                 return False
             

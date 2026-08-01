@@ -257,6 +257,9 @@ class CamoufoxStrategy(StealthStrategy):
     name = "camoufox"
 
     def is_available(self) -> bool:
+        import sys
+        if sys.platform == "win32":
+            return False
         return True
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
@@ -321,8 +324,16 @@ class StealthPipeline:
         ordered_strategies = self.get_ordered_strategies(host, client=client, preferred_engine=preferred_engine)
 
         valid_strategies = []
+        cf_blocked = False
+        if client and hasattr(client.__class__, "_cloudflare_blocked_hosts"):
+            cf_blocked = host in client.__class__._cloudflare_blocked_hosts
+
         for strategy in ordered_strategies:
             if skip_httpx and strategy.name == "httpx":
+                continue
+
+            if cf_blocked and strategy.name in ("crawlee", "crawl4ai"):
+                logger.debug("Skipping strategy '%s' because host '%s' is Cloudflare-blocked", strategy.name, host)
                 continue
 
             if not strategy.is_available() or not strategy.can_handle(url, host):

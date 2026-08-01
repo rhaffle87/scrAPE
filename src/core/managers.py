@@ -849,6 +849,15 @@ class CrawlOrchestrator:
             for normalized_page, discovered_links in results:
                 discovered_links_counts[normalized_page] = len(discovered_links)
                 
+                # RAM Circuit Breaker: prevent excessive memory bloat during uncapped full sweeps
+                if len(queued_pages) >= 50000:
+                    if not getattr(self, "_bloat_warned", False):
+                        LOGGER.warning("QUEUE_BLOAT_MODE: queued_pages exceeded 50,000. Skipping new link discovery to prevent memory exhaustion.")
+                        self._bloat_warned = True
+                    continue
+                else:
+                    self._bloat_warned = False
+                
                 for link in discovered_links:
                     normalized_link = normalize_url(link)
                     if looks_like_media(normalized_link):

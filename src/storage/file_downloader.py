@@ -345,6 +345,11 @@ class MediaDownloader:
             if url in self._dead_urls:
                 LOGGER.info("Skipping download of known dead URL: %s", url)
                 return False, {"reason": "404_dead_url"}
+                
+        from monitoring.hardware_governor import get_governor
+        if get_governor().disk_critical:
+            LOGGER.warning("Disk space critical. Skipping download of %s", url)
+            return False, {"reason": "disk_space_critical"}
 
         if thumbnail_prefix_pattern and url.lower().startswith(
             thumbnail_prefix_pattern.lower()

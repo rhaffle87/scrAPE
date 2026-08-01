@@ -6,6 +6,7 @@ import os
 import json
 import signal
 import threading
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -38,6 +39,103 @@ def load_watchdog_config(config_path: str = "data/domain_config.json") -> dict:
         except Exception:
             pass
     return {}
+
+
+class AutoRemediator:
+    """Parses scraper stdout in real-time to detect error patterns and dynamically updates domain_config.json."""
+
+    def __init__(self, config_path: str = "data/domain_config.json"):
+        self.config_path = config_path
+        self._429_counts: dict[str, int] = {}
+        self._cloudflare_counts: dict[str, int] = {}
+        
+        # Regex to detect 429 errors from httpx
+        self.re_429 = re.compile(r"HTTP Request: GET https?://([^/]+).*?\"HTTP/1\.1 429 ")
+        
+        # Regex to detect Cloudflare / WAF blocks and ScraperBypassError
+        self.re_cloudflare = re.compile(r"ScraperBypassError.*?https?://([^/]+)")
+        self.re_waf = re.compile(r"HTTP Request: GET https?://([^/]+).*?\"HTTP/1\.1 (?:403|503) ")
+
+    def process_log_line(self, line: str):
+        # 1. Check for 429 Too Many Requests
+        m_429 = self.re_429.search(line)
+        if m_429:
+            domain = m_429.group(1)
+            self._429_counts[domain] = self._429_counts.get(domain, 0) + 1
+            if self._429_counts[domain] >= 5:
+                self._apply_remediation(domain, "rate_limit")
+                self._429_counts[domain] = 0  # Reset
+
+        # 2. Check for Cloudflare/WAF blocks
+        m_cf = self.re_cloudflare.search(line)
+        if not m_cf:
+            m_cf = self.re_waf.search(line)
+            
+        if m_cf:
+            domain = m_cf.group(1)
+            # Filter out localhost proxies
+            if domain not in ("127.0.0.1", "localhost"):
+                self._cloudflare_counts[domain] = self._cloudflare_counts.get(domain, 0) + 1
+                if self._cloudflare_counts[domain] >= 3:
+                    self._apply_remediation(domain, "stealth")
+                    self._cloudflare_counts[domain] = 0
+
+    def _apply_remediation(self, domain: str, action_type: str):
+        p = Path(self.config_path)
+        if not p.is_absolute():
+            _project_root = Path(__file__).resolve().parent.parent.parent
+            p = _project_root / self.config_path
+
+        try:
+            data = {}
+            if p.exists():
+                data = json.loads(p.read_text(encoding="utf-8"))
+
+            if "auto_remediated" not in data:
+                data["auto_remediated"] = {}
+            if domain not in data["auto_remediated"]:
+                data["auto_remediated"][domain] = {}
+
+            changed = False
+
+            if action_type == "rate_limit":
+                if "rate_limits" not in data:
+                    data["rate_limits"] = {}
+                current = data["rate_limits"].get(domain, 0.0)
+                
+                if current >= 10.0:
+                    if "quarantined_domains" not in data:
+                        data["quarantined_domains"] = []
+                    if domain not in data["quarantined_domains"]:
+                        data["quarantined_domains"].append(domain)
+                        data["auto_remediated"][domain]["rate_limit_quarantine"] = True
+                        print(f"\n[{datetime.now().isoformat()}] [AUTO-REMEDIATION] QUARANTINED {domain} due to sustained HTTP 429s (max delay 10s reached).")
+                        changed = True
+                else:
+                    # Double the delay (or set to 2.0s if none)
+                    new_val = current * 2.0 if current > 0 else 2.0
+                    # Cap at a reasonable maximum, say 10 seconds
+                    new_val = min(new_val, 10.0)
+                    
+                    if data["rate_limits"].get(domain) != new_val:
+                        data["rate_limits"][domain] = new_val
+                        data["auto_remediated"][domain]["rate_limit"] = new_val
+                        print(f"\n[{datetime.now().isoformat()}] [AUTO-REMEDIATION] Increased rate limit for {domain} to {new_val}s due to HTTP 429s.")
+                        changed = True
+
+            elif action_type == "stealth":
+                if "stealth_required" not in data:
+                    data["stealth_required"] = []
+                if domain not in data["stealth_required"]:
+                    data["stealth_required"].append(domain)
+                    data["auto_remediated"][domain]["stealth_required"] = True
+                    print(f"\n[{datetime.now().isoformat()}] [AUTO-REMEDIATION] Added {domain} to stealth_required due to repeated bypass failures.")
+                    changed = True
+
+            if changed:
+                p.write_text(json.dumps(data, indent=4), encoding="utf-8")
+        except Exception as e:
+            print(f"[{datetime.now().isoformat()}] [ERROR] Failed to apply auto-remediation: {e}")
 
 
 class AdaptiveBackoffTracker:
@@ -136,6 +234,8 @@ def run_scraper(
         start_time = time.time()
         timeout = int(os.environ.get("SCRAPE_TIMEOUT", 1800))
 
+        remediator = AutoRemediator()
+
         while True:
             if shutdown_event.is_set():
                 print(
@@ -166,6 +266,10 @@ def run_scraper(
             line = process.stdout.readline()
             if not line:
                 break
+            
+            # Feed line to remediator
+            remediator.process_log_line(line)
+            
             sys.stdout.write(line)
             sys.stdout.flush()
 
@@ -275,6 +379,11 @@ def main():
         "--flush-cache",
         action="store_true",
         help="Flush the state cache database before starting the watchdog.",
+    )
+    parser.add_argument(
+        "--run-once",
+        action="store_true",
+        help="Run only once (or once per rotation target) and then exit, without looping infinitely.",
     )
     parser.add_argument(
         "--auto-prune-cache",
@@ -413,6 +522,16 @@ def main():
 
             if shutdown_event.wait(sleep_delay):
                 break
+                
+            if args.run_once:
+                # If we're rotating, check if we've completed one full rotation
+                if rotation_targets:
+                    if cycle_count >= len(rotation_targets):
+                        print(f"\n[{datetime.now().isoformat()}] --run-once specified and full rotation complete. Exiting.")
+                        break
+                else:
+                    print(f"\n[{datetime.now().isoformat()}] --run-once specified. Exiting.")
+                    break
 
     except KeyboardInterrupt:
         print(

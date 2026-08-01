@@ -148,6 +148,16 @@ def generate_run_summary(
         ):
             zero_yield_domains.append(domain)
 
+    # 4.5 Check auto_remediated domains
+    auto_remediated = {}
+    try:
+        config_path = Path("data/domain_config.json")
+        if config_path.exists():
+            cfg = json.loads(config_path.read_text(encoding="utf-8"))
+            auto_remediated = cfg.get("auto_remediated", {})
+    except Exception as exc:
+        LOGGER.warning("Could not read domain_config.json for auto-remediation summary: %s", exc)
+
     # 5. Build final summary report
     summary = {
         "run_id": result.run_id,
@@ -175,6 +185,7 @@ def generate_run_summary(
         "zero_yield_domains": sorted(zero_yield_domains),
         "dead_download_urls": dead_download_urls,
         "duplicate_hash_skips_by_domain": duplicate_hash_skips_by_domain,
+        "auto_remediated": auto_remediated,
     }
 
     # Write summary.json
@@ -274,5 +285,11 @@ def log_cli_report(summary: dict[str, Any]) -> None:
                 "  ... and %d more (see run_summary.json)",
                 len(summary["dead_download_urls"]) - 10,
             )
+
+    if summary.get("auto_remediated"):
+        LOGGER.info(sep)
+        LOGGER.info("AUTO-REMEDIATED DOMAINS:")
+        for domain, rules in summary["auto_remediated"].items():
+            LOGGER.info("  - %s: %s", domain, json.dumps(rules))
 
     LOGGER.info(sep)

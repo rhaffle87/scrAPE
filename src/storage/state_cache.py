@@ -79,10 +79,18 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON processed_urls(timestamp)
             """)
+            # Check if phash_cache has INTEGER PRIMARY KEY (old schema)
+            cursor.execute("PRAGMA table_info(phash_cache)")
+            columns = cursor.fetchall()
+            for col in columns:
+                if col[1] == 'dhash' and col[2].upper() == 'INTEGER':
+                    cursor.execute("DROP TABLE phash_cache")
+                    break
+
             # Persistent perceptual-hash store for cross-run image deduplication
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS phash_cache (
-                    dhash INTEGER PRIMARY KEY,
+                    dhash TEXT PRIMARY KEY,
                     subject TEXT NOT NULL DEFAULT '',
                     timestamp REAL NOT NULL
                 )
@@ -227,7 +235,7 @@ class StateCache:
             with self._get_connection() as conn:
                 conn.execute(
                     "INSERT OR IGNORE INTO phash_cache (dhash, subject, timestamp) VALUES (?, ?, ?)",
-                    (dhash, subject.strip().lower(), time.time()),
+                    (str(dhash), subject.strip().lower(), time.time()),
                 )
                 conn.commit()
         except Exception as e:

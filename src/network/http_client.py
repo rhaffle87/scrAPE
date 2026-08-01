@@ -1259,23 +1259,24 @@ class HttpClient:
         headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
         co.headless(headless_mode)
 
-        # Build persistent profile path to share cookies/history
+        # Build ephemeral profile path to prevent concurrency locks
+        import uuid
         host = self._hostname(url)
         domain_slug = re.sub(r"[^\w\-]", "_", host)
-        profile_path = Path("data/drission_profiles") / domain_slug
+        profile_path = Path("data/drission_profiles") / f"{domain_slug}_{uuid.uuid4().hex[:8]}"
         profile_path.mkdir(parents=True, exist_ok=True)
         co.set_user_data_path(str(profile_path.resolve()))
 
-        logger.info("Launching DrissionPage for %s (headless=%s)", url, headless_mode)
+        logger.info("Launching DrissionPage for %s (headless=%s) [Profile: %s]", url, headless_mode, profile_path.name)
 
         page = None
         try:
             page = ChromiumPage(co)
             # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
-            page.get(url, timeout=12.0)
+            page.get(url, timeout=20.0)
 
             # Fast-fail wait for Turnstile challenge to be solved
-            solve_timeout = 8.0
+            solve_timeout = 30.0
             start_time = time.time()
             clicked = False
             while time.time() - start_time < solve_timeout:
@@ -1341,6 +1342,12 @@ class HttpClient:
                     page.quit()
                 except Exception:
                     pass
+            import shutil
+            try:
+                if profile_path.exists():
+                    shutil.rmtree(profile_path, ignore_errors=True)
+            except Exception:
+                pass
 
     def _get_with_helium(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using Helium as a browser fallback (supports Firefox if Chrome is missing)."""
@@ -1399,7 +1406,7 @@ class HttpClient:
         try:
             driver = helium.get_driver()
             # Wait for redirection/challenge solving
-            solve_timeout = 20.0
+            solve_timeout = 30.0
             start_time = time.time()
             while time.time() - start_time < solve_timeout:
                 html = driver.page_source
@@ -2266,7 +2273,13 @@ class HttpClient:
                         url,
                         headers=req_headers,
                         timeout=current_timeout,
+                        follow_redirects=True,
                     )
+                    from config import EMPTY_SEARCH_REDIRECTS
+                    if host in EMPTY_SEARCH_REDIRECTS:
+                        for redirect_pattern in EMPTY_SEARCH_REDIRECTS[host]:
+                            if redirect_pattern in str(response.url):
+                                raise ScraperBypassError(f"Redirected to empty search pattern '{redirect_pattern}'")
                     response.raise_for_status()
                     self._thread_local.net_latency = time.monotonic() - _net_start
                     session.cookies.update({c.name: c.value for c in response.cookies.jar})
@@ -2408,7 +2421,9 @@ class HttpClient:
                                     
                                 return response
                             else:
-                                logger.info("curl_cffi TLS spoofing still returned block/challenge for %s", url)
+                                logger.info("curl_cffi TLS spoofing still returned block/challenge for %s (status %d)", url, c_resp.status_code)
+                                if c_resp.status_code in (403, 520, 429):
+                                    self.__class__.register_cloudflare_blocked(host)
                         except Exception as c_exc:
                             logger.warning("curl_cffi fallback failed: %s", c_exc)
 
