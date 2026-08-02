@@ -534,9 +534,9 @@ def main() -> None:
             ]
             if manifest_tokens:
                 args.entity_token = [*manifest_tokens, *args.entity_token]
-                logger.info(
+                logger.info(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                     "Auto-injected entity tokens from manifest: %s", manifest_tokens
-                )  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+                )
 
         except Exception as exc:
             logger.warning(

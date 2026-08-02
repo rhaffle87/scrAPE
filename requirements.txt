@@ -8,14 +8,14 @@ DrissionPage>=4.0.0
 browser-cookie3>=0.19.1
 helium>=3.0.8
 undetected-chromedriver>=3.5.0
-yt-dlp>=2024.11.04
-Pillow>=10.0.0
+yt-dlp>=2025.01.26
+Pillow>=10.4.0
 fastapi>=0.111.0
 uvicorn>=0.30.1
 pystray>=0.19.3
 questionary>=2.0.1
 curl_cffi>=0.15.0
-python-multipart>=0.0.18
+python-multipart>=0.0.20
 camoufox>=0.4.0
 pytest-socket
 pytest-mock
