@@ -13,6 +13,10 @@
 - **CI/CD Pipeline Stabilization** (`.github/workflows/test.yml`, `tests/test_multi_engine.py`):
   - Prevented 6-hour silent runner hangs by installing `pytest-timeout` and enforcing a hard `--timeout=120` limit.
   - Mocked external `search_pages` calls to cleanly pass strict `pytest-socket` offline isolation constraints.
+- **Security & Infrastructure Hardening** (`requirements.txt`, `pyproject.toml`, `Dockerfile`, `src/ml/`):
+  - Bounced dependencies (`yt-dlp`, `Pillow`, `python-multipart`, `lxml`) to latest versions to address OSV-Scanner vulnerabilities.
+  - Fixed Docker build failures by explicitly setting `PUPPETEER_SKIP_DOWNLOAD=true` in `Dockerfile` to separate Playwright Chromium from the Puppeteer build step.
+  - Corrected Semgrep suppression syntax across `src/ml/dataset_exporter.py` and `src/ml/dataset_tagger.py` (verified via successful security scans).
 
 ## [0.22.0] — 2026-07-29
 

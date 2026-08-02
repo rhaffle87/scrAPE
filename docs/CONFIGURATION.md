@@ -109,7 +109,20 @@ Maintained automatically by the circuit breaker. Domains triggering persistent 4
 
 ---
 
-## 3. WAF & Stealth Browser Fallback Tiers
+## 3. Environment Variables & Docker Configuration
+
+scrAPE uses environment variables (loaded via `.env` or system environment) to configure API keys and container deployment settings without hardcoding secrets:
+
+| Variable | Description |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | API token for the Telegram notification bot. |
+| `TELEGRAM_CHAT_ID` | Target chat ID for Telegram notifications. |
+| `CAPSOLVER_API_KEY` | API key for CapSolver universal captcha resolution. |
+| `PUPPETEER_SKIP_DOWNLOAD` | If `true`, prevents `npm install` from downloading Chromium. **Mandatory in Docker** to ensure the Node.js bridge hooks into the centrally patched Playwright Chromium binary provided by the base image. |
+
+---
+
+## 4. WAF & Stealth Browser Fallback Tiers
 
 When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile, DataDome), `HttpClient` escalates through stealth browser and proxy fallbacks:
 
@@ -125,7 +138,7 @@ When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile
 
 ---
 
-## 4. Dual Speed & Rate Limiting System
+## 5. Dual Speed & Rate Limiting System
 
 | Option | CLI Flag | WebUI Input | Default | Purpose |
 |---|---|---|---|---|
@@ -134,7 +147,7 @@ When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile
 
 ---
 
-## 4. Parameter Safety Guardrails & Recommendations
+## 6. Parameter Safety Guardrails & Recommendations
 
 To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-limiting during extractions:
 
@@ -150,7 +163,7 @@ To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-l
 
 ---
 
-## 4. AI Ingestion & Dataset Formatting Settings
+## 7. AI Ingestion & Dataset Formatting Settings
 
 The interactive wizard (`python src/cli/cli_wizard.py`) provides export settings for AI model training:
 

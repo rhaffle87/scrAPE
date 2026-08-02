@@ -100,6 +100,18 @@ python src/cli/main.py --login protected-site.com
 python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 ```
 
+### Docker Execution
+```bash
+# Build the container (PUPPETEER_SKIP_DOWNLOAD=true is automatically handled in the Dockerfile)
+docker build -t scrape-engine .
+
+# Run the interactive Command Center
+docker run -p 10001:10001 scrape-engine
+
+# Run a CLI sweep via Docker
+docker run -v ${PWD}/output:/app/output scrape-engine python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
+```
+
 ---
 
 ## 4. Interactive Terminal Wizard & AI Fuel Tools

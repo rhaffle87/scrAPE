@@ -39,6 +39,9 @@ frontend/app.py                     — Interactive FastAPI/HTMX dashboard serve
 frontend/templates/index.html       — Brutalist WebUI dashboard template with Live Canvas Visualizer
 run.bat / run.sh                     — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
 run_monitor.bat / run_monitor.sh     — Continuous Watchdog Agent launcher
+docker-compose.yml                  — Multi-container orchestration (Scraper + FlareSolverr)
+Dockerfile                          — Container build instructions
+docs/SECURITY.md                    — Security policies and static analysis compliance
 output/cache/state_cache.db         — SQLite database persisting processed URLs across watchdog runs
 logs/run_<run_id>.log               — Full structured log per run
 tests/                              — Dedicated automated unit & integration test suite

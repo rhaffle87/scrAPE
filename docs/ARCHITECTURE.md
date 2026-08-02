@@ -40,6 +40,8 @@ scrape-dashboard/
 ├── pyproject.toml               — Standard packaging setup & `scrape` entry point
 ├── run.bat / run.sh             — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
 ├── run_monitor.bat / .sh        — Continuous Watchdog Agent launcher
+├── docker-compose.yml           — Multi-container orchestration (Scraper + FlareSolverr)
+├── Dockerfile                   — Container build instructions
 ├── requirements.txt             — Python dependencies
 ├── README.md                    — Primary documentation portal
 │
@@ -82,7 +84,8 @@ scrape-dashboard/
 │   ├── plugins/
 │   │   ├── base.py              — ExtractorPlugin abstract base class
 │   │   ├── reddit_extractor.py  — Reddit API extraction plugin
-│   │   └── ytdlp_extractor.py   — YouTube/Generic video extraction plugin
+│   │   ├── ytdlp_extractor.py   — YouTube/Generic video extraction plugin
+│   │   └── *_extractor.py       — Various platform extractors (Twitter, Instagram, Pinterest, Booru, Civitai, ArtStation)
 │   ├── captcha/
 │   │   ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
 │   │   └── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
@@ -91,18 +94,27 @@ scrape-dashboard/
 │   │   ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
 │   │   └── robots.py            — Thread-safe RobotsChecker parser cache
 │   ├── ml/
+│   │   ├── aesthetic_scorer.py  — Opt-in aesthetic quality scorer
 │   │   ├── dataset_tagger.py    — AI dataset auto-tagging
-│   │   └── dataset_exporter.py  — Kohya_ss LoRA dataset ZIP exporter
+│   │   ├── dataset_cropper.py   — AI dataset smart cropping
+│   │   ├── dataset_exporter.py  — Kohya_ss LoRA dataset ZIP exporter
+│   │   └── vector_phash.py      — Vectorized perceptual hashing utilities
 │   ├── monitoring/
 │   │   ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
-│   │   └── logger.py            — Telemetry and structured logging
+│   │   ├── logger.py            — Telemetry and structured logging
+│   │   └── telemetry.py         — Application telemetry collection
 │   ├── network/
 │   │   ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
 │   │   ├── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
 │   │   ├── session.py           — Secure session cookie store (0o600 permissions)
 │   │   ├── session_pool.py      — Per-domain sticky sessions with disk persistence
 │   │   ├── proxy_manager.py     — Proxy pool manager with latency auto-quarantine & domain binding
-│   │   └── crawlee_client.py    — Python client for Crawlee Express bridge
+│   │   ├── proxy_fetcher.py     — Automated free proxy fetcher and validator
+│   │   ├── crawlee_client.py    — Python client for Crawlee Express bridge
+│   │   ├── flaresolverr_monitor.py — FlareSolverr lifecycle manager
+│   │   ├── rate_limiter.py      — Token-bucket request rate limiting
+│   │   ├── bandwidth_limiter.py — Asset download bandwidth limiting
+│   │   └── browser_pool.py      — Headless browser instance pooling
 │   ├── notifications/
 │   │   ├── telegram_bot.py      — Telegram Bot alerts & interactive command handler
 │   │   └── notification_manager.py — Pluggable multi-channel notification pipeline
@@ -113,7 +125,9 @@ scrape-dashboard/
 │       ├── db_store.py          — General SQLite data store wrappers
 │       ├── csv_writer.py        — Flat CSV exporter
 │       ├── json_writer.py       — JSON object lines exporter
-│       └── rag_exporter.py      — Markdown/JSONL RAG ingestion formats
+│       ├── rag_exporter.py      — Markdown/JSONL RAG ingestion formats
+│       ├── dataset_exporter.py  — Structured dataset exporter
+│       └── database_exporter.py — SQLite database bulk exporter
 │
 ├── data/                        — JSON Configurations & Registries
 │   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides
@@ -125,7 +139,8 @@ scrape-dashboard/
     ├── USAGE.md                 — CLI & WebUI user manual
     ├── ARCHITECTURE.md          — Technical architecture overview
     ├── CONFIGURATION.md         — Seed annotations & settings reference
-    └── QUALITY_FILTERS.md       — Scoring rules & low-res algorithms
+    ├── QUALITY_FILTERS.md       — Scoring rules & low-res algorithms
+    └── SECURITY.md              — Security policies and static analysis compliance
 ```
 
 ---
@@ -192,12 +207,18 @@ The download pipeline provides high-throughput, resilient asset fetching with ba
 
 Persistent cross-session URL caching uses SQLite configured with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This allows concurrent multi-threaded writes without disk lock contention during massive multi-worker crawls.
 
-### 3.5 Security & Static Analysis (CodeQL)
+### 3.5 Security & Static Analysis (CodeQL & Semgrep)
 
-To natively pass enterprise CodeQL static analysis without relying on manual suppression flags (`# codeql`), the project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`):
+To natively pass enterprise CodeQL and Semgrep static analysis without relying on manual suppression flags (`# codeql`, `// nosemgrep`), the project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`):
 - **Untainted Root Generation**: Arbitrary path resolutions dynamically rebuild their base drive or root prefix (`os.path.splitdrive(abs_path)[0]` on Windows, `os.sep` on POSIX) directly from the OS, guaranteeing the base prefix is untainted by user input.
 - **Absolute Normalization**: Input paths are forced through `os.path.abspath(os.path.normpath(user_input))` to prevent `../` directory traversal.
-- **Prefix Boundary Enforcement**: The normalized absolute path is strictly checked against the untainted root via `.startswith(safe_root)`, satisfying CodeQL's requirement for mathematical proof of bounds checking before filesystem sink access.
+- **Prefix Boundary Enforcement**: The normalized absolute path is strictly checked against the untainted root via `.startswith(safe_root)`, satisfying static analyzers' requirement for mathematical proof of bounds checking before filesystem sink access.
+
+### 3.6 Docker Architecture & Dependency Isolation
+
+When deploying scrAPE in containerized environments, the architecture explicitly separates Playwright's browser management from the Node.js `crawlee_bridge`:
+- **`PUPPETEER_SKIP_DOWNLOAD=true`**: Because the `crawlee_bridge` relies on `puppeteer-extra-plugin-stealth`, a standard `npm install` attempts to download its own Chromium binaries. By enforcing `PUPPETEER_SKIP_DOWNLOAD=true` at the environment level, we prevent redundant browser downloads and ensure Puppeteer seamlessly hooks into the managed, centrally patched Playwright Chromium binary already provided by the base image.
+- **Base Image Symlinking**: The Dockerfile orchestrates symlinks between Playwright's Chromium executable and the paths expected by the Node.js bridge to guarantee stealth features operate without conflicts.
 
 ---
 

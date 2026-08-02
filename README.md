@@ -83,6 +83,7 @@ python src/cli/main.py --keyword <subject> --seed-file seeds/<subject>.txt --max
 - **Low & Zero-Yield Domain Cutoff Policy** — Automated host filtering that halts crawling on unseeded external domains hitting 15 pages with 0 yield, 20+ pages with <5% yield, or 3 consecutive WAF errors.
 - **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) and per-host download semaphores (`_host_semaphore_for`).
 - **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, and ArtStation.
+- **Enterprise-Grade Security Compliance** — Resolves major static analysis warnings (OSV-Scanner, Semgrep, CodeQL) via strict structural path validation (`os.path.splitdrive` checking), mitigating path-injection natively without relying on superficial suppression comments.
 
 ---
 
@@ -176,6 +177,9 @@ flowchart TD
 | `src/core/filters.py` | Relevance scoring, low-res detection, and rejection reason algorithms |
 | `src/storage/file_downloader.py` | Multi-threaded media fetcher with Range resumption and Pillow image sanitization |
 | `src/storage/state_cache.py` | Persistent URL history using SQLite in WAL journal mode |
+| `Dockerfile` | Container build instructions for Playwright/Node.js compatibility |
+| `docker-compose.yml` | Multi-container orchestration (Scraper + FlareSolverr) |
+| `docs/SECURITY.md` | Security policies and static analysis compliance |
 
 ---
 
@@ -218,6 +222,7 @@ Detailed documentation is available in the [`docs/`](docs/) directory:
 - [Architecture Guide](docs/ARCHITECTURE.md) — Internal data flow, dynamic plugins, and thread models
 - [Configuration Reference](docs/CONFIGURATION.md) — Seed annotations, `config.py` settings, and normalisation rules
 - [Quality Filters Reference](docs/QUALITY_FILTERS.md) — Scoring formulas, low-res patterns, and rejection rules
+- [Security Policy](docs/SECURITY.md) — Vulnerability mitigations, OSV-Scanner checks, and static analysis compliance
 - [Changelog](docs/CHANGELOG.md) — Complete version release history
 
 ---
