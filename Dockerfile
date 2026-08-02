@@ -25,7 +25,7 @@ COPY --chown=appuser:appuser .bandit ./.bandit
 # Install Python project dependencies and Node.js dependencies in a single layer
 RUN pip install --no-cache-dir -e . \
     && cd crawlee_bridge \
-    && npm install \
+    && PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install \
     && chown -R appuser:appuser /app/crawlee_bridge
 
 # Switch to the non-root user
