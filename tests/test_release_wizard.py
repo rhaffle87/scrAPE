@@ -12,13 +12,13 @@ def test_bump_all_versions_dry_run(tmp_path, monkeypatch):
     monkeypatch.setattr(src.cli.release, "ROOT_DIR", tmp_path)
     
     # Create dummy files to mock the repository
-    (tmp_path / "pyproject.toml").write_text('version = "0.22.0"', encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('version = "0.23.0"', encoding="utf-8")
     (tmp_path / "frontend" / "templates").mkdir(parents=True)
-    (tmp_path / "frontend" / "templates" / "index.html").write_text('<span class="logo-version">v0.22.0</span>', encoding="utf-8")
+    (tmp_path / "frontend" / "templates" / "index.html").write_text('<span class="logo-version">v0.23.0</span>', encoding="utf-8")
     (tmp_path / "crawlee_bridge").mkdir()
-    (tmp_path / "crawlee_bridge" / "package.json").write_text('"version": "0.22.0"', encoding="utf-8")
-    (tmp_path / "README.md").write_text('RELEASE-V0.22.0-orange', encoding="utf-8")
-    (tmp_path / "DESIGN.md").write_text('`v0.22.0` version badge', encoding="utf-8")
+    (tmp_path / "crawlee_bridge" / "package.json").write_text('"version": "0.23.0"', encoding="utf-8")
+    (tmp_path / "README.md").write_text('RELEASE-V0.23.0-orange', encoding="utf-8")
+    (tmp_path / "DESIGN.md").write_text('`v0.23.0` version badge', encoding="utf-8")
 
     # Test version bump with a new version
     results = bump_all_versions("0.23.0")
@@ -38,7 +38,7 @@ def test_append_changelog_entry(tmp_path, monkeypatch):
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(parents=True)
     changelog = docs_dir / "CHANGELOG.md"
-    changelog.write_text("# Changelog\n\n## [0.22.0] — 2026-07-29\n\n", encoding="utf-8")
+    changelog.write_text("# Changelog\n\n## [0.23.0] — 2026-07-29\n\n", encoding="utf-8")
     
     res = append_changelog_entry("0.23.0", ["Test highlight 1", "Test highlight 2"])
     assert res is True

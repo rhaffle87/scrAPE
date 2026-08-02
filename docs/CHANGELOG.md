@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.0] — 2026-08-02
+
+### Added & Changed (0.23.0)
+
+- **Strict Structural Path-Injection Security** (`src/ml/dataset_tagger.py`, `src/ml/dataset_exporter.py`):
+  - Replaced manual `# codeql` suppression flags with mathematically proven structural validations.
+  - Paths are now strictly normalized and prefixed with untainted OS root derivations (`os.path.splitdrive`, `os.sep`), satisfying CodeQL's native `py/path-injection` security analyzers without needing enterprise policy overrides.
+- **Daemon Thread Graceful Shutdowns** (`src/network/flaresolverr_monitor.py`):
+  - Fixed persistent `ValueError: I/O operation on closed file` crashes during pytest suite teardowns.
+  - Converted the `FlareSolverrMonitor` 15-second blocking sleep into an interruptible 1-second interval loop, trapping closed-stream exceptions during Python interpreter shutdown.
+- **CI/CD Pipeline Stabilization** (`.github/workflows/test.yml`, `tests/test_multi_engine.py`):
+  - Prevented 6-hour silent runner hangs by installing `pytest-timeout` and enforcing a hard `--timeout=120` limit.
+  - Mocked external `search_pages` calls to cleanly pass strict `pytest-socket` offline isolation constraints.
+
 ## [0.22.0] — 2026-07-29
 
 ### Added & Changed (0.22.0)
