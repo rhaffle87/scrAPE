@@ -713,6 +713,7 @@ class HttpClient:
             pool.set_proxies(self.proxy_list)
             current = self.proxy_list[self.current_proxy_index]
             pool.record_proxy_failure(current)
+            pool.quarantine_proxy(current, duration_s=60.0)
 
             self.current_proxy_index = (self.current_proxy_index + 1) % len(
                 self.proxy_list
@@ -1040,7 +1041,7 @@ class HttpClient:
                     conn.close()
                     continue
                     
-                query = "SELECT name, encrypted_value, value, host_key FROM cookies WHERE " + " OR ".join(["host_key LIKE ?" for _ in domains_to_try])
+                query = "SELECT name, encrypted_value, value, host_key FROM cookies WHERE " + " OR ".join(["host_key LIKE ?" for _ in domains_to_try])  # nosec B608
                 params = [f"%{dom}%" for dom in domains_to_try]
                 cursor.execute(query, params)
                 
@@ -1102,7 +1103,7 @@ class HttpClient:
                             conn.close()
                             continue
                             
-                        query = "SELECT name, value, host FROM moz_cookies WHERE " + " OR ".join(["host LIKE ?" for _ in domains_to_try])
+                        query = "SELECT name, value, host FROM moz_cookies WHERE " + " OR ".join(["host LIKE ?" for _ in domains_to_try])  # nosec B608
                         params = [f"%{dom}%" for dom in domains_to_try]
                         cursor.execute(query, params)
                         
@@ -1233,146 +1234,95 @@ class HttpClient:
         logger = get_logger(__name__)
 
         try:
-            from DrissionPage import ChromiumOptions, ChromiumPage
+            from network.browser_pool import BrowserPoolManager
         except ImportError as e:
-            logger.error("DrissionPage not installed: %s", e)
+            logger.error("BrowserPoolManager not found: %s", e)
             raise e
 
-        # Initialize options
-        co = ChromiumOptions()
-        co.set_argument("--no-sandbox")
-        co.set_argument("--disable-gpu")
-        
-        # Stealth arguments
-        co.set_argument("--disable-blink-features=AutomationControlled")
-        co.set_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
         proxy = self.get_proxy()
-        if proxy:
-            co.set_proxy(proxy)
+        host = self._hostname(url)
 
         # Determine GUI platform
-
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
-
         headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
-        co.headless(headless_mode)
 
-        # Build ephemeral profile path to prevent concurrency locks
-        import uuid
-        host = self._hostname(url)
-        domain_slug = re.sub(r"[^\w\-]", "_", host)
-        profile_path = Path("data/drission_profiles") / f"{domain_slug}_{uuid.uuid4().hex[:8]}"
-        profile_path.mkdir(parents=True, exist_ok=True)
-        co.set_user_data_path(str(profile_path.resolve()))
+        logger.info("Requesting pooled DrissionPage for %s (headless=%s)", url, headless_mode)
 
-        logger.info("Launching DrissionPage for %s (headless=%s) [Profile: %s]", url, headless_mode, profile_path.name)
-
-        page = None
         try:
-            page = ChromiumPage(co)
-            
-            # Inject stealth JS
-            stealth_js = """
-Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-window.chrome = { app: { isInstalled: false }, runtime: {} };
-const getParameter = WebGLRenderingContext.getParameter;
-WebGLRenderingContext.prototype.getParameter = function(parameter) {
-    if (parameter === 37445) { return 'Intel Inc.'; }
-    if (parameter === 37446) { return 'Intel Iris OpenGL Engine'; }
-    return getParameter(parameter);
-};
-            """
-            try:
-                page.run_cdp("Page.addScriptToEvaluateOnNewDocument", source=stealth_js)
-                logger.debug("Injected stealth.js into DrissionPage via CDP")
-            except Exception as e:
-                logger.debug("Failed to inject stealth.js: %s", e)
+            with BrowserPoolManager.get_drission_page(proxy, headless_mode) as page:
+                # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
+                page.get(url, timeout=20.0)
 
-            # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
-            page.get(url, timeout=20.0)
-
-            # Fast-fail wait for Turnstile challenge to be solved
-            solve_timeout = 30.0
-            start_time = time.time()
-            clicked = False
-            while time.time() - start_time < solve_timeout:
-                html = page.html
-                if not self._is_cloudflare_challenge(html):
-                    break
-                
-                # Active Turnstile clicker
-                try:
-                    import random
-                    # Inject human-like mouse jitter
-                    page.actions.move(random.randint(50, 200), random.randint(50, 200))
-                    
-                    if not clicked:
-                        # The Turnstile iframe src might change, or it might be in a shadow dom under a div.
-                        cf_iframe = page.ele('xpath://iframe', timeout=1) or page.ele('#jvye6', timeout=1)
-                        if cf_iframe:
-                            logger.info("Found Cloudflare Turnstile widget/iframe, simulating human hover and click.")
-                            page.actions.move_to(cf_iframe).click()
-                            clicked = True
-                except Exception as e:
-                    logger.debug("Turnstile auto-clicker exception: %s", repr(e))
-
-                time.sleep(0.5)
-
-            html = page.html
-            if self._is_cloudflare_challenge(html):
-                raise TimeoutError("DrissionPage hit Cloudflare challenge timeout.")
-
-            # Trigger lazy-loaded images by scrolling
-            logger.info("Scrolling down to trigger lazy loading for %s...", url)
-            try:
-                last_height = 0
-                for _ in range(8):  # Max 8 scrolls
-                    page.scroll.to_bottom()
-                    time.sleep(1.0)
-                    new_height = page.run_js("return document.body.scrollHeight")
-                    if new_height == last_height:
+                # Fast-fail wait for Turnstile challenge to be solved
+                solve_timeout = 30.0
+                start_time = time.time()
+                clicked = False
+                while time.time() - start_time < solve_timeout:
+                    html = page.html
+                    if not self._is_cloudflare_challenge(html):
                         break
-                    last_height = new_height
-            except Exception as e:
-                logger.debug("DrissionPage scroll failed: %s", e)
+                    
+                    # Active Turnstile clicker
+                    try:
+                        import random
+                        # Inject human-like mouse jitter
+                        page.actions.move(random.randint(50, 200), random.randint(50, 200))
+                        
+                        if not clicked:
+                            # The Turnstile iframe src might change, or it might be in a shadow dom under a div.
+                            cf_iframe = page.ele('xpath://iframe', timeout=1) or page.ele('#jvye6', timeout=1)
+                            if cf_iframe:
+                                logger.info("Found Cloudflare Turnstile widget/iframe, simulating human hover and click.")
+                                page.actions.move_to(cf_iframe).click()
+                                clicked = True
+                    except Exception as e:
+                        logger.debug("Turnstile auto-clicker exception: %s", repr(e))
 
-            html = page.html
+                    time.sleep(0.5)
 
-            # Extract cookies
-            cookies = page.cookies(all_info=True)
-            cookies_list = []
-            for c in cookies:
-                cookies_list.append(
-                    {
-                        "name": c.get("name"),
-                        "value": c.get("value"),
-                        "domain": c.get("domain") or host,
-                        "path": c.get("path") or "/",
-                    }
-                )
+                html = page.html
+                if self._is_cloudflare_challenge(html):
+                    raise TimeoutError("DrissionPage hit Cloudflare challenge timeout.")
 
-            return html, cookies_list
+                # Trigger lazy-loaded images by scrolling
+                logger.info("Scrolling down to trigger lazy loading for %s...", url)
+                try:
+                    last_height = 0
+                    for _ in range(8):  # Max 8 scrolls
+                        page.scroll.to_bottom()
+                        time.sleep(1.0)
+                        new_height = page.run_js("return document.body.scrollHeight")
+                        if new_height == last_height:
+                            break
+                        last_height = new_height
+                except Exception as e:
+                    logger.debug("DrissionPage scroll failed: %s", e)
+
+                html = page.html
+
+                # Extract cookies
+                cookies = page.cookies(all_info=True)
+                cookies_list = []
+                for c in cookies:
+                    cookies_list.append(
+                        {
+                            "name": c.get("name"),
+                            "value": c.get("value"),
+                            "domain": c.get("domain") or host,
+                            "path": c.get("path") or "/",
+                        }
+                    )
+
+                return html, cookies_list
 
         except Exception as e:
             logger.error("DrissionPage request failed: %s", repr(e))
             raise e
-        finally:
-            if page:
-                try:
-                    page.quit()
-                except Exception:
-                    pass
-            import shutil
-            try:
-                if profile_path.exists():
-                    shutil.rmtree(profile_path, ignore_errors=True)
-            except Exception:
-                pass
+        
+        raise RuntimeError("Unreachable code path in _get_with_drissionpage")
+
 
     def _get_with_helium(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using Helium as a browser fallback (supports Firefox if Chrome is missing)."""
@@ -2363,6 +2313,15 @@ WebGLRenderingContext.prototype.getParameter = function(parameter) {
                     session.reset_identity()
                     if status in {401, 403}:
                         self.session_manager.evict_session(host)
+                    
+                    if status in {403, 429}:
+                        logger.warning("HTTP %d received from %s. Immediately rotating proxy and retrying...", status, host)
+                        from network.proxy_manager import ProxyPoolManager
+                        pool = ProxyPoolManager.get_instance()
+                        pool.clear_domain_binding(host)
+                        self.rotate_proxy()
+                        if attempt < DEFAULT_RETRY_ATTEMPTS:
+                            continue
 
                     # 4a. Track 429 consecutive hits for circuit-breaker
                     if status == 429:
@@ -2576,7 +2535,7 @@ WebGLRenderingContext.prototype.getParameter = function(parameter) {
                         ssl_headers = self._headers(url)
                         if headers:
                             ssl_headers.update(headers)
-                        with httpx.Client(verify=False, follow_redirects=True, timeout=current_timeout) as unverified_client:
+                        with httpx.Client(verify=False, follow_redirects=True, timeout=current_timeout) as unverified_client:  # nosec B501
                             resp = unverified_client.get(url, headers=ssl_headers)
                             if resp.status_code == 200:
                                 logger.info("Unverified SSL fallback succeeded for %s.", url)

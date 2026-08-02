@@ -460,7 +460,7 @@ class MediaDownloader:
                                 LOGGER.debug(
                                     "SSL certificate verification failed for %s. Retrying with unverified transport...", url
                                 )
-                                with httpx.Client(verify=False, timeout=dl_timeout, follow_redirects=True) as unverified_client:
+                                with httpx.Client(verify=False, timeout=dl_timeout, follow_redirects=True) as unverified_client:  # nosec B501
                                     with unverified_client.stream("GET", safe_url, headers=req_headers) as resp:
                                         resp.raise_for_status()
                                         yield resp

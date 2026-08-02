@@ -210,7 +210,7 @@ class StateCache:
                     chunk = hashes[i : i + chunk_size]
                     placeholders = ",".join("?" for _ in chunk)
                     cursor.execute(
-                        f"SELECT url_hash FROM processed_urls WHERE url_hash IN ({placeholders})",
+                        f"SELECT url_hash FROM processed_urls WHERE url_hash IN ({placeholders})",  # nosec B608
                         chunk,
                     )
                     found = cursor.fetchall()

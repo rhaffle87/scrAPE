@@ -29,7 +29,7 @@ CLR_UNDERLINE = "\033[4m"
 
 
 def clear_screen():
-    subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
+    print("\033[H\033[2J", end="", flush=True)
 
 
 def print_banner():

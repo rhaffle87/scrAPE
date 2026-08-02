@@ -40,7 +40,7 @@ class RedditExtractor(ExtractorPlugin):
                 resp = http_client.get(json_url, headers=headers, timeout=10.0)
                 resp.raise_for_status()
             else:
-                resp = requests.get(json_url, headers=headers)
+                resp = requests.get(json_url, headers=headers, timeout=10.0)
                 resp.raise_for_status()
             data = resp.json()
 

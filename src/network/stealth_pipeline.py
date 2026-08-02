@@ -433,6 +433,17 @@ class StealthPipeline:
             res = _run_strategy(strategy)
             
             if res is not None:
+                try:
+                    from monitoring.telemetry import broadcast_telemetry_event
+                    broadcast_telemetry_event("waf_bypass", {
+                        "strategy": strategy.name,
+                        "host": host,
+                        "url": url,
+                        "status_code": res.status_code
+                    })
+                except Exception as e:
+                    logger.debug("Failed to emit waf_bypass telemetry: %s", e)
+
                 self.circuit_breaker.record_success(strategy.name, host)
                 with client._waf_solve_lock:
                     client._waf_solve_counts[strategy.name] = (

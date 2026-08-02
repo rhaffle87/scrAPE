@@ -1337,6 +1337,11 @@
             justify-content: space-between;
             align-items: center;
         }
+
+        @keyframes flash-success {
+            0% { border-color: #00ff66; background-color: rgba(0, 255, 102, 0.2); box-shadow: 0 0 10px rgba(0,255,102,0.5); }
+            100% { border-color: var(--border-heavy); background-color: var(--bg-base); box-shadow: none; }
+        }
     </style>
 </head>
 
@@ -4271,9 +4276,9 @@
                                 const badgeText = isCooldown ? 'COOLDOWN' : `${count} SOLVES`;
 
                                 html += `
-                                    <div style="border: 1px solid var(--border-heavy); background: var(--bg-base); padding: 0.3rem 0.5rem; display: flex; align-items: center; gap: 0.4rem; border-radius: 0 !important;">
+                                    <div id="stealth-pill-${tier}" style="border: 1px solid var(--border-heavy); background: var(--bg-base); padding: 0.3rem 0.5rem; display: flex; align-items: center; gap: 0.4rem; border-radius: 0 !important; transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s;">
                                         <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">${tier}</span>
-                                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: rgba(0,0,0,0.4); color: ${statusColor}; border: 1px solid ${statusColor}; padding: 1px 4px; font-weight: 700;">${badgeText}</span>
+                                        <span id="stealth-badge-${tier}" style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: rgba(0,0,0,0.4); color: ${statusColor}; border: 1px solid ${statusColor}; padding: 1px 4px; font-weight: 700;">${badgeText}</span>
                                     </div>
                                 `;
                             });
@@ -4281,6 +4286,42 @@
                         })
                         .catch(err => console.error("Telemetry fetch error:", err));
                 }
+                
+                function handleWafBypassEvent(data) {
+                    const tier = data.strategy;
+                    const pill = document.getElementById(`stealth-pill-${tier}`);
+                    const badge = document.getElementById(`stealth-badge-${tier}`);
+                    if (pill && badge) {
+                        // Flash animation
+                        pill.style.animation = 'none';
+                        pill.getBoundingClientRect(); // trigger reflow
+                        pill.style.animation = 'flash-success 1s ease-out';
+                        
+                        // Optimistically update count
+                        const currentText = badge.innerText;
+                        if (currentText.includes('SOLVES')) {
+                            const currentCount = Number.parseInt(currentText.split(' ')[0]) || 0;
+                            badge.innerText = `${currentCount + 1} SOLVES`;
+                        } else if (currentText === 'COOLDOWN' || currentText === '0 SOLVES') {
+                            badge.innerText = '1 SOLVES';
+                            badge.style.color = '#00ff66';
+                            badge.style.borderColor = '#00ff66';
+                        }
+                    }
+                    
+                    // Add stylized terminal log
+                    const terminalBody = document.getElementById('live-terminal-body');
+                    if (terminalBody) {
+                        const div = document.createElement('div');
+                        div.className = 'terminal-line';
+                        div.style.color = '#00ff66';
+                        div.style.fontWeight = '700';
+                        div.innerHTML = `<span style="color: var(--accent);">[STEALTH]</span> WAF Bypassed for <span style="color: #fff;">${data.host}</span> using tier: <span style="text-transform: uppercase; border: 1px solid #00ff66; padding: 0 4px; background: rgba(0,255,102,0.1);">${tier}</span>`;
+                        terminalBody.appendChild(div);
+                        terminalBody.scrollTop = terminalBody.scrollHeight;
+                    }
+                }
+
                 setInterval(refreshStealthTelemetry, 4000);
                 setTimeout(refreshStealthTelemetry, 1000);
 
@@ -4576,6 +4617,9 @@
                         });
                         eventSource.addEventListener('media_downloaded', (e) => {
                             try { addStreamingMediaCard(JSON.parse(e.data)); } catch (err) { console.error(err); }
+                        });
+                        eventSource.addEventListener('waf_bypass', (e) => {
+                            try { handleWafBypassEvent(JSON.parse(e.data)); } catch (err) { console.error(err); }
                         });
                     } catch (err) {
                         console.error("Failed to connect live SSE visualizer stream:", err);

@@ -51,10 +51,9 @@ class FlareSolverrMonitor:
         while self._running:
             try:
                 # Tail the last 50 lines of the container logs
-                # In Windows, we use subprocess with shell=True for docker commands
+                # In Windows, we use subprocess without shell=True by passing arguments as a list
                 result = subprocess.run(
-                    f"docker logs --tail 50 {self.container_name}",
-                    shell=True,
+                    ["docker", "logs", "--tail", "50", self.container_name],
                     capture_output=True,
                     text=True,
                     timeout=5.0
@@ -75,8 +74,7 @@ class FlareSolverrMonitor:
                         try:
                             LOGGER.info(f"Executing: docker restart {self.container_name}")
                             subprocess.run(
-                                f"docker restart {self.container_name}",
-                                shell=True,
+                                ["docker", "restart", self.container_name],
                                 check=True,
                                 timeout=20.0
                             )

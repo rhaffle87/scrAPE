@@ -63,6 +63,15 @@ class ProxyInfo:
     def is_healthy(self) -> bool:
         return time.monotonic() >= self.cooldown_until
 
+    def quarantine(self, duration_s: float = 300.0) -> None:
+        """Immediately put proxy in cooldown for a specified duration."""
+        self.cooldown_until = time.monotonic() + duration_s
+        LOGGER.warning(
+            "Proxy '%s' manually quarantined for %s seconds.",
+            self.url,
+            duration_s,
+        )
+
 
 class ProxyPoolManager:
     """Thread-safe Proxy Pool Manager handling health probing, latency sorting, bandwidth quota, and auto-eviction."""
@@ -199,6 +208,20 @@ class ProxyPoolManager:
             info = self._proxies.get(proxy_url)
             if info:
                 info.record_failure()
+
+    def quarantine_proxy(self, proxy_url: str, duration_s: float = 300.0) -> None:
+        """Immediately quarantine a proxy for a set duration."""
+        with self._pool_lock:
+            info = self._proxies.get(proxy_url)
+            if info:
+                info.quarantine(duration_s)
+
+    def clear_domain_binding(self, domain: str) -> None:
+        """Clear the sticky proxy assigned to a domain to force rotation on next request."""
+        with self._pool_lock:
+            domain_clean = domain.lower().strip()
+            if domain_clean in self._domain_bindings:
+                del self._domain_bindings[domain_clean]
 
     def get_pool_status(self) -> list[dict[str, Any]]:
         with self._pool_lock:

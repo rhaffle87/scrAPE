@@ -156,7 +156,8 @@ class KohyaDatasetExporter:
                         else:
                             meta = metadata_map.get(file_path.name, {})
                             tags = meta.get("tags") or [self.concept_name]
-                            zf.writestr(archive_sidecar_path, ", ".join(tags))
+                            formatted_tags = [str(t).strip().lower().replace(" ", "_") for t in tags]
+                            zf.writestr(archive_sidecar_path, ", ".join(formatted_tags))
 
             # Write root metadata.json
             dataset_meta = {

@@ -86,10 +86,11 @@ def check_and_install_dependencies():
         print("📦 Node.js dependencies for crawlee_bridge not found. Installing...")
         try:
             # Check if npm is available
-            subprocess.run(["npm", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+            npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+            subprocess.run([npm_cmd, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             # Run npm install
             print("🚀 Running npm install in crawlee_bridge...")
-            subprocess.run(["npm", "install"], cwd=str(bridge_dir), check=True, shell=True)
+            subprocess.run([npm_cmd, "install"], cwd=str(bridge_dir), check=True)
             print("✅ Node.js dependencies installed successfully!\n")
         except Exception as e:
             print(f"⚠️ Failed to install Node.js dependencies: {e}. Please ensure Node.js and npm are installed and in your PATH.\n")
@@ -141,7 +142,7 @@ def run_tray():
 
 
 def clear_screen():
-    subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
+    print("\033[H\033[2J", end="", flush=True)
 
 
 def main():

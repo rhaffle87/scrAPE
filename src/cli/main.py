@@ -74,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format.",
     )
     parser.add_argument(
+        "--export-db",
+        action="store_true",
+        help="Export scraped results to a SQLite database (results.db).",
+    )
+    parser.add_argument(
         "--download-media",
         action="store_true",
         help="Download discovered media into the output directory.",
@@ -666,6 +671,13 @@ def main() -> None:
         write_json(result, output_root / "results.json")
     if args.output in {"csv", "both"}:
         write_csv(result, output_root)
+
+    if getattr(args, "export_db", False):
+        from storage.database_exporter import DatabaseExporter
+        db_path = output_root / "results.db"
+        logger.info("Exporting results to SQLite database...")
+        exporter = DatabaseExporter(db_path)
+        exporter.export(result)
 
     import json
 

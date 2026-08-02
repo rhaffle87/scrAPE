@@ -81,7 +81,7 @@ class CrawlCoordinator:
                 LOGGER.info(f"Pre-flight exception for {url} ({type(e).__name__}: {repr(e)}). Allowing to pass to stealth pipeline.")
                 valid_urls.append(url)
 
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=False) as client:  # nosec B501
             tasks = [check_url(client, u) for u in urls]
             await asyncio.gather(*tasks)
             

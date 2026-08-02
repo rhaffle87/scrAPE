@@ -28,6 +28,7 @@ scrape
 | `--domain` | `str` | `None` | Domain to associate with the injected cookies. |
 | `--max-results` | `int` | `50` (or dynamic) | Maximum number of media items per type to keep. Use 0 for unlimited. |
 | `--output` | `{json,csv,both}` | `json` | Output format. |
+| `--export-db` | flag | `False` | Export scraped results to a SQLite database (`results.db`). |
 | `--download-media` | flag | `False` | Download discovered media into the output directory. |
 | `--seed-url` | `str[]` | `[]` | Seed page URL to scrape directly. Repeat for multiple URLs. |
 | `--seed-file` | `str` | `None` | Text file containing one seed URL per line. |
