@@ -90,6 +90,19 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON processed_urls(timestamp)
             """)
+            
+            # Persistent cache for dead URLs (404/410)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS dead_urls (
+                    url_hash TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    status INTEGER NOT NULL,
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_dead_urls_timestamp ON dead_urls(timestamp)
+            """)
             # Check if phash_cache has INTEGER PRIMARY KEY (old schema)
             cursor.execute("PRAGMA table_info(phash_cache)")
             columns = cursor.fetchall()
@@ -130,13 +143,18 @@ class StateCache:
                     "DELETE FROM phash_cache WHERE timestamp < ?", (cutoff_time,)
                 )
                 deleted_phashes = cursor.rowcount
+                cursor.execute(
+                    "DELETE FROM dead_urls WHERE timestamp < ?", (cutoff_time,)
+                )
+                deleted_dead = cursor.rowcount
                 conn.commit()
-                total_deleted = deleted_urls + deleted_phashes
+                total_deleted = deleted_urls + deleted_phashes + deleted_dead
                 if total_deleted > 0:
                     LOGGER.info(
-                        "StateCache cleanup: removed %d expired URLs and %d expired pHashes.",
+                        "StateCache cleanup: removed %d expired URLs, %d expired pHashes, and %d expired dead URLs.",
                         deleted_urls,
                         deleted_phashes,
+                        deleted_dead,
                     )
         except Exception as e:
             LOGGER.warning(f"StateCache cleanup failed: {e}")
@@ -172,6 +190,33 @@ class StateCache:
                 conn.commit()
         except Exception as e:
             LOGGER.warning(f"Error marking {url} as processed in state cache: {e}")
+
+    def is_dead(self, url: str) -> bool:
+        """Check if a URL is known to be dead (404/410)."""
+        url_hash = self._hash_url(url)
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1 FROM dead_urls WHERE url_hash = ?", (url_hash,))
+                return cursor.fetchone() is not None
+        except Exception as e:
+            LOGGER.warning(f"Error checking dead URLs for {url}: {e}")
+            return False
+
+    def mark_dead(self, url: str, status: int = 404):
+        """Mark a URL as dead (404/410)."""
+        url_hash = self._hash_url(url)
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO dead_urls (url_hash, url, status, timestamp) VALUES (?, ?, ?, ?)",
+                    (url_hash, url, status, now),
+                )
+                conn.commit()
+        except Exception as e:
+            LOGGER.warning(f"Error marking {url} dead: {e}")
 
     def mark_processed_batch(self, urls: list[str], chunk_size: int = 500) -> None:
         """Mark a batch of URLs as processed using chunked executemany transactions."""
@@ -228,6 +273,7 @@ class StateCache:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM processed_urls")
+                cursor.execute("DELETE FROM dead_urls")
                 conn.commit()
                 LOGGER.info("StateCache flushed successfully.")
         except Exception as e:
@@ -343,6 +389,7 @@ class StateCache:
         """Return database telemetry metrics: record count, file size, WAL mode."""
         stats: dict[str, int | str] = {
             "total_urls": 0,
+            "total_dead_urls": 0,
             "db_size_bytes": 0,
             "journal_mode": "unknown",
         }
@@ -352,6 +399,11 @@ class StateCache:
                 cursor.execute("SELECT COUNT(*) FROM processed_urls")
                 row = cursor.fetchone()
                 stats["total_urls"] = int(row[0]) if row else 0
+
+                cursor.execute("SELECT COUNT(*) FROM dead_urls")
+                d_row = cursor.fetchone()
+                stats["total_dead_urls"] = int(d_row[0]) if d_row else 0
+
                 cursor.execute("PRAGMA journal_mode")
                 jm_row = cursor.fetchone()
                 stats["journal_mode"] = str(jm_row[0]) if jm_row else "unknown"

@@ -237,6 +237,10 @@ class SearchProviderScraper(BaseSearchScraper):
                 return [], [], status_name, "", ""
             if "429" in exc_str:
                 return [], [], "fetch_error:429", "", ""
+            if "404" in exc_str:
+                return [], [], "fetch_error:404", "", ""
+            if "410" in exc_str:
+                return [], [], "fetch_error:410", "", ""
             LOGGER.warning("Failed to scrape %s: %s", url, exc)
             return [], [], f"fetch_error:{type(exc).__name__}", "", ""
 

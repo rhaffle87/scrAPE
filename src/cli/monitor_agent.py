@@ -227,7 +227,7 @@ def run_scraper(
 
     return_code = -1
     try:
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # nosec B603
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
 

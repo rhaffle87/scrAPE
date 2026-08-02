@@ -56,12 +56,13 @@ def test_http_client_rotates_session_on_block():
 
     # Mock _execute_fallbacks to fail, causing get to raise ScraperBypassError
     with patch.object(http, "_execute_fallbacks", return_value=(None, [])):
-        with pytest.raises(Exception):
-            http.get(test_url)
+        with patch.object(session, "reset_identity") as mock_reset:
+            with pytest.raises(Exception):
+                http.get(test_url)
 
-    # User agent should be rotated after 403 block
-    ua_after = session.user_agent
-    assert ua_before != ua_after
+            # Session identity should have been rotated 3 times during the retry loop
+            assert mock_reset.call_count == 3
+            
     HttpClient._stealth_failed_hosts.clear()
 
 

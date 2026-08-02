@@ -77,6 +77,8 @@ class CrawlCoordinator:
                     valid_urls.append(url)
                 else:
                     LOGGER.info(f"Pre-flight failed for {url} (status {resp.status_code})")
+                    if self.state_cache:
+                        self.state_cache.mark_dead(url, status=resp.status_code)
             except Exception as e:
                 LOGGER.info(f"Pre-flight exception for {url} ({type(e).__name__}: {repr(e)}). Allowing to pass to stealth pipeline.")
                 valid_urls.append(url)
@@ -135,6 +137,10 @@ class CrawlCoordinator:
                         # Peek first, we only pop if we use it
                         # but we need to re-insert skipped items
                         next_depth, next_retry, _, next_page = heapq.heappop(pages_queue)
+                        
+                        if self.state_cache and self.state_cache.is_dead(next_page):
+                            continue
+                            
                         host = urlparse(next_page).netloc.lower()
                         
                         if not self.governor.is_host_available(host):
@@ -195,6 +201,10 @@ class CrawlCoordinator:
                         content_type = ""
                         try:
                             page, depth, page_images, page_videos, scrape_status, content, content_type = future.result()
+                            if scrape_status in ("fetch_error:404", "fetch_error:410"):
+                                status_code = 404 if "404" in scrape_status else 410
+                                if self.state_cache:
+                                    self.state_cache.mark_dead(page, status=status_code)
                             self.governor.report_yield(host, len(page_images) + len(page_videos))
                             
                             # Link discovery in Phase 2
@@ -236,6 +246,9 @@ class CrawlCoordinator:
                                                 
                                             if normalized_link not in visited_pages:
                                                 visited_pages.add(normalized_link)
+                                                if self.state_cache and self.state_cache.is_dead(normalized_link):
+                                                    self.add_rejected("page", normalized_link, page, "404_negative_cache")
+                                                    continue
                                                 # Enqueue at depth + 1
                                                 heapq.heappush(pages_queue, (depth + 1, 0, time.monotonic(), normalized_link))
                                                 

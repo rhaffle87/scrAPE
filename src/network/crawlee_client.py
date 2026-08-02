@@ -39,7 +39,7 @@ class CrawleeClient:
         
         # Open log file for debugging
         self._log_file = open("crawlee_bridge.log", "w")
-        self._process = subprocess.Popen(
+        self._process = subprocess.Popen(  # nosec B603 B607
             ["node", str(script_path)],
             stdout=self._log_file,
             stderr=subprocess.STDOUT,

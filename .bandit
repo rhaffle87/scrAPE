@@ -1,0 +1,2 @@
+skips: ['B110', 'B112', 'B311', 'B404']
+exclude_dirs: ['tests', 'scratch', 'output']

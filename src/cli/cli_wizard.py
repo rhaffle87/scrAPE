@@ -146,7 +146,7 @@ def run_command(cmd: list[str]):
     print(f"Executing: {CLR_GREEN}{' '.join(cmd)}{CLR_END}\n")
     process = None
     try:
-        process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)  # nosec B603
         process.wait()
     except KeyboardInterrupt:
         print(f"\n{CLR_WARNING}Execution interrupted by user.{CLR_END}")

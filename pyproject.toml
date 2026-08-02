@@ -41,8 +41,13 @@ extraPaths = ["src", "."]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
+markers = [
+    "e2e: mark test as end-to-end (deselect with '-m \"not e2e\"')",
+]
 filterwarnings = [
     "ignore::DeprecationWarning:websockets.*:",
     "ignore::DeprecationWarning:uvicorn.*:",
-    "ignore::DeprecationWarning:speech_recognition.*:"
+    "ignore::DeprecationWarning:speech_recognition.*:",
+    "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*:",
+    "ignore::DeprecationWarning:fastapi.*:"
 ]

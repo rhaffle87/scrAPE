@@ -22,9 +22,49 @@ jobs:
       - name: Install dependencies
         run: pip install bandit
       - name: Run Bandit
-        run: bandit -r src/ -f json -o bandit_report.json || true
+        run: bandit -r src/ -c .bandit -f json -o bandit_report.json || true
       - name: Archive Bandit Results
         uses: actions/upload-artifact@v4
         with:
           name: bandit-report
           path: bandit_report.json
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/python
+
+  osv-scanner:
+    name: OSV-Scanner Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v1.9.0
+        with:
+          scan-args: |-
+            -r
+            --skip-git
+            ./
+
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build an image from Dockerfile
+        run: docker build -t scrape:${{ github.sha }} .
+      - name: Run Trivy vulnerability scanner on Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'scrape:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'

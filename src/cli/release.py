@@ -94,7 +94,7 @@ def append_changelog_entry(version_clean: str, highlights: list[str]) -> bool:
 
 def run_command(cmd: list[str], check: bool = True) -> tuple[int, str]:
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603 B607
             cmd,
             cwd=str(ROOT_DIR),
             stdout=subprocess.PIPE,

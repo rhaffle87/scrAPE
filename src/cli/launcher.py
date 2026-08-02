@@ -87,10 +87,10 @@ def check_and_install_dependencies():
         try:
             # Check if npm is available
             npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
-            subprocess.run([npm_cmd, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([npm_cmd, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # nosec B603 B607
             # Run npm install
             print("🚀 Running npm install in crawlee_bridge...")
-            subprocess.run([npm_cmd, "install"], cwd=str(bridge_dir), check=True)
+            subprocess.run([npm_cmd, "install"], cwd=str(bridge_dir), check=True)  # nosec B603 B607
             print("✅ Node.js dependencies installed successfully!\n")
         except Exception as e:
             print(f"⚠️ Failed to install Node.js dependencies: {e}. Please ensure Node.js and npm are installed and in your PATH.\n")
@@ -107,7 +107,7 @@ def check_and_install_dependencies():
             except Exception:
                 print("Playwright browser binaries not found. Installing...")
                 try:
-                    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+                    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)  # nosec B603 B607
                     print("Playwright browser binaries installed successfully!\n")
                 except Exception as e:
                     print(f"Failed to install Playwright browser binaries: {e}\n")
@@ -183,7 +183,7 @@ def main():
         main()
 
     elif choice == "Release Automation Wizard":
-        subprocess.call([sys.executable, "-m", "src.cli.release"])
+        subprocess.call([sys.executable, "-m", "src.cli.release"])  # nosec B603 B607
         main()
         
     elif choice == "Web UI (Open in Browser)":
@@ -205,12 +205,12 @@ def main():
             
     elif choice == "Terminal UI (Interactive CLI)":
         # Launch cli_wizard.py
-        subprocess.call([sys.executable, "-m", "src.cli.cli_wizard"])
+        subprocess.call([sys.executable, "-m", "src.cli.cli_wizard"])  # nosec B603 B607
         
     elif choice == "Hide to Tray (Background)":
         print("\n⌛ Starting background process... (tray icon will appear in ~3s)")
         DETACHED_PROCESS = 0x00000008
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # nosec B603 B607
             [sys.executable.replace("python.exe", "pythonw.exe"), "-m", "src.cli.launcher"],
             creationflags=DETACHED_PROCESS
         )

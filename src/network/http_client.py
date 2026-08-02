@@ -1791,7 +1791,7 @@ class HttpClient:
                         try:
                             import subprocess
                             logger.info("FlareSolverr unreachable. Attempting background docker start flaresolverr...")
-                            subprocess.Popen(
+                            subprocess.Popen(  # nosec B603 B607
                                 ["docker", "start", "flaresolverr"],
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,

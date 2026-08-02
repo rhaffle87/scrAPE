@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  scrape:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scrape
+    ports:
+      - "10001:10001"
+    environment:
+      # Optional: Bind FlareSolverr to this scrape container
+      - FLARESOLVERR_URL=http://flaresolverr:8191/v1
+    volumes:
+      - ./output:/app/output
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - flaresolverr
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+    restart: unless-stopped

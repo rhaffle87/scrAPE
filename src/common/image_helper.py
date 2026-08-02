@@ -123,7 +123,10 @@ def compute_dhash(image_bytes: bytes, hash_size: int = 8) -> int | None:
 
         with Image.open(BytesIO(image_bytes)) as raw_img:
             img = raw_img.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
-            pixels = list(img.getdata())
+            if hasattr(img, "get_flattened_data"):
+                pixels = list(img.get_flattened_data())
+            else:
+                pixels = list(img.getdata())
             img.close()
 
         difference = []

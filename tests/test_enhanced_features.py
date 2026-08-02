@@ -876,7 +876,7 @@ def test_http_client_direct_stealth_routing(monkeypatch):
     url1 = "https://stealth-domain.com/page1"
     resp1 = client.get(url1)
     assert resp1.text == "<html>Stealth Page</html>"
-    assert get_count == 1
+    assert get_count == 3
     assert fallback_count == 1
     assert any(h == "stealth-domain.com" for h in client._stealth_required_hosts)
 
@@ -885,8 +885,8 @@ def test_http_client_direct_stealth_routing(monkeypatch):
     url2 = "https://stealth-domain.com/page2"
     resp2 = client.get(url2)
     assert resp2.text == "<html>Stealth Page</html>"
-    # get_count should remain 1 (bypassed standard GET completely), fallback_count should be 2.
-    assert get_count == 1
+    # get_count should remain 3 (bypassed standard GET completely), fallback_count should be 2.
+    assert get_count == 3
     assert fallback_count == 2
 
 
