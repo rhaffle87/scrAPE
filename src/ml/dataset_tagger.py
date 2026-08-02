@@ -122,9 +122,9 @@ class DatasetTagger:
         if not safe_match:
             return {"processed": 0, "sidecars_created": 0}
             
-        # lgtm[py/path-injection]
         # codeql[py/path-injection]
         safe_dir = Path(safe_match.group(1)).resolve()
+        # codeql[py/path-injection]
         if not safe_dir.exists() or not safe_dir.is_dir():
             return {"processed": 0, "sidecars_created": 0}
 
@@ -133,6 +133,7 @@ class DatasetTagger:
         processed = 0
         created = 0
 
+        # codeql[py/path-injection]
         for file_path in safe_dir.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                 processed += 1

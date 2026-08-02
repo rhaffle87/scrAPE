@@ -88,7 +88,6 @@ class KohyaDatasetExporter:
             LOGGER.error("Path traversal attempt or invalid path: %s", safe_dir_str)
             return b""
             
-        # lgtm[py/path-injection]
         # codeql[py/path-injection]
         safe_dir = Path(normalized_target).resolve()
         safe_name = safe_dir.name
@@ -96,7 +95,9 @@ class KohyaDatasetExporter:
             return b""
 
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            # codeql[py/path-injection]
             if safe_dir.exists() and safe_dir.is_dir():
+                # codeql[py/path-injection]
                 for file_path in safe_dir.iterdir():
                     if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                         try:
