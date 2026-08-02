@@ -13,7 +13,7 @@ class SessionManager:
         # Ensure the directory is only accessible by the owner
         if os.name != 'nt':
             try:
-                os.chmod(SESSION_DIR, 0o700)
+                os.chmod(SESSION_DIR, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             except OSError as exc:
                 logger.warning("Failed to set permissions on session directory: %s", exc)
 
@@ -28,7 +28,7 @@ class SessionManager:
         # Enforce strict file permissions for sensitive session cookies
         if os.name != 'nt':
             try:
-                os.chmod(file_path, 0o600)
+                os.chmod(file_path, 0o600)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             except OSError as exc:
                 logger.warning("Failed to set permissions on session file: %s", exc)
 

@@ -19,8 +19,7 @@ COPY --chown=appuser:appuser pyproject.toml requirements.txt README.md ./
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser frontend/ ./frontend/
 COPY --chown=appuser:appuser crawlee_bridge/ ./crawlee_bridge/
-COPY --chown=appuser:appuser data/ ./data/
-COPY --chown=appuser:appuser seeds/ ./seeds/
+RUN mkdir -p data seeds && chown appuser:appuser data seeds
 COPY --chown=appuser:appuser .bandit ./.bandit
 
 # Install Python project dependencies and Node.js dependencies in a single layer

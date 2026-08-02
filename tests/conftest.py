@@ -1,4 +1,5 @@
 import os
+os.environ["DISABLE_PROXY_BACKGROUND_REFRESH"] = "1"
 import json
 import pytest
 from pathlib import Path

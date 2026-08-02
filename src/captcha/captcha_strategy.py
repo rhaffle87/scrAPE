@@ -165,10 +165,10 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
             token = self.provider.solve_hcaptcha(website_url=url, website_key=sitekey, timeout=60, proxy=proxy, user_agent=user_agent)
 
         if not token:
-            LOGGER.warning("ThirdPartyCaptchaStrategy: Token solving returned empty for %s.", url)
+            LOGGER.warning("ThirdPartyCaptchaStrategy: Token solving returned empty for %s.", url)  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             return None
 
-        LOGGER.info("ThirdPartyCaptchaStrategy: Obtained token for %s — retrying.", url)
+        LOGGER.info("ThirdPartyCaptchaStrategy: Obtained token for %s — retrying.", url)  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
 
         retry_headers = dict(headers)
         retry_headers["X-Turnstile-Response"] = token

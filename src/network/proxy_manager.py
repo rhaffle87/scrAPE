@@ -7,6 +7,7 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
+from network.proxy_fetcher import ProxyFetcher
 from notifications.notification_manager import NotificationPipeline
 
 LOGGER = logging.getLogger(__name__)
@@ -90,6 +91,54 @@ class ProxyPoolManager:
 
         self._warning_sent: bool = False
         self._halt_sent: bool = False
+        
+        self._stop_event = threading.Event()
+        if os.getenv("DISABLE_PROXY_BACKGROUND_REFRESH") != "1":
+            self._refresh_thread = threading.Thread(target=self._background_refresh_loop, daemon=True, name="ProxyRefreshThread")
+            self._refresh_thread.start()
+            import atexit
+            atexit.register(self.shutdown)
+        else:
+            self._refresh_thread = None
+
+    def _background_refresh_loop(self) -> None:
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        async def loop_task():
+            # Initial wait so we don't block startup too aggressively, but we want it fast enough to be useful early
+            for _ in range(20):
+                if self._stop_event.is_set():
+                    return
+                await asyncio.sleep(0.1)
+            
+            while not self._stop_event.is_set():
+                try:
+                    await self.refresh_pool()
+                except Exception as e:
+                    try:
+                        LOGGER.error("Error in background proxy refresh: %s", e)
+                    except ValueError:
+                        pass
+                # Sleep for 60 minutes before next refresh
+                for _ in range(3600):
+                    if self._stop_event.is_set():
+                        return
+                    await asyncio.sleep(1.0)
+                
+        try:
+            loop.run_until_complete(loop_task())
+        except Exception as e:
+            try:
+                LOGGER.error("Background proxy refresh loop terminated: %s", e)
+            except ValueError:
+                pass
+        finally:
+            loop.close()
+
+    def shutdown(self) -> None:
+        self._stop_event.set()
 
     @classmethod
     def get_instance(cls) -> ProxyPoolManager:
@@ -149,6 +198,26 @@ class ProxyPoolManager:
                 NotificationPipeline().notify_watchdog_status(
                     "Proxy pool bandwidth quota exhausted (500 MB). Auto-halting proxy routing."
                 )
+
+    async def refresh_pool(self) -> None:
+        """Fetch fresh proxies from APIs and validate them, injecting them into the pool."""
+        LOGGER.info("Starting background proxy pool refresh...")
+        fetcher = ProxyFetcher(validation_timeout_s=5.0)
+        valid_proxies = await fetcher.get_validated_proxies()
+        
+        if valid_proxies:
+            self.set_proxies(valid_proxies)
+            LOGGER.info("Successfully injected %d fresh proxies into the pool.", len(valid_proxies))
+        else:
+            LOGGER.warning("Proxy fetcher returned no valid proxies. Pool refresh failed.")
+            
+        # Prune completely dead proxies to avoid unbounded growth
+        with self._pool_lock:
+            dead_urls = [url for url, p in self._proxies.items() if p.consecutive_failures > 10]
+            for url in dead_urls:
+                del self._proxies[url]
+            if dead_urls:
+                LOGGER.info("Pruned %d dead proxies from the pool.", len(dead_urls))
 
     def set_proxies(self, proxy_list: list[str]) -> None:
         """Register or update proxy URLs in the pool."""
