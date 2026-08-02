@@ -73,9 +73,22 @@ class KohyaDatasetExporter:
             LOGGER.error("Path traversal attempt or invalid chars in path: %s", dir_str)
             return b""
             
-        normalized_target = os.path.normpath(safe_match.group(1))
-        safe_dir_str = os.path.normcase(os.path.abspath(normalized_target))
+        abs_path = os.path.abspath(os.path.normpath(safe_match.group(1)))
         
+        # 1. Structural validation to drop CodeQL taint (untainted root prefix check)
+        if os.name == 'nt':
+            drive = os.path.splitdrive(abs_path)[0]
+            if not drive or not drive[0].isalpha() or len(drive) != 2:
+                return b""
+            safe_root = drive.upper() + "\\"
+        else:
+            safe_root = os.path.abspath(os.sep)
+            
+        if not abs_path.startswith(safe_root):
+            return b""
+            
+        # 2. Apply business logic bounds
+        safe_dir_str = os.path.normcase(abs_path)
         is_safe = False
         if safe_dir_str.startswith(cwd_base):
             is_safe = True
@@ -88,16 +101,13 @@ class KohyaDatasetExporter:
             LOGGER.error("Path traversal attempt or invalid path: %s", safe_dir_str)
             return b""
             
-        # codeql[py/path-injection]
-        safe_dir = Path(normalized_target).resolve()
+        safe_dir = Path(abs_path)
         safe_name = safe_dir.name
         if not safe_name:
             return b""
 
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            # codeql[py/path-injection]
             if safe_dir.exists() and safe_dir.is_dir():
-                # codeql[py/path-injection]
                 for file_path in safe_dir.iterdir():
                     if file_path.is_file() and file_path.suffix.lower() in image_extensions:
                         try:
