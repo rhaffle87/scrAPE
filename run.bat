@@ -1,4 +1,5 @@
 @echo off
+cls
 setlocal enableextensions enabledelayedexpansion
 
 set PROJECT_ROOT=%~dp0

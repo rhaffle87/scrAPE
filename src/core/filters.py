@@ -109,31 +109,40 @@ def is_probable_image(url: str) -> bool:
 
 def is_thumbnail_url(url: str) -> bool:
     """Return True if URL is a known thumbnail or low-res pattern."""
+    import logging
+    _log = logging.getLogger(__name__)
+
     try:
-        path = urlparse(url).path.lower()
+        path = urlparse(url).path.lower().rstrip("/")
     except Exception:
         path = ""
     # Booru-style picN thumbnails (pic256, pic512, etc.)
     if re.search(r"\.pic\d+\.jpe?g", path):
+        _log.debug("Thumbnail detected (Booru picN): %s", url)
         return True
     # WordPress/CDN dimensions suffix (e.g. -320x180.jpg)
     if re.search(r"-\d+x\d+\.(?:jpe?g|png|gif|webp|avif)$", path):
+        _log.debug("Thumbnail detected (dimensions suffix): %s", url)
         return True
     # Check for general low-resolution directory structures or query parameters
     if has_low_res_path_pattern(url, min_width=300, min_height=300):
+        _log.debug("Thumbnail detected (low res path pattern): %s", url)
         return True
     # Common thumbnail patterns
     if any(marker in path for marker in PREVIEW_MARKERS):
+        _log.debug("Thumbnail detected (preview marker): %s", url)
         return True
     # loading.gif placeholders
     if path.endswith("/loading.gif"):
         return True
     # erothots / erocdn preview thumbnails (e.g. /thumbs/ or /thumb_ in path)
     if re.search(r"/thumbs?[_/]", path):
+        _log.debug("Thumbnail detected (erocdn thumb path): %s", url)
         return True
     # erocdn low-res poster images
     url_lower = url.lower()
     if "erocdn" in url_lower and re.search(r"_(?:poster|thumb|preview|small)\.", path):
+        _log.debug("Thumbnail detected (erocdn poster/thumb): %s", url)
         return True
     return False
 
@@ -390,11 +399,12 @@ def is_archive_or_index_page(url: str, title: str | None) -> bool:
         # e.g. /actor/subject_name/some-specific-post — not a pure listing page
         for seg in archive_paths:
             if seg in path:
-                after = path.split(seg, 1)[1].rstrip("/")
-                if (
-                    "/" in after and after.split("/")[1]
-                ):  # depth >= 2 beyond the archive key
-                    return False
+                after = path.split(seg, 1)[1].strip("/")
+                if "/" in after:
+                    parts = after.split("/")
+                    # If depth >= 2 beyond archive key, and it's not just pagination, it's a detail page
+                    if len(parts) >= 2 and parts[1] not in ("page", "p", "sort", "filter"):
+                        return False
         return True
     if any(q in query for q in ("q=", "s=", "cat=", "tag=", "p=")):
         return True

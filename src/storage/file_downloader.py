@@ -300,15 +300,23 @@ class MediaDownloader:
 
         # Attach any active session cookies from the http client's session manager
         if self.http and hasattr(self.http, "session_manager"):
-            cookies = self.http.session_manager.load_session(host)
-            if cookies:
-                cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
+            parts = host.split('.')
+            base_domain = '.'.join(parts[-2:]) if len(parts) >= 2 else host
+            cookies = self.http.session_manager.load_session(host) or {}
+            base_cookies = self.http.session_manager.load_session(base_domain) or {}
+            
+            # Merge cookies, prioritizing specific host over base domain
+            merged_cookies = {**base_cookies, **cookies}
+            
+            if merged_cookies:
+                cookie_str = "; ".join(f"{k}={v}" for k, v in merged_cookies.items())
                 if cookie_str:
                     headers["Cookie"] = cookie_str
                     LOGGER.info(
-                        "Enriched download headers with %d session cookies for host: %s",
-                        len(cookies),
+                        "Enriched download headers with %d session cookies for host: %s (base: %s)",
+                        len(merged_cookies),
                         host,
+                        base_domain,
                     )
 
         return headers
@@ -449,7 +457,7 @@ class MediaDownloader:
                         except (httpx.ConnectError, httpx.TransportError, Exception) as ssl_err:
                             err_msg = str(ssl_err).lower()
                             if "ssl" in err_msg or "certificate" in err_msg or "curl: (60)" in err_msg:
-                                LOGGER.warning(
+                                LOGGER.debug(
                                     "SSL certificate verification failed for %s. Retrying with unverified transport...", url
                                 )
                                 with httpx.Client(verify=False, timeout=dl_timeout, follow_redirects=True) as unverified_client:
@@ -503,7 +511,14 @@ class MediaDownloader:
                             chunks = []
                             bytes_read = 0
                             dimensions_checked = False
+                            
+                            last_chunk_time = time.monotonic()
                             for chunk in response.iter_bytes(chunk_size=8192):
+                                current_time = time.monotonic()
+                                if current_time - last_chunk_time > 60.0:
+                                    raise TimeoutError(f"Download stalled for over 60s for {url}")
+                                last_chunk_time = current_time
+                                
                                 self.bandwidth_limiter.throttle(len(chunk))
                                 chunks.append(chunk)
                                 bytes_read += len(chunk)
@@ -556,7 +571,13 @@ class MediaDownloader:
                             header_bytes = b""
                             try:
                                 with open(temp_target, write_mode) as f:
+                                    last_chunk_time = time.monotonic()
                                     for chunk in response.iter_bytes(chunk_size=65536):
+                                        current_time = time.monotonic()
+                                        if current_time - last_chunk_time > 60.0:
+                                            raise TimeoutError(f"Download stalled for over 60s for {url}")
+                                        last_chunk_time = current_time
+                                        
                                         self.bandwidth_limiter.throttle(len(chunk))
                                         if bytes_read < 1024:
                                             header_bytes += chunk

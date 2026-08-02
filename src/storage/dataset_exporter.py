@@ -64,7 +64,12 @@ class DatasetExporter:
         phash: int | str | None = None,
         extra_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        file_path = Path(file_path)
+        file_path = Path(file_path).resolve()
+        out_dir_resolved = self.output_dir.resolve()
+        if not file_path.is_relative_to(out_dir_resolved):
+            LOGGER.error("Security violation: file_path is outside output_dir")
+            return {}
+
         tags = tags or []
         extra_metadata = extra_metadata or {}
 

@@ -168,20 +168,20 @@ class SearchProviderScraper(BaseSearchScraper):
         url: str,
         allow_domains: list[str] | None = None,
         block_domains: list[str] | None = None,
-    ) -> tuple[list[ImageItem], list[VideoItem], str]:
+    ) -> tuple[list[ImageItem], list[VideoItem], str, str, str]:
         if allow_domains is None:
             allow_domains = []
         if block_domains is None:
             block_domains = []
         if not is_allowed_domain(url, allow_domains, block_domains):
             LOGGER.info("Skipping %s because it does not match domain rules", url)
-            return [], [], "domain_blocked"
+            return [], [], "domain_blocked", "", ""
         if not is_allowed_path(url):
             LOGGER.info("Skipping %s because it is a structural path", url)
-            return [], [], "structural_blocked"
+            return [], [], "structural_blocked", "", ""
         if not self.robots.is_allowed(url):
             LOGGER.info("Skipping %s because robots.txt disallows it", url)
-            return [], [], "robots_blocked"
+            return [], [], "robots_blocked", "", ""
 
         try:
             response = self.http.get(url)
@@ -191,7 +191,7 @@ class SearchProviderScraper(BaseSearchScraper):
             login_paths = {"/login", "/signin", "/signup", "/register", "/auth", "/oauth"}
             if final_path in login_paths or any(p in final_path for p in ["/login/", "/signin/", "/auth/"]):
                 LOGGER.warning("Redirected to login wall: %s (final URL: %s)", url, response.url)
-                return [], [], "fetch_error:login_wall"
+                return [], [], "fetch_error:login_wall", "", ""
 
             content_type = response.headers.get("content-type", "").lower()
             if (
@@ -202,12 +202,12 @@ class SearchProviderScraper(BaseSearchScraper):
                 try:
                     data = response.json()
                     images, videos = self._extract_media_from_json(data, url)
-                    return images, videos, "ok"
+                    return images, videos, "ok", response.text, content_type
                 except Exception as exc:
                     LOGGER.warning(
                         "Failed to parse JSON response from %s: %s", url, exc
                     )
-                    return [], [], f"json_error:{type(exc).__name__}"
+                    return [], [], f"json_error:{type(exc).__name__}", response.text, content_type
 
             soup = parse_html(response.text)
             page_title = self._extract_page_title(soup)
@@ -221,7 +221,7 @@ class SearchProviderScraper(BaseSearchScraper):
                     soup, url, page_title, allow_domains, block_domains
                 )
             videos = extract_videos_from_html(soup, url, page_title)
-            return images, videos, "ok"
+            return images, videos, "ok", response.text, content_type
         except Exception as exc:
             exc_str = str(exc).lower()
             if "blacklisted" in exc_str or "cooldown" in exc_str:
@@ -234,13 +234,61 @@ class SearchProviderScraper(BaseSearchScraper):
                     "Skipping scrape of %s: domain is in blacklisted/cooldown state",
                     url,
                 )
-                return [], [], status_name
-
-            LOGGER.warning("Failed to scrape %s: %s", url, exc)
-            status_name = f"fetch_error:{type(exc).__name__}"
+                return [], [], status_name, "", ""
             if "429" in exc_str:
-                status_name = "fetch_error:429"
-            return [], [], status_name
+                return [], [], "fetch_error:429", "", ""
+            LOGGER.warning("Failed to scrape %s: %s", url, exc)
+            return [], [], f"fetch_error:{type(exc).__name__}", "", ""
+
+    def discover_links_from_content(
+        self,
+        url: str,
+        content: str,
+        content_type: str,
+        allow_domains: list[str] | None = None,
+        block_domains: list[str] | None = None,
+    ) -> list[str]:
+        from core.filters import (
+            absolutize_url,
+            is_http_url,
+            normalize_url,
+            is_allowed_path,
+        )
+
+        allow_domains = allow_domains or []
+        block_domains = block_domains or []
+        links: list[str] = []
+
+        if "application/json" in content_type:
+            try:
+                import json
+                data = json.loads(content)
+                for val in self._walk_json(data):
+                    if isinstance(val, str):
+                        candidate = val.strip()
+                        if (
+                            is_http_url(candidate)
+                            or candidate.startswith("/")
+                            or candidate.startswith("./")
+                            or candidate.startswith("../")
+                        ):
+                            try:
+                                absolute = normalize_url(absolutize_url(candidate, url))
+                                if not absolute.lower().endswith(tuple(IMAGE_EXTENSIONS)) and not absolute.lower().endswith(tuple(VIDEO_EXTENSIONS)):
+                                    links.append(absolute)
+                            except Exception:
+                                pass
+            except Exception as exc:
+                LOGGER.warning("Failed to discover links from JSON content: %s", exc)
+        else:
+            soup = parse_html(content)
+            links = self._extract_page_links(soup, url)
+
+        return [
+            link
+            for link in links
+            if is_allowed_domain(link, allow_domains, block_domains) and is_allowed_path(link)
+        ]
 
     def _extract_page_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
         from core.filters import (

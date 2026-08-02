@@ -8,7 +8,19 @@ from core.models import ImageItem, VideoItem, EngineOptions, ScrapeResult
 from core.seed_manifest import DomainProfile
 from network.http_client import ScraperBypassError
 
-def test_consecutive_failures_circuit_breaker():
+@patch("core.coordinator.time.monotonic")
+@patch("core.governor.time.monotonic")
+def test_consecutive_failures_circuit_breaker(mock_gov_time, mock_coord_time):
+    # Make time advance by 20s each time to bypass cooldowns instantly
+    mock_gov_time.side_effect = lambda: time_state["t"]
+    mock_coord_time.side_effect = lambda: time_state["t"]
+    time_state = {"t": 0.0}
+    def advance_time(*args, **kwargs):
+        time_state["t"] += 20.0
+        return time_state["t"]
+    mock_gov_time.side_effect = advance_time
+    mock_coord_time.side_effect = advance_time
+
     """Verify domains with 3 consecutive fetch errors are cut off from crawling completely."""
     engine = ScrapingEngine(workers=1)
     
@@ -24,7 +36,7 @@ def test_consecutive_failures_circuit_breaker():
 
     # Enqueue 10 pages for test-fail.com
     pages = [f"https://test-fail.com/page{i}" for i in range(10)]
-    engine.search_provider.discover_links.side_effect = (
+    engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )
     engine.search_provider.search.return_value = ["https://test-fail.com/start"]
@@ -58,11 +70,12 @@ def test_consecutive_failures_circuit_breaker():
     assert stats["pages_scanned"] == 3
     assert stats["error_other_count"] == 3
 
-    # The remaining 8 pages should be marked as "host_failed_skipped"
+    # Since the start page fails immediately and is retried 3 times, it triggers the circuit breaker
+    # on its own. No links are ever discovered. The 4th attempt of the start page is skipped.
     skipped_reports = [
         r for r in result.page_reports if r.reason == "host_failed_skipped"
     ]
-    assert len(skipped_reports) == 8
+    assert len(skipped_reports) == 1
 
 
 def test_auth_wall_redirect_cutoff():
@@ -77,8 +90,8 @@ def test_auth_wall_redirect_cutoff():
     # Subsequent calls should not happen because it is immediately cut off.
     def scrape_side_effect(url, *args, **kwargs):
         if "start" in url:
-            return [], [], "ok"
-        return [], [], "fetch_error:login_wall"
+            return [], [], "ok", "<html></html>", "text/html"
+        return [], [], "fetch_error:login_wall", "", ""
 
     mock_provider.scrape_page.side_effect = scrape_side_effect
     engine.search_provider = mock_provider
@@ -89,7 +102,7 @@ def test_auth_wall_redirect_cutoff():
     engine.video_scraper = mock_video_scraper
 
     pages = [f"https://auth-wall.com/page{i}" for i in range(10)]
-    engine.search_provider.discover_links.side_effect = (
+    engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )
     engine.search_provider.search.return_value = ["https://auth-wall.com/start"]

@@ -174,7 +174,7 @@ def test_yield_based_domain_filtering():
     # Mock search provider
     mock_provider = MagicMock()
     # Return 0 images, 0 videos, ok status
-    mock_provider.scrape_page.return_value = ([], [], "ok")
+    mock_provider.scrape_page.return_value = ([], [], "ok", "<html></html>", "text/html")
     engine.search_provider = mock_provider
 
     # Mock video scraper
@@ -187,7 +187,7 @@ def test_yield_based_domain_filtering():
     pages = [f"https://unseeded.com/page{i}" for i in range(35)]
 
     # Mock discover_links side_effect: return pages for the start page, empty list for others
-    engine.search_provider.discover_links.side_effect = (
+    engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )
 
@@ -243,8 +243,10 @@ def test_low_yield_domain_filtering_at_30():
                 [ImageItem(url="https://unseeded.com/apple.jpg", source_page=url)],
                 [],
                 "ok",
+                "<html></html>",
+                "text/html"
             )
-        return ([], [], "ok")
+        return ([], [], "ok", "<html></html>", "text/html")
 
     mock_provider.scrape_page.side_effect = scrape_side_effect
     engine.search_provider = mock_provider
@@ -255,7 +257,7 @@ def test_low_yield_domain_filtering_at_30():
     engine.video_scraper = mock_video_scraper
 
     pages = [f"https://unseeded.com/page{i}" for i in range(35)]
-    engine.search_provider.discover_links.side_effect = (
+    engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )
     engine.search_provider.search.return_value = ["https://lowyield.com/start"]

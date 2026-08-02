@@ -115,6 +115,71 @@ class HttpxStrategy(StealthStrategy):
         return None
 
 
+class DrissionPageStrategy(StealthStrategy):
+    name = "drissionpage"
+
+    def is_available(self) -> bool:
+        try:
+            from network.browser_client import BrowserClient  # type: ignore
+            return BrowserClient._get_browser_type("drissionpage") is not None
+        except ImportError:
+            return False
+
+    def can_handle(self, url: str, host: str) -> bool:
+        # Only use if we couldn't get the page with httpx
+        return True
+
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
+        try:
+            from network.browser_client import BrowserClient  # type: ignore
+            html, cookies, user_agent = BrowserClient._get_with_drissionpage(url)
+            if html and not client._is_blocked_page(html, url):
+                cookie_dict = {}
+                if isinstance(cookies, list):
+                    for cookie in cookies:
+                        if isinstance(cookie, dict) and "name" in cookie and "value" in cookie:
+                            cookie_dict[cookie["name"]] = cookie["value"]
+                elif isinstance(cookies, dict):
+                    cookie_dict = cookies
+                return StealthResponse(
+                    status_code=200,
+                    text=html,
+                    cookies=cookie_dict,
+                    headers={"User-Agent": user_agent or ""},
+                    strategy_name=self.name,
+                    user_agent=user_agent
+                )
+        except Exception:
+            pass
+        return None
+
+
+class CurlCffiStrategy(StealthStrategy):
+    name = "curl_cffi"
+
+    def is_available(self) -> bool:
+        try:
+            import curl_cffi.requests
+            return True
+        except ImportError:
+            return False
+
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
+        try:
+            if hasattr(client, "_get_with_curl_cffi"):
+                html, cookies = client._get_with_curl_cffi(url)
+                if html and not (hasattr(client, "_is_blocked_page") and client._is_blocked_page(html, url)):
+                    cookie_dict = {}
+                    if isinstance(cookies, list):
+                        cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                    elif isinstance(cookies, dict):
+                        cookie_dict = cookies
+                    return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
+        except Exception:
+            pass
+        return None
+
+
 class CrawleeStrategy(StealthStrategy):
     name = "crawlee"
 
@@ -289,6 +354,7 @@ class StealthPipeline:
         else:
             self.strategies = [
                 HttpxStrategy(),
+                CurlCffiStrategy(),
                 ThirdPartyCaptchaStrategy(),
                 CrawleeStrategy(),
                 Crawl4AIStrategy(),

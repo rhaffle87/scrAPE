@@ -419,6 +419,7 @@
 
         input[type="text"],
         input[type="number"],
+        input[type="password"],
         select,
         textarea {
             background-color: var(--bg-base);
@@ -436,6 +437,7 @@
 
         input[type="text"]:focus,
         input[type="number"]:focus,
+        input[type="password"]:focus,
         select:focus,
         textarea:focus {
             border-color: var(--accent);
@@ -1390,6 +1392,16 @@
                 </span>
                 <span>SEED STUDIO</span>
             </button>
+            <button type="button" class="nav-item" id="nav-settings" onclick="showSettingsDashboard()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </span>
+                <span>SETTINGS</span>
+            </button>
         </nav>
         <div class="sidebar-section-title">
             <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
@@ -2086,6 +2098,100 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Settings Dashboard View -->
+            <div id="settings-view" style="display: none;">
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <h2>SYSTEM SETTINGS & INTEGRATIONS</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Configure application defaults, third-party integrations, webhook URLs, and automation limits. Changes are saved dynamically into <code>data/settings.db</code> SQLite storage.</p>
+                    
+                    <form id="settings-form" onsubmit="event.preventDefault(); saveSettings();">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                            <!-- General Settings -->
+                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">GENERAL SETTINGS</h3>
+                                <div class="form-group">
+                                    <label for="setting-GLOBAL_MAX_RETRIES">GLOBAL MAX RETRIES</label>
+                                    <input type="number" id="setting-GLOBAL_MAX_RETRIES" value="3" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-LOG_LEVEL">LOG LEVEL</label>
+                                    <select id="setting-LOG_LEVEL" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                        <option value="DEBUG">DEBUG</option>
+                                        <option value="INFO" selected>INFO</option>
+                                        <option value="WARNING">WARNING</option>
+                                        <option value="ERROR">ERROR</option>
+                                    </select>
+                                </div>
+                                <div class="flag-card" style="margin-top: 1rem;">
+                                    <input type="checkbox" id="setting-REQUIRE_STEALTH_MODE">
+                                    <label for="setting-REQUIRE_STEALTH_MODE">REQUIRE STEALTH MODE GLOBALLY</label>
+                                </div>
+                            </div>
+
+                            <!-- Proxy Settings -->
+                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">PROXY SETTINGS</h3>
+                                <div class="form-group">
+                                    <label for="setting-PROXY_ROTATION_STRATEGY">PROXY ROTATION STRATEGY</label>
+                                    <select id="setting-PROXY_ROTATION_STRATEGY" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                        <option value="round_robin" selected>ROUND ROBIN</option>
+                                        <option value="random">RANDOM</option>
+                                        <option value="sticky">STICKY / DOMAIN</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-PROXY_COOLDOWN_SECONDS">PROXY COOLDOWN SECONDS</label>
+                                    <input type="number" id="setting-PROXY_COOLDOWN_SECONDS" value="30" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                </div>
+                            </div>
+
+                            <!-- Notification Settings -->
+                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">NOTIFICATIONS & WEBHOOKS</h3>
+                                <div class="form-group">
+                                    <label for="setting-TELEGRAM_BOT_TOKEN">TELEGRAM BOT TOKEN</label>
+                                    <input type="password" id="setting-TELEGRAM_BOT_TOKEN" placeholder="bot12345:ABCDE..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-TELEGRAM_CHAT_ID">TELEGRAM CHAT ID</label>
+                                    <input type="text" id="setting-TELEGRAM_CHAT_ID" placeholder="-100..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-DISCORD_WEBHOOK_URL">DISCORD WEBHOOK URL</label>
+                                    <input type="password" id="setting-DISCORD_WEBHOOK_URL" placeholder="https://discord.com/api/webhooks/..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-SLACK_WEBHOOK_URL">SLACK WEBHOOK URL</label>
+                                    <input type="password" id="setting-SLACK_WEBHOOK_URL" placeholder="https://hooks.slack.com/services/..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                            </div>
+
+                            <!-- Captcha Providers -->
+                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">CAPTCHA PROVIDERS</h3>
+                                <div class="form-group">
+                                    <label for="setting-CAPSOLVER_API_KEY">CAPSOLVER API KEY</label>
+                                    <input type="password" id="setting-CAPSOLVER_API_KEY" placeholder="CAI-..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-2CAPTCHA_API_KEY">2CAPTCHA API KEY</label>
+                                    <input type="password" id="setting-2CAPTCHA_API_KEY" placeholder="Enter key..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-ANTICAPTCHA_API_KEY">ANTICAPTCHA API KEY</label>
+                                    <input type="password" id="setting-ANTICAPTCHA_API_KEY" placeholder="Enter key..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn" style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem;">SAVE SETTINGS</button>
+                            <span id="settings-status-indicator" style="font-family: monospace; color: var(--text-muted);"></span>
+                        </div>
+                    </form>
+                </div>
+            </div>
             <!-- Media Preview Modal -->
             <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1"
                 onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
@@ -2503,6 +2609,8 @@
                     document.getElementById('gallery-view').style.display = 'block';
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'none';
+                    const settingsEl = document.getElementById('settings-view');
+                    if (settingsEl) settingsEl.style.display = 'none';
                     document.getElementById('main-title').innerText = "MEDIA VAULT";
                     document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
                     document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
@@ -2545,19 +2653,146 @@
                 let currentStudioMode = "builder"; // "builder" | "code"
                 let discoveredUrlsBuffer = [];
 
+                function showSettingsDashboard() {
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'none';
+                    
+                    document.getElementById('settings-view').style.display = 'block';
+                    
+                    document.getElementById('main-title').innerText = "SYSTEM SETTINGS";
+                    document.getElementById('main-subtitle').innerText = "Dynamic Configuration & Integrations Engine";
+
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    document.getElementById('nav-settings').classList.add('active');
+
+                    // Switch stats container to empty or generic to not pollute settings context
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl) {
+                        statsEl.innerHTML = '';
+                        statsEl.removeAttribute('hx-get');
+                        statsEl.removeAttribute('hx-trigger');
+                    }
+                    
+                    loadSettings();
+                }
+
+                async function loadSettings() {
+                    const statusEl = document.getElementById('settings-status-indicator');
+                    statusEl.innerText = "Loading settings...";
+                    statusEl.style.color = "var(--text-muted)";
+                    
+                    try {
+                        const res = await fetch('/api/settings');
+                        if (res.ok) {
+                            const data = await res.json();
+                            for (const [key, value] of Object.entries(data)) {
+                                const input = document.getElementById(`setting-${key}`);
+                                if (input) {
+                                    if (value === "********") {
+                                        input.placeholder = "Configured in DB/.env (type to override)";
+                                        input.value = "";
+                                        input.dataset.masked = "true";
+                                        input.style.borderColor = "var(--text-muted)";
+                                        input.style.color = "var(--text-muted)";
+                                    } else if (input.type === 'checkbox') {
+                                        input.checked = value;
+                                    } else {
+                                        input.value = value;
+                                        input.dataset.masked = "false";
+                                        input.style.borderColor = ""; // Reset
+                                        input.style.color = ""; // Reset
+                                    }
+                                }
+                            }
+                            statusEl.innerText = "✓ SETTINGS LOADED";
+                            statusEl.style.color = "#00ff66";
+                        } else {
+                            statusEl.innerText = "ERROR LOADING SETTINGS";
+                            statusEl.style.color = "#cc0000";
+                        }
+                    } catch (e) {
+                        statusEl.innerText = "NETWORK ERROR";
+                        statusEl.style.color = "#cc0000";
+                        console.error("Failed to load settings", e);
+                    }
+                    
+                    setTimeout(() => { if(statusEl.innerText.includes("LOADED")) statusEl.innerText = ""; }, 3000);
+                }
+
+                async function saveSettings() {
+                    const statusEl = document.getElementById('settings-status-indicator');
+                    statusEl.innerText = "Saving...";
+                    statusEl.style.color = "var(--accent)";
+                    
+                    const settingsObj = {};
+                    const inputs = document.querySelectorAll('#settings-form input, #settings-form select');
+                    
+                    inputs.forEach(input => {
+                        if (input.id && input.id.startsWith("setting-")) {
+                            const key = input.id.replace("setting-", "");
+                            if (input.type === 'checkbox') {
+                                settingsObj[key] = input.checked;
+                            } else if (input.type === 'number') {
+                                settingsObj[key] = Number.parseFloat(input.value) || 0;
+                            } else if (input.dataset.masked === "true" && input.value === "") {
+                                // Skip sending this key since it was masked and unchanged
+                            } else {
+                                settingsObj[key] = input.value;
+                            }
+                        }
+                    });
+                    
+                    try {
+                        const res = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ settings: settingsObj })
+                        });
+                        
+                        if (res.ok) {
+                            statusEl.innerText = "✓ SETTINGS SAVED SUCCESSFULLY";
+                            statusEl.style.color = "#00ff66";
+                        } else {
+                            statusEl.innerText = "ERROR SAVING SETTINGS";
+                            statusEl.style.color = "#cc0000";
+                        }
+                    } catch (e) {
+                        statusEl.innerText = "NETWORK ERROR";
+                        statusEl.style.color = "#cc0000";
+                        console.error("Failed to save settings", e);
+                    }
+                    
+                    setTimeout(() => { if(statusEl.innerText.includes("SAVED")) statusEl.innerText = ""; }, 3000);
+                }
+
                 function showSeedStudio() {
                     document.getElementById('command-center-view').style.display = 'none';
                     document.getElementById('gallery-view').style.display = 'none';
-                    document.getElementById('seed-studio-view').style.display = 'block';
+                    
+                    const settingsEl = document.getElementById('settings-view');
+                    if (settingsEl) settingsEl.style.display = 'none';
+                    
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'block';
+                    
                     document.getElementById('main-title').innerText = "SEED STUDIO";
-                    document.getElementById('main-subtitle').innerText = "UNIVERSAL SEED MANIFEST EDITOR & AUTO-DISCOVERY";
+                    document.getElementById('main-subtitle').innerText = "MANIFEST BUILDER";
 
                     document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
-                    document.getElementById('nav-seed-studio').classList.add('active');
+                    const navBtn = document.getElementById('nav-seed-studio');
+                    if (navBtn) navBtn.classList.add('active');
 
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl) {
+                        statsEl.innerHTML = '';
+                        statsEl.removeAttribute('hx-get');
+                        statsEl.removeAttribute('hx-trigger');
+                    }
+                    
                     loadStudioSeedsList();
                 }
-
                 async function loadStudioSeedsList() {
                     try {
                         const res = await fetch('/api/seeds');
@@ -3007,16 +3242,20 @@
                 }
 
                 function showCommandCenter() {
-                    document.getElementById('command-center-view').style.display = 'grid';
                     document.getElementById('gallery-view').style.display = 'none';
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'none';
+                    const settingsEl = document.getElementById('settings-view');
+                    if (settingsEl) settingsEl.style.display = 'none';
+                    
+                    document.getElementById('command-center-view').style.display = 'block';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
                     document.getElementById('main-subtitle').innerText = "DATA EXTRACTION COCKPIT";
 
                     document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     document.getElementById('nav-cmd-center').classList.add('active');
 
+                    // Re-init stats
                     const statsEl = document.getElementById('active-stats-container');
                     if (statsEl) {
                         statsEl.setAttribute('hx-get', '/htmx/active-stats');
@@ -3137,7 +3376,7 @@
 
                     // Heuristic parsing from file downloader log lines
                     if (lower.includes("downloaded") || lower.includes("saved")) {
-                        const pathMatch = line.match(/(?:output\/)?([^\s:/]+\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
+                        const pathMatch = line.match(/([^\s:/]{1,256}\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|mkv|mov))/i);
                         if (pathMatch) {
                             let relPath = pathMatch[1].replace(/^output\//, '');
                             const isVideo = /\.(mp4|webm|mkv|mov)$/i.test(relPath);
@@ -3193,15 +3432,15 @@
                                 .replace("HTTP Request:", `<span style="color: var(--accent); font-weight: 700;">HTTP REQ</span>`)
                                 .replace(/GET (https?:\/\/[^\s"]+)/g, `GET <span style="color: #00ccff; text-decoration: underline;">$1</span>`)
                                 .replace(/POST (https?:\/\/[^\s"]+)/g, `POST <span style="color: #ff00ff; text-decoration: underline;">$1</span>`)
-                                .replace(/"HTTP\/1\.1 ([0-9]{3}) ([^"]*)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
-                                .replace(/"HTTP\/1\.1 ([45][0-9]{2}) ([^"]*)"/g, `"<span style="color: #cc0000; font-weight: 700;">$1 $2</span>"`);
+                                .replace(/"HTTP\/1\.1 (\d{3}) ([^"]*)"/g, `"<span style="color: #00ff66; font-weight: 700;">$1 $2</span>"`)
+                                .replace(/"HTTP\/1\.1 ([45]\d{2}) ([^"]*)"/g, `"<span style="color: #cc0000; font-weight: 700;">$1 $2</span>"`);
                         }
 
                         // Highlight media type rejections
                         if (formattedMessage.includes("rejected:")) {
                             formattedMessage = formattedMessage
                                 .replace(/(Image|Video) rejected:/gi, `<span style="color: #ffcc00; font-weight: 700;">$1 REJECTED</span>`)
-                                .replace(/\(reason:\s*([^\n)]*)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
+                                .replace(/\(reason:\s*([^\s)][^)]*)\)/g, `(<span style="color: var(--text-muted);">reason: $1</span>)`)
                                 .replace(/(https?:\/\/[^\s()]+)/g, `<span style="color: #5a665f; font-size: 0.85em;">$1</span>`);
                         }
 
@@ -3598,7 +3837,7 @@
                         startPanX = e.clientX - canvasPanX;
                         startPanY = e.clientY - canvasPanY;
                         canvas.style.cursor = 'grabbing';
-                        try { canvas.setPointerCapture(e.pointerId); } catch (_) { }
+                        try { canvas.setPointerCapture(e.pointerId); } catch (err) { console.debug(err); }
                     });
 
                     canvas.addEventListener('pointermove', (e) => {
@@ -3624,7 +3863,9 @@
 
                         let found = null;
                         graphNodes.forEach(node => {
-                            const hitRadius = node.depth === 0 ? 16 : (node.type === 'page_visited' ? 12 : 9);
+                            let hitRadius = 9;
+                            if (node.depth === 0) hitRadius = 16;
+                            else if (node.type === 'page_visited') hitRadius = 12;
                             const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
                             if (dist <= hitRadius) {
                                 found = node;
@@ -3651,7 +3892,7 @@
                         }
                         canvas.style.cursor = 'grab';
                         if (e && e.pointerId) {
-                            try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
+                            try { canvas.releasePointerCapture(e.pointerId); } catch (err) { console.debug(err); }
                         }
                     };
 
@@ -3795,8 +4036,8 @@
                     const h = canvas.height || 260;
 
                     // Normalize URL by removing trailing slash for consistent mapping
-                    const normUrl = (data.url || '').replace(/\/+$/, '');
-                    const normParent = data.parent ? data.parent.replace(/\/+$/, '') : null;
+                    const normUrl = (data.url || '').replace(/\/$/, '');
+                    const normParent = data.parent ? data.parent.replace(/\/$/, '') : null;
 
                     if (!graphNodes.has(normUrl)) {
                         const depth = data.depth || 0;
@@ -3914,7 +4155,6 @@
                         }
 
                         if (isPhysicsActive && nodes.length > 0 && nodes.length <= 2000) {
-                            let moved = false;
                             const nodeCount = nodes.length;
                             const repulsion = Math.max(5000, 8000 + nodeCount * 12);
                             const k = 0.03;
@@ -3944,7 +4184,6 @@
                                             const ny = (dy / dist) * overlap;
                                             a.x += nx; a.y += ny;
                                             b.x -= nx; b.vy -= ny;
-                                            moved = true;
                                         }
 
                                         const force = Math.min(20, repulsion / Math.max(200, distSq));
@@ -3952,7 +4191,6 @@
                                         const fy = (dy / dist) * force;
                                         a.vx += fx; a.vy += fy;
                                         b.vx -= fx; b.vy -= fy;
-                                        moved = true;
                                     }
                                 }
                             }
@@ -3971,7 +4209,6 @@
                                         const fy = (dy / dist) * force;
                                         node.vx += fx; node.vy += fy;
                                         p.vx -= fx; p.vy -= fy;
-                                        moved = true;
                                     }
                                 } else if (node.depth === 0) {
                                     // Soft central anchor ONLY for root seed nodes (depth 0)
@@ -3989,7 +4226,6 @@
                                     node.y += node.vy;
                                     node.vx *= damping;
                                     node.vy *= damping;
-                                    moved = true;
                                 } else {
                                     node.vx = 0; node.vy = 0;
                                 }
@@ -4160,7 +4396,10 @@
                         // 1. Radial Domain Aura Glow for Root/Hub Nodes
                         if (node.depth === 0 || isSelected || isHovered) {
                             ctx.shadowColor = isSelected || isHovered ? '#ff5500' : color;
-                            ctx.shadowBlur = isSelected ? 16 : (isHovered ? 12 : 8);
+                            let blur = 8;
+                            if (isSelected) blur = 16;
+                            else if (isHovered) blur = 12;
+                            ctx.shadowBlur = blur;
                         }
 
                         // 2. Animated Sonar Pulse Ring for Seed Root Nodes
@@ -4176,10 +4415,15 @@
                         }
 
                         // 3. Node Core Body
-                        const coreRadius = node.depth === 0 ? 8 : (node.type === 'page_visited' ? 5.5 : 3.5);
+                        let coreRadius = 3.5;
+                        if (node.depth === 0) coreRadius = 8;
+                        else if (node.type === 'page_visited') coreRadius = 5.5;
                         ctx.beginPath();
                         ctx.arc(node.x, node.y, coreRadius, 0, Math.PI * 2);
-                        ctx.fillStyle = isSelected ? '#ff5500' : (isHovered ? '#ffffff' : color);
+                        let fillStyle = color;
+                        if (isSelected) fillStyle = '#ff5500';
+                        else if (isHovered) fillStyle = '#ffffff';
+                        ctx.fillStyle = fillStyle;
                         ctx.fill();
 
                         // 4. Hover Highlight State

@@ -92,7 +92,7 @@ class CrawleeClient:
 
             logger.info("Sending %s request to Crawlee for %s", mode, url)
             try:
-                with httpx.Client(timeout=45.0) as client:
+                with httpx.Client(timeout=30.0) as client:
                     res = client.post(
                         f"{self._base_url}/scrape",
                         json={"url": url, "mode": mode, "proxy": proxy, "userDataDir": user_data_dir}

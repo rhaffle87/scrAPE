@@ -27,13 +27,20 @@ class CrawlCoordinator:
         options,
         result: ScrapeResult,
         state_cache,
-        workers: int = 12
+        workers: int = 12,
+        rules_manager = None,
+        page_limit: float = float('inf'),
+        crawl_depth: float = 2,
     ):
         self.search_provider = search_provider
         self.video_scraper = video_scraper
         self.options = options
         self.result = result
         self.state_cache = state_cache
+        
+        self.rules_manager = rules_manager
+        self.page_limit = page_limit
+        self.crawl_depth = crawl_depth
         
         self.max_results = getattr(options, "max_results", 0)
         self.workers = workers
@@ -66,12 +73,13 @@ class CrawlCoordinator:
         async def check_url(client, url):
             try:
                 resp = await client.head(url, follow_redirects=True, timeout=3.0)
-                if resp.status_code < 400 or resp.status_code == 405: # allow Method Not Allowed for HEAD
+                if resp.status_code not in (404, 410):
                     valid_urls.append(url)
                 else:
                     LOGGER.info(f"Pre-flight failed for {url} (status {resp.status_code})")
             except Exception as e:
-                LOGGER.info(f"Pre-flight failed for {url} (error {e})")
+                LOGGER.info(f"Pre-flight exception for {url} ({type(e).__name__}: {repr(e)}). Allowing to pass to stealth pipeline.")
+                valid_urls.append(url)
 
         async with httpx.AsyncClient(verify=False) as client:
             tasks = [check_url(client, u) for u in urls]
@@ -79,7 +87,7 @@ class CrawlCoordinator:
             
         return valid_urls
 
-    def execute(self, ordered_pages: List[Tuple[str, int]], discovered_links_counts: dict) -> ScrapeResult:
+    def execute(self, ordered_pages: List[Tuple[str, int]]) -> ScrapeResult:
         """Execute the fetching and media extraction using a controlled ThreadPool."""
         import asyncio
         if ordered_pages:
@@ -101,25 +109,39 @@ class CrawlCoordinator:
         )
         pipeline.start()
 
-        from collections import deque
-        pages_queue = deque(ordered_pages)
+        # We don't have discovered_links_counts statically anymore
+        # Priority queue instead of deque: (depth, time_enqueued, url)
+        import heapq
+        pages_queue = []
+        for p, d in ordered_pages:
+            heapq.heappush(pages_queue, (d, 0, time.monotonic(), p))
+            
+        visited_pages = {p for p, d in ordered_pages}
         
         futures = {}
         current_concurrency = self.workers
+        total_pages_scanned = 0
         
         with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="scraper") as executor:
             def submit_next():
+                nonlocal total_pages_scanned
                 while True:
                     skipped = []
                     while pages_queue:
-                        next_page, next_depth = pages_queue.popleft()
+                        if total_pages_scanned >= self.page_limit:
+                            pages_queue.clear()
+                            return False
+                            
+                        # Peek first, we only pop if we use it
+                        # but we need to re-insert skipped items
+                        next_depth, next_retry, _, next_page = heapq.heappop(pages_queue)
                         host = urlparse(next_page).netloc.lower()
                         
                         if not self.governor.is_host_available(host):
                             with self.governor.lock:
                                 is_failed = host in self.governor.failed_hosts
                             if not is_failed:
-                                skipped.append((next_page, next_depth))
+                                skipped.append((next_depth, next_retry, time.monotonic(), next_page))
                             else:
                                 with self.result_lock:
                                     self.result.page_reports.append(
@@ -131,17 +153,21 @@ class CrawlCoordinator:
                                     )
                             continue
                         if not self.governor.can_acquire_worker(host):
-                            skipped.append((next_page, next_depth))
+                            skipped.append((next_depth, next_retry, time.monotonic(), next_page))
                             continue
                         
                         self.governor.increment_worker(host)
-                        pages_queue.extend(skipped)
+                        for item in skipped:
+                            heapq.heappush(pages_queue, item)
+                        
+                        total_pages_scanned += 1
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
-                        futures[fut] = (next_page, next_depth, time.monotonic())
+                        futures[fut] = (next_page, next_depth, next_retry, time.monotonic())
                         return True
                         
                     if skipped:
-                        pages_queue.extend(skipped)
+                        for item in skipped:
+                            heapq.heappush(pages_queue, item)
                         if not futures:
                             time.sleep(1.0)
                             continue
@@ -158,15 +184,73 @@ class CrawlCoordinator:
                     for future in done:
                         if future not in futures:
                             continue
-                        page, depth, start_time = futures.pop(future)
+                        page, depth, retry_count, start_time = futures.pop(future)
                         latency = time.monotonic() - start_time
                         host = urlparse(page).netloc.lower()
 
                         self.governor.decrement_worker(host)
 
+                        discovered_links = []
+                        content = ""
+                        content_type = ""
                         try:
-                            page, depth, page_images, page_videos, scrape_status = future.result()
+                            page, depth, page_images, page_videos, scrape_status, content, content_type = future.result()
                             self.governor.report_yield(host, len(page_images) + len(page_videos))
+                            
+                            # Link discovery in Phase 2
+                            if scrape_status == "ok" and content:
+                                profile = (self.options.domain_profiles or {}).get(host)
+                                domain_depth_limit = (
+                                    profile.crawl_depth if profile and profile.crawl_depth is not None 
+                                    else self.crawl_depth
+                                )
+                                if depth < domain_depth_limit:
+                                    if not (profile and (profile.crawl_strategy == "direct" or getattr(profile, "skip_link_discovery", False))):
+                                        discovered_links = self.search_provider.discover_links_from_content(
+                                            url=page, content=content, content_type=content_type,
+                                            allow_domains=self.options.allow_domains,
+                                            block_domains=self.options.block_domains
+                                        )
+                                        # index→detail filtering
+                                        if profile and profile.crawl_strategy != "direct" and depth == 0:
+                                            seed_for_host = next((s for s in self.options.seed_urls if urlparse(s).netloc.lower() == host), page)
+                                            discovered_links = [
+                                                lnk for lnk in discovered_links
+                                                if self.rules_manager and self.rules_manager.is_detail_page(lnk, seed_for_host, self.options.keyword, self.options.entity_tokens)
+                                            ]
+                                        
+                                        # Enqueue new links
+                                        for link in discovered_links:
+                                            from core.filters import normalize_url, looks_like_media
+                                            normalized_link = normalize_url(link)
+                                            if looks_like_media(normalized_link):
+                                                continue
+                                            
+                                            scope_reason = None
+                                            if self.rules_manager:
+                                                scope_reason = self.rules_manager.scope_rejection_reason(normalized_link, self.options)
+                                                
+                                            if scope_reason:
+                                                self.add_rejected("page", normalized_link, page, scope_reason)
+                                                continue
+                                                
+                                            if normalized_link not in visited_pages:
+                                                visited_pages.add(normalized_link)
+                                                # Enqueue at depth + 1
+                                                heapq.heappush(pages_queue, (depth + 1, 0, time.monotonic(), normalized_link))
+                                                
+                                                try:
+                                                    from monitoring.telemetry import broadcast_telemetry_event
+                                                    broadcast_telemetry_event("crawl_graph_node", {
+                                                        "url": normalized_link,
+                                                        "domain": urlparse(normalized_link).netloc.lower(),
+                                                        "parent": page,
+                                                        "depth": depth + 1,
+                                                        "type": "link_discovered",
+                                                    })
+                                                except Exception:
+                                                    pass
+
                         except Exception as exc:
                             LOGGER.warning("Worker failed for %s: %s", page, exc)
                             page_images, page_videos, scrape_status = [], [], f"worker_error:{type(exc).__name__}"
@@ -176,11 +260,40 @@ class CrawlCoordinator:
                     
                         if is_block:
                             self.governor.report_429(host)
+                            with self.result_lock:
+                                if host not in self.result.domain_stats:
+                                    self.result.domain_stats[host] = {
+                                        "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
+                                        "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
+                                    }
+                                self.result.domain_stats[host]["error_429_count"] += 1
                             current_concurrency = max(1, current_concurrency - 2)
+                            if retry_count < 3:
+                                LOGGER.info("Retrying %s (attempt %d/3) after block.", page, retry_count + 1)
+                                heapq.heappush(pages_queue, (depth, retry_count + 1, time.monotonic(), page))
+                                continue
                         elif scrape_status == "fetch_error:login_wall":
                             self.governor.report_error(host, is_login_wall=True)
+                            with self.result_lock:
+                                if host not in self.result.domain_stats:
+                                    self.result.domain_stats[host] = {
+                                        "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
+                                        "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
+                                    }
+                                self.result.domain_stats[host]["error_other_count"] += 1
                         elif is_worker_error:
                             self.governor.report_error(host)
+                            with self.result_lock:
+                                if host not in self.result.domain_stats:
+                                    self.result.domain_stats[host] = {
+                                        "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
+                                        "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
+                                    }
+                                self.result.domain_stats[host]["error_other_count"] += 1
+                            if retry_count < 3:
+                                LOGGER.info("Retrying %s (attempt %d/3) after error.", page, retry_count + 1)
+                                heapq.heappush(pages_queue, (depth, retry_count + 1, time.monotonic(), page))
+                                continue
                         elif scrape_status == "ok":
                             self.governor.report_success(host)
                         
@@ -203,12 +316,8 @@ class CrawlCoordinator:
                                     "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
                                 }
                             stats = self.result.domain_stats[host]
-                            if scrape_status == "ok":
-                                pass 
-                            elif is_block:
-                                stats["error_429_count"] += 1
-                            elif is_worker_error:
-                                stats["error_other_count"] += 1
+                            # error counts are now incremented when the error is reported,
+                            # even if the page is going to be retried (and thus loops with `continue`).
                             
                             self.result.scanned_pages.append(page)
                             self.result.page_reports.append(
@@ -216,12 +325,12 @@ class CrawlCoordinator:
                                     url=page, depth=depth,
                                     status="success" if scrape_status == "ok" else "skipped",
                                     reason="" if scrape_status == "ok" else scrape_status,
-                                    discovered_links=discovered_links_counts.get(page, 0),
+                                    discovered_links=len(discovered_links),
                                     images_found=len(page_images), videos_found=len(page_videos)
                                 )
                             )
                             if scrape_status == "ok" and self.state_cache:
-                                self.state_cache.mark_processed(normalize_url(page))
+                                self.state_cache.mark_processed(page)
 
                         if scrape_status == "ok":
                             self.media_queue.put((page, page_images, page_videos))
@@ -268,14 +377,14 @@ class CrawlCoordinator:
             is_seeded = (host in (self.options.domain_profiles or {})) or (host in (self.options.seed_domains or []))
             if not is_seeded:
                 if pages_scanned >= 15 and total_kept == 0:
-                    return page, depth, [], [], "low_yield_skipped"
+                    return page, depth, [], [], "low_yield_skipped", "", ""
                 if pages_scanned >= 20 and (total_kept / pages_scanned) < 0.05:
-                    return page, depth, [], [], "low_yield_skipped"
+                    return page, depth, [], [], "low_yield_skipped", "", ""
             
             profile = (self.options.domain_profiles or {}).get(host)
             if profile and getattr(profile, "max_pages", None) is not None:
                 if pages_scanned >= profile.max_pages:
-                    return page, depth, [], [], "max_pages_capped"
+                    return page, depth, [], [], "max_pages_capped", "", ""
             
             stats["pages_scanned"] += 1
             
@@ -286,9 +395,11 @@ class CrawlCoordinator:
             page_images = [ImageItem(url=u, source_page=page, status="pending") for u in spec_result.images]
             page_videos = [VideoItem(url=u, source_page=page, type="direct", status="pending") for u in spec_result.videos]
             scrape_status = "ok"
+            content = ""
+            content_type = ""
         else:
-            page_images, page_videos, scrape_status = self.search_provider.scrape_page(
+            page_images, page_videos, scrape_status, content, content_type = self.search_provider.scrape_page(
                 page, allow_domains=self.options.allow_domains, block_domains=self.options.block_domains
             )
             
-        return page, depth, page_images, page_videos, scrape_status
+        return page, depth, page_images, page_videos, scrape_status, content, content_type

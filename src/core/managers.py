@@ -162,46 +162,6 @@ class DomainRulesManager:
         if re.search(r"(?:^|&)(?:page|p|pg)=\d", link_query):
             return False
 
-        if isinstance(keyword_or_entity, list):
-            entity_tokens = keyword_or_entity
-            keyword = ""
-        else:
-            keyword = keyword_or_entity or ""
-
-        # Collect all tokens to check relevance
-        all_tokens = [keyword.lower()] if keyword else []
-        if entity_tokens:
-            for token in entity_tokens:
-                t = token.lower().strip()
-                if t and t not in all_tokens:
-                    all_tokens.append(t)
-
-        # If seed path is NOT specific (e.g. root index, query search, or archive list),
-        # enforce that detail page links must contain keyword or entity tokens.
-        is_seed_specific = seed_path not in {
-            "",
-            "/",
-            "/index.html",
-            "/index.php",
-        } and not ("search" in seed_path or "archive" in seed_path or "?" in seed_page)
-
-        if not is_seed_specific:
-            normalized_link_path = link_path.lower()
-            if all_tokens and not any(
-                token in normalized_link_path for token in all_tokens
-            ):
-                return False
-        else:
-            # If seed path is specific, the link must be a subpath or contain an entity token
-            if entity_tokens:
-                normalized_seed_path = seed_path.lower()
-                normalized_link_path = link_path.lower()
-                if not normalized_link_path.startswith(normalized_seed_path + "/"):
-                    if not any(
-                        token in normalized_link_path for token in entity_tokens
-                    ):
-                        return False
-
         # Reject common static nav/info paths
         nav_paths = {
             "",
@@ -221,10 +181,23 @@ class DomainRulesManager:
         if link_path in nav_paths or link_path.rstrip("/") in nav_paths:
             return False
 
-        # Check listing/index prefixes. If the seed path contains a listing prefix
-        # (e.g. /category/, /tag/, /model/, /actor/, /videos/), and the link path also
-        # contains a listing prefix, then the link path must contain the subject name/token
-        # to be considered relevant (otherwise it's a listing page for another model/tag).
+        if isinstance(keyword_or_entity, list):
+            entity_tokens = keyword_or_entity
+            keyword = ""
+        else:
+            keyword = keyword_or_entity or ""
+
+        # Collect all tokens to check relevance
+        all_tokens = [keyword.lower()] if keyword else []
+        if entity_tokens:
+            for token in entity_tokens:
+                t = token.lower().strip()
+                if t and t not in all_tokens:
+                    all_tokens.append(t)
+
+        # Check listing/index prefixes. If the link path contains a listing prefix,
+        # it must contain the subject name/token to be considered relevant
+        # (otherwise it's a listing page for another model/tag).
         listing_prefixes = [
             "/category/",
             "/tag/",
@@ -236,23 +209,28 @@ class DomainRulesManager:
             "/models/",
             "/actors/",
         ]
-        seed_listing = any(lp in seed_path for lp in listing_prefixes)
         link_listing = any(lp in link_path for lp in listing_prefixes)
 
         if link_listing:
-            if entity_tokens and not any(
-                token in link_path.lower() for token in entity_tokens
+            if all_tokens and not any(
+                token in link_path.lower() for token in all_tokens
             ):
                 return False
 
-        if seed_listing:
-            for prefix in listing_prefixes:
-                if prefix in link_path:
-                    suffix = link_path.split(prefix, 1)[1]
-                    if entity_tokens and not any(
-                        token in suffix.lower() for token in entity_tokens
-                    ):
-                        return False
+        # If it's a bare root seed, we must be strict since everything is linked from root
+        is_bare_root = seed_path in {
+            "",
+            "/",
+            "/index.html",
+            "/index.php",
+        } and "?" not in seed_page
+        
+        if is_bare_root:
+            normalized_link_path = link_path.lower()
+            if all_tokens and not any(
+                token in normalized_link_path for token in all_tokens
+            ):
+                return False
 
         return True
 
@@ -709,190 +687,6 @@ class CrawlOrchestrator:
         candidate_pages = self._build_candidate_pages(search_pages, options)
         resolved_page_limit = float("inf") if page_limit <= 0 else page_limit
         resolved_crawl_depth = float("inf") if crawl_depth <= 0 else crawl_depth
-        # Organized by depth -> host -> deque of URLs
-        queues: dict[int, dict[str, deque[str]]] = {}
-        queued_pages: set[str] = {
-            normalize_url(page)
-            for page in candidate_pages
-            if page and not looks_like_media(normalize_url(page))
-        }
-        visited_pages: set[str] = set()
-        ordered_pages: list[tuple[str, int]] = []
-        discovered_links_counts: dict[str, int] = {}
-
-        result_lock = threading.RLock()
-        seen_rejected_urls: set[tuple[str, str]] = set()
-        failed_run_hosts: set[str] = set()
-        consecutive_host_failures: dict[str, int] = {}
-
-        def add_rejected(
-            kind: str, url: str, source_page: str, reason: str, score: int = 0
-        ) -> bool:
-            norm_url = normalize_url(url)
-            key = (norm_url, reason)
-            with result_lock:
-                if key in seen_rejected_urls:
-                    return False
-                seen_rejected_urls.add(key)
-                result.rejected_items.append(
-                    RejectedItem(
-                        kind=kind,
-                        url=norm_url,
-                        source_page=source_page,
-                        reason=reason,
-                        score=score,
-                    )
-                )
-                return True
-
-        # Enqueue candidate pages at depth 0
-        for page in candidate_pages:
-            if not page or looks_like_media(normalize_url(page)):
-                continue
-            host = urlparse(page).netloc.lower()
-            queues.setdefault(0, {}).setdefault(host, deque()).append(page)
-
-        while len(ordered_pages) < resolved_page_limit:
-            # Find the minimum depth that still has pages to crawl
-            active_depths = [
-                d for d, depth_queues in queues.items() if any(depth_queues.values())
-            ]
-            if not active_depths:
-                break
-            current_depth = min(active_depths)
-            depth_queues = queues[current_depth]
-
-            # Collect a batch of pages to process in parallel
-            batch = []
-            while len(batch) < self.workers and len(ordered_pages) < resolved_page_limit:
-                active_hosts = [host for host, q in depth_queues.items() if q]
-                if not active_hosts:
-                    break
-                
-                # Pop one page from each active host in round-robin fashion
-                for host in active_hosts:
-                    if len(batch) >= self.workers or len(ordered_pages) >= resolved_page_limit:
-                        break
-
-                    page = depth_queues[host].popleft()
-                    normalized_page = normalize_url(page)
-                    
-                    if normalized_page in visited_pages:
-                        continue
-                    if self.state_cache and self.state_cache.is_processed(normalized_page):
-                        LOGGER.debug(f"Skipping already processed page: {normalized_page}")
-                        continue
-                    
-                    visited_pages.add(normalized_page)
-                    ordered_pages.append((normalized_page, current_depth))
-                    batch.append((host, normalized_page, current_depth))
-
-            if not batch:
-                continue
-
-            def _process_page(item):
-                host, normalized_page, current_depth = item
-                try:
-                    from monitoring.telemetry import broadcast_telemetry_event
-                    broadcast_telemetry_event("crawl_graph_node", {
-                        "url": normalized_page,
-                        "domain": host,
-                        "depth": current_depth,
-                        "type": "page_visited",
-                    })
-                except Exception:
-                    pass
-
-                profile = options.domain_profiles.get(host)
-                domain_depth_limit = (
-                    profile.crawl_depth if profile and profile.crawl_depth is not None 
-                    else resolved_crawl_depth
-                )
-                
-                if current_depth >= domain_depth_limit:
-                    return normalized_page, []
-
-                # 'direct' or skip_link_discovery: skip link discovery
-                if profile and (
-                    profile.crawl_strategy == "direct"
-                    or getattr(profile, "skip_link_discovery", False)
-                ):
-                    return normalized_page, []
-
-                discovered_links = self.search_provider.discover_links(
-                    normalized_page,
-                    allow_domains=options.allow_domains,
-                    block_domains=options.block_domains,
-                    keyword=options.keyword if current_depth > 0 else None,
-                    entity_tokens=options.entity_tokens if current_depth > 0 else None,
-                )
-
-                # 'index→detail': at depth 0 only follow concrete detail links
-                if profile and profile.crawl_strategy != "direct" and current_depth == 0:
-                    seed_for_host = next(
-                        (s for s in options.seed_urls if urlparse(s).netloc.lower() == host),
-                        normalized_page,
-                    )
-                    discovered_links = [
-                        lnk for lnk in discovered_links
-                        if self.rules_manager.is_detail_page(
-                            lnk, seed_for_host, options.keyword, options.entity_tokens
-                        )
-                    ]
-                return normalized_page, discovered_links
-
-            # Execute the batch concurrently
-            with ThreadPoolExecutor(max_workers=self.workers) as executor:
-                results = list(executor.map(_process_page, batch))
-
-            # Process discovered links sequentially to update shared graph queues safely
-            for normalized_page, discovered_links in results:
-                discovered_links_counts[normalized_page] = len(discovered_links)
-                
-                # RAM Circuit Breaker: prevent excessive memory bloat during uncapped full sweeps
-                if len(queued_pages) >= 50000:
-                    if not getattr(self, "_bloat_warned", False):
-                        LOGGER.warning("QUEUE_BLOAT_MODE: queued_pages exceeded 50,000. Skipping new link discovery to prevent memory exhaustion.")
-                        self._bloat_warned = True
-                    continue
-                else:
-                    self._bloat_warned = False
-                
-                for link in discovered_links:
-                    normalized_link = normalize_url(link)
-                    if looks_like_media(normalized_link):
-                        continue
-                    
-                    scope_reason = self.rules_manager.scope_rejection_reason(normalized_link, options)
-                    if scope_reason:
-                        add_rejected("page", normalized_link, normalized_page, scope_reason)
-                        continue
-                    
-                    if normalized_link in visited_pages or normalized_link in queued_pages:
-                        continue
-                    queued_pages.add(normalized_link)
-
-                    # Enqueue link at depth + 1 under its own host
-                    link_host = urlparse(normalized_link).netloc.lower()
-                    queues.setdefault(current_depth + 1, {}).setdefault(link_host, deque()).append(normalized_link)
-
-                    try:
-                        from monitoring.telemetry import broadcast_telemetry_event
-                        broadcast_telemetry_event("crawl_graph_node", {
-                            "url": normalized_link,
-                            "domain": link_host,
-                            "parent": normalized_page,
-                            "depth": current_depth + 1,
-                            "type": "link_discovered",
-                        })
-                    except Exception:
-                        pass
-
-        pages_to_fetch = (
-            ordered_pages
-            if resolved_page_limit == float("inf")
-            else ordered_pages[: int(resolved_page_limit)]
-        )
 
         from core.coordinator import CrawlCoordinator
         coordinator = CrawlCoordinator(
@@ -901,12 +695,16 @@ class CrawlOrchestrator:
             options=options,
             result=result,
             state_cache=self.state_cache,
-            workers=self.workers
+            workers=self.workers,
+            rules_manager=self.rules_manager,
+            page_limit=resolved_page_limit,
+            crawl_depth=resolved_crawl_depth
         )
         
-        # We need to pass the method add_rejected if it is required by the original execute_crawl
-        # Wait, the add_rejected in CrawlCoordinator replaces the old one. We don't need to pass the old one.
-        result = coordinator.execute(pages_to_fetch, discovered_links_counts)
+        # We start coordinator with candidate pages at depth 0
+        ordered_pages = [(normalize_url(p), 0) for p in candidate_pages if p and not looks_like_media(normalize_url(p))]
+        
+        result = coordinator.execute(ordered_pages)
         
         # Sort the final lists of kept items by score for output consistency (as was done in the original)
         from core.filters import contains_subject_text, safe_join

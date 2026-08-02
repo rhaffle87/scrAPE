@@ -51,7 +51,7 @@ def test_engine_in_place_audit_mapping():
     )
 
     # Mock page scraping to return our test items
-    engine.search_provider.scrape_page = MagicMock(return_value=([img], [vid], "ok"))
+    engine.search_provider.scrape_page = MagicMock(return_value=([img], [vid], "ok", "", ""))
 
     # Mock downloader._download_file to simulate success for image and failure for video
     def mock_download(

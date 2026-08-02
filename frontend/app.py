@@ -1085,8 +1085,8 @@ def render_status_badge():
 @app.get("/api/capsolver/balance")
 def get_capsolver_balance(key: str | None = None):
     """Query live balance for CapSolver API key."""
-    from utils.capsolver import CapSolverClient
-    client = CapSolverClient(api_key=key)
+    from src.captcha.captcha_solvers.capsolver_provider import CapSolverProvider
+    client = CapSolverProvider(api_key=key)
     balance = client.get_balance()
     return {"status": "ok", "balance": balance}
 
@@ -1965,6 +1965,38 @@ Target page analyzed during automated scrape run `{payload.run_id}` for subject 
         "export_path": str(target_root.resolve()),
     }
 
+
+# ---------------------------------------------------------------------------
+# Settings Management Endpoints
+# ---------------------------------------------------------------------------
+class SettingsPayload(BaseModel):
+    settings: Dict[str, Any]
+
+@app.get("/api/settings")
+def get_settings():
+    import os
+    from src.config.settings_manager import SettingsManager
+    manager = SettingsManager()
+    settings = manager.get_all()
+    
+    sensitive_keys = [
+        "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "DISCORD_WEBHOOK_URL",
+        "SLACK_WEBHOOK_URL", "CAPSOLVER_API_KEY", "2CAPTCHA_API_KEY", "ANTICAPTCHA_API_KEY"
+    ]
+    
+    for key in sensitive_keys:
+        val = settings.get(key) or os.getenv(key)
+        if val:
+            settings[key] = "********"
+            
+    return settings
+@app.post("/api/settings")
+def save_settings(payload: SettingsPayload):
+    from src.config.settings_manager import SettingsManager
+    manager = SettingsManager()
+    for key, value in payload.settings.items():
+        manager.set(key, value)
+    return {"status": "success", "message": "Settings saved successfully"}
 
 # Mount static files at the root to serve all media assets.
 # This MUST be declared last so it doesn't swallow API routes.

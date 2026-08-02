@@ -7,6 +7,7 @@ import os
 from typing import Any
 import requests
 
+from config.settings_manager import settings
 from notifications.telegram_bot import TelegramBotNotifier
 
 LOGGER = logging.getLogger(__name__)
@@ -48,8 +49,8 @@ class TelegramNotifier(BaseNotifier):
         if bot_instance:
             self.bot = bot_instance
         else:
-            token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
-            chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID", "")
+            token = token or settings.get("TELEGRAM_BOT_TOKEN")
+            chat_id = chat_id or settings.get("TELEGRAM_CHAT_ID")
             self.bot = TelegramBotNotifier(token=token, chat_id=chat_id)
 
     def is_configured(self) -> bool:
@@ -76,7 +77,7 @@ class DiscordNotifier(BaseNotifier):
     """Discord Webhook notification provider with rich embeds."""
 
     def __init__(self, webhook_url: str | None = None):
-        self.webhook_url = (webhook_url or os.getenv("DISCORD_WEBHOOK_URL", "")).strip()
+        self.webhook_url = (webhook_url or settings.get("DISCORD_WEBHOOK_URL", "")).strip()
 
     def is_configured(self) -> bool:
         return bool(self.webhook_url and self.webhook_url.startswith("http"))
@@ -116,7 +117,7 @@ class DiscordNotifier(BaseNotifier):
         payload = {
             "embeds": [
                 {
-                    "title": "⚠️ WAF Challenge Blocked Target",
+                    "title": "[*] WAF Challenge Blocked Target",
                     "color": 16733696,  # Orange
                     "fields": [
                         {"name": "Domain", "value": f"`{domain}`", "inline": True},
@@ -133,7 +134,7 @@ class SlackNotifier(BaseNotifier):
     """Slack Webhook notification provider using Block Kit layout."""
 
     def __init__(self, webhook_url: str | None = None):
-        self.webhook_url = (webhook_url or os.getenv("SLACK_WEBHOOK_URL", "")).strip()
+        self.webhook_url = (webhook_url or settings.get("SLACK_WEBHOOK_URL", "")).strip()
 
     def is_configured(self) -> bool:
         return bool(self.webhook_url and self.webhook_url.startswith("http"))
@@ -155,7 +156,7 @@ class SlackNotifier(BaseNotifier):
             "blocks": [
                 {
                     "type": "header",
-                    "text": {"type": "plain_text", "text": "⚡ scrAPE Run Completed", "emoji": True},
+                    "text": {"type": "plain_text", "text": "[*] scrAPE Run Completed", "emoji": True},
                 },
                 {
                     "type": "section",
@@ -176,7 +177,7 @@ class SlackNotifier(BaseNotifier):
             "blocks": [
                 {
                     "type": "header",
-                    "text": {"type": "plain_text", "text": "⚠️ WAF Challenge Blocked Domain", "emoji": True},
+                    "text": {"type": "plain_text", "text": "[!] WAF Challenge Blocked Domain", "emoji": True},
                 },
                 {
                     "type": "section",
@@ -194,7 +195,7 @@ class CustomWebhookNotifier(BaseNotifier):
     """Generic custom webhook notification provider for Apprise, N8N, Zapier, etc."""
 
     def __init__(self, webhook_url: str | None = None):
-        self.webhook_url = (webhook_url or os.getenv("CUSTOM_WEBHOOK_URL", "")).strip()
+        self.webhook_url = (webhook_url or settings.get("CUSTOM_WEBHOOK_URL", "")).strip()
 
     def is_configured(self) -> bool:
         return bool(self.webhook_url and self.webhook_url.startswith("http"))

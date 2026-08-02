@@ -119,6 +119,7 @@ def test_preferred_engine_routing_and_host_memory(monkeypatch):
 
     monkeypatch.setattr(client, "_get_with_camoufox", mock_camoufox)
     monkeypatch.setattr(client, "_get_with_crawl4ai", mock_crawl4ai)
+    monkeypatch.setattr("network.stealth_pipeline.CamoufoxStrategy.is_available", lambda self: True)
 
     # Call with preferred_engine="camoufox"
     html, _ = client._execute_fallbacks(url, preferred_engine="camoufox")

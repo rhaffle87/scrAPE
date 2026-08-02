@@ -8,10 +8,12 @@ import logging
 
 from .version import VERSION, VERSION_TAG
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 # Attempt to load .env file if available
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(".env"))
+    load_dotenv(PROJECT_ROOT / ".env")
 except ImportError:
     pass
 
@@ -184,14 +186,15 @@ AUTH_GATED_DOMAINS: set[str] = set()
 
 # Map domains to paths that indicate an empty search fallback
 EMPTY_SEARCH_REDIRECTS: dict[str, list[str]] = {}
+PREFERRED_ENGINES: dict[str, str] = {}
 
 URL_NORMALISATION_RULES: list[tuple] = []
 
 def _load_dynamic_config() -> None:
-    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS, EMPTY_SEARCH_REDIRECTS
+    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS, EMPTY_SEARCH_REDIRECTS, PREFERRED_ENGINES
     # ── domain_config.json ────────────────────────────────────────────────
     try:
-        with open("data/domain_config.json", "r") as f:
+        with open(PROJECT_ROOT / "data" / "domain_config.json", "r") as f:
             cfg = json.load(f)
             DOMAIN_REQUESTS_PER_SECOND.update(cfg.get("rate_limits", {}))
             HOTLINK_PROTECTED_DOMAINS.update(cfg.get("hotlink_protected", []))
@@ -199,12 +202,15 @@ def _load_dynamic_config() -> None:
             STEALTH_REQUIRED_DOMAINS.update(cfg.get("stealth_required", []))
             AUTH_GATED_DOMAINS.update(cfg.get("auth_gated", []))
             EMPTY_SEARCH_REDIRECTS.update(cfg.get("empty_search_redirects", {}))
+            PREFERRED_ENGINES.update(cfg.get("preferred_engines", {}))
+    except FileNotFoundError:
+        pass
     except Exception as e:
-        logging.getLogger(__name__).warning("Failed to load data/domain_config.json: %s", e)
+        logging.getLogger(__name__).warning("Failed to parse data/domain_config.json: %s", e)
 
     # ── url_normalisation_rules.json ──────────────────────────────────────
     try:
-        with open("data/url_normalisation_rules.json", "r") as f:
+        with open(PROJECT_ROOT / "data" / "url_normalisation_rules.json", "r") as f:
             data = json.load(f)
         for rule in data.get("rules", []):
             pattern_str = rule.get("pattern", "")
@@ -213,8 +219,10 @@ def _load_dynamic_config() -> None:
                 URL_NORMALISATION_RULES.append(
                     (_re.compile(pattern_str, _re.IGNORECASE), replacement)
                 )
-    except Exception:
+    except FileNotFoundError:
         pass
+    except Exception as e:
+        logging.getLogger(__name__).warning("Failed to parse data/url_normalisation_rules.json: %s", e)
 
 
 _load_dynamic_config()

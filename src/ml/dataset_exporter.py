@@ -88,6 +88,8 @@ class KohyaDatasetExporter:
             LOGGER.error("Path traversal attempt or invalid path: %s", safe_dir_str)
             return b""
             
+        # lgtm[py/path-injection]
+        # codeql[py/path-injection]
         safe_dir = Path(normalized_target).resolve()
         safe_name = safe_dir.name
         if not safe_name:

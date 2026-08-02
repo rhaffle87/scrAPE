@@ -54,13 +54,10 @@ from config import (
     USER_AGENTS,
     REFERER_OVERRIDES,
     ENABLE_COOKIE_HARVESTING,
-    ENABLE_DRISSIONPAGE_FALLBACK,
-    ENABLE_HELIUM_FALLBACK,
-    ENABLE_CAMOUFOX_FALLBACK,
-    ENABLE_FLARESOLVERR_FALLBACK,
     FLARESOLVERR_URL,
     FORCE_HEADLESS,
     STEALTH_HEADFUL,
+    PREFERRED_ENGINES,
 )
 from network.rate_limiter import RateLimiter
 from network.session_pool import SessionPool
@@ -483,7 +480,7 @@ class HttpClient:
     _failed_stealth_lock = threading.Lock()
     _cloudflare_blocked_hosts: set[str] = set()
     _cf_blocked_lock = threading.Lock()
-    _preferred_engine_by_host: dict[str, str] = {}
+    _preferred_engine_by_host: dict[str, str] = PREFERRED_ENGINES.copy()
     _preferred_engine_lock = threading.Lock()
     _flaresolverr_online: bool | None = None
     _flaresolverr_lock = threading.Lock()
@@ -626,7 +623,7 @@ class HttpClient:
         self._proxy_lock = threading.Lock()
         
         # Configure httpx Client with proxy if available
-        client_kwargs = {"timeout": timeout, "follow_redirects": True}
+        client_kwargs: dict[str, Any] = {"timeout": timeout, "follow_redirects": True}
         if self.proxy_list:
             client_kwargs["proxy"] = self.proxy_list[0]
             
@@ -1246,6 +1243,10 @@ class HttpClient:
         co.set_argument("--no-sandbox")
         co.set_argument("--disable-gpu")
         
+        # Stealth arguments
+        co.set_argument("--disable-blink-features=AutomationControlled")
+        co.set_user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
         proxy = self.get_proxy()
         if proxy:
             co.set_proxy(proxy)
@@ -1272,6 +1273,26 @@ class HttpClient:
         page = None
         try:
             page = ChromiumPage(co)
+            
+            # Inject stealth JS
+            stealth_js = """
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+window.chrome = { app: { isInstalled: false }, runtime: {} };
+const getParameter = WebGLRenderingContext.getParameter;
+WebGLRenderingContext.prototype.getParameter = function(parameter) {
+    if (parameter === 37445) { return 'Intel Inc.'; }
+    if (parameter === 37446) { return 'Intel Iris OpenGL Engine'; }
+    return getParameter(parameter);
+};
+            """
+            try:
+                page.run_cdp("Page.addScriptToEvaluateOnNewDocument", source=stealth_js)
+                logger.debug("Injected stealth.js into DrissionPage via CDP")
+            except Exception as e:
+                logger.debug("Failed to inject stealth.js: %s", e)
+
             # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
             page.get(url, timeout=20.0)
 
@@ -1285,16 +1306,20 @@ class HttpClient:
                     break
                 
                 # Active Turnstile clicker
-                if not clicked:
-                    try:
-                        cf_iframe = page.ele('@src^https://challenges.cloudflare.com', timeout=1)
+                try:
+                    import random
+                    # Inject human-like mouse jitter
+                    page.actions.move(random.randint(50, 200), random.randint(50, 200))
+                    
+                    if not clicked:
+                        # The Turnstile iframe src might change, or it might be in a shadow dom under a div.
+                        cf_iframe = page.ele('xpath://iframe', timeout=1) or page.ele('#jvye6', timeout=1)
                         if cf_iframe:
-                            logger.info("Found Cloudflare Turnstile iframe, simulating human click.")
-                            # DrissionPage handles shadow-root and coordinates automatically
-                            cf_iframe.click(by_js=False)
+                            logger.info("Found Cloudflare Turnstile widget/iframe, simulating human hover and click.")
+                            page.actions.move_to(cf_iframe).click()
                             clicked = True
-                    except Exception as e:
-                        logger.debug("Turnstile auto-clicker exception: %s", repr(e))
+                except Exception as e:
+                    logger.debug("Turnstile auto-clicker exception: %s", repr(e))
 
                 time.sleep(0.5)
 
@@ -1377,6 +1402,13 @@ class HttpClient:
             
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             chrome_options = ChromeOptions()
+            
+            # Stealth arguments
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option("useAutomationExtension", False)
+            chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
             proxy = self.get_proxy()
             if proxy:
                 chrome_options.add_argument(f"--proxy-server={proxy}")
@@ -1709,7 +1741,7 @@ class HttpClient:
             }
             with Camoufox(**kwargs) as browser:
                 page = browser.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
                 if is_headless and self._is_cloudflare_challenge(page.content()):
                     raise TimeoutError("Camoufox headless hit Cloudflare Turnstile challenge.")
@@ -1946,6 +1978,7 @@ class HttpClient:
                 simulate_user=True,
                 override_navigator=True,
                 delay_before_return_html=6.0,
+                page_timeout=30000,
                 session_id=f"session_{domain_slug}",
                 js_code="""
                 const scrollInterval = setInterval(() => {
@@ -2053,6 +2086,7 @@ class HttpClient:
                 simulate_user=True,
                 override_navigator=True,
                 delay_before_return_html=20.0,  # Give 20s for WAF solve & redirection
+                page_timeout=30000,
                 session_id=f"session_{domain_slug}",
                 js_code="""
                 const scrollInterval = setInterval(() => {

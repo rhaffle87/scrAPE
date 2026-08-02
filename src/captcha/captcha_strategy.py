@@ -47,17 +47,21 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
             self._auto_select_provider()
 
     def _auto_select_provider(self) -> None:
-        from config import CAPSOLVER_API_KEY, TWOCAPTCHA_API_KEY, ANTICAPTCHA_API_KEY
+        from config.settings_manager import settings
         from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
         from captcha.captcha_solvers.twocaptcha_provider import TwoCaptchaProvider
         from captcha.captcha_solvers.anticaptcha_provider import AntiCaptchaProvider
 
-        if CAPSOLVER_API_KEY:
-            self.provider = CapSolverProvider(api_key=CAPSOLVER_API_KEY)
-        elif TWOCAPTCHA_API_KEY:
-            self.provider = TwoCaptchaProvider(api_key=TWOCAPTCHA_API_KEY)
-        elif ANTICAPTCHA_API_KEY:
-            self.provider = AntiCaptchaProvider(api_key=ANTICAPTCHA_API_KEY)
+        capsolver_key = settings.get("CAPSOLVER_API_KEY")
+        twocaptcha_key = settings.get("TWOCAPTCHA_API_KEY")
+        anticaptcha_key = settings.get("ANTICAPTCHA_API_KEY")
+
+        if capsolver_key:
+            self.provider = CapSolverProvider(api_key=capsolver_key)
+        elif twocaptcha_key:
+            self.provider = TwoCaptchaProvider(api_key=twocaptcha_key)
+        elif anticaptcha_key:
+            self.provider = AntiCaptchaProvider(api_key=anticaptcha_key)
         else:
             try:
                 from captcha.captcha_solvers.free_audio_provider import FreeAudioCaptchaProvider
@@ -184,6 +188,29 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
                     cookies=cookie_dict, headers=dict(retry_resp.headers),
                     strategy_name=self.name,
                 )
+
+            # Fallback to form POST if the GET request still fails or hits a challenge
+            LOGGER.info("ThirdPartyCaptchaStrategy: GET with headers failed for %s, trying form POST fallback.", url)
+            form_data = {}
+            if challenge_type == "turnstile":
+                form_data["cf-turnstile-response"] = token
+            elif challenge_type == "recaptcha":
+                form_data["g-recaptcha-response"] = token
+            elif challenge_type == "hcaptcha":
+                form_data["h-captcha-response"] = token
+            elif challenge_type == "datadome":
+                form_data["datadome"] = token
+
+            if form_data:
+                post_resp = client.client.post(url, headers=headers, data=form_data)
+                if post_resp and post_resp.status_code < 400 and not (hasattr(client, "_is_cloudflare_challenge") and client._is_cloudflare_challenge(post_resp.text)):
+                    cookie_dict = dict(post_resp.cookies)
+                    self._inject_session(url, cookie_dict, client)
+                    return StealthResponse(
+                        status_code=post_resp.status_code, text=post_resp.text,
+                        cookies=cookie_dict, headers=dict(post_resp.headers),
+                        strategy_name=self.name,
+                    )
         except Exception as exc:
             LOGGER.warning("ThirdPartyCaptchaStrategy retry fetch failed: %s", exc)
 

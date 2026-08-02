@@ -46,6 +46,7 @@ class StateCache:
         self.max_age_seconds = max_age_days * 86400
         self._init_db()
         self._cleanup_old_entries()
+        self.vacuum_db()
 
     def wal_checkpoint(self) -> bool:
         """Executes explicit PRAGMA wal_checkpoint(TRUNCATE) to optimize database WAL size."""
@@ -55,6 +56,16 @@ class StateCache:
             return True
         except Exception as exc:
             LOGGER.warning("SQLite WAL checkpoint failed: %s", exc)
+            return False
+
+    def vacuum_db(self) -> bool:
+        """Executes a VACUUM to reclaim space after large deletes or schema changes."""
+        try:
+            with self._get_connection() as conn:
+                conn.execute("VACUUM;")
+            return True
+        except Exception as exc:
+            LOGGER.warning("SQLite VACUUM failed: %s", exc)
             return False
 
     def _get_connection(self):

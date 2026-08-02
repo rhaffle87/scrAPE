@@ -91,10 +91,22 @@ class FlareSolverrMonitor:
                         self._is_healthy = True
 
             except subprocess.TimeoutExpired:
-                LOGGER.warning("Timeout while trying to read docker logs.")
+                try:
+                    LOGGER.warning("Timeout while trying to read docker logs.")
+                except ValueError:
+                    pass
+            except ValueError:
+                # Python is shutting down and logging streams are closed
+                pass
             except Exception as e:
-                LOGGER.debug(f"FlareSolverr monitor error: {e}")
+                try:
+                    LOGGER.debug(f"FlareSolverr monitor error: {e}")
+                except ValueError:
+                    pass
                 self._is_healthy = False
 
-            # Wait for next check interval
-            time.sleep(self.check_interval)
+            # Wait for next check interval interruptibly
+            for _ in range(self.check_interval):
+                if not self._running:
+                    break
+                time.sleep(1.0)

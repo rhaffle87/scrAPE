@@ -114,17 +114,19 @@ def server_url(mock_popen):
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     
-    url = f"http://127.0.0.1:{port}"
-    # Wait until uvicorn server port is ready to accept connections
-    for _ in range(50):
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
-                break
-        except Exception:
-            time.sleep(0.2)
-    yield url
-    server.should_exit = True
-    thread.join(timeout=2.0)
+    try:
+        url = f"http://127.0.0.1:{port}"
+        # Wait until uvicorn server port is ready to accept connections
+        for _ in range(50):
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                    break
+            except Exception:
+                time.sleep(0.2)
+        yield url
+    finally:
+        server.should_exit = True
+        thread.join(timeout=2.0)
 
 
 @pytest.fixture(scope="module")
@@ -138,12 +140,13 @@ def page_session(server_url, mock_media_folder):
     page.on("console", lambda msg: print(f"\nBROWSER CONSOLE [{msg.type}]: {msg.text}"))
     page.on("pageerror", lambda err: print(f"\nBROWSER EXCEPTION: {err}"))
     
-    page.goto(server_url, wait_until="domcontentloaded", timeout=30000)
-    page.wait_for_selector("#command-center-view")
-    yield page
-    
-    browser.close()
-    playwright.stop()
+    try:
+        page.goto(server_url, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_selector("#command-center-view")
+        yield page
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 def test_ux_modular_components(page_session):

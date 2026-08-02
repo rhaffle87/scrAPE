@@ -22,5 +22,5 @@ class BaseSearchScraper(ABC):
         url: str,
         allow_domains: list[str] | None = None,
         block_domains: list[str] | None = None,
-    ) -> tuple[list[ImageItem], list[VideoItem], str]:
+    ) -> tuple[list[ImageItem], list[VideoItem], str, str, str]:
         raise NotImplementedError

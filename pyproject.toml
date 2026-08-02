@@ -43,5 +43,6 @@ extraPaths = ["src", "."]
 pythonpath = ["src", "."]
 filterwarnings = [
     "ignore::DeprecationWarning:websockets.*:",
-    "ignore::DeprecationWarning:uvicorn.*:"
+    "ignore::DeprecationWarning:uvicorn.*:",
+    "ignore::DeprecationWarning:speech_recognition.*:"
 ]

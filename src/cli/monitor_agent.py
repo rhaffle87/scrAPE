@@ -293,9 +293,10 @@ def notify_telegram(message: str) -> None:
     """Send alert via TelegramBotNotifier and multi-channel NotificationPipeline."""
     try:
         from notifications.telegram_bot import TelegramBotNotifier
+        from config.settings_manager import settings
 
-        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+        token = settings.get("TELEGRAM_BOT_TOKEN")
+        chat_id = settings.get("TELEGRAM_CHAT_ID")
         notifier = TelegramBotNotifier(token, chat_id)
         if notifier.is_configured():
             notifier.send_message(message)

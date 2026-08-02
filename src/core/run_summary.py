@@ -46,8 +46,8 @@ def generate_run_summary(
 
     # 1. Overall stats
     total_pages_scanned = len(result.scanned_pages)
-    total_images_kept = len(result.images)
-    total_videos_kept = len(result.videos)
+    total_images_kept = sum(1 for item in result.images if item.status not in ("skipped", "failed"))
+    total_videos_kept = sum(1 for item in result.videos if item.status not in ("skipped", "failed"))
     total_rejected_items = len(result.rejected_items)
 
     downloaded_count = result.download_stats.get("downloaded", 0)
@@ -58,7 +58,7 @@ def generate_run_summary(
     for key, val in result.download_stats.items():
         if key == "downloaded":
             continue
-        if key.startswith("download_failed") or "exception" in key:
+        if key.startswith("download_failed") or key.startswith("download_error") or "exception" in key:
             failed_downloads += val
         else:
             skipped_downloads += val
@@ -129,7 +129,7 @@ def generate_run_summary(
             )
 
         # Dead download links (failures/exceptions)
-        if item.reason.startswith("download_failed") or "exception" in item.reason:
+        if item.reason.startswith("download_failed") or item.reason.startswith("download_error") or "exception" in item.reason:
             dead_download_urls.append(
                 {
                     "url": item.url,
