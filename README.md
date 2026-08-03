@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.23.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.24.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
@@ -82,7 +82,7 @@ python src/cli/main.py --keyword <subject> --seed-file seeds/<subject>.txt --max
 - **High-Resolution URL Transformation Heuristics** — Automatic path transformations for Erome (`/t/` / `/th/` → `/v/`), WordPress (`-scaled.jpg` stripping), Twitter (`name=large`), and WordPress dimension patterns (`-1024x768.png`).
 - **Low & Zero-Yield Domain Cutoff Policy** — Automated host filtering that halts crawling on unseeded external domains hitting 15 pages with 0 yield, 20+ pages with <5% yield, or 3 consecutive WAF errors.
 - **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) and per-host download semaphores (`_host_semaphore_for`).
-- **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, and ArtStation.
+- **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, ArtStation, and Telegram. Domain-agnostic video extraction patterns in `video_scraper.py` handle lightbox anchors (`<a data-fslightbox>`), nested `<video controls loop>` containers, and base64-encoded iframe player parameters (via `Base64IframeExtractor`).
 - **Enterprise-Grade Security Compliance** — Resolves major static analysis warnings (OSV-Scanner, Semgrep, CodeQL) via strict structural path validation (`os.path.splitdrive` checking), mitigating path-injection natively without relying on superficial suppression comments.
 
 ---

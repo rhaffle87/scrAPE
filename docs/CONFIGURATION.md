@@ -58,25 +58,33 @@ JSON files in the `data/` directory isolate domain parameters and canonicalisati
 
 ```json
 {
-    "hotlink_protected": [
-        "example-cdn.com"
-    ],
-    "rate_limits": {
-        "slow-domain.org": 0.2
-    },
-    "deep_scrape": [
-        "archive-domain.net"
-    ],
+    "hotlink_protected": ["example-cdn.com"],
+    "rate_limits": { "slow-domain.org": 0.2 },
+    "deep_scrape": ["archive-domain.net"],
     "referer_overrides": {
         "protected-media.com": "https://www.protected-media.com/"
-    }
+    },
+    "domain_handlers": {
+        "some-booru.net": { "link_pattern": "/post/\\d+" }
+    },
+    "stealth_required": ["heavily-protected.com"],
+    "preferred_engines": { "cf-site.com": "camoufox" },
+    "highres_transforms": {
+        "cdn.example.com": { "pattern": "-thumb", "replacement": "" }
+    },
+    "auth_gated": ["members-only-site.com"]
 }
 ```
 
-- `hotlink_protected`: Array of domains enforcing Referer header checks.
+- `hotlink_protected`: Domains enforcing Referer header checks on media downloads.
 - `rate_limits`: Default requests-per-second ceilings per domain.
-- `deep_scrape`: List of domains configured for deep traversal.
-- `referer_overrides`: Custom HTTP Referer header overrides map.
+- `deep_scrape`: Domains configured for deep traversal.
+- `referer_overrides`: Custom HTTP Referer header values sent during requests.
+- `domain_handlers`: Per-domain link discovery configuration. Each entry specifies a `link_pattern` regex that the BFS crawler uses to identify detail/post page links from index pages (used with `# crawl: index→detail`).
+- `stealth_required`: Domains that skip lightweight HTTP tiers and escalate immediately to stealth browsers on any non-200 response.
+- `preferred_engines`: Manually pinned WAF fallback engine per domain (overrides the auto-learned `_preferred_engine_by_host`).
+- `highres_transforms`: URL substring replacement rules applied to discovered image URLs to upgrade thumbnails to full-resolution CDN paths.
+- `auth_gated`: Domains that require authentication; the crawler skips them unless a valid session cookie is available.
 
 ### 2.2 URL Normalisation Rules (`data/url_normalisation_rules.json`)
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.24.0] — 2026-08-03
+
+### Added (0.24.0)
+
+- **Domain-Agnostic Video Extraction Patterns** (`src/scraper/video_scraper.py`):
+  - Added `_extract_lightbox_anchor_videos()` — discovers `.mp4` / `.webm` / `.mov` URLs embedded as `href` inside `<a data-fslightbox>` lightbox anchor elements (targets sites using FSLightbox or similar gallery overlays).
+  - Added `_extract_nested_video_sources()` — extracts video URLs from `<video controls loop>` containers whose `<source src>` child elements point to CDN-hosted media files (no JavaScript required).
+  - Added `_extract_base64_iframe_videos()` — bridge function calling `Base64IframeExtractor` to handle the double-encoded player iframe pattern.
+  - De-hardcoded the domain-specific guard on `video.v-player` extraction; the class is now matched on all sites.
+  - All three new functions are called at the tail of `extract_videos_from_html()`, adding zero overhead when no matching elements are found.
+
+- **`Base64IframeExtractor` Plugin** (`src/plugins/base64_iframe_extractor.py`) **[NEW FILE]**:
+  - New `ExtractorPlugin` subclass handling the double-encoded player iframe pattern used by `clean-tube-player` WordPress plugins and structurally similar embeds.
+  - Decode pipeline: `iframe[src] ?q=<base64>` → base64 decode → URL-encoded query string → `parse_qs` on `tag=` key → raw HTML fragment → `<source src>` parse.
+  - Handles CDN URLs with literal spaces (e.g. `Onlyfans Meenfox.mp4`) by percent-encoding spaces (`%20`) before returning.
+  - Two-stage URL discovery: HTML parse (`BeautifulSoup`) first, then fallback regex scan on raw decoded text.
+  - `can_handle()` returns `False` — invoked explicitly via `extract_from_soup()`, not URL routing.
+
+- **Domain Configuration Additions** (`data/domain_config.json`):
+  - Added multiple new domains to `domain_handlers` with correct `link_pattern` regexes for `index→detail` post link discovery.
+  - Added multiple heavily protected domains to `stealth_required` and `referer_overrides`.
+
+- **Seed Manifest Cleanup** (`seeds/`):
+  - Removed placeholder/fake album URLs from multiple creator-specific seed files.
+  - Removed all redundant per-post URLs reachable from a domain's search/tag index page (applied across multiple subject manifests).
+  - Merged duplicate domain configuration blocks in existing seed files into unified entries.
+  - Fixed crawl strategy from `crawl: direct` → `crawl: index→detail` in seed files for domains where listing pages prevent image post discovery.
+  - Standardized ordering across all seeds: social profiles first, then aggregators and content sites.
+
+- **`.gitignore` Hardening** (`.gitignore`):
+  - Added `src/data/profiles/`, `src/data/sessions/`, `src/data/*.db`, `src/data/*.db-journal` to exclude machine-specific Chromium/DrissionPage browser profile directories generated at runtime.
+  - Added `src/storage/key_value_stores/` and `src/storage/request_queues/` to exclude Crawlee's runtime queue and key-value store directories.
+
+### Fixed (0.24.0)
+
+- **`_host_semaphore_for` Concurrency Logic** (`src/storage/file_downloader.py`):
+  - Restored the semaphore creation from `min(MAX_CONCURRENT_PER_HOST, max_concurrent)` back to `max(MAX_CONCURRENT_PER_HOST, max_concurrent)`. The `min()` variant (introduced by a prior session) silently capped concurrency at 4 for all callers regardless of what they requested, including `--dl-workers` settings above the default. The `max()` variant correctly allows higher explicit concurrency requests to take effect.
+
 ## [0.23.0] — 2026-08-02
 
 ### Added & Changed (0.23.0)

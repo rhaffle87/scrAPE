@@ -210,6 +210,16 @@ class SearchProviderScraper(BaseSearchScraper):
                     return [], [], f"json_error:{type(exc).__name__}", response.text, content_type
 
             soup = parse_html(response.text)
+            
+            # Detect og:url pointing to login wall (e.g. some SPAs)
+            og_url = soup.find("meta", property="og:url")
+            if og_url and isinstance(og_url, Tag):
+                content_val = _get_attr_str(og_url, "content").lower()
+                if "/login" in content_val or "/signin" in content_val or "/auth" in content_val:
+                    LOGGER.warning("Detected login wall via og:url on %s", url)
+                    HttpClient.register_login_locked(urlparse(url).netloc.lower())
+                    return [], [], "fetch_error:login_wall", "", ""
+                    
             page_title = self._extract_page_title(soup)
             images = self._extract_images(
                 soup, url, page_title, allow_domains, block_domains

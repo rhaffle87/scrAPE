@@ -70,7 +70,7 @@ def test_heavy_spa_simulation(e2e_mock_server):
         url=target_url,
         client=client,
         skip_httpx=True,
-        preferred_engine="drissionpage",
+        preferred_engine="crawl4ai",
     )
     
     assert result.status_code == 200

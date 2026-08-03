@@ -33,7 +33,7 @@ class YtDlpExtractor(ExtractorPlugin):
         if path.endswith(".m3u8") or path.endswith(".mpd"):
             return True
 
-        return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com"]
+        return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com", "iwara.tv"]
 
     def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         try:

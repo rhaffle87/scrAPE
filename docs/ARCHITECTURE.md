@@ -80,12 +80,15 @@ scrape-dashboard/
 │   │   ├── base.py              — Base Scraper classes
 │   │   ├── google_images.py     — Search provider & fallback page scraper
 │   │   ├── specialized.py       — SpecializedExtractor plugin loader
-│   │   └── video_scraper.py     — Video extraction handling
+│   │   └── video_scraper.py     — Video extraction: JSON-LD, inline scripts, lightbox anchors, nested <video>, base64 iframes
 │   ├── plugins/
-│   │   ├── base.py              — ExtractorPlugin abstract base class
-│   │   ├── reddit_extractor.py  — Reddit API extraction plugin
-│   │   ├── ytdlp_extractor.py   — YouTube/Generic video extraction plugin
-│   │   └── *_extractor.py       — Various platform extractors (Twitter, Instagram, Pinterest, Booru, Civitai, ArtStation)
+│   │   ├── base.py                     — ExtractorPlugin abstract base class
+│   │   ├── base64_iframe_extractor.py   — Extracts video URLs from base64-encoded iframe player params
+│   │   ├── booru_extractor.py           — Danbooru/Gelbooru image board extractor
+│   │   ├── civitai_extractor.py         — Civitai model/asset gallery extractor
+│   │   ├── reddit_extractor.py          — Reddit API extraction plugin
+│   │   ├── ytdlp_extractor.py           — YouTube/Generic video extraction via yt-dlp
+│   │   └── *_extractor.py               — Platform extractors: Twitter, Instagram, Pinterest, ArtStation, Telegram
 │   ├── captcha/
 │   │   ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
 │   │   └── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
@@ -130,9 +133,14 @@ scrape-dashboard/
 │       └── database_exporter.py — SQLite database bulk exporter
 │
 ├── data/                        — JSON Configurations & Registries
-│   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides
+│   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides, domain_handlers,
+│   │                              stealth_required, preferred_engines, highres_transforms, auth_gated
 │   ├── url_normalisation_rules.json — Canonicalisation regex rules
 │   └── blacklist.json           — Dynamic circuit breaker blacklist
+│   ├── seeds/                       — Per-subject seed manifest files
+│   │   ├── subject1.txt / subject2.txt / subject3.txt — Creator-specific domain profiles
+│   │   ├── subject4.txt / subject5.txt              — Creator-specific domain profiles
+│   │   └── general_topic1.txt / general_topic2.txt  — General-subject example seeds
 │
 └── docs/                        — Technical Documentation Portal
     ├── CHANGELOG.md             — Version release history

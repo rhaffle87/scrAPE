@@ -59,11 +59,16 @@ def _fast_limiter_for(host: str) -> RateLimiter:
         return _FAST_DOWNLOAD_LIMITERS[host]
 
 
-def _host_semaphore_for(host: str, max_concurrent: int = 8) -> threading.Semaphore:
-    """Return (or lazily create) a per-host concurrency Semaphore."""
+def _host_semaphore_for(host: str, max_concurrent: int = MAX_CONCURRENT_PER_HOST) -> threading.Semaphore:
+    """Return (or lazily create) a per-host concurrency Semaphore.
+
+    The semaphore value is ``max(MAX_CONCURRENT_PER_HOST, max_concurrent)`` so
+    that callers who explicitly request higher concurrency (e.g. bulk download
+    workers) are not silently capped below what they asked for.
+    """
     with _FAST_DL_LOCK:
         if host not in _HOST_SEMAPHORES:
-            _HOST_SEMAPHORES[host] = threading.Semaphore(max(8, max_concurrent))
+            _HOST_SEMAPHORES[host] = threading.Semaphore(max(MAX_CONCURRENT_PER_HOST, max(1, max_concurrent)))
         return _HOST_SEMAPHORES[host]
 
 
@@ -115,6 +120,9 @@ class MediaDownloader:
         self._keyword = keyword.strip().lower()
         self.min_aesthetic_score = min_aesthetic_score
         self.aesthetic_scorer = AestheticScorer() if min_aesthetic_score is not None else None
+        
+        self._curl_session = None
+        self._curl_session_lock = threading.Lock()
         # Seed in-memory pHash set from persistent DB for cross-run deduplication
         if self._state_cache is not None:
             try:
@@ -128,6 +136,18 @@ class MediaDownloader:
                     )
             except Exception as exc:
                 LOGGER.warning("MediaDownloader: failed to load persisted pHashes: %s", exc)
+
+    def _get_curl_session(self):
+        with self._curl_session_lock:
+            if self._curl_session is None:
+                try:
+                    from curl_cffi import requests as c_requests
+                    proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
+                    proxy_dict = {"http": proxy, "https": proxy} if proxy else None
+                    self._curl_session = c_requests.Session(impersonate="chrome120", proxies=proxy_dict)  # type: ignore[arg-type]
+                except ImportError:
+                    pass
+            return self._curl_session
 
     def verify_magic_bytes(self, file_path: Path) -> bool:
         """Verifies that a downloaded file starts with valid image/video magic byte headers."""
@@ -427,14 +447,10 @@ class MediaDownloader:
                 @contextlib.contextmanager
                 def _do_request():
                     if use_curl_cffi:
-                        try:
-                            from curl_cffi import requests as c_requests
-                        except ImportError:
+                        session = self._get_curl_session()
+                        if session is None:
                             raise RuntimeError("curl_cffi not installed")
                         
-                        proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
-                        proxy_dict = {"http": proxy, "https": proxy} if proxy else None
-                        session = c_requests.Session(impersonate="chrome120", proxies=proxy_dict)  # type: ignore[arg-type]
                         resp = session.get(safe_url, headers=req_headers, stream=True, timeout=60.0)
                         try:
                             resp.raise_for_status()

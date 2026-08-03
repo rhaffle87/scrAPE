@@ -163,6 +163,190 @@ def extract_videos_from_html(
     for item in _extract_videos_from_scripts(soup, page_url, page_title):
         add_video(item)
 
+    # Generalised: extract sources from any class=v-player <video> element
+    for video_el in soup.select("video.v-player source[src]"):
+        if not isinstance(video_el, Tag):
+            continue
+        src = _get_attr_str(video_el, "src")
+        if src:
+            absolute_url = normalize_url(absolutize_url(src, page_url))
+            add_video(
+                VideoItem(
+                    url=absolute_url,
+                    source_page=page_url,
+                    type=detect_video_type(absolute_url) or "direct",
+                    page_title=page_title,
+                    in_layout_container=False,
+                )
+            )
+
+    # Lightbox anchor extraction: <a data-fslightbox href="...mp4">
+    for item in _extract_lightbox_anchor_videos(soup, page_url, page_title):
+        add_video(item)
+
+    # Nested video source extraction: <video controls loop> with CDN <source> children
+    for item in _extract_nested_video_sources(soup, page_url, page_title):
+        add_video(item)
+
+    # Base64-encoded iframe player extraction (e.g. player-x.php?q=<b64>)
+    for item in _extract_base64_iframe_videos(soup, page_url, page_title):
+        add_video(item)
+
+    return videos
+
+
+
+def _extract_lightbox_anchor_videos(
+    soup: BeautifulSoup,
+    page_url: str,
+    page_title: str,
+) -> list[VideoItem]:
+    """
+    LightboxAnchorExtractor — finds direct .mp4 URLs wrapped in fslightbox or
+    similar lightbox anchor tags that standard HTML5 video parsers miss.
+
+    Targets:
+        <a data-fslightbox="gallery" href="https://example.com/video.mp4">…</a>
+        <a href="https://cdn.example.com/clip.mp4" class="…">…</a>
+
+    This is a structural pattern; not tied to any specific domain.
+    """
+    videos: list[VideoItem] = []
+    seen: set[str] = set()
+
+    _VIDEO_EXTS = {".mp4", ".webm", ".m4v", ".mov", ".ogv"}
+
+    for anchor in soup.find_all("a", href=True):
+        if not isinstance(anchor, Tag):
+            continue
+        # Prefer explicit fslightbox markup, but also catch bare .mp4 anchors
+        has_lightbox_attr = anchor.has_attr("data-fslightbox") or anchor.has_attr("data-lightbox")
+        href = _get_attr_str(anchor, "href").strip()
+        if not href:
+            continue
+
+        try:
+            parsed_path = urlparse(href).path.lower().rstrip("/")
+        except Exception:
+            continue
+
+        is_video_link = any(parsed_path.endswith(ext) for ext in _VIDEO_EXTS)
+        if not (has_lightbox_attr or is_video_link):
+            continue
+
+        if _is_in_layout_container(anchor):
+            continue
+
+        absolute_url = normalize_url(absolutize_url(href, page_url))
+        if absolute_url in seen:
+            continue
+        seen.add(absolute_url)
+
+        vtype = detect_video_type(absolute_url)
+        if not vtype:
+            continue
+
+        videos.append(
+            VideoItem(
+                url=absolute_url,
+                source_page=page_url,
+                type=vtype,
+                page_title=page_title,
+                in_layout_container=False,
+            )
+        )
+    return videos
+
+
+def _extract_nested_video_sources(
+    soup: BeautifulSoup,
+    page_url: str,
+    page_title: str,
+) -> list[VideoItem]:
+    """
+    NestedVideoSourceExtractor — robustly extracts <source src> URLs from
+    deeply nested <video> elements that use non-standard attributes (e.g.
+    ``controls loop`` without a class) and are therefore skipped by the main
+    ``<video>`` pass (which filters on layout containers aggressively).
+
+    Specifically targets:
+        <video controls loop>
+            <source src="https://cdn.example.com/video.mp4" type="video/mp4">
+        </video>
+
+    This is a structural pattern; not tied to any specific domain.
+    """
+    videos: list[VideoItem] = []
+    seen: set[str] = set()
+
+    for video_tag in soup.find_all("video"):
+        if not isinstance(video_tag, Tag):
+            continue
+        # Only target elements with both 'controls' and 'loop' (non-standard player)
+        has_controls = video_tag.has_attr("controls")
+        has_loop = video_tag.has_attr("loop")
+        if not (has_controls and has_loop):
+            continue
+
+        if _is_in_layout_container(video_tag):
+            continue
+
+        for source in video_tag.find_all("source"):
+            if not isinstance(source, Tag):
+                continue
+            src = _get_attr_str(source, "src").strip()
+            if not src:
+                continue
+            absolute_url = normalize_url(absolutize_url(src, page_url))
+            if absolute_url in seen:
+                continue
+            seen.add(absolute_url)
+            vtype = detect_video_type(absolute_url)
+            if not vtype:
+                continue
+            videos.append(
+                VideoItem(
+                    url=absolute_url,
+                    source_page=page_url,
+                    type=vtype,
+                    page_title=page_title,
+                    in_layout_container=False,
+                )
+            )
+    return videos
+
+
+def _extract_base64_iframe_videos(
+    soup: BeautifulSoup,
+    page_url: str,
+    page_title: str,
+) -> list[VideoItem]:
+    """
+    Base64IframeExtractor (inline) — decodes base64-encoded ``q`` parameters
+    in embedded player iframes and extracts the hidden video source URL.
+
+    Delegates to the ``Base64IframeExtractor`` plugin's ``extract_from_soup``
+    method so extraction logic is maintained in a single place.
+    """
+    videos: list[VideoItem] = []
+    try:
+        from plugins.base64_iframe_extractor import Base64IframeExtractor
+        result = Base64IframeExtractor().extract_from_soup(soup, page_url=page_url)
+        for video_url in result.videos:
+            absolute_url = normalize_url(absolutize_url(video_url, page_url))
+            vtype = detect_video_type(absolute_url) or "direct"
+            videos.append(
+                VideoItem(
+                    url=absolute_url,
+                    source_page=page_url,
+                    type=vtype,
+                    page_title=page_title,
+                    in_layout_container=False,
+                )
+            )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("[_extract_base64_iframe_videos] Skipped: %s", exc)
     return videos
 
 
@@ -171,6 +355,7 @@ def _extract_video_objects_from_jsonld(
     page_url: str,
     page_title: str,
 ) -> list[VideoItem]:
+
     videos: list[VideoItem] = []
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
         if not isinstance(script, Tag):

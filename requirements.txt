@@ -19,3 +19,4 @@ python-multipart>=0.0.32
 camoufox>=0.4.0
 pytest-socket
 pytest-mock
+nodriver>=0.30.2

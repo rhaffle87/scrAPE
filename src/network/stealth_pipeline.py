@@ -342,6 +342,32 @@ class CamoufoxStrategy(StealthStrategy):
         return None
 
 
+class NodriverStrategy(StealthStrategy):
+    name = "nodriver"
+
+    def is_available(self) -> bool:
+        try:
+            import nodriver  # type: ignore
+            return True
+        except ImportError:
+            return False
+
+    def execute(self, url: str, client: Any) -> StealthResponse | None:
+        try:
+            if hasattr(client, "_get_with_nodriver"):
+                html, cookies = client._get_with_nodriver(url)
+                if html and not (hasattr(client, "_is_blocked_page") and client._is_blocked_page(html, url)):
+                    cookie_dict = {}
+                    if isinstance(cookies, list):
+                        cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+                    elif isinstance(cookies, dict):
+                        cookie_dict = cookies
+                    return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
+        except Exception:
+            pass
+        return None
+
+
 class StealthPipeline:
     """Orchestrates sequential execution of StealthStrategy instances with per-tier circuit-breaking."""
 
@@ -361,6 +387,7 @@ class StealthPipeline:
                 DrissionPageStrategy(),
                 HeliumStrategy(),
                 FlareSolverrStrategy(),
+                NodriverStrategy(),
                 CamoufoxStrategy(),
             ]
 
@@ -398,7 +425,7 @@ class StealthPipeline:
             if skip_httpx and strategy.name == "httpx":
                 continue
 
-            if cf_blocked and strategy.name in ("crawlee", "crawl4ai"):
+            if cf_blocked and strategy.name in ("crawlee", "crawl4ai", "httpx", "curl_cffi"):
                 logger.debug("Skipping strategy '%s' because host '%s' is Cloudflare-blocked", strategy.name, host)
                 continue
 

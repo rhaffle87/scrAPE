@@ -480,6 +480,8 @@ class HttpClient:
     _failed_stealth_lock = threading.Lock()
     _cloudflare_blocked_hosts: set[str] = set()
     _cf_blocked_lock = threading.Lock()
+    _login_locked_hosts: set[str] = set()
+    _login_locked_lock = threading.Lock()
     _preferred_engine_by_host: dict[str, str] = PREFERRED_ENGINES.copy()
     _preferred_engine_lock = threading.Lock()
     _flaresolverr_online: bool | None = None
@@ -587,6 +589,21 @@ class HttpClient:
         """
         with cls._stealth_lock:
             cls._stealth_required_hosts.add(hostname.lower())
+
+    @classmethod
+    def register_login_locked(cls, hostname: str) -> None:
+        """Mark *hostname* as login-locked (requires authentication).
+
+        When marked, the client will immediately fast-fail requests to this hostname
+        to avoid infinite redirect loops or captcha loops on a login wall.
+        """
+        with cls._login_locked_lock:
+            cls._login_locked_hosts.add(hostname.lower())
+
+    @classmethod
+    def is_login_locked(cls, hostname: str) -> bool:
+        with cls._login_locked_lock:
+            return hostname.lower() in cls._login_locked_hosts
 
     def __init__(
         self,
@@ -921,295 +938,6 @@ class HttpClient:
                         return True
         return False
 
-    # ------------------------------------------------------------------
-    # Local Cookie Harvesting & DrissionPage deep stealth fallbacks
-    # ------------------------------------------------------------------
-
-    def _crypt_unprotect_data(self, data: bytes) -> bytes:
-        import ctypes
-        from ctypes import wintypes
-
-        class DATA_BLOB(ctypes.Structure):
-            _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
-
-        try:
-            CryptUnprotectData = ctypes.windll.crypt32.CryptUnprotectData
-        except AttributeError:
-            return b""
-        
-        in_blob = DATA_BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data), ctypes.POINTER(ctypes.c_ubyte)))
-        out_blob = DATA_BLOB()
-        
-        if CryptUnprotectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
-            res = ctypes.string_at(out_blob.pbData, out_blob.cbData)
-            try:
-                ctypes.windll.kernel32.LocalFree(out_blob.pbData)
-            except Exception:
-                pass
-            return res
-        return b""
-
-    def _get_chrome_key(self, local_state_path: Path) -> bytes:
-        import json
-        import base64
-        try:
-            if not local_state_path.exists():
-                return b""
-            with open(local_state_path, "r", encoding="utf-8") as f:
-                local_state = json.load(f)
-            encrypted_key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])
-            if encrypted_key.startswith(b"DPAPI"):
-                encrypted_key = encrypted_key[5:]
-            return self._crypt_unprotect_data(encrypted_key)
-        except Exception:
-            return b""
-
-    def _decrypt_cookie(self, encrypted_value: bytes, key: bytes) -> str:
-        try:
-            if encrypted_value.startswith(b"v10") or encrypted_value.startswith(b"v11"):
-                iv = encrypted_value[3:15]
-                payload = encrypted_value[15:-16]
-                tag = encrypted_value[-16:]
-                from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-                aesgcm = AESGCM(key)
-                decrypted = aesgcm.decrypt(iv, payload + tag, None)
-                return decrypted.decode("utf-8", errors="ignore")
-            else:
-                decrypted = self._crypt_unprotect_data(encrypted_value)
-                return decrypted.decode("utf-8", errors="ignore")
-        except Exception:
-            return ""
-
-    def _harvest_chromium_cookies_windows(self, user_data_path: Path, host: str, logger) -> dict[str, str]:
-        import sqlite3
-        import shutil
-        import tempfile
-        import random
-        
-        local_state_path = user_data_path / "Local State"
-        if not local_state_path.exists():
-            local_state_path = user_data_path.parent / "Local State"
-            if not local_state_path.exists():
-                return {}
-                
-        key = self._get_chrome_key(local_state_path)
-        if not key:
-            return {}
-            
-        cookie_db_paths = []
-        for folder in ["Default", "Profile 1", "Profile 2", "Profile 3", "System"]:
-            db_path = user_data_path / folder / "Network" / "Cookies"
-            if db_path.exists():
-                cookie_db_paths.append(db_path)
-            db_path_old = user_data_path / folder / "Cookies"
-            if db_path_old.exists():
-                cookie_db_paths.append(db_path_old)
-                
-        db_opera = user_data_path / "Network" / "Cookies"
-        if db_opera.exists():
-            cookie_db_paths.append(db_opera)
-        db_opera_old = user_data_path / "Cookies"
-        if db_opera_old.exists():
-            cookie_db_paths.append(db_opera_old)
-
-        if not cookie_db_paths:
-            try:
-                for p in user_data_path.glob("**/Network/Cookies"):
-                    cookie_db_paths.append(p)
-                for p in user_data_path.glob("**/Cookies"):
-                    if p.is_file() and p.name == "Cookies":
-                        cookie_db_paths.append(p)
-            except Exception:
-                pass
-
-        harvested = {}
-        domains_to_try = [host]
-        if host.startswith("www."):
-            domains_to_try.append(host[4:])
-        else:
-            domains_to_try.append(f".{host}")
-
-        for db_path in cookie_db_paths:
-            temp_db = Path(tempfile.gettempdir()) / f"temp_cookies_{random.randint(1000, 9999)}.sqlite"
-            try:
-                shutil.copy2(db_path, temp_db)
-                conn = sqlite3.connect(str(temp_db))
-                cursor = conn.cursor()
-                
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cookies'")
-                if not cursor.fetchone():
-                    conn.close()
-                    continue
-                    
-                query = "SELECT name, encrypted_value, value, host_key FROM cookies WHERE " + " OR ".join(["host_key LIKE ?" for _ in domains_to_try])  # nosec B608
-                params = [f"%{dom}%" for dom in domains_to_try]
-                cursor.execute(query, params)
-                
-                for name, enc_val, val, host_key in cursor.fetchall():
-                    match = False
-                    for dom in domains_to_try:
-                        if dom in host_key:
-                            match = True
-                            break
-                    if not match:
-                        continue
-                        
-                    decrypted = self._decrypt_cookie(enc_val, key)
-                    if decrypted:
-                        harvested[name] = decrypted
-                    elif val:
-                        harvested[name] = val
-                        
-                conn.close()
-            except Exception as err:
-                logger.debug("Failed to read from temp db %s: %s", db_path, err)
-            finally:
-                if temp_db.exists():
-                    try:
-                        temp_db.unlink()
-                    except Exception:
-                        pass
-                        
-        return harvested
-
-    def _harvest_firefox_cookies_windows(self, firefox_profiles_dir: Path, host: str, logger) -> dict[str, str]:
-        import sqlite3
-        import shutil
-        import tempfile
-        import random
-        
-        if not firefox_profiles_dir.exists():
-            return {}
-            
-        harvested = {}
-        domains_to_try = [host]
-        if host.startswith("www."):
-            domains_to_try.append(host[4:])
-        else:
-            domains_to_try.append(f".{host}")
-
-        try:
-            for profile in firefox_profiles_dir.glob("*"):
-                db_path = profile / "cookies.sqlite"
-                if db_path.exists():
-                    temp_db = Path(tempfile.gettempdir()) / f"temp_ff_cookies_{random.randint(1000, 9999)}.sqlite"
-                    try:
-                        shutil.copy2(db_path, temp_db)
-                        conn = sqlite3.connect(str(temp_db))
-                        cursor = conn.cursor()
-                        
-                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='moz_cookies'")
-                        if not cursor.fetchone():
-                            conn.close()
-                            continue
-                            
-                        query = "SELECT name, value, host FROM moz_cookies WHERE " + " OR ".join(["host LIKE ?" for _ in domains_to_try])  # nosec B608
-                        params = [f"%{dom}%" for dom in domains_to_try]
-                        cursor.execute(query, params)
-                        
-                        for name, value, host_key in cursor.fetchall():
-                            harvested[name] = value
-                        conn.close()
-                    except Exception as err:
-                        logger.debug("Failed to read from Firefox db %s: %s", db_path, err)
-                    finally:
-                        if temp_db.exists():
-                            try:
-                                temp_db.unlink()
-                            except Exception:
-                                pass
-        except Exception as err:
-            logger.debug("Failed searching Firefox profiles: %s", err)
-        return harvested
-
-    def _harvest_local_cookies(self, host: str) -> dict[str, str]:
-        """Harvest local cookies for *host* from local Chrome, Edge, Firefox, Brave, Opera."""
-        if not ENABLE_COOKIE_HARVESTING:
-            return {}
-
-        from monitoring.logger import get_logger
-        import os
-        import sys
-
-        logger = get_logger(__name__)
-        harvested = {}
-
-        if sys.platform.startswith("win"):
-            local_appdata = os.environ.get("LOCALAPPDATA", "")
-            appdata = os.environ.get("APPDATA", "")
-            
-            if local_appdata:
-                chrome_user_data = Path(local_appdata) / "Google" / "Chrome" / "User Data"
-                brave_user_data = Path(local_appdata) / "BraveSoftware" / "Brave-Browser" / "User Data"
-                edge_user_data = Path(local_appdata) / "Microsoft" / "Edge" / "User Data"
-                
-                if chrome_user_data.exists():
-                    logger.debug("Harvesting from Chrome...")
-                    harvested.update(self._harvest_chromium_cookies_windows(chrome_user_data, host, logger))
-                if brave_user_data.exists():
-                    logger.debug("Harvesting from Brave...")
-                    harvested.update(self._harvest_chromium_cookies_windows(brave_user_data, host, logger))
-                if edge_user_data.exists():
-                    logger.debug("Harvesting from Edge...")
-                    harvested.update(self._harvest_chromium_cookies_windows(edge_user_data, host, logger))
-            
-            if appdata:
-                opera_user_data = Path(appdata) / "Opera Software" / "Opera Stable"
-                firefox_profiles = Path(appdata) / "Mozilla" / "Firefox" / "Profiles"
-                
-                if opera_user_data.exists():
-                    logger.debug("Harvesting from Opera...")
-                    harvested.update(self._harvest_chromium_cookies_windows(opera_user_data, host, logger))
-                if firefox_profiles.exists():
-                    logger.debug("Harvesting from Firefox...")
-                    harvested.update(self._harvest_firefox_cookies_windows(firefox_profiles, host, logger))
-
-            if harvested:
-                logger.info(
-                    "Successfully harvested %d cookies for '%s' using Windows custom pipeline",
-                    len(harvested),
-                    host,
-                )
-                return harvested
-
-        try:
-            import browser_cookie3
-        except ImportError:
-            logger.warning("browser-cookie3 not installed, skipping browser_cookie3 fallback")
-            return harvested
-
-        browsers_to_try = [
-            ("chrome", browser_cookie3.chrome),
-            ("firefox", browser_cookie3.firefox),
-            ("edge", browser_cookie3.edge),
-            ("brave", browser_cookie3.brave),
-            ("opera", browser_cookie3.opera),
-        ]
-
-        domains_to_try = [host]
-        if host.startswith("www."):
-            domains_to_try.append(host[4:])
-        else:
-            domains_to_try.append(f".{host}")
-
-        for b_name, b_func in browsers_to_try:
-            for dom in domains_to_try:
-                try:
-                    cj = b_func(domain_name=dom)
-                    for cookie in cj:
-                        harvested[cookie.name] = cookie.value
-                    if harvested:
-                        logger.info(
-                            "Successfully harvested %d cookies for '%s' from local %s (browser_cookie3)",
-                            len(harvested),
-                            dom,
-                            b_name,
-                        )
-                        return harvested
-                except Exception as exc:
-                    logger.debug("Local cookie harvest fallback from %s failed: %s", b_name, exc)
-
-        return harvested
 
     def _get_with_crawlee_cheerio(self, url: str) -> tuple[str, list[dict]]:
         """Fetch URL using Crawlee Cheerio (fast parser)"""
@@ -1739,6 +1467,93 @@ class HttpClient:
             logger.error("Camoufox request failed: %s", repr(exc))
             raise exc
 
+    def _get_with_nodriver(self, url: str, force_headful: bool = False) -> tuple[str, list[dict]]:
+        """Fetch *url* using Nodriver stealth browser for Turnstile bypass.
+        Auto-escalates to headful mode if headless challenge fails.
+        """
+        from monitoring.logger import get_logger
+        logger = get_logger(__name__)
+
+        try:
+            import nodriver as uc  # type: ignore
+        except ImportError:
+            logger.warning("Nodriver library is not installed.")
+            raise Exception("Nodriver library is not installed")
+
+        import asyncio
+
+        async def _fetch():
+            is_windows = sys.platform.startswith("win")
+            is_macos = sys.platform == "darwin"
+            is_local_gui = is_windows or is_macos
+            headless_mode = False if (STEALTH_HEADFUL or force_headful) else (True if FORCE_HEADLESS else (not is_local_gui))
+            
+            logger.info("Launching Nodriver for %s (headless=%s, force_headful=%s)", url, headless_mode, force_headful)
+            
+            browser = await uc.start(headless=headless_mode)
+            try:
+                page = await browser.get(url)
+                
+                # Wait for Cloudflare to potentially render Turnstile
+                await asyncio.sleep(4.0)
+                
+                content = await page.get_content()
+                if self._is_cloudflare_challenge(content):
+                    logger.info("Cloudflare challenge detected in Nodriver. Attempting interaction...")
+                    
+                    # Human-like interaction (scroll and Turnstile widget click)
+                    try:
+                        await page.evaluate("window.scrollTo(0, Math.floor(Math.random() * 500));")
+                        await asyncio.sleep(1.0)
+                        
+                        # Try to click the Turnstile iframe or its wrapper
+                        widget = await page.select("iframe[src*='turnstile'], .cf-turnstile")
+                        if widget:
+                            logger.info("Found Turnstile widget. Simulating click...")
+                            await widget.click()
+                            await asyncio.sleep(4.0)
+                    except Exception as interact_err:
+                        logger.debug("Nodriver interaction failed: %s", interact_err)
+
+                # Final check after interactions
+                content = await page.get_content()
+                if self._is_cloudflare_challenge(content):
+                    if headless_mode and is_local_gui and not FORCE_HEADLESS:
+                        logger.warning("Nodriver failed Cloudflare challenge in headless mode. Escalating to headful mode.")
+                        raise TimeoutError("Nodriver hit Cloudflare challenge (headless mode).")
+                    elif not headless_mode:
+                        logger.warning("Nodriver failed Cloudflare challenge even in headful mode.")
+                        raise TimeoutError("Nodriver hit Cloudflare challenge (headful mode).")
+                    else:
+                        raise TimeoutError("Nodriver hit Cloudflare challenge (non-GUI environment).")
+                
+                # Extract cookies via document.cookie
+                cookies_str = str(await page.evaluate("document.cookie"))
+                cookies = []
+                host = self._hostname(url)
+                if cookies_str:
+                    for c_pair in cookies_str.split(";"):
+                        c_pair = c_pair.strip()
+                        if "=" in c_pair:
+                            name, val = c_pair.split("=", 1)
+                            cookies.append({"name": name, "value": val, "domain": host, "path": "/"})
+
+                return content, cookies
+            finally:
+                browser.stop()
+
+        try:
+            return asyncio.run(_fetch())
+        except TimeoutError as exc:
+            if not force_headful and "headless mode" in str(exc):
+                # Auto-escalation to headful mode
+                return self._get_with_nodriver(url, force_headful=True)
+            logger.error("Nodriver request failed: %s", repr(exc))
+            raise exc
+        except Exception as exc:
+            logger.error("Nodriver request failed: %s", repr(exc))
+            raise exc
+
     def _get_with_flaresolverr(self, url: str) -> tuple[str, list[dict]]:
         """Fetch *url* using FlareSolverr proxy service with session reuse & proxy forwarding."""
         from monitoring.logger import get_logger
@@ -2131,6 +1946,9 @@ class HttpClient:
         domain = urlparse(url).netloc
         if is_blacklisted(domain):
             raise ScraperBypassError(f"Domain {domain} is blacklisted")
+            
+        if self.is_login_locked(domain):
+            raise ScraperBypassError(f"Domain {domain} is locked behind a login wall")
 
         cookies = self.session_manager.load_session(domain)
         if cookies:
@@ -2264,6 +2082,10 @@ class HttpClient:
                         for redirect_pattern in EMPTY_SEARCH_REDIRECTS[host]:
                             if redirect_pattern in str(response.url):
                                 raise ScraperBypassError(f"Redirected to empty search pattern '{redirect_pattern}'")
+                    
+                    if "/login" in str(response.url).lower() or "accounts.google.com" in str(response.url).lower() or "/auth" in str(response.url).lower():
+                        HttpClient.register_login_locked(host)
+                        raise ScraperBypassError(f"Redirected to login wall: {response.url}")
                     response.raise_for_status()
                     self._thread_local.net_latency = time.monotonic() - _net_start
                     session.cookies.update({c.name: c.value for c in response.cookies.jar})
@@ -2385,6 +2207,7 @@ class HttpClient:
                             c_req_headers = self._headers(url)
                             if headers:
                                 c_req_headers.update(headers)
+                            
                             # Add cookies if available
                             if session.cookies:
                                 cookie_str = "; ".join([f"{k}={v}" for k, v in session.cookies.items()])
@@ -2425,27 +2248,28 @@ class HttpClient:
                         logger.info(
                             "Attempting local cookie harvest for domain '%s'", host
                         )
-                        harvested_cookies = self._harvest_local_cookies(host)
-                        if harvested_cookies:
+                        # Also seed cloudflare_bypass cache if we have local cookies for this domain
+                        local_cookies = self.session_manager.get_local_cookies(host)
+                        if local_cookies:
                             logger.info(
                                 "Harvested cookies: %s. Retrying httpx request with harvested cookies.",
-                                list(harvested_cookies.keys()),
+                                list(local_cookies.keys()),
                             )
                             try:
                                 req_headers = self._headers(url)
                                 if headers:
                                     req_headers.update(headers)
                                 req_headers["Cookie"] = "; ".join(
-                                    [f"{k}={v}" for k, v in harvested_cookies.items()]
+                                    [f"{k}={v}" for k, v in local_cookies.items()]
                                 )
                                 retry_resp = self.client.get(
                                     url, headers=req_headers, timeout=current_timeout
                                 )
                                 retry_resp.raise_for_status()
                                 # Success!
-                                session.cookies.update(harvested_cookies)
+                                session.cookies.update(local_cookies)
                                 session.save_to_disk()
-                                harvested_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in harvested_cookies.items()]
+                                harvested_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in local_cookies.items()]
                                 self.session_manager.save_session(host, harvested_list)
                                 cd_state.record_success()
                                 self._store_cache(url, retry_resp)

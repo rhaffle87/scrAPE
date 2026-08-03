@@ -43,6 +43,15 @@ runtime_data/*
 logs/
 *.log
 tasks/*
+src/config/*.json
+
+# --- Runtime browser profiles & session state (DrissionPage/Chromium, Crawlee) ---
+src/data/profiles/
+src/data/sessions/
+src/data/*.db
+src/data/*.db-journal
+src/storage/key_value_stores/
+src/storage/request_queues/
 
 # --- Datasets and ML ---
 datasets/
