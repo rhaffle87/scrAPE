@@ -114,28 +114,32 @@ def mock_preflight(request, monkeypatch):
         monkeypatch.setattr(CrawlCoordinator, '_run_preflight', mock_run_preflight)
     except ImportError:
         pass
+
 import threading
 import uvicorn
 import time
 import socket
 
-def get_free_port():
+
+def get_free_port() -> int:
+    """Return a free ephemeral port on the loopback interface."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
+        s.bind(('127.0.0.1', 0))  # loopback-only; satisfies CodeQL CWE-605
         return s.getsockname()[1]
+
 
 @pytest.fixture(scope="session")
 def e2e_mock_server():
     """Spins up the FastAPI mock server on an ephemeral port in a background thread."""
     from tests.mock_target_server import app
-    
+
     port = get_free_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="critical")
     server = uvicorn.Server(config)
-    
+
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    
+
     for _ in range(50):
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.1):
@@ -144,8 +148,8 @@ def e2e_mock_server():
             time.sleep(0.1)
     else:
         raise RuntimeError(f"Could not connect to mock server on port {port}")
-    
+
     yield f"http://127.0.0.1:{port}"
-    
+
     server.should_exit = True
     thread.join(timeout=2)

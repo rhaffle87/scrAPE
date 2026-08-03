@@ -24,6 +24,67 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open(os.devnull, 'w')
 
+# ── Autostart (Windows Registry HKCU — no admin rights required) ─────────────
+_AUTOSTART_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_AUTOSTART_NAME = "scrAPE"
+
+
+def _get_autostart_command() -> str:
+    """Return the pythonw.exe command used to register autostart."""
+    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+    return f'"{pythonw}" -m src.cli.launcher'
+
+
+def is_autostart_enabled() -> bool:
+    """Return True if the scrAPE autostart entry exists in the registry."""
+    if os.name != "nt":
+        return False
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _AUTOSTART_KEY) as key:
+            winreg.QueryValueEx(key, _AUTOSTART_NAME)
+            return True
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def enable_autostart() -> None:
+    """Write the autostart registry entry under HKCU."""
+    if os.name != "nt":
+        return
+    import winreg
+    with winreg.OpenKey(
+        winreg.HKEY_CURRENT_USER, _AUTOSTART_KEY, 0, winreg.KEY_SET_VALUE
+    ) as key:
+        winreg.SetValueEx(key, _AUTOSTART_NAME, 0, winreg.REG_SZ, _get_autostart_command())
+
+
+def disable_autostart() -> None:
+    """Remove the autostart registry entry under HKCU."""
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, _AUTOSTART_KEY, 0, winreg.KEY_SET_VALUE
+        ) as key:
+            winreg.DeleteValue(key, _AUTOSTART_NAME)
+    except (FileNotFoundError, OSError):
+        pass  # Already absent, nothing to do
+
+
+def toggle_autostart(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+    """Toggle autostart on/off and refresh the tray menu."""
+    if is_autostart_enabled():
+        disable_autostart()
+    else:
+        enable_autostart()
+    # Rebuild the menu in-place so the checkmark updates immediately
+    icon.menu = _build_menu()
+    icon.update_menu()
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 def create_icon_image():
     """Create a bold, high-contrast scrAPE tray icon optimized for small display sizes.
@@ -127,17 +188,27 @@ def on_quit(icon, item):
     sys.exit(0)
 
 
+def _build_menu() -> pystray.Menu:
+    """Build the tray context menu, reflecting current autostart state."""
+    autostart_label = (
+        "✓ Auto-start Enabled" if is_autostart_enabled() else "Auto-start Disabled"
+    )
+    return pystray.Menu(
+        pystray.MenuItem(f"scrAPE  (Port 10001)", None, enabled=False),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Open Dashboard", on_open_dashboard, default=True),
+        pystray.MenuItem(autostart_label, toggle_autostart),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Quit", on_quit),
+    )
+
+
 def run_tray():
     server_thread = threading.Thread(target=start_server, daemon=True)
     server_thread.start()
 
     icon_image = create_icon_image()
-    menu = pystray.Menu(
-        pystray.MenuItem("Open Dashboard", on_open_dashboard, default=True),
-        pystray.MenuItem("Quit", on_quit)
-    )
-    
-    icon = pystray.Icon("scrAPE", icon_image, "scrAPE - Port 10001", menu)
+    icon = pystray.Icon("scrAPE", icon_image, "scrAPE - Port 10001", _build_menu())
     icon.run()
 
 
@@ -161,6 +232,7 @@ def main():
     print("  🚀 Server: http://localhost:10001")
     print("========================================\n")
     
+    autostart_status = "Enabled ✓" if is_autostart_enabled() else "Disabled"
     choice = questionary.select(
         "",
         choices=[
@@ -169,6 +241,7 @@ def main():
             "Terminal UI (Interactive CLI)",
             "Release Automation Wizard",
             "Hide to Tray (Background)",
+            f"Auto-start on Boot  [{autostart_status}]",
             "Exit"
         ],
         qmark=">"
@@ -206,6 +279,16 @@ def main():
     elif choice == "Terminal UI (Interactive CLI)":
         # Launch cli_wizard.py
         subprocess.call([sys.executable, "-m", "src.cli.cli_wizard"])  # nosec B603 B607
+
+    elif choice.startswith("Auto-start on Boot"):
+        if is_autostart_enabled():
+            disable_autostart()
+            print("\n✅ Auto-start disabled. scrAPE will NOT run on next boot.")
+        else:
+            enable_autostart()
+            print("\n✅ Auto-start enabled. scrAPE will launch silently on next boot.")
+        time.sleep(1.5)
+        main()
         
     elif choice == "Hide to Tray (Background)":
         print("\n⌛ Starting background process... (tray icon will appear in ~3s)")

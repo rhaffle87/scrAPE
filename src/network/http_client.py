@@ -2083,7 +2083,18 @@ class HttpClient:
                             if redirect_pattern in str(response.url):
                                 raise ScraperBypassError(f"Redirected to empty search pattern '{redirect_pattern}'")
                     
-                    if "/login" in str(response.url).lower() or "accounts.google.com" in str(response.url).lower() or "/auth" in str(response.url).lower():
+                    _parsed_redirect = urlparse(str(response.url))
+                    _redirect_netloc = _parsed_redirect.netloc.lower()
+                    _redirect_path = _parsed_redirect.path.lower()
+                    _is_login_wall = (
+                        _redirect_path.startswith("/login")
+                        or _redirect_path.startswith("/auth")
+                        or _redirect_path.startswith("/signin")
+                        or _redirect_path.startswith("/signup")
+                        or _redirect_netloc == "accounts.google.com"
+                        or _redirect_netloc.endswith(".accounts.google.com")
+                    )
+                    if _is_login_wall:
                         HttpClient.register_login_locked(host)
                         raise ScraperBypassError(f"Redirected to login wall: {response.url}")
                     response.raise_for_status()

@@ -6,13 +6,18 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    - cron: '0 0 * * 0' # Weekly scan
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: read
 
 jobs:
   bandit:
     name: Bandit Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -32,6 +37,8 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Run Semgrep
@@ -42,6 +49,8 @@ jobs:
   osv-scanner:
     name: OSV-Scanner Dependency Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Run OSV-Scanner
@@ -55,6 +64,8 @@ jobs:
   trivy:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Build an image from Dockerfile
