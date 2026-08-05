@@ -36,17 +36,37 @@ def ensure_config_files_exist():
     if not subject_profiles_path.exists():
         created_subject_profiles = True
         subject_profiles_path.write_text(json.dumps({
-            "video_heavy": {"priority_domains": ["rule34video.com"], "block_image_only_domains": ["pixiv.net"], "max_results": 100},
-            "image_heavy": {"priority_domains": ["buondua.com"], "block_video_only_domains": [], "max_results": 200}
+            "video_heavy": {"priority_domains": ["video-test-domain.com"], "block_image_only_domains": ["image-test-domain.com"], "max_results": 100},
+            "image_heavy": {"priority_domains": ["gallery-test-domain.com"], "block_video_only_domains": [], "max_results": 200}
         }), encoding="utf-8")
         
+    # 3. ensure data/url_normalisation_rules.json exists
+    url_rules_path = data_dir / "url_normalisation_rules.json"
+    created_url_rules = False
+    if not url_rules_path.exists():
+        created_url_rules = True
+        url_rules_path.write_text(json.dumps({
+            "rules": [
+                {
+                    "description": "Generic 2-letter locale prefix collapse rule for test URLs",
+                    "pattern": "([a-z0-9-]+(?:\\.[a-z0-9-]+)+)/[a-z]{2}/",
+                    "replacement": "\\1/"
+                }
+            ]
+        }), encoding="utf-8")
+
+    import config
+    config._load_dynamic_config()
+
     yield
-    
+
     # Teardown: only delete files if we created them
     if created_domain_config:
         domain_config_path.unlink(missing_ok=True)
     if created_subject_profiles:
         subject_profiles_path.unlink(missing_ok=True)
+    if created_url_rules:
+        url_rules_path.unlink(missing_ok=True)
 
 # -----------------------------------------------------------------------------
 # STRICT ISOLATION FIXTURES

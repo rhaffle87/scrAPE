@@ -83,7 +83,7 @@ def test_command_handler_blacklist_and_setlimit(mock_bot):
 
     with patch.object(mock_bot, "send_message"):
         handler._handle_command("/blacklist badsite.com")
-        assert "badsite.com" in state.get("blacklisted_domains", [])
+        assert state.get("blacklisted_domains") == ["badsite.com"]
 
         handler._handle_command("/setlimit 300")
         assert state.get("max_results_override") == 300
@@ -95,7 +95,8 @@ def test_command_handler_report_and_watchdog(mock_bot):
 
     with patch.object(mock_bot, "send_message") as mock_send:
         handler._handle_command("/report")
-        assert "example.com" in mock_send.call_args[0][0]
+        report_msg = mock_send.call_args[0][0]
+        assert "<code>example.com</code>" in report_msg
 
     with patch.object(mock_bot, "send_message"):
         handler._handle_command("/watchdog")

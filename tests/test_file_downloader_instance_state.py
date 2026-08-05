@@ -71,7 +71,7 @@ def test_instances_have_isolated_domain_state():
     b = _make_downloader()
 
     a._fast_limiter_for("isolatedhost.com")
-    assert "isolatedhost.com" in a._fast_limiters
-    assert "isolatedhost.com" not in b._fast_limiters, (
+    assert a._fast_limiters.get("isolatedhost.com") is not None
+    assert b._fast_limiters.get("isolatedhost.com") is None, (
         "Domain state added to instance A must not bleed into instance B"
     )
