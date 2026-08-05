@@ -156,14 +156,13 @@ def is_thumbnail_url(url: str) -> bool:
     # loading.gif placeholders
     if path.endswith("/loading.gif"):
         return True
-    # erothots / erocdn preview thumbnails (e.g. /thumbs/ or /thumb_ in path)
+    # Low-res preview thumbnails (e.g. /thumbs/ or /thumb_ in path)
     if re.search(r"/thumbs?[_/]", path):
-        _log.debug("Thumbnail detected (erocdn thumb path): %s", url)
+        _log.debug("Thumbnail detected (thumb path): %s", url)
         return True
-    # erocdn low-res poster images
-    url_lower = url.lower()
-    if "erocdn" in url_lower and re.search(r"_(?:poster|thumb|preview|small)\.", path):
-        _log.debug("Thumbnail detected (erocdn poster/thumb): %s", url)
+    # Low-res poster and preview suffix images
+    if re.search(r"_(?:poster|thumb|preview|small)\.", path):
+        _log.debug("Thumbnail detected (poster/thumb suffix): %s", url)
         return True
     return False
 

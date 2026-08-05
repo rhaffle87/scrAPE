@@ -6,126 +6,166 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>scrAPE // Technical Documentation Portal</title>
   <meta name="description"
-    content="Official technical documentation and operational guide for scrAPE multi-engine web scraping system.">
+    content="Official technical documentation, CLI reference, architecture guide, and operational manual for the scrAPE multi-engine web scraping system.">
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-  <!-- Top Header Navigation -->
+  <!-- Top Header -->
   <header class="top-header">
     <div class="brand-container">
+      <button id="hamburger-btn" class="hamburger-btn" aria-label="Toggle Navigation">[=]</button>
       <a href="#" class="brand-logo">scrAPE // DOCS</a>
-      <span class="brand-badge">v2.4.0 SYSTEM SPEC</span>
+      <span class="brand-badge">v0.24.0</span>
     </div>
     <div class="header-right">
       <div class="search-box-container">
         <span class="search-icon-prefix">[?]</span>
-        <input type="text" id="doc-search" class="search-input" placeholder="SEARCH SYSTEM DOCS..."
-          aria-label="Search System Documentation">
+        <input type="text" id="doc-search" class="search-input" placeholder="SEARCH DOCS..."
+          aria-label="Search Documentation">
+        <span class="search-hint">Ctrl+K</span>
       </div>
-      <a href="https://github.com/rhaffle87/scrAPE" target="_blank" class="header-nav-link">[GITHUB REPO]</a>
+      <span id="search-result-count" class="search-result-count"></span>
+      <a href="https://github.com/rhaffle87/scrAPE" target="_blank" class="header-nav-link">[GITHUB]</a>
     </div>
   </header>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
   <div class="app-container">
 
     <!-- Left Navigation Sidebar -->
     <nav class="sidebar">
 
-      <!-- Module 1 -->
+      <!-- Module 01 -->
       <div class="nav-module-group active">
         <div class="nav-module-title">
-          <span>[01] REQUIREMENTS & SCOPE</span>
+          <span>[01] SYSTEM OVERVIEW</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item active"><a href="#sec-scope-overview">[1.1] Core System Scope</a></li>
-          <li class="nav-sub-item"><a href="#sec-scope-boundaries">[1.2] Media & Data Limits</a></li>
-          <li class="nav-sub-item"><a href="#sec-scope-rules">[1.3] Scope & Non-Goals</a></li>
+          <li class="nav-sub-item active"><a href="#sec-overview-arch">[1.1] Architecture and Objectives</a></li>
+          <li class="nav-sub-item"><a href="#sec-overview-formats">[1.2] Supported Formats and Limits</a></li>
+          <li class="nav-sub-item"><a href="#sec-overview-layout">[1.3] Project Directory Layout</a></li>
         </ul>
       </div>
 
-      <!-- Module 2 -->
+      <!-- Module 02 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[02] QUICKSTART & USAGE</span>
+          <span>[02] INSTALLATION AND QUICKSTART</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-quickstart-setup">[2.1] System Prerequisites</a></li>
-          <li class="nav-sub-item"><a href="#sec-quickstart-launchers">[2.2] Master Launchers & Wizard</a></li>
-          <li class="nav-sub-item"><a href="#sec-quickstart-recipes">[2.3] Standard Execution Recipes</a></li>
-          <li class="nav-sub-item"><a href="#sec-cli-matrix">[2.4] Complete CLI Flag Matrix</a></li>
-          <li class="nav-sub-item"><a href="#sec-cli-builder">[2.5] Interactive CLI Builder</a></li>
+          <li class="nav-sub-item"><a href="#sec-install-prereqs">[2.1] Prerequisites</a></li>
+          <li class="nav-sub-item"><a href="#sec-install-steps">[2.2] Installation Steps</a></li>
+          <li class="nav-sub-item"><a href="#sec-install-launchers">[2.3] Master Launchers and Wizard</a></li>
+          <li class="nav-sub-item"><a href="#sec-install-recipes">[2.4] First Run Recipes</a></li>
         </ul>
       </div>
 
-      <!-- Module 3 -->
+      <!-- Module 03 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[03] TECHNICAL ARCHITECTURE</span>
+          <span>[03] CLI REFERENCE</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-arch-engine">[3.1] BFS Engine Loop</a></li>
-          <li class="nav-sub-item"><a href="#sec-arch-waf">[3.2] 8-Tier Stealth WAF Pipeline</a></li>
-          <li class="nav-sub-item"><a href="#sec-arch-captcha">[3.3] Universal Captcha Strategy</a></li>
-          <li class="nav-sub-item"><a href="#sec-arch-filters">[3.4] Quality Scoring & Rejection</a></li>
-          <li class="nav-sub-item"><a href="#sec-arch-seeds">[3.5] Seed Manifest Syntax</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-flags">[3.1] Complete Flag Matrix</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-builder">[3.2] Interactive CLI Builder</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-profiles">[3.3] Execution Profiles</a></li>
         </ul>
       </div>
 
-      <!-- Module 4 -->
+      <!-- Module 04 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[04] TESTING STRATEGY</span>
+          <span>[04] CORE ENGINE ARCHITECTURE</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-test-suite">[4.1] Automated Test Suite</a></li>
-          <li class="nav-sub-item"><a href="#sec-test-tdai">[4.2] TDAI & Verification Protocol</a></li>
-          <li class="nav-sub-item"><a href="#sec-test-log-diagnostics">[4.3] Log Diagnostics Strategy</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-bfs">[4.1] BFS Crawl Loop</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-waf">[4.2] 8-Tier Stealth WAF Pipeline</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-captcha">[4.3] Universal Captcha Strategy</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-scoring">[4.4] Quality Scoring and Rejection</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-normalize">[4.5] URL Normalization</a></li>
         </ul>
       </div>
 
-      <!-- Module 5 -->
+      <!-- Module 05 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[05] UX & DASHBOARD</span>
+          <span>[05] CONFIGURATION REFERENCE</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-ux-webui">[5.1] WebUI Architecture</a></li>
-          <li class="nav-sub-item"><a href="#sec-ux-brutalism">[5.2] Design Tokens System</a></li>
-          <li class="nav-sub-item"><a href="#sec-ux-telemetry">[5.3] SSE Live Telemetry</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-env">[5.1] Environment Variables (.env)</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-domain">[5.2] domain_config.json</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-urlnorm">[5.3] url_normalisation_rules.json</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-seeds">[5.4] Seed Manifest Syntax</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-profiles">[5.5] Subject Profiles</a></li>
+          <li class="nav-sub-item"><a href="#sec-config-blacklist">[5.6] Blacklist Management</a></li>
         </ul>
       </div>
 
-      <!-- Module 6 -->
+      <!-- Module 06 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[06] DEPLOYMENT & OPERATIONS</span>
+          <span>[06] WEBUI DASHBOARD</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-ops-docker">[6.1] Docker Containerization</a></li>
-          <li class="nav-sub-item"><a href="#sec-ops-watchdog">[6.2] Continuous Watchdog Agent</a></li>
-          <li class="nav-sub-item"><a href="#sec-ops-notifications">[6.3] Multi-Channel Notifications</a></li>
-          <li class="nav-sub-item"><a href="#sec-ops-debt">[6.4] Tech Debt & Continuity Rules</a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-arch">[6.1] Server Architecture</a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-views">[6.2] Command Center and Media Vault</a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-telemetry">[6.3] Live Telemetry and SSE</a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-design">[6.4] Design Tokens</a></li>
         </ul>
       </div>
 
-      <!-- Module 7 -->
+      <!-- Module 07 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[07] KNOWLEDGE TRANSFER</span>
+          <span>[07] DEPLOYMENT AND OPERATIONS</span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-kt-troubleshooting">[7.1] Operator Diagnostic Matrix</a></li>
-          <li class="nav-sub-item"><a href="#sec-kt-guidelines">[7.2] Developer Guidelines</a></li>
-          <li class="nav-sub-item"><a href="#sec-kt-export">[7.3] Dataset Export & Outputs</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-docker">[7.1] Docker Compose</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-watchdog">[7.2] Watchdog Agent</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-notifications">[7.3] Notification Pipeline</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-proxy">[7.4] Proxy Pool Management</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-sessions">[7.5] Session and Cookie Management</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 08 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[08] OUTPUT AND EXPORTS</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-output-structure">[8.1] Output Directory Structure</a></li>
+          <li class="nav-sub-item"><a href="#sec-output-manifest">[8.2] manifest.json Schema</a></li>
+          <li class="nav-sub-item"><a href="#sec-output-domain">[8.3] domain_report.json Schema</a></li>
+          <li class="nav-sub-item"><a href="#sec-output-kohya">[8.4] Kohya LoRA Dataset Export</a></li>
+          <li class="nav-sub-item"><a href="#sec-output-rag">[8.5] RAG Ingestion Formats</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 09 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[09] TESTING AND TROUBLESHOOTING</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-test-pytest">[9.1] Running pytest</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-tdai">[9.2] Verification Protocol (TDAI)</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-logs">[9.3] Log Diagnostics Recipes</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-diagnostic">[9.4] Operator Diagnostic Matrix</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-guidelines">[9.5] Developer Guidelines</a></li>
         </ul>
       </div>
 
@@ -134,61 +174,107 @@
     <!-- Main Viewport -->
     <main class="main-content">
 
-      <!-- SECTION 1.1 -->
-      <section id="sec-scope-overview" class="doc-section active">
+      <!-- ================================================================ -->
+      <!-- MODULE 01: SYSTEM OVERVIEW                                       -->
+      <!-- ================================================================ -->
+
+      <!-- 1.1 Architecture and Objectives -->
+      <section id="sec-overview-arch" class="doc-section active">
         <div class="section-header">
-          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
-          <h1>Core System Scope</h1>
-          <p class="section-desc">High-speed, multi-engine stealth web scraping engine designed for autonomous media
-            extraction and dataset generation.</p>
+          <div class="section-tag">MODULE [01] // SYSTEM OVERVIEW</div>
+          <h1>Architecture and Objectives</h1>
+          <p class="section-desc">Multi-engine stealth web scraping system for autonomous media extraction and AI
+            dataset generation.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">1.1 System Architecture & Objectives</h2>
-          <p>scrAPE is an enterprise-grade, multi-tier web extraction engine engineered to crawl complex Web2 and Web3
-            platforms, bypass WAF protections (Cloudflare, Incapsula, Datadome), and generate high-resolution
-            image/video datasets for AI training models (Kohya_ss LoRA, Stable Diffusion).</p>
+          <h2 class="card-title">1.1 System Architecture</h2>
+          <p>scrAPE is a multi-tier web extraction engine designed to crawl complex platforms, bypass WAF protections
+            (Cloudflare, Incapsula, Datadome), and generate high-resolution image and video datasets for AI training
+            models (Kohya_ss LoRA, Stable Diffusion).</p>
 
           <div class="alert important">
             <div class="alert-title">[!] CORE OPERATIONAL GUARANTEE</div>
-            The system executes via an 8-tier WAF fallback pipeline, ensuring request escalation from lightweight direct
-            HTTP requests up to headful stealth browser automation when Cloudflare challenge loops are detected.
+            The system executes via an 8-tier WAF fallback pipeline. Requests automatically escalate from lightweight
+            direct HTTP up to headful stealth browser automation when challenge loops are detected. No manual
+            intervention is required.
           </div>
 
+          <h3>Core Components</h3>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Component</th>
-                  <th>Implementation Layer</th>
-                  <th>Primary Function</th>
+                  <th>Source File</th>
+                  <th>Function</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>CLI Engine</td>
                   <td><code>src/cli/main.py</code></td>
-                  <td>Primary execution interface accepting flags, seeds, and extraction budgets.</td>
+                  <td>Primary execution interface. Accepts flags, seeds, and extraction budgets.</td>
                 </tr>
                 <tr>
-                  <td>BFS Crawler Engine</td>
+                  <td>Interactive Wizard</td>
+                  <td><code>src/cli/cli_wizard.py</code></td>
+                  <td>Guided terminal menu for scraping, watchdog scheduling, and AI dataset preparation.</td>
+                </tr>
+                <tr>
+                  <td>BFS Crawler</td>
                   <td><code>src/core/engine.py</code></td>
-                  <td>Asynchronous Breadth-First-Search link traversal, page scoring, and worker thread pool.</td>
+                  <td>Asynchronous breadth-first-search link traversal with concurrent worker pool.</td>
+                </tr>
+                <tr>
+                  <td>Quality Filters</td>
+                  <td><code>src/core/filters.py</code></td>
+                  <td>URL classification, media detection, relevance scoring, and high-res transformation.</td>
                 </tr>
                 <tr>
                   <td>Stealth Pipeline</td>
                   <td><code>src/network/stealth_pipeline.py</code></td>
-                  <td>Dynamic 8-tier WAF escalation pipeline with circuit breaker isolation.</td>
+                  <td>8-tier WAF escalation with per-strategy circuit breaker isolation.</td>
+                </tr>
+                <tr>
+                  <td>HTTP Client</td>
+                  <td><code>src/network/http_client.py</code></td>
+                  <td>Rate limiting, session pooling, 429 circuit breaker, and adaptive jitter.</td>
                 </tr>
                 <tr>
                   <td>Media Downloader</td>
                   <td><code>src/storage/file_downloader.py</code></td>
-                  <td>Concurrent media stream downloader with MIME/size validation and rejected item retention.</td>
+                  <td>Concurrent stream downloader with MIME/size validation and rejected item retention.</td>
+                </tr>
+                <tr>
+                  <td>Captcha Strategy</td>
+                  <td><code>src/captcha/captcha_strategy.py</code></td>
+                  <td>Universal provider strategy for CapSolver, 2Captcha, and AntiCaptcha.</td>
+                </tr>
+                <tr>
+                  <td>Notification Pipeline</td>
+                  <td><code>src/notifications/notification_manager.py</code></td>
+                  <td>Pluggable multi-channel alerts: Telegram, Discord, Slack, custom webhooks.</td>
                 </tr>
                 <tr>
                   <td>WebUI Dashboard</td>
                   <td><code>frontend/app.py</code></td>
-                  <td>Decoupled FastAPI + HTMX dashboard with real-time SSE log streaming and visual network tree.</td>
+                  <td>FastAPI + HTMX dashboard with SSE log streaming and Canvas network tree.</td>
+                </tr>
+                <tr>
+                  <td>Watchdog Agent</td>
+                  <td><code>src/cli/monitor_agent.py</code></td>
+                  <td>Continuous monitoring loop with adaptive backoff and SQLite state cache.</td>
+                </tr>
+                <tr>
+                  <td>Dataset Tagger</td>
+                  <td><code>src/ml/dataset_tagger.py</code></td>
+                  <td>AI auto-tagging and sidecar <code>.txt</code> generator for LoRA training.</td>
+                </tr>
+                <tr>
+                  <td>Crawlee Bridge</td>
+                  <td><code>crawlee_bridge/</code></td>
+                  <td>Node.js Express server running Cheerio and Puppeteer stealth modes.</td>
                 </tr>
               </tbody>
             </table>
@@ -196,40 +282,80 @@
         </div>
       </section>
 
-      <!-- SECTION 1.2 -->
-      <section id="sec-scope-boundaries" class="doc-section">
+      <!-- 1.2 Supported Formats and Limits -->
+      <section id="sec-overview-formats" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
-          <h1>Media & Data Limits</h1>
-          <p class="section-desc">Supported file formats, extraction limits, and storage constraints.</p>
+          <div class="section-tag">MODULE [01] // SYSTEM OVERVIEW</div>
+          <h1>Supported Formats and Limits</h1>
+          <p class="section-desc">File formats, extraction thresholds, and storage constraints.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">1.2 Supported Formats & Extraction Capabilities</h2>
+          <h2 class="card-title">1.2 Media and Data Capabilities</h2>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Category</th>
-                  <th>Supported Types / Protocols</th>
+                  <th>Supported Types</th>
                   <th>Processing Method</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>Image Media</td>
-                  <td>PNG, JPEG, WEBP (VP8, VP8L, VP8X), GIF</td>
+                  <td>JPEG, PNG, WEBP, GIF, AVIF, APNG, BMP, HEIC, HEIF</td>
                   <td>Direct stream fetch, high-res transformation, dimension verification.</td>
                 </tr>
                 <tr>
                   <td>Video Media</td>
-                  <td>MP4, WEBM, M4V, HLS (.m3u8), YouTube/TikTok SPA</td>
-                  <td>Direct stream download or specialized extraction plugin (`yt-dlp`).</td>
+                  <td>MP4, WEBM, M4V, OGV, MOV, AVI, MKV, HLS (.m3u8), DASH (.mpd)</td>
+                  <td>Direct stream or specialized extraction via <code>yt-dlp</code> plugin.</td>
                 </tr>
                 <tr>
                   <td>Dataset Output</td>
-                  <td>ZIP, CSV, JSON, SQLite WAL</td>
-                  <td>Structured sidecar metadata `.txt` generator and Kohya_ss LoRA dataset exporter.</td>
+                  <td>ZIP, CSV, JSON, SQLite (WAL mode)</td>
+                  <td>Sidecar <code>.txt</code> metadata, Kohya_ss LoRA dataset exporter.</td>
+                </tr>
+                <tr>
+                  <td>RAG Export</td>
+                  <td>Markdown (.md), JSONL</td>
+                  <td>Page-level chunked documents and consolidated embeddings format.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Download Validation Thresholds</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Value</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>MIN_IMAGE_DOWNLOAD_BYTES</td>
+                  <td>10,240 (10 KB)</td>
+                  <td>Reject images smaller than 10 KB (likely icons or tracking pixels).</td>
+                </tr>
+                <tr>
+                  <td>MIN_VIDEO_DOWNLOAD_BYTES</td>
+                  <td>16,384 (16 KB)</td>
+                  <td>Reject video files smaller than 16 KB.</td>
+                </tr>
+                <tr>
+                  <td>MIN_IMAGE_WIDTH</td>
+                  <td>400 px</td>
+                  <td>Reject images narrower than 400 pixels.</td>
+                </tr>
+                <tr>
+                  <td>MIN_IMAGE_HEIGHT</td>
+                  <td>300 px</td>
+                  <td>Reject images shorter than 300 pixels.</td>
                 </tr>
               </tbody>
             </table>
@@ -237,101 +363,213 @@
         </div>
       </section>
 
-      <!-- SECTION 1.3 -->
-      <section id="sec-scope-rules" class="doc-section">
+      <!-- 1.3 Project Directory Layout -->
+      <section id="sec-overview-layout" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
-          <h1>Scope & Non-Goals</h1>
-          <p class="section-desc">Strict architectural boundaries and coding constraints.</p>
+          <div class="section-tag">MODULE [01] // SYSTEM OVERVIEW</div>
+          <h1>Project Directory Layout</h1>
+          <p class="section-desc">File and folder organization of the repository.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">1.3 Architectural Rules & Boundary Enforcement</h2>
-          <div class="alert warning">
-            <div class="alert-title">[!] MANDATORY RULE: NO HARDCODED DOMAIN RULES IN SOURCE</div>
-            Never hardcode domain-specific URL normalization rules or subject names directly in Python source files
-            under <code>src/</code>. All URL canonicalization rules MUST reside in
-            <code>data/url_normalisation_rules.json</code> and domain configurations in
-            <code>data/domain_config.json</code>.
+          <h2 class="card-title">1.3 Directory Structure</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>TEXT // REPOSITORY TREE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>src/cli/main.py                     -- CLI entry point
+src/cli/monitor_agent.py            -- Watchdog entry point
+src/cli/cli_wizard.py               -- Interactive wizard
+src/config/__init__.py              -- Constants and .env loader
+src/core/engine.py                  -- BFS crawl loop and page scoring
+src/core/filters.py                 -- URL classification and relevance scoring
+src/core/models.py                  -- ScrapeResult, ImageItem, VideoItem dataclasses
+src/scraper/google_images.py        -- Search provider and link extraction
+src/storage/file_downloader.py      -- Concurrent media downloader
+src/network/http_client.py          -- Rate limiting and session pooling
+src/network/stealth_pipeline.py     -- 8-tier WAF fallback pipeline
+src/network/proxy_manager.py        -- Proxy pool with latency quarantine
+src/network/session_pool.py         -- Per-domain sticky sessions
+src/captcha/captcha_strategy.py     -- Universal captcha provider strategy
+src/notifications/telegram_bot.py   -- Telegram Bot alerts
+src/notifications/notification_manager.py -- Multi-channel notification pipeline
+src/ml/dataset_tagger.py            -- AI auto-tagging
+src/ml/dataset_exporter.py          -- Kohya_ss LoRA ZIP exporter
+crawlee_bridge/                     -- Node.js Crawlee stealth bridge
+frontend/app.py                     -- FastAPI/HTMX dashboard server
+frontend/templates/index.html       -- WebUI dashboard template
+data/domain_config.json             -- Dynamic domain overrides
+data/url_normalisation_rules.json   -- URL canonicalization rules
+data/blacklist.json                 -- Domain blacklist
+src/config/subject_profiles.json    -- Subject profile presets
+seeds/                              -- Per-subject seed manifests (.txt)
+output/&lt;subject&gt;/runs/&lt;run_id&gt;/     -- Run output directory
+tests/                              -- Automated test suite
+.env / .env.example                 -- Environment credentials</pre>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 2.1 -->
-      <section id="sec-quickstart-setup" class="doc-section">
+      <!-- ================================================================ -->
+      <!-- MODULE 02: INSTALLATION AND QUICKSTART                           -->
+      <!-- ================================================================ -->
+
+      <!-- 2.1 Prerequisites -->
+      <section id="sec-install-prereqs" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
-          <h1>System Prerequisites</h1>
-          <p class="section-desc">Environment requirements and installation steps.</p>
+          <div class="section-tag">MODULE [02] // INSTALLATION AND QUICKSTART</div>
+          <h1>Prerequisites</h1>
+          <p class="section-desc">System requirements before installation.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.1 System Requirements & Environment Setup</h2>
+          <h2 class="card-title">2.1 System Requirements</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Requirement</th>
+                  <th>Minimum</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Python</td>
+                  <td>3.10+</td>
+                  <td>Required. Tested on 3.10, 3.11, 3.12, 3.13.</td>
+                </tr>
+                <tr>
+                  <td>Node.js</td>
+                  <td>18+</td>
+                  <td>Optional. Required only for Crawlee Bridge (Stealth Tier 6-7).</td>
+                </tr>
+                <tr>
+                  <td>Docker</td>
+                  <td>24+</td>
+                  <td>Optional. Required for FlareSolverr (Tier 5) and containerized deployment.</td>
+                </tr>
+                <tr>
+                  <td>OS</td>
+                  <td>Windows 10+ / Linux / macOS</td>
+                  <td>Cross-platform. Launcher scripts provided for Windows (.bat) and Unix (.sh).</td>
+                </tr>
+                <tr>
+                  <td>RAM</td>
+                  <td>4 GB</td>
+                  <td>8 GB recommended for high concurrency (16+ workers).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2.2 Installation Steps -->
+      <section id="sec-install-steps" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // INSTALLATION AND QUICKSTART</div>
+          <h1>Installation Steps</h1>
+          <p class="section-desc">Clone, install dependencies, and configure credentials.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.2 Setup Procedure</h2>
           <div class="code-block-container">
             <div class="code-header">
               <span>BASH // INSTALLATION COMMANDS</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Clone Repository
+            <pre># 1. Clone the repository
 git clone https://github.com/rhaffle87/scrAPE.git
 cd scrAPE
 
-# Setup Virtual Environment (Python 3.10+)
+# 2. Create and activate a virtual environment
 python -m venv venv
-venv\Scripts\activate  # Windows PowerShell: .\venv\Scripts\Activate.ps1
+venv\Scripts\activate          # Windows CMD
+.\venv\Scripts\Activate.ps1    # Windows PowerShell
+source venv/bin/activate       # Linux / macOS
 
-# Install Core Python Dependencies
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
-# Install Crawlee Node Bridge Dependencies (Optional Stealth Tier 7)
-cd crawlee_bridge && npm install && cd ..</pre>
+# 4. (Optional) Install Crawlee Node.js bridge for Tier 6-7 stealth
+cd crawlee_bridge && npm install && cd ..
+
+# 5. Configure credentials
+copy .env.example .env         # Windows
+cp .env.example .env           # Linux / macOS
+# Then edit .env with your API keys and webhook URLs</pre>
+          </div>
+
+          <div class="alert note">
+            <div class="alert-title">[i] FLARESOLVERR SETUP</div>
+            FlareSolverr (Tier 5) runs as a Docker container. Start it with:
+            <code>docker run -d --name=flaresolverr -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest</code>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 2.2 -->
-      <section id="sec-quickstart-launchers" class="doc-section">
+      <!-- 2.3 Master Launchers and Wizard -->
+      <section id="sec-install-launchers" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
-          <h1>Master Launchers & Wizard</h1>
-          <p class="section-desc">Unified interactive launcher scripts.</p>
+          <div class="section-tag">MODULE [02] // INSTALLATION AND QUICKSTART</div>
+          <h1>Master Launchers and Wizard</h1>
+          <p class="section-desc">Interactive launcher scripts for all execution modes.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.2 Master Launcher Options</h2>
-          <p>The system provides automated cross-platform launchers to start the WebUI, run interactive setup wizards,
-            manage sessions, or check environment health.</p>
+          <h2 class="card-title">2.3 Launcher Options</h2>
+          <p>The system provides unified cross-platform launcher scripts that present an interactive menu for starting
+            the WebUI, running the wizard, managing sessions, and checking environment health.</p>
 
           <div class="code-block-container">
             <div class="code-header">
               <span>POWERSHELL // MASTER LAUNCHER</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Windows Master Launcher (Interactive Menu: WebUI, Wizard, Auth, Docker)
+            <pre># Windows Master Launcher (Interactive Menu)
 .\run.bat
 
-# Linux / macOS Launcher
-./run.sh</pre>
+# Linux / macOS Master Launcher
+./run.sh
+
+# Direct Interactive Wizard (no menu)
+python src/cli/cli_wizard.py</pre>
           </div>
+
+          <h3>Wizard Menu Options</h3>
+          <ol>
+            <li><strong>Broad Search Scraping</strong> -- Automated search queries with recursive crawling.</li>
+            <li><strong>Targeted Manifest Scraping</strong> -- Structured crawls against selected seed manifests.</li>
+            <li><strong>Continuous Watchdog Agent</strong> -- Long-running monitoring loops with SQLite WAL caching.
+            </li>
+            <li><strong>Create Structured AI Dataset</strong> -- Package run output into consolidated, domain-grouped,
+              or media-type-grouped structures.</li>
+            <li><strong>Enterprise LLM RAG Ingestion</strong> -- Export page data as consolidated Markdown, chunked
+              page-level <code>.md</code> files, or JSONL embeddings format.</li>
+          </ol>
         </div>
       </section>
 
-      <!-- SECTION 2.3 -->
-      <section id="sec-quickstart-recipes" class="doc-section">
+      <!-- 2.4 First Run Recipes -->
+      <section id="sec-install-recipes" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
-          <h1>Standard Execution Recipes</h1>
-          <p class="section-desc">Common execution commands for standard operations.</p>
+          <div class="section-tag">MODULE [02] // INSTALLATION AND QUICKSTART</div>
+          <h1>First Run Recipes</h1>
+          <p class="section-desc">Copy-paste commands for common extraction patterns.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.3 Command Recipes</h2>
+          <h2 class="card-title">2.4 Command Recipes</h2>
+
           <div class="code-block-container">
             <div class="code-header">
               <span>RECIPE 1 // STANDARD SEED EXTRACTION WITH REJECTED MEDIA RETENTION</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre>python src/cli/main.py --keyword "meenfox" --seed seeds/meenfox.txt \
+            <pre>python src/cli/main.py --keyword "example_subject" --seed seeds/example_subject.txt \
   --max-results 200 --workers 12 --dl-workers 16 \
   --page-limit 300 --crawl-depth 3 --download-media \
   --save-rejected "low_subject_relevance,preview_or_thumbnail"</pre>
@@ -342,22 +580,55 @@ cd crawlee_bridge && npm install && cd ..</pre>
               <span>RECIPE 2 // CONTINUOUS WATCHDOG AGENT WITH STATE CACHE</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre>python src/cli/monitor_agent.py --keyword "akariiiii_cos" \
-  --seed seeds/akariiiii_cos.txt --use-state-cache</pre>
+            <pre>python src/cli/monitor_agent.py --keyword "example_subject" \
+  --seed seeds/example_subject.txt --use-state-cache</pre>
+          </div>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>RECIPE 3 // QUICK VALIDATION RUN (NO DOWNLOADS)</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>python src/cli/main.py --keyword "example_subject" \
+  --seed seeds/example_subject.txt \
+  --max-results 10 --page-limit 20 --crawl-depth 1</pre>
+          </div>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>RECIPE 4 // SEARCH-ONLY DISCOVERY (NO SEEDS)</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>python src/cli/main.py --keyword "example_subject" \
+  --max-results 50 --page-limit 100 --download-media</pre>
+          </div>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>RECIPE 5 // STEALTH CRAWL (POLITE SPEED)</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>python src/cli/main.py --keyword "example_subject" \
+  --seed seeds/example_subject.txt \
+  --workers 2 --dl-workers 2 --page-limit 20 --crawl-depth 1 --download-media</pre>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 2.4 -->
-      <section id="sec-cli-matrix" class="doc-section">
+      <!-- ================================================================ -->
+      <!-- MODULE 03: CLI REFERENCE                                         -->
+      <!-- ================================================================ -->
+
+      <!-- 3.1 Complete Flag Matrix -->
+      <section id="sec-cli-flags" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
-          <h1>Complete CLI Flag Matrix</h1>
-          <p class="section-desc">Complete, exhaustive reference of all main.py command-line options.</p>
+          <div class="section-tag">MODULE [03] // CLI REFERENCE</div>
+          <h1>Complete Flag Matrix</h1>
+          <p class="section-desc">Exhaustive command-line flag specification for src/cli/main.py.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.4 CLI Parameter Reference</h2>
+          <h2 class="card-title">3.1 Command Line Parameters</h2>
           <div class="table-container">
             <table>
               <thead>
@@ -373,62 +644,195 @@ cd crawlee_bridge && npm install && cd ..</pre>
                   <td><code>--keyword</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Target keyword or subject name to search and extract.</td>
+                  <td>Target keyword query or subject name for media extraction.</td>
                 </tr>
                 <tr>
                   <td><code>--seed-file</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Path to <code>.txt</code> seed manifest file containing URLs and annotations.</td>
+                  <td>Path to seed manifest <code>.txt</code> file containing URLs and annotations.</td>
                 </tr>
                 <tr>
-                  <td><code>--download-media</code></td>
-                  <td>flag</td>
-                  <td>False</td>
-                  <td>Download discovered images and videos into <code>output/&lt;subject&gt;/</code>.</td>
+                  <td><code>--seed-url</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Direct seed URL(s) to scrape. Can be specified multiple times.</td>
                 </tr>
                 <tr>
-                  <td><code>--save-rejected</code></td>
+                  <td><code>--seed-domain</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Additional domain roots treated as in-scope for strict-domain mode.</td>
+                </tr>
+                <tr>
+                  <td><code>--allow-domain</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Restrict crawl exclusively to these domains. Repeat for multiple.</td>
+                </tr>
+                <tr>
+                  <td><code>--block-domain</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Blacklist specific domains from crawl enqueue. Repeat for multiple.</td>
+                </tr>
+                <tr>
+                  <td><code>--login</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Comma-separated rejection reasons to save to disk (e.g.
-                    <code>low_subject_relevance,preview_or_thumbnail</code>).</td>
+                  <td>Launch interactive headful browser to capture session cookies for a domain.</td>
+                </tr>
+                <tr>
+                  <td><code>--inject-cookies</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Path to Netscape or JSON cookie export file for session injection.</td>
+                </tr>
+                <tr>
+                  <td><code>--domain</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Domain association target for injected cookie file.</td>
                 </tr>
                 <tr>
                   <td><code>--max-results</code></td>
                   <td>int</td>
                   <td>50</td>
-                  <td>Maximum media items per type to download. Use 0 for unlimited.</td>
+                  <td>Maximum kept media items per type (0 = unlimited).</td>
+                </tr>
+                <tr>
+                  <td><code>--output</code></td>
+                  <td>string</td>
+                  <td>json</td>
+                  <td>Output report format: <code>json</code>, <code>csv</code>, or <code>both</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>--export-db</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Export scrape results to SQLite database file (<code>results.db</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>--download-media</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Download discovered images and videos into output storage directory.</td>
+                </tr>
+                <tr>
+                  <td><code>--save-rejected</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Comma-separated rejection reason tokens to retain on disk (e.g.
+                    <code>low_subject_relevance,preview_or_thumbnail</code>).</td>
                 </tr>
                 <tr>
                   <td><code>--workers</code></td>
                   <td>int</td>
                   <td>6</td>
-                  <td>Number of page parsing worker threads operating concurrently.</td>
+                  <td>Concurrent page parsing and crawling worker thread pool count.</td>
                 </tr>
                 <tr>
                   <td><code>--dl-workers</code></td>
                   <td>int</td>
                   <td>16</td>
-                  <td>Number of media stream downloader worker threads.</td>
+                  <td>Concurrent media file download worker thread pool count.</td>
                 </tr>
                 <tr>
                   <td><code>--page-limit</code></td>
                   <td>int</td>
                   <td>100</td>
-                  <td>Maximum pages to fetch during the BFS crawl loop.</td>
+                  <td>Maximum web pages fetched during BFS crawl loop (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--crawl-depth</code></td>
                   <td>int</td>
                   <td>2</td>
-                  <td>Maximum recursion depth for discovered link traversal.</td>
+                  <td>Maximum recursion depth for discovered link traversal (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--strict-domain</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Restrict crawl strictly to domains declared in the seed file.</td>
+                  <td>Strictly restrict link traversal to host domains declared in seeds.</td>
+                </tr>
+                <tr>
+                  <td><code>--site-tree-only</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Restrict crawl strictly to subtrees of initial seed URL paths.</td>
+                </tr>
+                <tr>
+                  <td><code>--entity-token</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Extra entity alias keywords to boost relevance scoring. Repeat as needed.</td>
+                </tr>
+                <tr>
+                  <td><code>--domain-delay</code></td>
+                  <td>string[]</td>
+                  <td>[]</td>
+                  <td>Per-domain request delay overrides (e.g. <code>example.com=3.0</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>--proxy</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Single proxy server URL (HTTP/HTTPS/SOCKS5).</td>
+                </tr>
+                <tr>
+                  <td><code>--proxy-list</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Path to proxy list <code>.txt</code> file for IP rotation pool.</td>
+                </tr>
+                <tr>
+                  <td><code>--captcha-provider</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Challenge solving provider: <code>capsolver</code>, <code>2captcha</code>,
+                    <code>anticaptcha</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>--captcha-key</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>API key credential for chosen captcha solver provider.</td>
+                </tr>
+                <tr>
+                  <td><code>--max-captcha-spend</code></td>
+                  <td>float</td>
+                  <td>None</td>
+                  <td>Maximum monetary spend limit in USD for captcha solving per run.</td>
+                </tr>
+                <tr>
+                  <td><code>--enable-governor</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Enable dynamic CPU/RAM hardware load governor for thread scaling.</td>
+                </tr>
+                <tr>
+                  <td><code>--dl-speed-limit</code></td>
+                  <td>float</td>
+                  <td>0.0</td>
+                  <td>Global download bandwidth limit in KB/s (0.0 = unthrottled).</td>
+                </tr>
+                <tr>
+                  <td><code>--rate-limit</code></td>
+                  <td>float</td>
+                  <td>0.0</td>
+                  <td>Global request rate limit cap in requests/second (0.0 = unthrottled).</td>
+                </tr>
+                <tr>
+                  <td><code>--skip-search</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Disable search engine keyword discovery and crawl seed URLs only.</td>
+                </tr>
+                <tr>
+                  <td><code>--force-search</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Force search engine discovery even when seed file is present.</td>
                 </tr>
                 <tr>
                   <td><code>--use-state-cache</code></td>
@@ -440,19 +844,43 @@ cd crawlee_bridge && npm install && cd ..</pre>
                   <td><code>--clear-cache</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Clear state cache database before starting the crawl.</td>
+                  <td>Clear state cache database before starting crawl execution.</td>
                 </tr>
                 <tr>
                   <td><code>--ignore-robots</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Bypass <code>robots.txt</code> restrictions.</td>
+                  <td>Bypass <code>robots.txt</code> crawl restrictions.</td>
                 </tr>
                 <tr>
-                  <td><code>--capsolver-key</code></td>
+                  <td><code>--headless</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Force headless execution for browser fallback strategies.</td>
+                </tr>
+                <tr>
+                  <td><code>--stealth-headful</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Force headful (visible) window for browser stealth fallbacks.</td>
+                </tr>
+                <tr>
+                  <td><code>--validate-seed</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>API key for automated CapSolver WAF challenge resolution.</td>
+                  <td>Validate seed file syntax and annotations, print summary, and exit.</td>
+                </tr>
+                <tr>
+                  <td><code>--aesthetic-score</code></td>
+                  <td>float</td>
+                  <td>None</td>
+                  <td>Minimum aesthetic quality threshold (1.0-10.0) for image acceptance.</td>
+                </tr>
+                <tr>
+                  <td><code>--auto-crop</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Automatically generate smart face/body centered cropped crops for LoRA.</td>
                 </tr>
               </tbody>
             </table>
@@ -460,27 +888,27 @@ cd crawlee_bridge && npm install && cd ..</pre>
         </div>
       </section>
 
-      <!-- SECTION 2.5 -->
+      <!-- 3.2 Interactive CLI Builder -->
       <section id="sec-cli-builder" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <div class="section-tag">MODULE [03] // CLI REFERENCE</div>
           <h1>Interactive CLI Command Builder</h1>
-          <p class="section-desc">Visually configure parameters and copy the generated command line.</p>
+          <p class="section-desc">Configure parameters visually and generate validated command strings.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.5 Visual Command Builder</h2>
-
+          <h2 class="card-title">3.2 Command Generator</h2>
           <div class="builder-grid">
             <div class="builder-field">
               <label class="builder-label" for="cli-keyword">Target Keyword / Subject</label>
-              <input type="text" id="cli-keyword" class="builder-input" value="meenfox" placeholder="e.g. meenfox">
+              <input type="text" id="cli-keyword" class="builder-input" value="example_subject"
+                placeholder="e.g. example_subject">
             </div>
 
             <div class="builder-field">
               <label class="builder-label" for="cli-seed">Seed Manifest File Path</label>
-              <input type="text" id="cli-seed" class="builder-input" value="seeds/meenfox.txt"
-                placeholder="e.g. seeds/meenfox.txt">
+              <input type="text" id="cli-seed" class="builder-input" value="seeds/example_subject.txt"
+                placeholder="e.g. seeds/example_subject.txt">
             </div>
 
             <div class="builder-field">
@@ -499,7 +927,7 @@ cd crawlee_bridge && npm install && cd ..</pre>
             </div>
 
             <div class="builder-field">
-              <label class="builder-label" for="cli-save-rejected">Save Rejected Reasons (Comma-Separated)</label>
+              <label class="builder-label" for="cli-save-rejected">Save Rejected Reasons</label>
               <input type="text" id="cli-save-rejected" class="builder-input"
                 value="low_subject_relevance,preview_or_thumbnail">
             </div>
@@ -507,24 +935,14 @@ cd crawlee_bridge && npm install && cd ..</pre>
 
           <div class="builder-label">Execution Flags</div>
           <div class="checkbox-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-download-media" checked> Download Media Files
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-use-state-cache" checked> Use State Cache DB
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-strict-domain"> Strict Domain Mode
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-ignore-robots"> Ignore robots.txt
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-skip-search"> Skip Search Engine
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="cli-clear-cache"> Clear Cache Before Run
-            </label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-download-media" checked> Download Media
+              Files</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-use-state-cache" checked> Use State Cache
+              DB</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-strict-domain"> Strict Domain Mode</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-ignore-robots"> Ignore robots.txt</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-skip-search"> Skip Search Engine</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-clear-cache"> Clear Cache Before Run</label>
           </div>
 
           <div style="margin-top: 24px;">
@@ -534,138 +952,51 @@ cd crawlee_bridge && npm install && cd ..</pre>
                 <button class="copy-btn" data-target="generated-cli-output">COPY COMMAND</button>
               </div>
               <pre
-                id="generated-cli-output">python src/cli/main.py --keyword "meenfox" --seed "seeds/meenfox.txt" --max-results 200 --workers 12 --dl-workers 16 --save-rejected "low_subject_relevance,preview_or_thumbnail" --download-media --use-state-cache</pre>
+                id="generated-cli-output">python src/cli/main.py --keyword "example_subject" --seed "seeds/example_subject.txt" --max-results 200 --workers 12 --dl-workers 16 --save-rejected "low_subject_relevance,preview_or_thumbnail" --download-media --use-state-cache</pre>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 3.1 -->
-      <section id="sec-arch-engine" class="doc-section">
+      <!-- 3.3 Execution Profiles -->
+      <section id="sec-cli-profiles" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
-          <h1>BFS Engine Loop</h1>
-          <p class="section-desc">Core crawl engine logic and asynchronous worker architecture.</p>
+          <div class="section-tag">MODULE [03] // CLI REFERENCE</div>
+          <h1>Execution Profiles</h1>
+          <p class="section-desc">Optimized flag combinations for specific scraping scenarios.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">3.1 Crawler Execution Flow</h2>
-          <p>The crawling engine (`src/core/engine.py`) operates a concurrent Breadth-First-Search queue. Page parsing
-            tasks submit candidate URLs back to the queue after canonicalization and scope validation.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 3.2 -->
-      <section id="sec-arch-waf" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
-          <h1>8-Tier Stealth WAF Pipeline</h1>
-          <p class="section-desc">Automated escalation hierarchy for WAF bypass and challenge resolution.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">3.2 WAF Escalation Flow</h2>
-          <div class="waf-diagram-container">
-            <svg width="100%" height="220" viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                  <polygon points="0 0, 8 3, 0 6" fill="#ff5500" />
-                </marker>
-              </defs>
-
-              <!-- Tier 1 -->
-              <rect x="20" y="30" width="130" height="70" class="waf-step-box" />
-              <text x="85" y="60" class="waf-text-title">TIER 1</text>
-              <text x="85" y="80" class="waf-text-desc">Direct HTTPX</text>
-
-              <line x1="150" y1="65" x2="170" y2="65" class="waf-arrow" />
-
-              <!-- Tier 2 -->
-              <rect x="180" y="30" width="130" height="70" class="waf-step-box" />
-              <text x="245" y="60" class="waf-text-title">TIER 2-4</text>
-              <text x="245" y="80" class="waf-text-desc">TLS Impersonate</text>
-
-              <line x1="310" y1="65" x2="330" y2="65" class="waf-arrow" />
-
-              <!-- Tier 5 -->
-              <rect x="340" y="30" width="130" height="70" class="waf-step-box" />
-              <text x="405" y="60" class="waf-text-title">TIER 5</text>
-              <text x="405" y="80" class="waf-text-desc">FlareSolverr</text>
-
-              <line x1="470" y1="65" x2="490" y2="65" class="waf-arrow" />
-
-              <!-- Tier 6 -->
-              <rect x="500" y="30" width="130" height="70" class="waf-step-box" />
-              <text x="565" y="60" class="waf-text-title">TIER 6</text>
-              <text x="565" y="80" class="waf-text-desc">Crawlee Node</text>
-
-              <line x1="630" y1="65" x2="650" y2="65" class="waf-arrow" />
-
-              <!-- Tier 7 -->
-              <rect x="660" y="30" width="120" height="70" class="waf-step-box active" />
-              <text x="720" y="60" class="waf-text-title">TIER 7-8</text>
-              <text x="720" y="80" class="waf-text-desc">Camoufox Browser</text>
-
-              <text x="400" y="160" class="waf-text-desc" fill="#e0e0e0">AUTOMATED escalation triggers when 403
-                Forbidden, 429 Rate Limit, or Cloudflare JS Challenges are detected.</text>
-            </svg>
-          </div>
-        </div>
-      </section>
-
-      <!-- SECTION 3.3 -->
-      <section id="sec-arch-captcha" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
-          <h1>Universal Captcha Strategy</h1>
-          <p class="section-desc">Automated integration with CapSolver, 2Captcha, and AntiCaptcha providers.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">3.3 Automated Challenge Solver</h2>
-          <p>When Turnstile, reCAPTCHA, or hCaptcha tokens are required to proceed, the captcha strategy module
-            (`src/captcha/captcha_strategy.py`) dispatches tasks to configured providers and injects authorization
-            tokens into session pool cookies.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 3.4 -->
-      <section id="sec-arch-filters" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
-          <h1>Quality Scoring & Rejection</h1>
-          <p class="section-desc">Hard rejection rules, soft penalties, and rejected item disk retention.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">3.4 Quality Scoring Heuristics</h2>
-          <p>Every candidate media URL is evaluated by `src/core/filters.py` before downloading:</p>
-
+          <h2 class="card-title">3.3 Preset Profile Matrix</h2>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Rejection Reason Token</th>
-                  <th>Trigger Criteria</th>
-                  <th>Retention Path</th>
+                  <th>Profile</th>
+                  <th>Key Flags</th>
+                  <th>Primary Use Case</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><code>low_subject_relevance</code></td>
-                  <td>Subject name absent in URL path, alt-text, and surrounding context text.</td>
-                  <td><code>output/&lt;subject&gt;/rejected/low_subject_relevance/</code></td>
+                  <td><strong>High-Throughput Sweep</strong></td>
+                  <td><code>--workers 16 --dl-workers 24 --page-limit 500 --crawl-depth 3</code></td>
+                  <td>Massive dataset collection from fast CDNs and unthrottled sites.</td>
                 </tr>
                 <tr>
-                  <td><code>preview_or_thumbnail</code></td>
-                  <td>URL matches thumbnail patterns (e.g. <code>256px</code>, <code>pic256.jpg</code>,
-                    <code>/thumbs/</code>).</td>
-                  <td><code>output/&lt;subject&gt;/rejected/preview_or_thumbnail/</code></td>
+                  <td><strong>Polite Stealth</strong></td>
+                  <td><code>--workers 2 --dl-workers 2 --rate-limit 0.2 --domain-delay example.com=3.0</code></td>
+                  <td>Avoid rate limits and anti-bot bans on heavily protected domains.</td>
                 </tr>
                 <tr>
-                  <td><code>utility_asset</code></td>
-                  <td>File is a UI logo, icon, avatar, sprite, or tracking pixel.</td>
-                  <td>Discarded unless explicitly saved.</td>
+                  <td><strong>Strict Manifest Crawl</strong></td>
+                  <td><code>--strict-domain --skip-search --seed-file seeds/target.txt</code></td>
+                  <td>Scrape curated seed manifests without straying to third-party links.</td>
+                </tr>
+                <tr>
+                  <td><strong>Validation & Audit</strong></td>
+                  <td><code>--max-results 10 --page-limit 20 --crawl-depth 1</code></td>
+                  <td>Dry-run seed verification and selector testing without downloading large media.</td>
                 </tr>
               </tbody>
             </table>
@@ -673,226 +1004,1221 @@ cd crawlee_bridge && npm install && cd ..</pre>
         </div>
       </section>
 
-      <!-- SECTION 3.5 -->
-      <section id="sec-arch-seeds" class="doc-section">
+      <!-- ================================================================ -->
+      <!-- MODULE 04: CORE ENGINE ARCHITECTURE                             -->
+      <!-- ================================================================ -->
+
+      <!-- 4.1 BFS Crawl Loop -->
+      <section id="sec-engine-bfs" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
-          <h1>Seed Manifest Syntax</h1>
-          <p class="section-desc">Format specifications and header annotations for seed manifest files.</p>
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>BFS Crawl Loop</h1>
+          <p class="section-desc">Asynchronous link traversal queue and worker thread orchestration.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">3.5 Seed Manifest File Rules</h2>
+          <h2 class="card-title">4.1 Execution Sequence</h2>
+          <p>The crawling engine (<code>src/core/engine.py</code>) executes a concurrent Breadth-First-Search queue with
+            per-domain rate limiting and worker isolation:</p>
+
+          <ol class="step-list">
+            <li><strong>Seed Queue Initialization</strong>: Parse seed URLs and manifest header annotations (rate
+              limits, CDN bindings, depth caps).</li>
+            <li><strong>Page Retrieval</strong>: Dispatch target URL to HTTP client, which routes request through the
+              8-tier WAF fallback pipeline.</li>
+            <li><strong>Content Parsing</strong>: Parse HTML response using BeautifulSoup/lxml. Extract candidate image
+              tags, video tags, audio links, and hyperlink anchors.</li>
+            <li><strong>URL Normalization & Deduplication</strong>: Pass discovered URLs through
+              <code>normalize_url()</code> using regex rules from <code>data/url_normalisation_rules.json</code>. Check
+              SQLite state cache.</li>
+            <li><strong>Scope & Relevance Validation</strong>: Check link depth, domain constraints, blacklists, and
+              subject relevance scoring in <code>src/core/filters.py</code>.</li>
+            <li><strong>Media Download Enqueue</strong>: High-scoring candidate media URLs pass to
+              <code>src/storage/file_downloader.py</code> worker thread pool.</li>
+            <li><strong>Recursive Queue Append</strong>: Discovered page links matching crawl rules append to BFS queue
+              for depth <i>N+1</i> processing.</li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- 4.2 8-Tier Stealth WAF Pipeline -->
+      <section id="sec-engine-waf" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>8-Tier Stealth WAF Pipeline</h1>
+          <p class="section-desc">Automated escalation hierarchy for WAF bypass and anti-bot challenge resolution.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.2 WAF Pipeline Hierarchy</h2>
+          <div class="waf-diagram-container">
+            <svg width="100%" height="160" viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="#ff5500" />
+                </marker>
+              </defs>
+              <rect x="10" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="52" y="55" class="waf-text-title">T1</text>
+              <text x="52" y="73" class="waf-text-desc">HTTPX</text>
+              <line x1="95" y1="60" x2="105" y2="60" class="waf-arrow" />
+
+              <rect x="110" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="152" y="55" class="waf-text-title">T2</text>
+              <text x="152" y="73" class="waf-text-desc">curl_cffi</text>
+              <line x1="195" y1="60" x2="205" y2="60" class="waf-arrow" />
+
+              <rect x="210" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="252" y="55" class="waf-text-title">T3</text>
+              <text x="252" y="73" class="waf-text-desc">+Referer</text>
+              <line x1="295" y1="60" x2="305" y2="60" class="waf-arrow" />
+
+              <rect x="310" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="352" y="55" class="waf-text-title">T4</text>
+              <text x="352" y="73" class="waf-text-desc">+Cookies</text>
+              <line x1="395" y1="60" x2="405" y2="60" class="waf-arrow" />
+
+              <rect x="410" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="452" y="55" class="waf-text-title">T5</text>
+              <text x="452" y="73" class="waf-text-desc">FlareSolverr</text>
+              <line x1="495" y1="60" x2="505" y2="60" class="waf-arrow" />
+
+              <rect x="510" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="552" y="55" class="waf-text-title">T6</text>
+              <text x="552" y="73" class="waf-text-desc">Crawlee Node</text>
+              <line x1="595" y1="60" x2="605" y2="60" class="waf-arrow" />
+
+              <rect x="610" y="30" width="85" height="60" class="waf-step-box" />
+              <text x="652" y="55" class="waf-text-title">T7</text>
+              <text x="652" y="73" class="waf-text-desc">Camoufox</text>
+              <line x1="695" y1="60" x2="705" y2="60" class="waf-arrow" />
+
+              <rect x="710" y="30" width="80" height="60" class="waf-step-box active" />
+              <text x="750" y="55" class="waf-text-title">T8</text>
+              <text x="750" y="73" class="waf-text-desc">DrissionPage</text>
+
+              <text x="400" y="130" class="waf-text-desc" fill="#e0e0e0">AUTOMATED escalation triggers on 403 Forbidden,
+                429 Rate Limit, or Cloudflare JS Challenge responses.</text>
+            </svg>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Engine Strategy</th>
+                  <th>Escalation Trigger</th>
+                  <th>Overhead</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Tier 1</td>
+                  <td>Direct HTTPX Async Client</td>
+                  <td>Default baseline request engine.</td>
+                  <td>Very Low (&lt;10ms)</td>
+                </tr>
+                <tr>
+                  <td>Tier 2</td>
+                  <td>curl_cffi TLS Impersonate (Chrome 124)</td>
+                  <td>HTTP 403, 405, or Cloudflare fingerprint block.</td>
+                  <td>Low (20-50ms)</td>
+                </tr>
+                <tr>
+                  <td>Tier 3</td>
+                  <td>curl_cffi + Origin Referer Injection</td>
+                  <td>Hotlink protection / empty referer rejection.</td>
+                  <td>Low (20-50ms)</td>
+                </tr>
+                <tr>
+                  <td>Tier 4</td>
+                  <td>curl_cffi + Session Cookie Enrichment</td>
+                  <td>Auth-gated / session-required pages.</td>
+                  <td>Low (30-60ms)</td>
+                </tr>
+                <tr>
+                  <td>Tier 5</td>
+                  <td>FlareSolverr Docker Service (Port 8191)</td>
+                  <td>Cloudflare Turnstile / IUAM challenge loop.</td>
+                  <td>Medium (2-5s)</td>
+                </tr>
+                <tr>
+                  <td>Tier 6</td>
+                  <td>Crawlee Node.js Express Bridge (Cheerio)</td>
+                  <td>Complex JS rendering or Node-specific challenges.</td>
+                  <td>Medium (1-3s)</td>
+                </tr>
+                <tr>
+                  <td>Tier 7</td>
+                  <td>Camoufox Headless Browser Automation</td>
+                  <td>Advanced anti-bot protection (Datadome, Akamai).</td>
+                  <td>High (5-10s)</td>
+                </tr>
+                <tr>
+                  <td>Tier 8</td>
+                  <td>DrissionPage Headful Browser Automation</td>
+                  <td>Fallback when all automated headless options fail.</td>
+                  <td>High (10-25s)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Circuit Breaker & Cooldown Mechanics</h3>
+          <p>When a tier encounters consecutive failures on a domain, the circuit breaker activates:</p>
+          <ul>
+            <li><strong>Failure Threshold</strong>: 3 consecutive failures trigger strategy cooldown.</li>
+            <li><strong>Exponential Cooldown</strong>: 30s (1st activation) &rarr; 60s (2nd) &rarr; 120s (3rd+).</li>
+            <li><strong>Auto-Healing</strong>: Cooldown timers automatically expire and restore active pipeline tiers
+              without restarting the run.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 4.3 Universal Captcha Strategy -->
+      <section id="sec-engine-captcha" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Universal Captcha Strategy</h1>
+          <p class="section-desc">Automated challenge resolution with budget guardrails.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.3 Challenge Resolution Strategy</h2>
+          <p>The captcha module (<code>src/captcha/captcha_strategy.py</code>) provides adapter interfaces for
+            third-party automated solving services:</p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Environment Variable</th>
+                  <th>Supported Challenge Types</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>CapSolver</td>
+                  <td><code>CAPSOLVER_API_KEY</code></td>
+                  <td>Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha, GeeTest.</td>
+                </tr>
+                <tr>
+                  <td>2Captcha</td>
+                  <td><code>TWOCAPTCHA_API_KEY</code></td>
+                  <td>reCAPTCHA v2/v3, hCaptcha, FunCaptcha, image text captchas.</td>
+                </tr>
+                <tr>
+                  <td>AntiCaptcha</td>
+                  <td><code>ANTICAPTCHA_API_KEY</code></td>
+                  <td>reCAPTCHA v2/v3, hCaptcha, Turnstile.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Budget & Balance Guardrails</h3>
+          <ul>
+            <li><code>CAPSOLVER_MAX_SPEND_PER_RUN</code>: Maximum dollar amount allowed for captcha solving per scrape
+              run (default: $0.50 USD).</li>
+            <li><code>CAPSOLVER_MIN_BALANCE</code>: Minimum account balance threshold. Captcha solving pauses if balance
+              drops below threshold (default: $0.20 USD).</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 4.4 Quality Scoring and Rejection -->
+      <section id="sec-engine-scoring" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Quality Scoring and Rejection</h1>
+          <p class="section-desc">Quality scoring heuristics, site-chrome rejection, and disk retention.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.4 Rejection Rules & Retention Paths</h2>
+          <p>Every candidate media URL is evaluated by <code>src/core/filters.py</code> before enqueuing for download:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rejection Reason</th>
+                  <th>Trigger Criteria</th>
+                  <th>Disk Retention Path</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>low_subject_relevance</code></td>
+                  <td>Subject keyword absent in URL path, alt-text, title, and context. Score &lt; threshold.</td>
+                  <td><code>output/&lt;subject&gt;/rejected/low_subject_relevance/</code></td>
+                </tr>
+                <tr>
+                  <td><code>preview_or_thumbnail</code></td>
+                  <td>URL matches thumbnail patterns (e.g. <code>256px</code>, <code>pic256.jpg</code>,
+                    <code>/thumbs/</code>, <code>_thumb.</code>).</td>
+                  <td><code>output/&lt;subject&gt;/rejected/preview_or_thumbnail/</code></td>
+                </tr>
+                <tr>
+                  <td><code>utility_asset</code></td>
+                  <td>File is site chrome: logo, icon, avatar, sprite, favicon, banner, badge.</td>
+                  <td>Discarded (or saved if specified in <code>--save-rejected</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>off_model_content</code></td>
+                  <td>Page URL belongs to a different subject/model profile scope.</td>
+                  <td>Discarded.</td>
+                </tr>
+                <tr>
+                  <td><code>blacklisted_domain</code></td>
+                  <td>Host is listed in <code>data/blacklist.json</code> or <code>ALWAYS_BLOCK_DOMAINS</code>.</td>
+                  <td>Discarded.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Site-Chrome & Keyword Classification Sets</h3>
+          <ul>
+            <li><code>UTILITY_ASSET_TERMS</code> (Hard Reject): logo, icon, banner, badge, avatar, placeholder, sprite,
+              favicon, app-store, play-store, color_indicator, color_dot, service.</li>
+            <li><code>GENERIC_ASSET_TERMS</code> (Soft Penalty -3 pts): watermark, overlay, border, frame, background,
+              divider, separator, decoration, spacer.</li>
+            <li><code>PREVIEW_MARKERS</code>: thumb_vid, thumb-vid, _thumb, -thumb, thumb., thumbnail, preview, avatar,
+              icon, sprite, small, tiny, blur, lowres, collage, storyboard, sample, trailer, promo.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 4.5 URL Normalization -->
+      <section id="sec-engine-normalize" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>URL Normalization</h1>
+          <p class="section-desc">Canonicalization regex rules and URL deduplication.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.5 Canonicalization Pipeline</h2>
+          <p>The function <code>normalize_url()</code> in <code>src/core/filters.py</code> strips tracking parameters,
+            collapses locale prefixes, and normalizes URLs to prevent duplicate fetches across runs.</p>
+
+          <p>Rules are loaded dynamically from <code>data/url_normalisation_rules.json</code> at startup. See Module 05
+            for JSON rule configuration.</p>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- MODULE 05: CONFIGURATION REFERENCE                              -->
+      <!-- ================================================================ -->
+
+      <!-- 5.1 Environment Variables (.env) -->
+      <section id="sec-config-env" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>Environment Variables (.env)</h1>
+          <p class="section-desc">Credentials and environment configuration reference.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.1 .env Configuration Template</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>TELEGRAM_BOT_TOKEN</code></td>
+                  <td>""</td>
+                  <td>Telegram Bot token for notifications and interactive commands.</td>
+                </tr>
+                <tr>
+                  <td><code>TELEGRAM_CHAT_ID</code></td>
+                  <td>""</td>
+                  <td>Telegram Chat ID to receive run reports and WAF alerts.</td>
+                </tr>
+                <tr>
+                  <td><code>HARVEST_NOTIFY_THRESHOLD</code></td>
+                  <td>50</td>
+                  <td>Media count milestone threshold for mid-run Telegram alerts (0 = off).</td>
+                </tr>
+                <tr>
+                  <td><code>DISCORD_WEBHOOK_URL</code></td>
+                  <td>""</td>
+                  <td>Discord webhook URL for embedded run summaries.</td>
+                </tr>
+                <tr>
+                  <td><code>SLACK_WEBHOOK_URL</code></td>
+                  <td>""</td>
+                  <td>Slack webhook URL for run notifications.</td>
+                </tr>
+                <tr>
+                  <td><code>CUSTOM_WEBHOOK_URL</code></td>
+                  <td>""</td>
+                  <td>Generic HTTP POST webhook endpoint for custom integrations.</td>
+                </tr>
+                <tr>
+                  <td><code>CAPSOLVER_API_KEY</code></td>
+                  <td>""</td>
+                  <td>CapSolver API key for automated captcha solving.</td>
+                </tr>
+                <tr>
+                  <td><code>TWOCAPTCHA_API_KEY</code></td>
+                  <td>""</td>
+                  <td>2Captcha API key.</td>
+                </tr>
+                <tr>
+                  <td><code>ANTICAPTCHA_API_KEY</code></td>
+                  <td>""</td>
+                  <td>AntiCaptcha API key.</td>
+                </tr>
+                <tr>
+                  <td><code>CAPSOLVER_MAX_SPEND_PER_RUN</code></td>
+                  <td>0.50</td>
+                  <td>Max budget in USD allowed for captcha solving per scrape run.</td>
+                </tr>
+                <tr>
+                  <td><code>CAPSOLVER_MIN_BALANCE</code></td>
+                  <td>0.20</td>
+                  <td>Minimum balance in USD to keep captcha solving active.</td>
+                </tr>
+                <tr>
+                  <td><code>PROXY_MAX_BANDWIDTH_MB</code></td>
+                  <td>500.0</td>
+                  <td>Proxy bandwidth quota threshold before auto-halting.</td>
+                </tr>
+                <tr>
+                  <td><code>SCRAPE_KEYWORD</code></td>
+                  <td>""</td>
+                  <td>Default keyword used by Watchdog agent.</td>
+                </tr>
+                <tr>
+                  <td><code>SCRAPE_SEED_FILE</code></td>
+                  <td>""</td>
+                  <td>Default seed file path for Watchdog agent.</td>
+                </tr>
+                <tr>
+                  <td><code>SCRAPE_INTERVAL</code></td>
+                  <td>60</td>
+                  <td>Watchdog cycle interval in seconds.</td>
+                </tr>
+                <tr>
+                  <td><code>SCRAPE_TIMEOUT</code></td>
+                  <td>1800</td>
+                  <td>Maximum run timeout in seconds (30 minutes).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5.2 domain_config.json -->
+      <section id="sec-config-domain" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>domain_config.json</h1>
+          <p class="section-desc">Dynamic per-domain rate limits, stealth bindings, and high-res transforms.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.2 Configuration Keys Reference</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Top-Level Key</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>rate_limits</code></td>
+                  <td>dict[str, float]</td>
+                  <td>Per-domain requests/second limits (e.g. <code>{"example.com": 0.5}</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>hotlink_protected</code></td>
+                  <td>list[str]</td>
+                  <td>Domains requiring origin referer headers for media fetches.</td>
+                </tr>
+                <tr>
+                  <td><code>referer_overrides</code></td>
+                  <td>dict[str, str]</td>
+                  <td>Custom referer header strings for specific domains.</td>
+                </tr>
+                <tr>
+                  <td><code>stealth_required</code></td>
+                  <td>list[str]</td>
+                  <td>Domains that must bypass direct HTTP and execute via stealth pipeline.</td>
+                </tr>
+                <tr>
+                  <td><code>tls_impersonate</code></td>
+                  <td>dict[str, str]</td>
+                  <td>Target browser profile for curl_cffi (e.g. <code>chrome124</code>, <code>safari17_0</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>auth_gated</code></td>
+                  <td>list[str]</td>
+                  <td>Domains requiring session cookie authentication.</td>
+                </tr>
+                <tr>
+                  <td><code>domain_handlers</code></td>
+                  <td>dict[str, dict]</td>
+                  <td>Link pattern regexes for specialized target site extractors.</td>
+                </tr>
+                <tr>
+                  <td><code>highres_transforms</code></td>
+                  <td>dict[str, dict]</td>
+                  <td>Regex replacement rules to transform thumbnails into high-res URLs.</td>
+                </tr>
+                <tr>
+                  <td><code>empty_search_redirects</code></td>
+                  <td>dict[str, list]</td>
+                  <td>Path patterns indicating empty search fallbacks on specific sites.</td>
+                </tr>
+                <tr>
+                  <td><code>preferred_engines</code></td>
+                  <td>dict[str, str]</td>
+                  <td>Engine binding overrides for specific domains.</td>
+                </tr>
+                <tr>
+                  <td><code>watchdog</code></td>
+                  <td>dict</td>
+                  <td>Intervals, backoff factors, and TTL pruning settings for Watchdog agent.</td>
+                </tr>
+                <tr>
+                  <td><code>hardware_governor</code></td>
+                  <td>dict</td>
+                  <td>CPU/RAM threshold caps for dynamic worker thread scaling.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5.3 url_normalisation_rules.json -->
+      <section id="sec-config-urlnorm" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>url_normalisation_rules.json</h1>
+          <p class="section-desc">URL canonicalization rules loaded at startup into config.URL_NORMALISATION_RULES.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.3 Normalization Rule Schema</h2>
+          <div class="alert warning">
+            <div class="alert-title">[!] MANDATORY RULE</div>
+            Never hardcode domain-specific URL normalization regexes in Python files under <code>src/</code>. All rules
+            MUST be declared in <code>data/url_normalisation_rules.json</code>.
+          </div>
+
           <div class="code-block-container">
             <div class="code-header">
-              <span>MANIFEST // SEED ANNOTATION EXAMPLE</span>
+              <span>JSON // RULE SCHEMA EXAMPLE</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Subject: Meenfox
+            <pre>{
+  "_comment": "URL normalisation rules applied by normalize_url() in core/filters.py.",
+  "rules": [
+    {
+      "description": "Locale prefix collapse -- strips 2-char locale segments (/zh/, /fr/, etc.)",
+      "pattern": "(example\\.com)/[a-z]{2}/",
+      "replacement": "\\1/"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </section>
 
-# -- erothots1.com --
+      <!-- 5.4 Seed Manifest Syntax -->
+      <section id="sec-config-seeds" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>Seed Manifest Syntax</h1>
+          <p class="section-desc">Header annotations and URL format rules for seed manifest files.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.4 Annotation Reference</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>MANIFEST // SEED MANIFEST ANNOTATION EXAMPLE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Subject: example_subject
+
+# -- example.com --
 # type: mixed
-# crawl: index→detail
+# crawl: index&rarr;detail
 # depth: 1
 # Rate-limit: 0.4 req/s
 # max_pages: 5
-# [CDN] erocdn.co
+# [CDN] cdn.example.com
 # Note: Cap crawl to bound crawler churn on index pages.
-https://erothots1.com/videos/meenfox</pre>
+https://example.com/videos/example_subject</pre>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Annotation Header</th>
+                  <th>Syntax</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code># Subject:</code></td>
+                  <td><code># Subject: name</code></td>
+                  <td>Declares primary subject name for relevance scoring.</td>
+                </tr>
+                <tr>
+                  <td><code># type:</code></td>
+                  <td><code># type: images|videos|mixed</code></td>
+                  <td>Media type filter for the specified domain section.</td>
+                </tr>
+                <tr>
+                  <td><code># crawl:</code></td>
+                  <td><code># crawl: index&rarr;detail</code></td>
+                  <td>Crawl mode directive for detail page resolution.</td>
+                </tr>
+                <tr>
+                  <td><code># depth:</code></td>
+                  <td><code># depth: N</code></td>
+                  <td>Crawl depth cap for URLs in this section.</td>
+                </tr>
+                <tr>
+                  <td><code># Rate-limit:</code></td>
+                  <td><code># Rate-limit: X req/s</code></td>
+                  <td>Per-domain rate limit override in requests/second.</td>
+                </tr>
+                <tr>
+                  <td><code># max_pages:</code></td>
+                  <td><code># max_pages: N</code></td>
+                  <td>Maximum page fetch budget cap for this domain.</td>
+                </tr>
+                <tr>
+                  <td><code># [CDN]</code></td>
+                  <td><code># [CDN] cdn.host.com</code></td>
+                  <td>Binds CDN host to primary domain for scope validation.</td>
+                </tr>
+                <tr>
+                  <td><code># cloudflare:</code></td>
+                  <td><code># cloudflare: true</code></td>
+                  <td>Forces immediate stealth pipeline routing for domain.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 4.1 -->
-      <section id="sec-test-suite" class="doc-section">
+      <!-- 5.5 Subject Profiles -->
+      <section id="sec-config-profiles" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
-          <h1>Automated Test Suite</h1>
-          <p class="section-desc">Running pytest and unit verification.</p>
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>Subject Profiles</h1>
+          <p class="section-desc">Pre-configured subject profile presets in src/config/subject_profiles.json.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.1 Pytest Suite Execution</h2>
-          <div class="code-block-container">
-            <div class="code-header">
-              <span>POWERSHELL // RUN FULL TEST SUITE</span>
-              <button class="copy-btn">COPY</button>
-            </div>
-            <pre># Run all unit and integration tests
-pytest tests/ -v</pre>
+          <h2 class="card-title">5.5 Profile Presets</h2>
+          <p>Subject profiles allow instant loading of priority domains, target seed files, entity token aliases, and
+            extraction limits for recurring extraction subjects.</p>
+        </div>
+      </section>
+
+      <!-- 5.6 Blacklist Management -->
+      <section id="sec-config-blacklist" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
+          <h1>Blacklist Management</h1>
+          <p class="section-desc">Persistent domain blacklist in data/blacklist.json.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.6 Domain Blacklisting</h2>
+          <p>Domains listed in <code>data/blacklist.json</code> are permanently blocked from link traversal, media
+            extraction, and queue placement. Add dead domains, ad networks, or low-quality aggregators here.</p>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- MODULE 06: WEBUI DASHBOARD                                       -->
+      <!-- ================================================================ -->
+
+      <!-- 6.1 Server Architecture -->
+      <section id="sec-webui-arch" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Server Architecture</h1>
+          <p class="section-desc">FastAPI + HTMX server architecture in frontend/app.py.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.1 Decoupled FastAPI Server</h2>
+          <p>The interactive dashboard server (<code>frontend/app.py</code>) provides full WebUI job management, visual
+            HTML5 Canvas network trees, real-time log streaming via Server-Sent Events (SSE), and Kohya_ss LoRA dataset
+            ZIP downloads.</p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Endpoint</th>
+                  <th>Method</th>
+                  <th>Function</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/</code></td>
+                  <td>GET</td>
+                  <td>Renders Utilitarian Brutalist dashboard template.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/job/start</code></td>
+                  <td>POST</td>
+                  <td>Spawns a new background scrape process.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/job/pause</code></td>
+                  <td>POST</td>
+                  <td>Pauses active extraction job gracefully.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/job/resume</code></td>
+                  <td>POST</td>
+                  <td>Resumes paused extraction job.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/job/stop</code></td>
+                  <td>POST</td>
+                  <td>Terminates active scrape process.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/logs/stream</code></td>
+                  <td>GET</td>
+                  <td>SSE endpoint broadcasting live structured log entries.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/telemetry/stream</code></td>
+                  <td>GET</td>
+                  <td>SSE endpoint streaming CPU, RAM, and harvest stats.</td>
+                </tr>
+                <tr>
+                  <td><code>/api/export/kohya</code></td>
+                  <td>GET</td>
+                  <td>Generates and serves Kohya_ss LoRA dataset ZIP archive.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 4.2 -->
-      <section id="sec-test-tdai" class="doc-section">
+      <!-- 6.2 Command Center and Media Vault -->
+      <section id="sec-webui-views" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
-          <h1>TDAI & Verification Protocol</h1>
-          <p class="section-desc">Empirical verification rules and RED-GREEN-REFACTOR cycles.</p>
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Command Center and Media Vault</h1>
+          <p class="section-desc">Dual-view dashboard interfaces.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.2 Verification Rules</h2>
-          <p>Never declare a feature or bug fix completed without running empirical runtime verification commands and
-            confirming that the test suite passes cleanly.</p>
+          <h2 class="card-title">6.2 Dashboard Views</h2>
+          <h3>Command Center View</h3>
+          <p>Provides parameter controls, job start/stop buttons, hardware load meters (CPU/RAM/Disk), preset slot
+            loaders (Slots 1-5), and live interactive HTML5 Canvas network tree displaying real-time crawl connections.
+          </p>
+
+          <h3>Media Vault View</h3>
+          <p>Browse scraped assets grouped recursively by domain. Delete unwanted files directly from disk via HTMX
+            endpoints, view high-res previews, or open containing output folders on local disk.</p>
         </div>
       </section>
 
-      <!-- SECTION 4.3 -->
-      <section id="sec-test-log-diagnostics" class="doc-section">
+      <!-- 6.3 Live Telemetry and SSE -->
+      <section id="sec-webui-telemetry" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
-          <h1>Log Diagnostics Strategy</h1>
-          <p class="section-desc">Log analysis and error tracing recipes.</p>
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Live Telemetry and SSE</h1>
+          <p class="section-desc">Server-Sent Events (SSE) streaming pipeline.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.3 Diagnostic Log Inspection</h2>
-          <div class="code-block-container">
-            <div class="code-header">
-              <span>POWERSHELL // GREP LOGS FOR WAF BLOCKS AND 429 FAILURES</span>
-              <button class="copy-btn">COPY</button>
-            </div>
-            <pre>Select-String -Path "logs/*.log" -Pattern "HTTP 429|cloudflare_blocked|ScraperBypassError"</pre>
+          <h2 class="card-title">6.3 Real-Time Event Pipeline</h2>
+          <p>The WebUI uses an in-memory PubSub log broadcaster (<code>Broadcaster</code>) to stream log lines and
+            system metrics directly to the browser without polling:</p>
+          <ul>
+            <li><strong>Log Broadcaster</strong>: Decoupled queue multiplexer supporting concurrent browser listeners.
+            </li>
+            <li><strong>Context-Aware Telemetry Cards</strong>: Stat cards display global totals on Command Center and
+              automatically switch to subject-scoped totals on Media Vault view.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 6.4 Design Tokens -->
+      <section id="sec-webui-design" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Design Tokens</h1>
+          <p class="section-desc">Utilitarian Brutalism design system tokens.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.4 Design Tokens Reference</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Value</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>--bg-base</code></td>
+                  <td><code>#0b0d0c</code></td>
+                  <td>Primary viewport background.</td>
+                </tr>
+                <tr>
+                  <td><code>--bg-surface</code></td>
+                  <td><code>#141715</code></td>
+                  <td>Card and sidebar surface background.</td>
+                </tr>
+                <tr>
+                  <td><code>--bg-surface-elevated</code></td>
+                  <td><code>#1a1e1c</code></td>
+                  <td>Elevated container background.</td>
+                </tr>
+                <tr>
+                  <td><code>--accent</code></td>
+                  <td><code>#ff5500</code></td>
+                  <td>Primary vibrant accent (amber/orange).</td>
+                </tr>
+                <tr>
+                  <td><code>--text-primary</code></td>
+                  <td><code>#e0e0e0</code></td>
+                  <td>Primary body text.</td>
+                </tr>
+                <tr>
+                  <td><code>--font-header</code></td>
+                  <td><code>'Oswald', sans-serif</code></td>
+                  <td>Titles, stat card values, section tags.</td>
+                </tr>
+                <tr>
+                  <td><code>--font-mono</code></td>
+                  <td><code>'JetBrains Mono', monospace</code></td>
+                  <td>Body, code, forms, inputs, logs, buttons.</td>
+                </tr>
+                <tr>
+                  <td><code>Geometry Rule</code></td>
+                  <td><code>border-radius: 0 !important</code></td>
+                  <td>Strict 90&deg; square corners globally across all elements.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 5.1 -->
-      <section id="sec-ux-webui" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
-          <h1>WebUI Architecture</h1>
-          <p class="section-desc">FastAPI backend and HTMX frontend integration.</p>
-        </div>
+      <!-- ================================================================ -->
+      <!-- MODULE 07: DEPLOYMENT AND OPERATIONS                             -->
+      <!-- ================================================================ -->
 
-        <div class="card">
-          <h2 class="card-title">5.1 Dashboard Server</h2>
-          <p>The interactive WebUI dashboard server (`frontend/app.py`) provides real-time control over extraction jobs,
-            live log streaming via Server-Sent Events (SSE), and visual Canvas network trees.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 5.2 -->
-      <section id="sec-ux-brutalism" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
-          <h1>Design Tokens System</h1>
-          <p class="section-desc">Utilitarian Brutalism design rules and color tokens.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">5.2 Color Tokens & Typography</h2>
-          <p>Strict 90° square corners (`border-radius: 0 !important`), high contrast dark mode (`#0b0d0c` / `#ff5500`),
-            `Oswald` headers, and `JetBrains Mono` forms and logs.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 5.3 -->
-      <section id="sec-ux-telemetry" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
-          <h1>SSE Live Telemetry</h1>
-          <p class="section-desc">Real-time log broadcasting and status streaming.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">5.3 Live Telemetry Pipeline</h2>
-          <p>Streams live run events, WAF challenge triggers, and harvested item counts directly to the user dashboard
-            without polling.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 6.1 -->
+      <!-- 7.1 Docker Compose -->
       <section id="sec-ops-docker" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
-          <h1>Docker Containerization</h1>
+          <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
+          <h1>Docker Compose</h1>
           <p class="section-desc">Multi-container orchestration setup.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.1 Docker Compose Deployment</h2>
+          <h2 class="card-title">7.1 Container Deployment</h2>
           <div class="code-block-container">
             <div class="code-header">
               <span>BASH // DOCKER COMPOSE LAUNCH</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre>docker-compose up -d --build</pre>
+            <pre># Start scraper engine + FlareSolverr sidecar
+docker-compose up -d --build
+
+# View container logs
+docker-compose logs -f scrape-engine</pre>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 6.2 -->
+      <!-- 7.2 Watchdog Agent -->
       <section id="sec-ops-watchdog" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
-          <h1>Continuous Watchdog Agent</h1>
-          <p class="section-desc">Continuous monitoring loop and SQLite state cache management.</p>
+          <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
+          <h1>Watchdog Agent</h1>
+          <p class="section-desc">Continuous monitoring agent (src/cli/monitor_agent.py) with SQLite state cache.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.2 Watchdog Agent Execution</h2>
+          <h2 class="card-title">7.2 Continuous Monitoring Loop</h2>
+          <p>The Watchdog Agent executes automated scrape passes on a configurable interval (default: 60s), maintaining
+            a 7-day TTL SQLite state cache (<code>output/cache/state_cache.db</code>) to skip previously fetched URLs
+            and send Telegram status summaries.</p>
+
           <div class="code-block-container">
             <div class="code-header">
-              <span>POWERSHELL // WATCHDOG LAUNCHER</span>
+              <span>POWERSHELL // WATCHDOG AGENT COMMAND</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre>.\run_monitor.bat --keyword "meenfox" --use-state-cache</pre>
+            <pre># Run Watchdog Agent via launcher wrapper
+.\run_monitor.bat --keyword "example_subject" --use-state-cache
+
+# Run direct CLI script
+python src/cli/monitor_agent.py --keyword "example_subject" --seed seeds/example_subject.txt --use-state-cache</pre>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 6.3 -->
+      <!-- 7.3 Notification Pipeline -->
       <section id="sec-ops-notifications" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
-          <h1>Multi-Channel Notifications</h1>
-          <p class="section-desc">Pluggable notification providers for Telegram, Discord, Slack, and Webhooks.</p>
+          <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
+          <h1>Notification Pipeline</h1>
+          <p class="section-desc">Pluggable notification channels (Telegram, Discord, Slack, Webhooks).</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.3 Notification Pipeline Configuration</h2>
-          <p>Configure credentials in <code>.env</code> to receive completion summaries and WAF block alerts across
-            Telegram, Discord, Slack, or custom HTTP webhooks.</p>
-        </div>
-      </section>
+          <h2 class="card-title">7.3 Multi-Channel Alerts</h2>
+          <p>Notifications are dispatched asynchronously across all configured providers when runs complete, harvest
+            milestones are hit, or WAF blocks occur:</p>
 
-      <!-- SECTION 6.4 -->
-      <section id="sec-ops-debt" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
-          <h1>Tech Debt & Continuity Rules</h1>
-          <p class="section-desc">Guidelines for codebase hygiene and architectural continuity.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">6.4 Maintenance & Continuity Principles</h2>
-          <div class="alert important">
-            <div class="alert-title">[!] CONTINUITY & TECH DEBT PREVENTION</div>
-            Always preserve backward compatibility across API contracts, use safe filter concatenation
-            (`filters.safe_join`), and trace errors back to authoritative code before making file edits.
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Channel</th>
+                  <th>Required Credentials (.env)</th>
+                  <th>Payload Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Telegram Bot</td>
+                  <td><code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_CHAT_ID</code></td>
+                  <td>HTML formatted text + inline command handler.</td>
+                </tr>
+                <tr>
+                  <td>Discord Webhook</td>
+                  <td><code>DISCORD_WEBHOOK_URL</code></td>
+                  <td>Rich embedded card layout.</td>
+                </tr>
+                <tr>
+                  <td>Slack Webhook</td>
+                  <td><code>SLACK_WEBHOOK_URL</code></td>
+                  <td>Block Kit message layout.</td>
+                </tr>
+                <tr>
+                  <td>Custom Webhook</td>
+                  <td><code>CUSTOM_WEBHOOK_URL</code></td>
+                  <td>JSON POST payload with run metrics.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <!-- SECTION 7.1 -->
-      <section id="sec-kt-troubleshooting" class="doc-section">
+      <!-- 7.4 Proxy Pool Management -->
+      <section id="sec-ops-proxy" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
-          <h1>Operator Diagnostic Matrix</h1>
-          <p class="section-desc">Troubleshooting guide for runtime issues and WAF challenges.</p>
+          <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
+          <h1>Proxy Pool Management</h1>
+          <p class="section-desc">Proxy rotation, latency auto-quarantine, and bandwidth quotas.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.1 Symptom Resolution Table</h2>
+          <h2 class="card-title">7.4 Proxy Manager Strategy</h2>
+          <p>The proxy manager (<code>src/network/proxy_manager.py</code>) handles IP rotation with automated latency
+            tracking:</p>
+          <ul>
+            <li><strong>Auto-Quarantine</strong>: Proxies emitting 3 consecutive errors or latency &gt;5000ms are
+              quarantined for 10 minutes.</li>
+            <li><strong>Bandwidth Quotas</strong>: Stops proxy usage when <code>PROXY_MAX_BANDWIDTH_MB</code> quota is
+              reached.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 7.5 Session and Cookie Management -->
+      <section id="sec-ops-sessions" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
+          <h1>Session and Cookie Management</h1>
+          <p class="section-desc">Persistent per-domain sticky sessions and interactive cookie login.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">7.5 Session Storage</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>BASH // SESSION LOGIN COMMANDS</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Capture cookies via interactive browser window
+python src/cli/main.py --login example.com
+
+# Inject Netscape cookies file
+python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- MODULE 08: OUTPUT AND EXPORTS                                    -->
+      <!-- ================================================================ -->
+
+      <!-- 8.1 Output Directory Structure -->
+      <section id="sec-output-structure" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>Output Directory Structure</h1>
+          <p class="section-desc">Run output artifacts layout.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.1 Artifact Organization</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>TEXT // OUTPUT DIRECTORY LAYOUT</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>output/{subject}/runs/{run_id}/
+├── results.json             -- Full result payload (images, videos, rejected, domain stats)
+├── domain_report.json       -- Per-domain pages scanned and media yield
+├── images.csv / videos.csv  -- Flat exports (if --output both used)
+├── images/                  -- Downloaded images grouped by domain
+│   └── {domain}/
+└── videos/                  -- Downloaded videos grouped by domain
+    └── {domain}/</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8.2 manifest.json Schema -->
+      <section id="sec-output-manifest" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>manifest.json Schema</h1>
+          <p class="section-desc">Complete results JSON schema documentation.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.2 JSON Payload Fields</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>keyword</code></td>
+                  <td>string</td>
+                  <td>Target search keyword or subject slug.</td>
+                </tr>
+                <tr>
+                  <td><code>run_id</code></td>
+                  <td>string</td>
+                  <td>Unique timestamp run identifier.</td>
+                </tr>
+                <tr>
+                  <td><code>duration_seconds</code></td>
+                  <td>float</td>
+                  <td>Total execution wall-clock time in seconds.</td>
+                </tr>
+                <tr>
+                  <td><code>page_count</code></td>
+                  <td>int</td>
+                  <td>Total web pages scanned during crawl.</td>
+                </tr>
+                <tr>
+                  <td><code>images</code></td>
+                  <td>list[dict]</td>
+                  <td>Kept image media items with dimensions, score, and disk path.</td>
+                </tr>
+                <tr>
+                  <td><code>videos</code></td>
+                  <td>list[dict]</td>
+                  <td>Kept video media items with resolution hints and disk path.</td>
+                </tr>
+                <tr>
+                  <td><code>rejected_items</code></td>
+                  <td>list[dict]</td>
+                  <td>Filtered items with rejection reasons and score details.</td>
+                </tr>
+                <tr>
+                  <td><code>domain_stats</code></td>
+                  <td>dict</td>
+                  <td>Per-domain breakdown (pages hit, images found, videos found).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8.3 domain_report.json Schema -->
+      <section id="sec-output-domain" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>domain_report.json Schema</h1>
+          <p class="section-desc">Per-domain crawl metrics report.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.3 Per-Domain Yield Report</h2>
+          <p>Provides per-host yield analysis including pages scanned, images kept, videos kept, rejected items, and 429
+            error counts.</p>
+        </div>
+      </section>
+
+      <!-- 8.4 Kohya LoRA Dataset Export -->
+      <section id="sec-output-kohya" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>Kohya LoRA Dataset Export</h1>
+          <p class="section-desc">Kohya_ss LoRA dataset ZIP archive generation.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.4 LoRA Dataset Generator</h2>
+          <p>Generates ZIP archives formatted for Kohya_ss LoRA training (<code>src/ml/dataset_exporter.py</code>),
+            complete with trigger tag prefixes and sidecar <code>.txt</code> caption files.</p>
+        </div>
+      </section>
+
+      <!-- 8.5 RAG Ingestion Formats -->
+      <section id="sec-output-rag" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>RAG Ingestion Formats</h1>
+          <p class="section-desc">LLM RAG exports (Markdown chunks and JSONL embeddings).</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.5 RAG Export Options</h2>
+          <p>The interactive wizard exports scraped data for vector indexing:</p>
+          <ul>
+            <li><strong>Single Consolidated Markdown</strong>: Entire run context in one <code>.md</code> document.</li>
+            <li><strong>Chunked Page-Level Markdown</strong>: Individual page <code>.md</code> files with metadata
+              headers.</li>
+            <li><strong>JSONL Embeddings Format</strong>: Line-delimited JSON objects formatted for vector store
+              splitters.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- MODULE 09: TESTING AND TROUBLESHOOTING                           -->
+      <!-- ================================================================ -->
+
+      <!-- 9.1 Running pytest -->
+      <section id="sec-test-pytest" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
+          <h1>Running pytest</h1>
+          <p class="section-desc">Executing the automated test suite.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">9.1 Automated Pytest Suite</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // RUN FULL TEST SUITE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Run all 378+ unit and integration tests
+pytest tests/ -v</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9.2 Verification Protocol (TDAI) -->
+      <section id="sec-test-tdai" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
+          <h1>Verification Protocol (TDAI)</h1>
+          <p class="section-desc">Test-Driven AI verification rules and RED-GREEN-REFACTOR protocol.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">9.2 Empirical Verification Protocol</h2>
+          <div class="alert important">
+            <div class="alert-title">[!] MANDATORY RULE</div>
+            Never declare a feature or fix complete without running empirical runtime verification commands and
+            demonstrating clean test passes.
+          </div>
+        </div>
+      </section>
+
+      <!-- 9.3 Log Diagnostics Recipes -->
+      <section id="sec-test-logs" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
+          <h1>Log Diagnostics Recipes</h1>
+          <p class="section-desc">Log analysis and grep commands for runtime diagnostics.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">9.3 PowerShell Diagnostic Commands</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // GREP LOGS FOR ERRORS AND BLOCKS</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Check for HTTP 429 rate limits and Cloudflare blocks
+Select-String -Path "logs/*.log" -Pattern "HTTP 429|cloudflare_blocked|ScraperBypassError"
+
+# Inspect failed downloads
+Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9.4 Operator Diagnostic Matrix -->
+      <section id="sec-test-diagnostic" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
+          <h1>Operator Diagnostic Matrix</h1>
+          <p class="section-desc">Exhaustive diagnostic table for operator troubleshooting.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">9.4 Diagnostic Matrix</h2>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Symptom</th>
-                  <th>Root Cause Location</th>
+                  <th>Where to Look</th>
                   <th>Resolution Action</th>
                 </tr>
               </thead>
@@ -903,14 +2229,57 @@ pytest tests/ -v</pre>
                   <td>Add better seed URLs or check if domain is blacklisted in <code>data/blacklist.json</code>.</td>
                 </tr>
                 <tr>
-                  <td>Frequent HTTP 429 Errors</td>
+                  <td>Too many rejected items</td>
+                  <td><code>results.json &rarr; rejected_items[]</code></td>
+                  <td>Check rejection reason field and tune threshold filters in <code>src/core/filters.py</code>.</td>
+                </tr>
+                <tr>
+                  <td>Frequent HTTP 429 errors</td>
                   <td>Log grep for <code>HTTP 429</code></td>
-                  <td>Lower RPS rate limit in <code>data/domain_config.json</code> under <code>rate_limits</code>.</td>
+                  <td>Lower RPS in <code>data/domain_config.json</code> under <code>rate_limits</code>.</td>
+                </tr>
+                <tr>
+                  <td>Crawl waste on same domain</td>
+                  <td>Log grep for <code>Falling back</code></td>
+                  <td>Add <code># cloudflare: true</code> to that domain section in seed file.</td>
+                </tr>
+                <tr>
+                  <td>Crawl fallback failures</td>
+                  <td>Log grep for <code>ScraperBypassError</code></td>
+                  <td>Add domain to <code>referer_overrides</code> or <code>hotlink_protected</code> in
+                    <code>data/domain_config.json</code>.</td>
+                </tr>
+                <tr>
+                  <td>Domain over-crawled</td>
+                  <td><code>domain_report.json</code> (high pages, low yield)</td>
+                  <td>Add <code># max_pages: N</code> annotation header to seed file for that domain.</td>
                 </tr>
                 <tr>
                   <td>Booru thumbnails only</td>
-                  <td>Seed manifest URL</td>
-                  <td>Set <code># crawl: index→detail</code> and <code># depth: 1</code> for that domain.</td>
+                  <td>Output filenames (e.g. <code>pic256.jpg</code>)</td>
+                  <td>Set <code># crawl: index&rarr;detail</code> and <code># depth: 1</code> in seed manifest.</td>
+                </tr>
+                <tr>
+                  <td>Low-resolution media</td>
+                  <td>Downloaded output files</td>
+                  <td>Add transformation pattern to <code>highres_transforms</code> in
+                    <code>data/domain_config.json</code>.</td>
+                </tr>
+                <tr>
+                  <td>Heavy SPA (YouTube/TikTok) fails</td>
+                  <td>Empty results from JS SPA sites</td>
+                  <td>Ensure domain routes to <code>SpecializedExtractor</code> (uses <code>yt-dlp</code>) in
+                    <code>src/core/engine.py</code>.</td>
+                </tr>
+                <tr>
+                  <td>Duplicate URL downloads</td>
+                  <td>Duplicate filenames across locales</td>
+                  <td>Add URL canonicalization rule to <code>data/url_normalisation_rules.json</code>.</td>
+                </tr>
+                <tr>
+                  <td>Download stream failures</td>
+                  <td><code>results.json &rarr; status == "failed"</code></td>
+                  <td>Check <code>failure_reason</code> (blocked hotlink, small size, MIME mismatch).</td>
                 </tr>
               </tbody>
             </table>
@@ -918,39 +2287,36 @@ pytest tests/ -v</pre>
         </div>
       </section>
 
-      <!-- SECTION 7.2 -->
-      <section id="sec-kt-guidelines" class="doc-section">
+      <!-- 9.5 Developer Guidelines -->
+      <section id="sec-test-guidelines" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
+          <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
           <h1>Developer Guidelines</h1>
-          <p class="section-desc">Documentation standards and agent rules.</p>
+          <p class="section-desc">Mandatory coding rules and workspace standards.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.2 Developer Resources</h2>
-          <p>Consult <code>AGENTS.md</code> for workspace operational guidelines, <code>CONTRIBUTING.md</code> for
-            contribution workflows, and <code>SECURITY.md</code> for static analysis compliance.</p>
-        </div>
-      </section>
-
-      <!-- SECTION 7.3 -->
-      <section id="sec-kt-export" class="doc-section">
-        <div class="section-header">
-          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
-          <h1>Dataset Export & Outputs</h1>
-          <p class="section-desc">Kohya_ss LoRA dataset ZIP export and metadata sidecars.</p>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">7.3 Output Files & LoRA Exporter</h2>
-          <p>Scraped media files are saved under <code>output/&lt;subject&gt;/runs/&lt;run_id&gt;/</code> along with
-            structured <code>results.json</code> payload, <code>domain_report.json</code>, and Kohya_ss formatted ZIP
-            archives.</p>
+          <h2 class="card-title">9.5 Mandatory Coding Rules</h2>
+          <ol>
+            <li><strong>Empirical Log Diagnostics</strong>: Never diagnose an error without inspecting un-truncated log
+              tracebacks.</li>
+            <li><strong>No Hardcoded Domain Rules in Source</strong>: All domain rules belong in JSON configuration
+              files (<code>domain_config.json</code>, <code>url_normalisation_rules.json</code>).</li>
+            <li><strong><code>None</code>-Safety in Filters</strong>: Always use <code>filters.safe_join(items)</code>
+              when concatenating string tokens.</li>
+            <li><strong>Preserve API Contracts</strong>: Update all invocation sites when altering function signatures.
+            </li>
+            <li><strong>No Superficial Symptom Patches</strong>: Never swallow exceptions or delete failing unit tests
+              to mask errors.</li>
+          </ol>
         </div>
       </section>
 
     </main>
   </div>
+
+  <!-- Scroll-to-Top Button -->
+  <button id="scroll-top-btn" class="scroll-top-btn" aria-label="Scroll to top">[^]</button>
 
   <script src="app.js"></script>
 </body>

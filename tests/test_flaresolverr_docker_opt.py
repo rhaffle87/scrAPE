@@ -23,7 +23,7 @@ def test_transform_to_highres_domain_config_and_wordpress(monkeypatch):
     mock_config = {
         "highres_transforms": {
             "booru": {
-                "host_contains": ["rule34", "booru"],
+                "host_contains": ["example.com"],
                 "rules": [
                     {"pattern": r"\.pic\d+\.(jpe?g|png|webp)$", "replacement": r".\1", "target": "path"}
                 ]

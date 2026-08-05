@@ -69,7 +69,7 @@ def test_discord_notifier_formatting(monkeypatch):
     assert success is True
     assert posted["url"] == "https://discord.com/api/webhooks/dummy/123"
     assert "embeds" in posted["json"]
-    assert posted["json"]["embeds"][0]["title"] == "⚡ scrAPE Run Completed"
+    assert posted["json"]["embeds"][0]["title"] == "SCRAPE Run Completed"
 
 
 def test_slack_notifier_formatting(monkeypatch):
