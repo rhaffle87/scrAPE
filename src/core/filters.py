@@ -57,14 +57,18 @@ def is_search_page_url(url: str) -> bool:
 
 def normalize_url(url: str) -> str:
     from urllib.parse import unquote, quote
-    from config import URL_NORMALISATION_RULES
+    import config
 
     try:
         url = url.strip()
         # Apply all domain-specific URL normalisation rules from config.
         # Rules collapse variant URLs (e.g. locale-prefixed paths) to a single
         # canonical form before the URL enters the crawl queue.
-        for pattern, replacement in URL_NORMALISATION_RULES:
+        rules = config.URL_NORMALISATION_RULES
+        if not rules:
+            config._load_dynamic_config()
+            rules = config.URL_NORMALISATION_RULES
+        for pattern, replacement in rules:
             url = pattern.sub(replacement, url)
         unquoted = unquote(url)
         parsed = urlparse(unquoted)

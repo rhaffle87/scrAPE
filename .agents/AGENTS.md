@@ -167,4 +167,4 @@ After a run completes, inspect these primary outputs:
 
 ## 6. Documentation Maintenance
 
-- Keep documentation synchronized across `README.md`, `docs/`, `AGENTS.md`, `DESIGN.md`, `CONTRIBUTING.md`, and `docs/CHANGELOG.md`.
+- Keep documentation synchronized across `README.md`, `docs/`, `.agents/AGENTS.md`, `DESIGN.md`, `CONTRIBUTING.md`, and `docs/CHANGELOG.md`.

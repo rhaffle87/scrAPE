@@ -31,13 +31,20 @@ def test_transform_to_highres_domain_config_and_wordpress(monkeypatch):
         }
     }
     
-    def mock_exists(self):
-        return True
-        
-    def mock_read_text(self, encoding=None):
-        return json.dumps(mock_config)
-        
     import pathlib
+    orig_exists = pathlib.Path.exists
+    orig_read_text = pathlib.Path.read_text
+
+    def mock_exists(self):
+        if self.name == "domain_config.json":
+            return True
+        return orig_exists(self)
+        
+    def mock_read_text(self, encoding=None, errors=None):
+        if self.name == "domain_config.json":
+            return json.dumps(mock_config)
+        return orig_read_text(self, encoding=encoding, errors=errors)
+        
     from core.filters import _reset_highres_cache
     _reset_highres_cache()  # bust G1 mtime-cache so monkeypatch is effective
     monkeypatch.setattr(pathlib.Path, "exists", mock_exists)
