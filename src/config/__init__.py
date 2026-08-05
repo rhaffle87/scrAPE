@@ -208,10 +208,10 @@ PREFERRED_ENGINES: dict[str, str] = {}
 URL_NORMALISATION_RULES: list[tuple] = []
 
 def _load_dynamic_config() -> None:
-    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS, EMPTY_SEARCH_REDIRECTS, PREFERRED_ENGINES
+    global DOMAIN_REQUESTS_PER_SECOND, HOTLINK_PROTECTED_DOMAINS, REFERER_OVERRIDES, STEALTH_REQUIRED_DOMAINS, AUTH_GATED_DOMAINS, EMPTY_SEARCH_REDIRECTS, PREFERRED_ENGINES, URL_NORMALISATION_RULES
     # ── domain_config.json ────────────────────────────────────────────────
     try:
-        with open(PROJECT_ROOT / "data" / "domain_config.json", "r") as f:
+        with open(PROJECT_ROOT / "data" / "domain_config.json", "r", encoding="utf-8") as f:
             cfg = json.load(f)
             DOMAIN_REQUESTS_PER_SECOND.update(cfg.get("rate_limits", {}))
             HOTLINK_PROTECTED_DOMAINS.update(cfg.get("hotlink_protected", []))
@@ -227,7 +227,8 @@ def _load_dynamic_config() -> None:
 
     # ── url_normalisation_rules.json ──────────────────────────────────────
     try:
-        with open(PROJECT_ROOT / "data" / "url_normalisation_rules.json", "r") as f:
+        URL_NORMALISATION_RULES.clear()
+        with open(PROJECT_ROOT / "data" / "url_normalisation_rules.json", "r", encoding="utf-8") as f:
             data = json.load(f)
         for rule in data.get("rules", []):
             pattern_str = rule.get("pattern", "")
