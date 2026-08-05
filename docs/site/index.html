@@ -1052,54 +1052,58 @@ python src/cli/cli_wizard.py</pre>
         <div class="card">
           <h2 class="card-title">4.2 WAF Pipeline Hierarchy</h2>
           <div class="waf-diagram-container">
-            <svg width="100%" height="160" viewBox="0 0 800 160" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                  <polygon points="0 0, 8 3, 0 6" fill="#ff5500" />
-                </marker>
-              </defs>
-              <rect x="10" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="52" y="55" class="waf-text-title">T1</text>
-              <text x="52" y="73" class="waf-text-desc">HTTPX</text>
-              <line x1="95" y1="60" x2="105" y2="60" class="waf-arrow" />
-
-              <rect x="110" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="152" y="55" class="waf-text-title">T2</text>
-              <text x="152" y="73" class="waf-text-desc">curl_cffi</text>
-              <line x1="195" y1="60" x2="205" y2="60" class="waf-arrow" />
-
-              <rect x="210" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="252" y="55" class="waf-text-title">T3</text>
-              <text x="252" y="73" class="waf-text-desc">+Referer</text>
-              <line x1="295" y1="60" x2="305" y2="60" class="waf-arrow" />
-
-              <rect x="310" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="352" y="55" class="waf-text-title">T4</text>
-              <text x="352" y="73" class="waf-text-desc">+Cookies</text>
-              <line x1="395" y1="60" x2="405" y2="60" class="waf-arrow" />
-
-              <rect x="410" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="452" y="55" class="waf-text-title">T5</text>
-              <text x="452" y="73" class="waf-text-desc">FlareSolverr</text>
-              <line x1="495" y1="60" x2="505" y2="60" class="waf-arrow" />
-
-              <rect x="510" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="552" y="55" class="waf-text-title">T6</text>
-              <text x="552" y="73" class="waf-text-desc">Crawlee Node</text>
-              <line x1="595" y1="60" x2="605" y2="60" class="waf-arrow" />
-
-              <rect x="610" y="30" width="85" height="60" class="waf-step-box" />
-              <text x="652" y="55" class="waf-text-title">T7</text>
-              <text x="652" y="73" class="waf-text-desc">Camoufox</text>
-              <line x1="695" y1="60" x2="705" y2="60" class="waf-arrow" />
-
-              <rect x="710" y="30" width="80" height="60" class="waf-step-box active" />
-              <text x="750" y="55" class="waf-text-title">T8</text>
-              <text x="750" y="73" class="waf-text-desc">DrissionPage</text>
-
-              <text x="400" y="130" class="waf-text-desc" fill="#e0e0e0">AUTOMATED escalation triggers on 403 Forbidden,
-                429 Rate Limit, or Cloudflare JS Challenge responses.</text>
-            </svg>
+            <div class="waf-pipeline-grid">
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T1</div>
+                <div class="waf-tier-name">HTTPX</div>
+                <div class="waf-tier-overhead">&lt;10ms</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T2</div>
+                <div class="waf-tier-name">curl_cffi</div>
+                <div class="waf-tier-overhead">20-50ms</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T3</div>
+                <div class="waf-tier-name">+Referer</div>
+                <div class="waf-tier-overhead">20-50ms</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T4</div>
+                <div class="waf-tier-name">+Cookies</div>
+                <div class="waf-tier-overhead">30-60ms</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T5</div>
+                <div class="waf-tier-name">FlareSolverr</div>
+                <div class="waf-tier-overhead">2-5s</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T6</div>
+                <div class="waf-tier-name">Crawlee Node</div>
+                <div class="waf-tier-overhead">1-3s</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card">
+                <div class="waf-tier-badge">T7</div>
+                <div class="waf-tier-name">Camoufox</div>
+                <div class="waf-tier-overhead">5-10s</div>
+                <span class="waf-tier-arrow">&rarr;</span>
+              </div>
+              <div class="waf-tier-card active">
+                <div class="waf-tier-badge">T8</div>
+                <div class="waf-tier-name">DrissionPage</div>
+                <div class="waf-tier-overhead">10-25s</div>
+              </div>
+            </div>
+            <div class="waf-diagram-caption">
+              <strong>[AUTOMATED ESCALATION PIPELINE]</strong>: Requests escalate automatically upon encountering HTTP 403 Forbidden, 429 Rate Limit, or Cloudflare JS Challenge responses.
+            </div>
           </div>
 
           <div class="table-container">
