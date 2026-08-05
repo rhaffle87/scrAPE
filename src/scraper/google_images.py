@@ -190,8 +190,10 @@ class SearchProviderScraper(BaseSearchScraper):
             final_path = response.url.path.lower().rstrip("/")
             login_paths = {"/login", "/signin", "/signup", "/register", "/auth", "/oauth"}
             if final_path in login_paths or any(p in final_path for p in ["/login/", "/signin/", "/auth/"]):
-                LOGGER.warning("Redirected to login wall: %s (final URL: %s)", url, response.url)
-                return [], [], "fetch_error:login_wall", "", ""
+                LOGGER.warning("Redirected to suspected login wall: %s (final URL: %s)", url, response.url)
+                # This is often a per-URL redirect (deleted/age-gated post), not a domain wall.
+                # Return empty results without flagging the host so other pages continue.
+                return [], [], "login_redirect_skipped", "", ""
 
             content_type = response.headers.get("content-type", "").lower()
             if (

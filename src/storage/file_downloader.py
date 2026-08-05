@@ -104,6 +104,7 @@ class MediaDownloader:
         state_cache=None,
         keyword: str = "",
         min_aesthetic_score: float | None = None,
+        save_rejected_reasons: str = "",
     ) -> None:
         from network.bandwidth_limiter import BandwidthLimiter
         from ml.aesthetic_scorer import AestheticScorer
@@ -120,6 +121,7 @@ class MediaDownloader:
         self._keyword = keyword.strip().lower()
         self.min_aesthetic_score = min_aesthetic_score
         self.aesthetic_scorer = AestheticScorer() if min_aesthetic_score is not None else None
+        self.save_rejected_reasons = save_rejected_reasons
         
         self._curl_session = None
         self._curl_session_lock = threading.Lock()
@@ -217,7 +219,30 @@ class MediaDownloader:
             and should_keep_video(item, result.keyword)
         ]
 
-        all_tasks = image_tasks + video_tasks
+        save_reasons = {
+            r.strip().lower()
+            for r in self.save_rejected_reasons.split(",")
+            if r.strip()
+        }
+        
+        rejected_tasks = []
+        if save_reasons:
+            for idx, item in enumerate(result.rejected_items, start=1):
+                if "all" in save_reasons or item.reason.lower() in save_reasons:
+                    reason_dir = output_root / "rejected" / item.reason
+                    reason_dir.mkdir(parents=True, exist_ok=True)
+                    prefix = self._build_file_stem(idx, "rejected")
+                    # item.kind should be "image" or "video", fallback to "image"
+                    rejected_tasks.append((
+                        item.url,
+                        reason_dir,
+                        prefix,
+                        item.kind if hasattr(item, "kind") else "image",
+                        item.source_page,
+                        item.url,
+                    ))
+
+        all_tasks = image_tasks + video_tasks + rejected_tasks
         if not all_tasks:
             return
 

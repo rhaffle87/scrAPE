@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 import time
@@ -82,6 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--download-media",
         action="store_true",
         help="Download discovered media into the output directory.",
+    )
+    parser.add_argument(
+        "--save-rejected",
+        type=str,
+        default="",
+        help="Comma-separated list of rejection reasons to download (e.g., 'low_subject_relevance,preview_or_thumbnail' or 'all').",
     )
     parser.add_argument(
         "--seed-url",
@@ -595,6 +602,7 @@ def main() -> None:
         global_rate_limit_rps=getattr(args, "rate_limit", 0.0),
     )
     engine.downloader.workers = args.dl_workers
+    engine.downloader.save_rejected_reasons = args.save_rejected
     if getattr(args, "aesthetic_score", None) is not None:
         from ml.aesthetic_scorer import AestheticScorer
         engine.downloader.min_aesthetic_score = args.aesthetic_score
@@ -620,26 +628,70 @@ def main() -> None:
         },
     )
 
+    from notifications.notification_manager import NotificationPipeline
+    from config import HARVEST_NOTIFY_THRESHOLD
+    from urllib.parse import urlparse as _up_notif
+
+    _notif = NotificationPipeline()
+    _notif_active = bool(_notif.providers)
+
+    # Collect unique seed domains for the start message (max 6 shown by provider)
+    _seed_domains: list[str] = []
+    _seen_sd: set[str] = set()
+    for _su in seed_urls:
+        _sd = _up_notif(_su).netloc.lower().lstrip("www.")
+        if _sd and _sd not in _seen_sd:
+            _seen_sd.add(_sd)
+            _seed_domains.append(_sd)
+
+    if _notif_active:
+        _notif.notify_run_start(
+            keyword=args.keyword,
+            seed_count=len(seed_urls),
+            seed_domains=_seed_domains,
+            max_results=args.max_results,
+            workers=args.workers,
+            page_limit=args.page_limit,
+            crawl_depth=args.crawl_depth,
+        )
+
+    # Harvest milestone callback — fires once after crawl finishes if total > threshold
+    _harvest_cb = None
+    if _notif_active and HARVEST_NOTIFY_THRESHOLD > 0:
+        def _harvest_cb(total: int) -> None:  # noqa: E306
+            _notif.notify_media_harvest(args.keyword, total)
+
+    # WAF block dedup — prevent repeat alerts for the same domain within one run
+    _waf_notified: set[str] = set()
+
     _run_start = time.monotonic()
-    result = engine.run(
-        keyword=args.keyword,
-        max_results=args.max_results,
-        output_format=args.output,
-        download_media=args.download_media,
-        seed_urls=seed_urls,
-        seed_domains=args.seed_domain,
-        allow_domains=args.allow_domain,
-        block_domains=args.block_domain,
-        entity_tokens=args.entity_token,
-        use_search=not args.skip_search,
-        page_limit=args.page_limit,
-        crawl_depth=args.crawl_depth,
-        strict_domain=args.strict_domain,
-        site_tree_only=args.site_tree_only,
-        seed_manifest=manifest,
-        domain_profiles=domain_profiles,
-        run_id=run_id,
-    )
+    try:
+        result = engine.run(
+            keyword=args.keyword,
+            max_results=args.max_results,
+            output_format=args.output,
+            download_media=args.download_media,
+            seed_urls=seed_urls,
+            seed_domains=args.seed_domain,
+            allow_domains=args.allow_domain,
+            block_domains=args.block_domain,
+            entity_tokens=args.entity_token,
+            use_search=not args.skip_search,
+            page_limit=args.page_limit,
+            crawl_depth=args.crawl_depth,
+            strict_domain=args.strict_domain,
+            site_tree_only=args.site_tree_only,
+            seed_manifest=manifest,
+            domain_profiles=domain_profiles,
+            run_id=run_id,
+            harvest_callback=_harvest_cb,
+        )
+    except Exception as _run_exc:
+        import traceback as _tb
+        _run_err_msg = _tb.format_exc()
+        if _notif_active:
+            _notif.notify_run_error(args.keyword, _run_err_msg)
+        raise
     result.duration_seconds = int(time.monotonic() - _run_start)
     metadata_updates = {
         "seed_file": str(active_seed_file) if active_seed_file else None,
@@ -679,10 +731,24 @@ def main() -> None:
         exporter = DatabaseExporter(db_path)
         exporter.export(result)
 
-    import json
+    from collections import Counter as _Counter
+    from urllib.parse import urlparse as _urlparse_report
 
+    _rejection_by_domain: dict[str, _Counter] = {}
+    for _ri in result.rejected_items:
+        _h = _urlparse_report(_ri.source_page).netloc.lower()
+        _rejection_by_domain.setdefault(_h, _Counter())[_ri.reason] += 1
+
+    _domain_report = {
+        domain: {
+            **stats,
+            "rejection_reasons": dict(_rejection_by_domain.get(domain, {})),
+        }
+        for domain, stats in result.domain_stats.items()
+    }
     with open(output_root / "domain_report.json", "w", encoding="utf-8") as f:
-        json.dump(result.domain_stats, f, indent=2)
+        json.dump(_domain_report, f, indent=2)
+
 
     # Generate post-run summary observability report and write run_summary.json
     from core.run_summary import generate_run_summary
@@ -699,6 +765,44 @@ def main() -> None:
         videos=len(result.videos),
         output_dir=output_root.resolve(),
     )
+
+    # ── Run-complete notification ──────────────────────────────────────────
+    if _notif_active:
+        from collections import Counter as _NC
+        _pages_total = sum(s.get("pages_scanned", 0) for s in result.domain_stats.values())
+        _duration_s = float(result.duration_seconds)
+
+        # Top domains by media yield
+        _dom_sorted = sorted(
+            result.domain_stats.items(),
+            key=lambda kv: kv[1].get("images_kept", 0) + kv[1].get("videos_kept", 0),
+            reverse=True,
+        )
+
+        # Aggregate rejection reasons from result.rejected_items
+        _all_reasons: _NC = _NC(item.reason for item in result.rejected_items)
+
+        _notif.notify_run_complete(
+            keyword=args.keyword,
+            pages=_pages_total,
+            images=len(result.images),
+            videos=len(result.videos),
+            duration_s=_duration_s,
+            extra_text=(
+                "<b>Top domains:</b>\n"
+                + "\n".join(
+                    f"  <code>{d}</code> \u2192 {s.get('images_kept',0)} img / {s.get('videos_kept',0)} vid"
+                    for d, s in _dom_sorted[:3]
+                    if s.get("images_kept", 0) + s.get("videos_kept", 0) > 0
+                )
+                + (
+                    "\n\n<b>Top rejections:</b> "
+                    + " | ".join(f"{r}: {c}" for r, c in _all_reasons.most_common(3))
+                    if _all_reasons else ""
+                )
+            ),
+        )
+    # ──────────────────────────────────────────────────────────────────────
 
 
 import atexit

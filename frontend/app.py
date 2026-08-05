@@ -108,6 +108,7 @@ class ScrapeRequest(BaseModel):
     headless: Optional[bool] = False
     stealth_headful: Optional[bool] = False
     dl_speed_limit: Optional[int] = 0
+    save_rejected: Optional[str] = ""
     rate_limit: Optional[float] = 0.0
 
 task_state: Dict[str, Any] = {
@@ -469,6 +470,8 @@ def run_scrape(req: ScrapeRequest):
         
     if req.download_media:
         cmd.append("--download-media")
+    if req.save_rejected:
+        cmd.extend(["--save-rejected", req.save_rejected])
     if req.ignore_robots:
         cmd.append("--ignore-robots")
     if req.skip_search:
@@ -941,6 +944,9 @@ async def htmx_run(request: Request):
         req.seed = seed_val
     if form.get("download_media") == "on":
         req.download_media = True
+    save_rejected_val = _get_form_str(form, "save_rejected")
+    if save_rejected_val:
+        req.save_rejected = save_rejected_val
     if form.get("ignore_robots") == "on":
         req.ignore_robots = True
     if form.get("skip_search") == "on":

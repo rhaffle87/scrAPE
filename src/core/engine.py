@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Callable
 
 from typing import TYPE_CHECKING, Any
 
@@ -159,6 +160,7 @@ class ScrapingEngine:
         domain_profiles: dict | None = None,
         run_id: str | None = None,
         ignore_robots: bool = False,
+        harvest_callback: "Callable[[int], None] | None" = None,
     ):
         run_output_dir = Path(OUTPUT_DIR)
 
@@ -236,6 +238,15 @@ class ScrapingEngine:
 
         result.images = media_processor.finalize_images(result, options)
         result.videos = media_processor.finalize_videos(result, options)
+
+        # Fire harvest milestone callback if provided
+        if harvest_callback is not None:
+            total = len(result.images) + len(result.videos)
+            if total > 0:
+                try:
+                    harvest_callback(total)
+                except Exception:
+                    pass
 
         # Download media
         if options.download_media:

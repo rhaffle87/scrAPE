@@ -3,9 +3,14 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin, urlparse, urlunparse
 
+import json as _json
+import os as _os
+from pathlib import Path as _Path
+
 from config import (
     DASH_EXTENSIONS,
     GENERIC_ASSET_TERMS,
+    UTILITY_ASSET_TERMS,
     HLS_EXTENSIONS,
     IMAGE_EXTENSIONS,
     PREVIEW_MARKERS,
@@ -34,14 +39,17 @@ def is_search_page_url(url: str) -> bool:
         parsed = urlparse(url)
         path = parsed.path.lower()
         query = parsed.query.lower()
-        if re.search(r"/(?:search|find|query)(?:/|\?|$)", path):
+        # Path-based detection: /search/, /results, /query, /find
+        if re.search(r"/(?:search|find|query|results)(?:/|\?|$)", path):
             return True
-        if ("search?" in query or "q=" in query or "text=" in query) and (
-            "search" in path or 
-            parsed.netloc == "flickr.com" or parsed.netloc.endswith(".flickr.com") or 
-            parsed.netloc == "vimeo.com" or parsed.netloc.endswith(".vimeo.com")
-        ):
+        # Query-based detection: common search param names on any host
+        if any(qp in query for qp in ("search_query=", "search=", "q=", "query=", "text=")):
             return True
+        # Platform-specific: Flickr / Vimeo search via ?q= or similar
+        if (parsed.netloc in ("flickr.com", "vimeo.com")
+                or parsed.netloc.endswith((".flickr.com", ".vimeo.com"))):
+            if any(qp in query for qp in ("q=", "text=", "search_query=")):
+                return True
     except Exception:
         pass
     return False
@@ -60,9 +68,22 @@ def normalize_url(url: str) -> str:
             url = pattern.sub(replacement, url)
         unquoted = unquote(url)
         parsed = urlparse(unquoted)
+        # Strip content-neutral locale query params (hl, lang, locale) so
+        # /media/0338?hl=ru and /media/0338 collapse to one canonical URL,
+        # preventing duplicate fetches/downloads on any domain.
+        if parsed.query:
+            from urllib.parse import parse_qsl, urlencode
+            kept = [
+                (k, v)
+                for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+                if k.lower() not in {"hl", "lang", "locale"}
+            ]
+            query = urlencode(kept) if kept else ""
+        else:
+            query = parsed.query
         # Re-quote path and query parameters to ensure canonical escaping
         quoted_path = quote(parsed.path, safe="/")
-        quoted_query = quote(parsed.query, safe="=&%")
+        quoted_query = quote(query, safe="=&%")
         cleaned = parsed._replace(fragment="", path=quoted_path, query=quoted_query)
         return urlunparse(cleaned)
     except Exception:
@@ -315,6 +336,26 @@ def is_allowed_path(url: str) -> bool:
         return False
 
 
+def is_pagination_url(url: str) -> bool:
+    """Return True if *url* looks like a pagination/index offset link.
+
+    Matches the same shapes the detail-page classifier rejects as pagination
+    (/page/N, /p/N, ?page=N, ?p=N) so callers can re-admit subject-scoped
+    pagination links as crawlable index nodes.
+    """
+    try:
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        query = parsed.query.lower()
+        if any(p in path for p in ("/page/", "/p/", "/pg/")):
+            return True
+        if re.search(r"(?:^|&)(?:page|p|pg)=\d", query):
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def normalize_token(value: str) -> str:
     return "".join(TOKEN_PATTERN.findall(value.lower()))
 
@@ -334,8 +375,33 @@ def subject_tokens(keyword: str, entity_tokens: list[str] | None = None) -> set[
     return raw_terms | compact
 
 
+def _fuzzy_similarity(a: str, b: str) -> float:
+    """Dice coefficient for character bigrams; 0.0 .. 1.0."""
+    if a == b:
+        return 1.0
+    if len(a) < 2 or len(b) < 2:
+        return 0.0
+    ab = {a[i : i + 2] for i in range(len(a) - 1)}
+    bb = {b[i : i + 2] for i in range(len(b) - 1)}
+    inter = len(ab & bb)
+    if inter == 0:
+        return 0.0
+    return 2.0 * inter / (len(ab) + len(bb))
+
+
+# Minimum Dice similarity for a seed-derived alias to count as a subject match.
+# Conservative: a loose alias (one extra/repeated character, e.g. a site's slug
+# differing from the canonical keyword) scores ~0.88; unrelated slugs drop well
+# below this. Tune down only with care, as raising it risks over-allowance
+# across all domains.
+ALIAS_FUZZY_THRESHOLD = 0.75
+
+
 def weighted_subject_score(
-    text: str, keyword: str, entity_tokens: list[str] | None = None
+    text: str,
+    keyword: str,
+    entity_tokens: list[str] | None = None,
+    subject_aliases: list[str] | None = None,
 ) -> int:
     lowered = text.lower()
     compact_text = normalize_token(lowered)
@@ -351,13 +417,28 @@ def weighted_subject_score(
             continue
         if token in compact_text:
             score += 3
+    # Seed-derived aliases add weak positive signal when fuzzy-matched against
+    # raw slug segments (URL paths, filenames). Handles sites that spell the
+    # subject's handle slightly differently from the canonical keyword
+    # (fuzzy-name mismatch). Segments preserve the slug boundary that
+    # normalize_token would otherwise merge.
+    if score == 0 and subject_aliases:
+        raw_tokens = {t for t in re.split(r"[^a-z0-9]+", lowered) if len(t) >= 3}
+        for alias in subject_aliases:
+            for tok in raw_tokens:
+                if _fuzzy_similarity(alias, tok) >= ALIAS_FUZZY_THRESHOLD:
+                    score += 3
+                    break
     return score
 
 
 def contains_subject_text(
-    text: str, keyword: str, entity_tokens: list[str] | None = None
+    text: str,
+    keyword: str,
+    entity_tokens: list[str] | None = None,
+    subject_aliases: list[str] | None = None,
 ) -> bool:
-    return weighted_subject_score(text, keyword, entity_tokens) > 0
+    return weighted_subject_score(text, keyword, entity_tokens, subject_aliases) > 0
 
 
 def _preview_penalty(text: str) -> int:
@@ -644,23 +725,57 @@ def has_low_res_path_pattern(
     return False
 
 
-def is_search_page_url(url: str) -> bool:
-    """Check if URL points to a search/query results endpoint that should not be crawled as a content page."""
-    try:
-        parsed = urlparse(url.lower())
-        path = parsed.path
-        query = parsed.query
-        host = parsed.netloc
 
-        if any(sp in path for sp in ["/search", "/results", "/query"]):
-            return True
-        if any(qp in query for qp in ["q=", "query=", "text=", "search_query=", "search="]):
-            return True
-        if any(sh in host for sh in ["google.com", "vimeo.com", "flickr.com", "youtube.com"]) and ("search" in path or "results" in path or "q=" in query):
-            return True
+
+# ---------------------------------------------------------------------------
+# G1: Module-level mtime-cached loader for highres_transforms in domain_config.json.
+# Prevents one disk-read per image download — reads once and re-reads only when
+# the file changes on disk.
+# ---------------------------------------------------------------------------
+_HIGHRES_CFG_CACHE: dict = {}
+_HIGHRES_CFG_MTIME: float = 0.0
+_HIGHRES_CFG_PATH: _Path | None = None
+
+
+def _get_highres_transforms() -> dict:
+    """Return the highres_transforms section of domain_config.json, mtime-cached.
+
+    Cache invalidation is based on file mtime. When mtime is unavailable (file
+    absent from the real FS but Path.read_text may be monkeypatched in tests),
+    we attempt a direct read so the test isolation layer still works.
+    """
+    global _HIGHRES_CFG_CACHE, _HIGHRES_CFG_MTIME, _HIGHRES_CFG_PATH
+    if _HIGHRES_CFG_PATH is None:
+        p = _Path("data/domain_config.json")
+        if not p.exists():
+            p = _Path(__file__).resolve().parent.parent.parent / "data" / "domain_config.json"
+        _HIGHRES_CFG_PATH = p
+    try:
+        mtime = _os.path.getmtime(str(_HIGHRES_CFG_PATH))
+        if mtime != _HIGHRES_CFG_MTIME:
+            raw = _json.loads(_HIGHRES_CFG_PATH.read_text(encoding="utf-8"))
+            _HIGHRES_CFG_CACHE = raw.get("highres_transforms", {})
+            _HIGHRES_CFG_MTIME = mtime
+    except OSError:
+        # File absent on real FS — but Path.read_text may be monkeypatched
+        # (e.g. in tests). Attempt a direct read and cache the result.
+        try:
+            raw = _json.loads(_HIGHRES_CFG_PATH.read_text(encoding="utf-8"))
+            _HIGHRES_CFG_CACHE = raw.get("highres_transforms", {})
+        except Exception:
+            pass
     except Exception:
         pass
-    return False
+    return _HIGHRES_CFG_CACHE
+
+
+def _reset_highres_cache() -> None:
+    """Reset the mtime-cache so the next call to _get_highres_transforms() re-reads
+    the file from disk. Intended for use in tests that monkeypatch Path.read_text."""
+    global _HIGHRES_CFG_CACHE, _HIGHRES_CFG_MTIME, _HIGHRES_CFG_PATH
+    _HIGHRES_CFG_CACHE = {}
+    _HIGHRES_CFG_MTIME = 0.0
+    _HIGHRES_CFG_PATH = None
 
 
 def transform_to_highres(url: str) -> tuple[str, str]:
@@ -675,23 +790,13 @@ def transform_to_highres(url: str) -> tuple[str, str]:
         query = parsed.query
         host = parsed.netloc.lower()
 
-        # Domain-specific highres transforms loaded from data/domain_config.json
-        import json as _json
-        from pathlib import Path as _Path
-        _dc_path = _Path("data/domain_config.json")
-        if not _dc_path.exists():
-            # Fallback: resolve relative to project root (two levels up from src/core/)
-            _dc_path = _Path(__file__).resolve().parent.parent.parent / "data" / "domain_config.json"
-        if _dc_path.exists():
-            try:
-                _dc = _json.loads(_dc_path.read_text(encoding="utf-8"))
-                for _rg in _dc.get("highres_transforms", {}).values():
-                    if any(p in host for p in _rg.get("host_contains", [])):
-                        for _rule in _rg.get("rules", []):
-                            if _rule.get("target") == "path":
-                                path = re.sub(_rule["pattern"], _rule["replacement"], path, flags=re.I)
-            except Exception:
-                pass
+        # Domain-specific highres transforms — loaded once via mtime-cache
+        _dc = _get_highres_transforms()
+        for _rg in _dc.values():
+            if any(p in host for p in _rg.get("host_contains", [])):
+                for _rule in _rg.get("rules", []):
+                    if _rule.get("target") == "path":
+                        path = re.sub(_rule["pattern"], _rule["replacement"], path, flags=re.I)
 
         # WordPress / generic style dimension pattern e.g. -150x150.jpg, -300x200.jpg, -1024x768.png, -scaled.jpg
         wp_match = re.search(r"(-\d{2,4}x\d{2,4}|-scaled)(\.[a-zA-Z0-9]{3,4})$", path, re.I)
@@ -785,10 +890,14 @@ def rejection_reason_for_image(
                 getattr(item, "parent_anchor_href", ""),
             ]
         ).lower()
-        if not contains_subject_text(asset_text, keyword, entity_tokens):
+        if not contains_subject_text(
+            asset_text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+        ):
             return "low_subject_relevance"
 
-    if any(term in text for term in GENERIC_ASSET_TERMS):
+    # Hard-reject only unambiguous site-chrome (UTILITY_ASSET_TERMS).
+    # GENERIC_ASSET_TERMS items are soft-penalty only (score -3 in score_image_relevance).
+    if any(term in text for term in UTILITY_ASSET_TERMS):
         return "generic_asset"
     if any(token in text for token in {"captcha", "blank", "placeholder", "spacer"}):
         return "placeholder_asset"
@@ -798,7 +907,9 @@ def rejection_reason_for_image(
         item.url, min_width=300, min_height=250
     ):
         return "low_resolution_hint"
-    if not contains_subject_text(text, keyword, entity_tokens):
+    if not contains_subject_text(
+        text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+    ):
         return "low_subject_relevance"
     if score < 1:
         return "low_score"
@@ -842,18 +953,34 @@ def rejection_reason_for_video(
                 getattr(item, "parent_anchor_href", ""),
             ]
         ).lower()
-        if not contains_subject_text(asset_text, keyword, entity_tokens):
+        if not contains_subject_text(
+            asset_text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+        ):
             return "low_subject_relevance"
 
     if any(token in text for token in {"captcha", "blank", "placeholder", "spacer"}):
         return "placeholder_asset"
     if _preview_penalty(item.url.lower()) >= 6:
         return "preview_or_thumbnail"
-    if not contains_subject_text(text, keyword, entity_tokens):
+    if not contains_subject_text(
+        text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+    ):
         return "low_subject_relevance"
     if score < 1:
         return "low_score"
     return None
+
+
+def _aliases_for(source_page: str, domain_profiles: dict | None) -> list[str] | None:
+    """Return the seed-derived subject aliases for the host of source_page."""
+    if not domain_profiles:
+        return None
+    host = urlparse(source_page).netloc.lower()
+    profile = domain_profiles.get(host)
+    if not profile:
+        return None
+    aliases = getattr(profile, "subject_aliases", None)
+    return aliases or None
 
 
 def should_keep_image(

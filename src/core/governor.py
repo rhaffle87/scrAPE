@@ -129,3 +129,10 @@ class CrawlGovernor:
         with self.lock:
             self.failed_hosts.add(host)
             LOGGER.info(f"Governor: Host {host} marked failed. Reason: {reason}")
+
+    def cooldown_remaining(self, host: str) -> float:
+        """Return seconds remaining in the host's current cooldown (0.0 if none)."""
+        with self.lock:
+            t = self.host_cooldowns.get(host, 0.0)
+            return max(0.0, t - time.monotonic())
+

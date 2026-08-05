@@ -20,6 +20,7 @@ except ImportError:
 # Environment Variables & Credentials
 TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+HARVEST_NOTIFY_THRESHOLD: int = int(os.getenv("HARVEST_NOTIFY_THRESHOLD", "50"))
 CAPSOLVER_API_KEY: str = os.getenv("CAPSOLVER_API_KEY", "").strip()
 TWOCAPTCHA_API_KEY: str = os.getenv("TWOCAPTCHA_API_KEY", "").strip()
 ANTICAPTCHA_API_KEY: str = os.getenv("ANTICAPTCHA_API_KEY", "").strip()
@@ -84,7 +85,9 @@ MIN_IMAGE_DOWNLOAD_BYTES = 10240
 MIN_VIDEO_DOWNLOAD_BYTES = 16384
 MIN_IMAGE_WIDTH = 400
 MIN_IMAGE_HEIGHT = 300
-GENERIC_ASSET_TERMS = {
+# Hard-block: unambiguous site-chrome assets that must never be kept regardless of context.
+# Triggers `generic_asset` rejection in rejection_reason_for_image/video.
+UTILITY_ASSET_TERMS = {
     "logo",
     "icon",
     "banner",
@@ -92,15 +95,29 @@ GENERIC_ASSET_TERMS = {
     "avatar",
     "placeholder",
     "sprite",
-    "thumbnail",
+    "favicon",
     "app-store",
     "play-store",
     "color_indicator",
     "color-indicator",
     "color_dot",
     "color-dot",
-    "favicon",
     "service",
+}
+
+# Soft-penalty: generic filename tokens that merit a -3 score penalty but NOT a hard rejection.
+# Items like "thumbnail", "preview", "sample", "small" are already handled by PREVIEW_MARKERS
+# (threshold ≥6 → preview_or_thumbnail rejection) so they are intentionally excluded here.
+GENERIC_ASSET_TERMS = {
+    "watermark",
+    "overlay",
+    "border",
+    "frame",
+    "background",
+    "divider",
+    "separator",
+    "decoration",
+    "spacer",
 }
 PREVIEW_MARKERS = {
     "thumb_vid",

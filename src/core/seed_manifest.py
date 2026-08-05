@@ -32,6 +32,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
+# Generic navigational path segments that never identify a subject — excluded
+# from seed-derived subject aliases to avoid polluting relevance scoring.
+_NON_SUBJECT_PATH_SEGMENTS = {
+    "index", "index.html", "index.php", "home", "search", "videos", "video",
+    "photos", "photo", "images", "image", "models", "model", "actor", "actors",
+    "category", "categories", "tag", "tags", "page", "pages", "gallery",
+    "galleries", "albums", "media", "posts", "post", "profile", "user", "users",
+    "preview", "previews", "thumb", "thumbs", "thumbnail", "thumbnails",
+    "covers", "avatar", "avatars", "logo", "about", "help", "faq", "terms",
+    "privacy", "contact", "login", "register", "signup", "dmca", "2257",
+}
+
 
 @dataclass
 class DomainProfile:
@@ -109,6 +121,13 @@ class DomainProfile:
 
     disabled: bool = False
     """When True, this domain profile is disabled and its seed URLs should be ignored."""
+
+    subject_aliases: list[str] = field(default_factory=list)
+    """
+    Slug variants of the subject discovered from this domain's seed URL paths.
+    Used to relax relevance scoring when a site spells the subject slightly
+    differently from the canonical keyword (fuzzy-name mismatch).
+    """
 
     notes: list[str] = field(default_factory=list)
     """Remaining human-readable comment lines for this domain block."""
@@ -561,6 +580,21 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
 
             if line not in profile.seed_urls:
                 profile.seed_urls.append(line)
+                # Derive subject aliases from the URL path — the slug that
+                # identifies the subject on this domain. E.g. a seed like
+                # 'https://<host>/videos/<subject>' contributes '<subject>',
+                # letting relevance scoring accept content whose slug differs
+                # slightly from the canonical keyword.
+                for seg in urlparse(line).path.split("/"):
+                    seg = seg.strip().lower()
+                    if (
+                        seg
+                        and len(seg) >= 3
+                        and seg not in profile.subject_aliases
+                        and re.fullmatch(r"[a-z0-9_]+", seg)
+                        and seg not in _NON_SUBJECT_PATH_SEGMENTS
+                    ):
+                        profile.subject_aliases.append(seg)
             continue
 
         # Non-URL, non-comment, non-blank — ignore

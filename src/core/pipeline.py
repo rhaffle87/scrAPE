@@ -12,6 +12,7 @@ from core.filters import (
     rejection_reason_for_image,
     score_video_relevance,
     rejection_reason_for_video,
+    is_thumbnail_url,
 )
 from core.engine import _video_resolution_hint
 
@@ -47,6 +48,11 @@ class MediaPipeline:
         self.seen_images: Dict[str, ImageItem] = {}
         self.seen_videos: Dict[str, VideoItem] = {}
         self.processed_media_urls: Set[str] = set()
+        # A: cache the normalize_url form of every accepted image asset so that
+        # cross-page query-param variants (e.g. ?w=800 vs ?w=1200) that reduce
+        # to the same normalize_media_url key are silently skipped on later pages
+        # without emitting a spurious `duplicate` rejection.
+        self._seen_image_queue_urls: Set[str] = set()
         
         self.seed_set = {normalize_url(u) for u in (self.options.seed_urls or [])}
         self.domain_profiles = self.options.domain_profiles or {}
@@ -100,15 +106,23 @@ class MediaPipeline:
         for item in images:
             item.url = normalize_url(item.url)
             norm_key = normalize_media_url(item.url)
-            
+
             with self.result_lock:
                 if norm_key in self.seen_images:
                     existing = self.seen_images[norm_key]
-                    if "?" in item.url and "?" not in existing.url:
+                    # A2: image resolution upgrade — prefer non-thumbnail over thumbnail.
+                    # Mirrors the video _video_resolution_hint logic.
+                    if is_thumbnail_url(existing.url) and not is_thumbnail_url(item.url):
                         existing.url = item.url
-                    else:
-                        if self.add_rejected("image", item.url, item.source_page, "duplicate"):
-                            stats["rejected_count"] += 1
+                    elif "?" in item.url and "?" not in existing.url:
+                        existing.url = item.url
+                    # In all cases: asset already accepted, skip silently (no duplicate log).
+                    continue
+
+                # A: cross-page variant collapse — if queue-canonical URL was already
+                # accepted under a different query-param variant, skip without logging.
+                queue_key = normalize_url(item.url)
+                if queue_key in self._seen_image_queue_urls:
                     continue
 
                 if norm_key in self.processed_media_urls:
@@ -124,7 +138,7 @@ class MediaPipeline:
                 item, self.options.keyword, self.options.entity_tokens,
                 self.seed_set, self.domain_profiles
             )
-            
+
             with self.result_lock:
                 if reason:
                     if self.add_rejected("image", item.url, item.source_page, reason, score):
@@ -136,6 +150,7 @@ class MediaPipeline:
                     continue
 
                 self.seen_images[norm_key] = item
+                self._seen_image_queue_urls.add(normalize_url(item.url))
                 item.source_domain = get_domain_slug(item.source_page)
                 self.result.images.append(item)
                 stats["images_kept"] += 1

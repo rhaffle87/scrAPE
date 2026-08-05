@@ -92,6 +92,30 @@ class DomainRulesManager:
         except Exception:
             return []
 
+    def link_pattern_allows(self, url: str, domain: str) -> bool:
+        """Return True if *url* matches the configured link_pattern for *domain*.
+
+        Domains without a configured link_pattern allow all URLs. A configured
+        pattern acts as a whitelist: only URLs matching it are considered
+        in-scope for crawling. Used by the coordinator to filter discovered
+        links before enqueueing them.
+        """
+        cfg = self._get_config()
+        handler = cfg.get("domain_handlers", {}).get(domain, {})
+        pattern = handler.get("link_pattern")
+        if not pattern:
+            return True
+        try:
+            # Match against the URL path only (scheme+host stripped) so that
+            # anchored patterns (^/$) behave predictably and unanchored
+            # substring patterns (e.g. "/video/") keep working.
+            from urllib.parse import urlparse
+            path = urlparse(url).path or "/"
+            return re.search(pattern, path) is not None
+        except re.error:
+            LOGGER.warning("Invalid link_pattern for %s: %r", domain, pattern)
+            return True
+
     def filter_domains_by_profile(self, domains: list[str], profile_name: str) -> list[str]:
         """Filter list of domains based on subject profile blocklists."""
         profiles = self._get_profiles()
@@ -177,6 +201,111 @@ class DomainRulesManager:
             "/faq",
             "/support",
             "/help",
+            "/about-us",
+            "/privacy-policy",
+            "/terms-of-service",
+            "/terms-of-use",
+            "/cookie-policy",
+            "/cookie-policy/",
+            "/refund-policy",
+            "/disclaimer",
+            "/sitemap",
+            "/sitemap.xml",
+            "/robots.txt",
+            "/rss",
+            "/feed",
+            "/feed.xml",
+            "/news",
+            "/blog",
+            "/advertise",
+            "/advertising",
+            "/careers",
+            "/jobs",
+            "/press",
+            "/affiliate",
+            "/partners",
+            "/dmca-policy",
+            "/2257",
+            "/2257-compliance",
+            "/18-usc-2257",
+            "/compliance",
+            "/trust-and-safety",
+            "/welcome",
+            "/welcome-to",
+            "/welcome-to-the-site",
+            "/getting-started",
+            "/guidelines",
+            "/community-guidelines",
+            "/rules",
+            "/tos",
+            "/api",
+            "/docs",
+            "/developers",
+            "/statistics",
+            "/stats",
+            "/rankings",
+            "/trending",
+            "/trending-profiles",
+            "/trending-medias",
+            "/daily-search-ranking",
+            "/most-liked",
+            "/most-viewed",
+            "/popular",
+            "/featured",
+            "/random",
+            "/discover",
+            "/explore",
+            "/user-posts",
+            "/comments",
+            "/messages",
+            "/notifications",
+            "/settings",
+            "/account",
+            "/profile",
+            "/search",
+            "/uploads",
+            "/request",
+            "/contact-us",
+            "/submit",
+            "/report",
+            "/flags",
+            "/moderation",
+            "/banned",
+            "/suspended",
+            "/deleted",
+            "/error",
+            "/404",
+            "/500",
+            "/page-not-found",
+            "/maintenance",
+            "/coming-soon",
+            "/under-construction",
+            "/forums",
+            "/community",
+            "/top",
+            "/new",
+            "/fresh",
+            "/recent",
+            "/latest",
+            "/updates",
+            "/changelog",
+            "/version",
+            "/status",
+            "/health",
+            "/cdn-cgi",
+            "/icons",
+            "/img",
+            "/images",
+            "/assets",
+            "/static",
+            "/fonts",
+            "/css",
+            "/js",
+            "/favicon.ico",
+            "/manifest.webmanifest",
+            "/manifest.json",
+            "/site.webmanifest",
+            "/apple-touch-icon.png",
         }
         if link_path in nav_paths or link_path.rstrip("/") in nav_paths:
             return False
@@ -195,6 +324,29 @@ class DomainRulesManager:
                 if t and t not in all_tokens:
                     all_tokens.append(t)
 
+        # Generic multi-segment utility/account prefix block. Many sites serve
+        # nav/info/auth pages under a short prefix segment (e.g.
+        # /s/faq, /o/menu-1, /user/login, /login/google, /version/all).
+        # These are /PREFIX/<subpage> shapes with a non-media first segment.
+        # Allow them if the subject token appears anywhere in the path (so a
+        # subject-scoped page like /user/<subject> still passes).
+        utility_prefix_segments = {
+            "s", "o", "user", "users", "account", "accounts", "auth", "login",
+            "logout", "register", "version", "settings", "admin", "moderation",
+            "member", "members", "help", "support", "info",
+            "list",
+            "rss", "feeds", "embed", "widget",
+        }
+        if all_tokens:
+            path_lower = link_path.lower()
+            first_seg = path_lower.lstrip("/").split("/", 1)[0] if path_lower != "/" else ""
+            if (
+                first_seg in utility_prefix_segments
+                # C: delegate token presence to contains_subject_text so fuzzy aliases apply
+                and not contains_subject_text(path_lower, keyword, entity_tokens)
+            ):
+                return False
+
         # Check listing/index prefixes. If the link path contains a listing prefix,
         # it must contain the subject name/token to be considered relevant
         # (otherwise it's a listing page for another model/tag).
@@ -212,9 +364,8 @@ class DomainRulesManager:
         link_listing = any(lp in link_path for lp in listing_prefixes)
 
         if link_listing:
-            if all_tokens and not any(
-                token in link_path.lower() for token in all_tokens
-            ):
+            # C: delegate token presence to contains_subject_text so fuzzy aliases apply
+            if all_tokens and not contains_subject_text(link_path.lower(), keyword, entity_tokens):
                 return False
 
         # If it's a bare root seed, we must be strict since everything is linked from root
@@ -227,8 +378,53 @@ class DomainRulesManager:
         
         if is_bare_root:
             normalized_link_path = link_path.lower()
-            if all_tokens and not any(
-                token in normalized_link_path for token in all_tokens
+            # C: delegate token presence to contains_subject_text so fuzzy aliases apply
+            if all_tokens and not contains_subject_text(normalized_link_path, keyword, entity_tokens):
+                return False
+
+        # Profile-scope rule: when the seed is a single-segment profile slug
+        # that contains a subject token (e.g. <host>/<subject-slug>),
+        # OR a search URL whose query value contains a subject token (e.g.
+        # <host>/search?q=<subject>), reject same-host links whose first
+        # path segment differs from the seed's and contains no subject token —
+        # they are profile/media pages of OTHER models (e.g. /<other-slug>
+        # or /models/<letter>/<letter>/<other-model>). Gated on
+        # the seed containing a token so generic single-segment seeds (e.g.
+        # /start) are not treated as profiles.
+        seed_segments = [seg for seg in seed_path.split("/") if seg]
+        query_tokens = [
+            t.lower()
+            for t in re.findall(r"[?&]q=([^&]+)", seed_page.lower())
+            if t
+        ]
+        is_profile_seed = (
+            len(seed_segments) == 1
+            and all_tokens
+            and any(t in seed_segments[0].lower() for t in all_tokens)
+        ) or (
+            len(seed_segments) == 1
+            and seed_segments[0].lower() in {"search", "query", "results", "find"}
+            and all_tokens
+            and any(any(t in qt for t in all_tokens) for qt in query_tokens)
+        )
+        if is_profile_seed:
+            link_segments = [seg for seg in link_path.split("/") if seg]
+            if (
+                link_segments
+                and urlparse(link).netloc.lower() == seed_parsed.netloc.lower()
+                and link_segments[0].lower() != seed_segments[0].lower()
+                and not any(t in link_segments[0].lower() for t in all_tokens)
+                # For a profile-slug seed (<host>/<subject>), block links at
+                # any depth (/models/*). For a search-query seed, only
+                # block single-segment other-creator slugs (/<other>) — opaque
+                # multi-segment content paths (/a/<id>) are subject posts.
+                and (
+                    len(link_segments) == 1
+                    or not (
+                        seed_segments[0].lower()
+                        in {"search", "query", "results", "find"}
+                    )
+                )
             ):
                 return False
 

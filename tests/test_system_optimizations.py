@@ -44,14 +44,14 @@ def test_transform_to_highres_domain_config_rules():
     """
     fake_config = {
         "highres_transforms": {
-            "rule34_xyz": {
+            "example_xyz": {
                 "host_contains": ["example.xyz"],
                 "rules": [
                     {"pattern": "/preview/", "replacement": "/original/", "target": "path"},
                     {"pattern": "thumbnail_", "replacement": "", "target": "path"},
                 ],
             },
-            "kusowanka": {
+            "example": {
                 "host_contains": ["example.com"],
                 "rules": [
                     {"pattern": "/thumb_", "replacement": "/img_", "target": "path"},
@@ -82,6 +82,8 @@ def test_transform_to_highres_domain_config_rules():
 
     with patch.object(pathlib.Path, "exists", _fake_exists), \
          patch.object(pathlib.Path, "read_text", _fake_read_text):
+        from core.filters import _reset_highres_cache
+        _reset_highres_cache()  # bust G1 mtime-cache so monkeypatch is effective
 
         # rule34.xyz: /preview/ → /original/, thumbnail_ stripped
         upscaled, _ = transform_to_highres("https://example.xyz/preview/thumbnail_abc123.jpg")

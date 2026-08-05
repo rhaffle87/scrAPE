@@ -23,7 +23,8 @@ class BaseNotifier(ABC):
 
     @abstractmethod
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> bool:
         """Send notification when a scraping run completes."""
         ...
@@ -32,6 +33,23 @@ class BaseNotifier(ABC):
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> bool:
         """Send notification when WAF challenge / block occurs."""
         ...
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        """Send notification when a scraping run is about to start."""
+        return True
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        """Send notification when a run crashes with an unhandled exception."""
+        return True
 
     def notify_media_harvest(self, keyword: str, count: int, sample_urls: list[str] | None = None) -> bool:
         """Send notification when new media items are harvested."""
@@ -57,9 +75,10 @@ class TelegramNotifier(BaseNotifier):
         return self.bot.is_configured()
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> bool:
-        return self.bot.notify_run_complete(keyword, pages, images, videos, duration_s)
+        return self.bot.notify_run_complete(keyword, pages, images, videos, duration_s, extra_text)
 
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> bool:
         return self.bot.notify_waf_block(domain, cooldown_s)
@@ -71,6 +90,23 @@ class TelegramNotifier(BaseNotifier):
     def notify_watchdog_status(self, message: str, status_level: str = "INFO") -> bool:
         text = f"<b>Watchdog [{status_level}]:</b> {message}"
         return self.bot.send_message(text)
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        return self.bot.notify_run_start(
+            keyword, seed_count, seed_domains, max_results, workers, page_limit, crawl_depth
+        )
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        return self.bot.notify_run_error(keyword, error_msg)
 
 
 class DiscordNotifier(BaseNotifier):
@@ -93,21 +129,25 @@ class DiscordNotifier(BaseNotifier):
             return False
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> bool:
+        fields = [
+            {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
+            {"name": "Pages Scanned", "value": str(pages), "inline": True},
+            {"name": "Images", "value": str(images), "inline": True},
+            {"name": "Videos", "value": str(videos), "inline": True},
+            {"name": "Duration", "value": f"{duration_s:.1f}s", "inline": True},
+        ]
+        if extra_text:
+            fields.append({"name": "Details", "value": extra_text[:1024], "inline": False})
         payload = {
             "embeds": [
                 {
-                    "title": "⚡ scrAPE Run Completed",
+                    "title": "SCRAPE Run Completed",
                     "color": 65280,  # Green
-                    "fields": [
-                        {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
-                        {"name": "Pages Scanned", "value": str(pages), "inline": True},
-                        {"name": "Images", "value": str(images), "inline": True},
-                        {"name": "Videos", "value": str(videos), "inline": True},
-                        {"name": "Duration", "value": f"{duration_s:.1f}s", "inline": True},
-                    ],
-                    "footer": {"text": "scrAPE AI Scraper Platform"},
+                    "fields": fields,
+                    "footer": {"text": "SCRAPE AI Scraper Platform"},
                 }
             ]
         }
@@ -126,6 +166,47 @@ class DiscordNotifier(BaseNotifier):
                     ],
                 }
             ]
+        }
+        return self._post_payload(payload)
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        domains_str = ", ".join((seed_domains or [])[:6])
+        payload = {
+            "embeds": [{
+                "title": "\U0001f680 scrAPE Run Started",
+                "color": 3447003,  # Blue
+                "fields": [
+                    {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
+                    {"name": "Seeds", "value": str(seed_count), "inline": True},
+                    {"name": "Max Results", "value": str(max_results), "inline": True},
+                    {"name": "Workers", "value": str(workers), "inline": True},
+                    {"name": "Depth", "value": str(crawl_depth), "inline": True},
+                    {"name": "Seed Domains", "value": domains_str or "N/A", "inline": False},
+                ],
+            }]
+        }
+        return self._post_payload(payload)
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        trimmed = error_msg[:500]
+        payload = {
+            "embeds": [{
+                "title": "\u274c scrAPE Run Error",
+                "color": 15158332,  # Red
+                "fields": [
+                    {"name": "Keyword", "value": f"`{keyword}`", "inline": True},
+                    {"name": "Error", "value": f"```{trimmed}```", "inline": False},
+                ],
+            }]
         }
         return self._post_payload(payload)
 
@@ -150,7 +231,8 @@ class SlackNotifier(BaseNotifier):
             return False
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> bool:
         payload = {
             "blocks": [
@@ -170,6 +252,8 @@ class SlackNotifier(BaseNotifier):
                 },
             ]
         }
+        if extra_text:
+            payload["blocks"].append({"type": "section", "text": {"type": "mrkdwn", "text": extra_text[:3000]}})
         return self._post_payload(payload)
 
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> bool:
@@ -186,6 +270,42 @@ class SlackNotifier(BaseNotifier):
                         {"type": "mrkdwn", "text": f"*Cooldown:* {cooldown_s}s"},
                     ],
                 },
+            ]
+        }
+        return self._post_payload(payload)
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        domains_str = ", ".join((seed_domains or [])[:6])
+        payload = {
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": "\U0001f680 scrAPE Run Started", "emoji": True}},
+                {"type": "section", "fields": [
+                    {"type": "mrkdwn", "text": f"*Keyword:* `{keyword}`"},
+                    {"type": "mrkdwn", "text": f"*Seeds:* {seed_count}"},
+                    {"type": "mrkdwn", "text": f"*Max:* {max_results} | *Workers:* {workers}"},
+                    {"type": "mrkdwn", "text": f"*Depth:* {crawl_depth} | *Pages:* {page_limit}"},
+                ]},
+            ]
+        }
+        return self._post_payload(payload)
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        payload = {
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": "\u274c scrAPE Run Error", "emoji": True}},
+                {"type": "section", "fields": [
+                    {"type": "mrkdwn", "text": f"*Keyword:* `{keyword}`"},
+                    {"type": "mrkdwn", "text": f"*Error:* ```{error_msg[:300]}```"},
+                ]},
             ]
         }
         return self._post_payload(payload)
@@ -212,17 +332,38 @@ class CustomWebhookNotifier(BaseNotifier):
             return False
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> bool:
         return self._post_payload(
             "run_complete",
-            {"keyword": keyword, "pages": pages, "images": images, "videos": videos, "duration_s": duration_s},
+            {"keyword": keyword, "pages": pages, "images": images, "videos": videos,
+             "duration_s": duration_s, "extra_text": extra_text},
         )
 
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> bool:
         return self._post_payload(
             "waf_block", {"domain": domain, "cooldown_s": cooldown_s, "strategy_name": strategy_name}
         )
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        return self._post_payload(
+            "run_start",
+            {"keyword": keyword, "seed_count": seed_count, "seed_domains": seed_domains or [],
+             "max_results": max_results, "workers": workers, "page_limit": page_limit, "crawl_depth": crawl_depth},
+        )
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        return self._post_payload("run_error", {"keyword": keyword, "error": error_msg[:500]})
 
 
 class NotificationPipeline:
@@ -279,9 +420,12 @@ class NotificationPipeline:
         return results
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
     ) -> dict[str, bool]:
-        return self._dispatch_parallel("notify_run_complete", keyword, pages, images, videos, duration_s)
+        return self._dispatch_parallel(
+            "notify_run_complete", keyword, pages, images, videos, duration_s, extra_text
+        )
 
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> dict[str, bool]:
         return self._dispatch_parallel("notify_waf_block", domain, cooldown_s, strategy_name)
@@ -293,3 +437,20 @@ class NotificationPipeline:
 
     def notify_watchdog_status(self, message: str, status_level: str = "INFO") -> dict[str, bool]:
         return self._dispatch_parallel("notify_watchdog_status", message, status_level)
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> dict[str, bool]:
+        return self._dispatch_parallel(
+            "notify_run_start", keyword, seed_count, seed_domains, max_results, workers, page_limit, crawl_depth
+        )
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> dict[str, bool]:
+        return self._dispatch_parallel("notify_run_error", keyword, error_msg)

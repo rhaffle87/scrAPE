@@ -45,16 +45,21 @@ class TelegramBotNotifier:
 
         return False
 
-    def notify_run_complete(self, keyword: str, pages: int, images: int, videos: int, duration_s: float) -> bool:
+    def notify_run_complete(
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float,
+        extra_text: str = "",
+    ) -> bool:
         """Send HTML-formatted notification when a scraping run completes."""
+        mins, secs = divmod(int(duration_s), 60)
+        dur_str = f"{mins}m {secs}s" if mins else f"{secs}s"
         text = (
-            f"<b>scrAPE Run Completed</b>\n\n"
+            f"\u2705 <b>scrAPE Run Complete</b>\n\n"
             f"<b>Keyword:</b> <code>{keyword}</code>\n"
-            f"<b>Pages Scanned:</b> {pages}\n"
-            f"<b>Images Fetched:</b> {images}\n"
-            f"<b>Videos Fetched:</b> {videos}\n"
-            f"<b>Duration:</b> {duration_s:.1f}s"
+            f"<b>Duration:</b> {dur_str}\n"
+            f"<b>Pages:</b> {pages} | \U0001f5bc Images: {images} | \U0001f3ac Videos: {videos}"
         )
+        if extra_text:
+            text += f"\n\n{extra_text}"
         return self.send_message(text)
 
     def notify_waf_block(self, domain: str, cooldown_s: int) -> bool:
@@ -64,6 +69,43 @@ class TelegramBotNotifier:
             f"<b>Domain:</b> <code>{domain}</code>\n"
             f"<b>Cooldown Active:</b> {cooldown_s}s\n"
             f"<i>Automated fallback sequence initiated.</i>"
+        )
+        return self.send_message(text)
+
+    def notify_run_start(
+        self,
+        keyword: str,
+        seed_count: int,
+        seed_domains: list[str] | None = None,
+        max_results: int = 0,
+        workers: int = 0,
+        page_limit: int = 0,
+        crawl_depth: int = 0,
+    ) -> bool:
+        """Send run-start notification with configuration summary."""
+        domain_line = ""
+        if seed_domains:
+            shown = seed_domains[:6]
+            extra = len(seed_domains) - len(shown)
+            names = ", ".join(f"<code>{d}</code>" for d in shown)
+            domain_line = f"\n<b>Seeds:</b> {names}" + (f" +{extra} more" if extra else "")
+        text = (
+            f"\U0001f680 <b>scrAPE Run Started</b>\n\n"
+            f"<b>Keyword:</b> <code>{keyword}</code>\n"
+            f"<b>Seed URLs:</b> {seed_count}{domain_line}\n"
+            f"<b>Max Results:</b> {max_results} | <b>Workers:</b> {workers}\n"
+            f"<b>Depth:</b> {crawl_depth} | <b>Page Limit:</b> {page_limit}"
+        )
+        return self.send_message(text)
+
+    def notify_run_error(self, keyword: str, error_msg: str) -> bool:
+        """Send error alert when a run crashes with an unhandled exception."""
+        # Trim very long tracebacks
+        trimmed = error_msg[:400] + "\u2026" if len(error_msg) > 400 else error_msg
+        text = (
+            f"\u274c <b>scrAPE Run Error</b>\n\n"
+            f"<b>Keyword:</b> <code>{keyword}</code>\n"
+            f"<b>Error:</b> <pre>{trimmed}</pre>"
         )
         return self.send_message(text)
 

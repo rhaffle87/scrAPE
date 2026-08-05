@@ -34,11 +34,8 @@ jobs:
 
       - name: Build Static Site Artifacts
         run: |
-          mkdir -p _site/static _site/docs
-          cp -r frontend/static/* _site/static/ 2>/dev/null || true
-          cp frontend/templates/index.html _site/index.html
-          cp README.md _site/docs/index.md
-          cp docs/* _site/docs/ 2>/dev/null || true
+          mkdir -p _site
+          cp -r docs/site/* _site/
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3

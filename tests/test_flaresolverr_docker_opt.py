@@ -38,14 +38,16 @@ def test_transform_to_highres_domain_config_and_wordpress(monkeypatch):
         return json.dumps(mock_config)
         
     import pathlib
+    from core.filters import _reset_highres_cache
+    _reset_highres_cache()  # bust G1 mtime-cache so monkeypatch is effective
     monkeypatch.setattr(pathlib.Path, "exists", mock_exists)
     monkeypatch.setattr(pathlib.Path, "read_text", mock_read_text)
 
     # Domain-config-driven thumbnail replacement (loaded from data/domain_config.json)
     # Uses a booru-style URL since that pattern is in highres_transforms
-    booru_thumb = "https://rule34.example.com/images/sample.pic256.jpg"
+    booru_thumb = "https://example.com/images/sample.pic256.jpg"
     upscaled_booru, _ = transform_to_highres(booru_thumb)
-    assert upscaled_booru == "https://rule34.example.com/images/sample.jpg"
+    assert upscaled_booru == "https://example.com/images/sample.jpg"
 
     # WordPress -scaled replacement
     wp_scaled = "https://example.com/wp-content/uploads/2026/07/photo-scaled.jpg"

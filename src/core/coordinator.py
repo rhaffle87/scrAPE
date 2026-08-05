@@ -9,7 +9,7 @@ from typing import Optional, List, Tuple
 from core.governor import CrawlGovernor
 from core.pipeline import MediaPipeline
 from core.models import ScrapeResult, PageReport
-from core.filters import normalize_url
+from core.filters import normalize_url, looks_like_media, is_pagination_url
 from scraper.specialized import SpecializedExtractor
 
 LOGGER = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class CrawlCoordinator:
         import heapq
         pages_queue = []
         for p, d in ordered_pages:
-            heapq.heappush(pages_queue, (d, 0, time.monotonic(), p))
+            heapq.heappush(pages_queue, (d, 0, 0.0, time.monotonic(), p))
             
         visited_pages = {p for p, d in ordered_pages}
         
@@ -133,21 +133,24 @@ class CrawlCoordinator:
                         if total_pages_scanned >= self.page_limit:
                             pages_queue.clear()
                             return False
-                            
-                        # Peek first, we only pop if we use it
-                        # but we need to re-insert skipped items
-                        next_depth, next_retry, _, next_page = heapq.heappop(pages_queue)
-                        
+
+                        next_depth, next_retry, release_at, _, next_page = heapq.heappop(pages_queue)
+
+                        # D: release-gate — park entries that aren't ready yet
+                        if release_at > time.monotonic():
+                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            continue
+
                         if self.state_cache and self.state_cache.is_dead(next_page):
                             continue
-                            
+
                         host = urlparse(next_page).netloc.lower()
-                        
+
                         if not self.governor.is_host_available(host):
                             with self.governor.lock:
                                 is_failed = host in self.governor.failed_hosts
                             if not is_failed:
-                                skipped.append((next_depth, next_retry, time.monotonic(), next_page))
+                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
                             else:
                                 with self.result_lock:
                                     self.result.page_reports.append(
@@ -159,18 +162,18 @@ class CrawlCoordinator:
                                     )
                             continue
                         if not self.governor.can_acquire_worker(host):
-                            skipped.append((next_depth, next_retry, time.monotonic(), next_page))
+                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
                             continue
-                        
+
                         self.governor.increment_worker(host)
                         for item in skipped:
                             heapq.heappush(pages_queue, item)
-                        
+
                         total_pages_scanned += 1
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
                         futures[fut] = (next_page, next_depth, next_retry, time.monotonic())
                         return True
-                        
+
                     if skipped:
                         for item in skipped:
                             heapq.heappush(pages_queue, item)
@@ -221,17 +224,43 @@ class CrawlCoordinator:
                                             allow_domains=self.options.allow_domains,
                                             block_domains=self.options.block_domains
                                         )
-                                        # index→detail filtering
-                                        if profile and profile.crawl_strategy != "direct" and depth == 0:
+                                        # index→detail filtering — applied at every
+                                        # depth, not just depth 0, so off-model/utility
+                                        # links discovered on POST pages are filtered too
+                                        if profile and profile.crawl_strategy != "direct":
                                             seed_for_host = next((s for s in self.options.seed_urls if urlparse(s).netloc.lower() == host), page)
+                                            # Normalise so locale-prefixed profile seeds
+                                            # collapse to their canonical
+                                            # bare form and still trigger the profile rule.
+                                            seed_for_host = normalize_url(seed_for_host)
+                                            seed_path = (urlparse(seed_for_host).path or "/").lower()
                                             discovered_links = [
                                                 lnk for lnk in discovered_links
-                                                if self.rules_manager and self.rules_manager.is_detail_page(lnk, seed_for_host, self.options.keyword, self.options.entity_tokens)
+                                                if (
+                                                    self.rules_manager and self.rules_manager.is_detail_page(lnk, seed_for_host, self.options.keyword, self.options.entity_tokens)
+                                                )
+                                                or (
+                                                    # Pagination links are legal index nodes for
+                                                    # traversing a multi-page profile index. They
+                                                    # are rejected by is_detail_page by design, so
+                                                    # re-admit them here only when they are
+                                                    # subject-scoped (same host, share the seed's
+                                                    # first path segment). Keeps off-subject
+                                                    # pagination (/page/2 site-wide) out.
+                                                    is_pagination_url(lnk)
+                                                    and lnk.startswith(seed_for_host.rstrip("/") + "/")
+                                                )
+                                            ]
+
+                                        # Domain handler link_pattern whitelist (config-driven)
+                                        if self.rules_manager:
+                                            discovered_links = [
+                                                lnk for lnk in discovered_links
+                                                if self.rules_manager.link_pattern_allows(lnk, host)
                                             ]
                                         
                                         # Enqueue new links
                                         for link in discovered_links:
-                                            from core.filters import normalize_url, looks_like_media
                                             normalized_link = normalize_url(link)
                                             if looks_like_media(normalized_link):
                                                 continue
@@ -249,8 +278,8 @@ class CrawlCoordinator:
                                                 if self.state_cache and self.state_cache.is_dead(normalized_link):
                                                     self.add_rejected("page", normalized_link, page, "404_negative_cache")
                                                     continue
-                                                # Enqueue at depth + 1
-                                                heapq.heappush(pages_queue, (depth + 1, 0, time.monotonic(), normalized_link))
+                                                # Enqueue at depth + 1 — release_at=0.0 means immediately eligible
+                                                heapq.heappush(pages_queue, (depth + 1, 0, 0.0, time.monotonic(), normalized_link))
                                                 
                                                 try:
                                                     from monitoring.telemetry import broadcast_telemetry_event
@@ -280,10 +309,13 @@ class CrawlCoordinator:
                                         "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
                                     }
                                 self.result.domain_stats[host]["error_429_count"] += 1
-                            current_concurrency = max(1, current_concurrency - 2)
                             if retry_count < 3:
-                                LOGGER.info("Retrying %s (attempt %d/3) after block.", page, retry_count + 1)
-                                heapq.heappush(pages_queue, (depth, retry_count + 1, time.monotonic(), page))
+                                # D: set release_at based on governor cooldown so the
+                                # retry fires only after the host cooldown expires.
+                                cd = self.governor.cooldown_remaining(host)
+                                release_at = time.monotonic() + cd + 0.5
+                                LOGGER.info("Retrying %s (attempt %d/3) after block; release in %.1fs.", page, retry_count + 1, cd + 0.5)
+                                heapq.heappush(pages_queue, (depth, retry_count + 1, release_at, time.monotonic(), page))
                                 continue
                         elif scrape_status == "fetch_error:login_wall":
                             self.governor.report_error(host, is_login_wall=True)
@@ -294,6 +326,12 @@ class CrawlCoordinator:
                                         "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
                                     }
                                 self.result.domain_stats[host]["error_other_count"] += 1
+                        elif scrape_status == "login_redirect_skipped":
+                            # Per-URL login redirect (deleted/age-gated item). 
+                            # Skip this URL only; keep the host available.
+                            # Prevents one bad item from poisoning the whole domain.
+                            if self.state_cache:
+                                self.state_cache.mark_dead(page)
                         elif is_worker_error:
                             self.governor.report_error(host)
                             with self.result_lock:
@@ -304,8 +342,10 @@ class CrawlCoordinator:
                                     }
                                 self.result.domain_stats[host]["error_other_count"] += 1
                             if retry_count < 3:
-                                LOGGER.info("Retrying %s (attempt %d/3) after error.", page, retry_count + 1)
-                                heapq.heappush(pages_queue, (depth, retry_count + 1, time.monotonic(), page))
+                                # D: 2s release gate on generic error retry
+                                release_at = time.monotonic() + 2.0
+                                LOGGER.info("Retrying %s (attempt %d/3) after error; release in 2.0s.", page, retry_count + 1)
+                                heapq.heappush(pages_queue, (depth, retry_count + 1, release_at, time.monotonic(), page))
                                 continue
                         elif scrape_status == "ok":
                             self.governor.report_success(host)

@@ -26,7 +26,7 @@ class MockCustomNotifier(BaseNotifier):
         return True
 
     def notify_run_complete(
-        self, keyword: str, pages: int, images: int, videos: int, duration_s: float
+        self, keyword: str, pages: int, images: int, videos: int, duration_s: float, extra_text: str = ""
     ) -> bool:
         self.run_completed_calls.append((keyword, pages, images, videos, duration_s))
         return True

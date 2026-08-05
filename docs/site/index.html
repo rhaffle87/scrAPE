@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>scrAPE // Technical Documentation Portal</title>
+  <meta name="description"
+    content="Official technical documentation and operational guide for scrAPE multi-engine web scraping system.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="top-header">
+    <div class="brand-container">
+      <a href="#" class="brand-logo">scrAPE // DOCS</a>
+      <span class="brand-badge">v2.4.0 SYSTEM SPEC</span>
+    </div>
+    <div class="header-right">
+      <div class="search-box-container">
+        <span class="search-icon-prefix">[?]</span>
+        <input type="text" id="doc-search" class="search-input" placeholder="SEARCH SYSTEM DOCS..."
+          aria-label="Search System Documentation">
+      </div>
+      <a href="https://github.com/rhaffle87/scrAPE" target="_blank" class="header-nav-link">[GITHUB REPO]</a>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- Left Navigation Sidebar -->
+    <nav class="sidebar">
+
+      <!-- Module 1 -->
+      <div class="nav-module-group active">
+        <div class="nav-module-title">
+          <span>[01] REQUIREMENTS & SCOPE</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item active"><a href="#sec-scope-overview">[1.1] Core System Scope</a></li>
+          <li class="nav-sub-item"><a href="#sec-scope-boundaries">[1.2] Media & Data Limits</a></li>
+          <li class="nav-sub-item"><a href="#sec-scope-rules">[1.3] Scope & Non-Goals</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 2 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[02] QUICKSTART & USAGE</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-quickstart-setup">[2.1] System Prerequisites</a></li>
+          <li class="nav-sub-item"><a href="#sec-quickstart-launchers">[2.2] Master Launchers & Wizard</a></li>
+          <li class="nav-sub-item"><a href="#sec-quickstart-recipes">[2.3] Standard Execution Recipes</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-matrix">[2.4] Complete CLI Flag Matrix</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-builder">[2.5] Interactive CLI Builder</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 3 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[03] TECHNICAL ARCHITECTURE</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-arch-engine">[3.1] BFS Engine Loop</a></li>
+          <li class="nav-sub-item"><a href="#sec-arch-waf">[3.2] 8-Tier Stealth WAF Pipeline</a></li>
+          <li class="nav-sub-item"><a href="#sec-arch-captcha">[3.3] Universal Captcha Strategy</a></li>
+          <li class="nav-sub-item"><a href="#sec-arch-filters">[3.4] Quality Scoring & Rejection</a></li>
+          <li class="nav-sub-item"><a href="#sec-arch-seeds">[3.5] Seed Manifest Syntax</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 4 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[04] TESTING STRATEGY</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-test-suite">[4.1] Automated Test Suite</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-tdai">[4.2] TDAI & Verification Protocol</a></li>
+          <li class="nav-sub-item"><a href="#sec-test-log-diagnostics">[4.3] Log Diagnostics Strategy</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 5 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[05] UX & DASHBOARD</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-ux-webui">[5.1] WebUI Architecture</a></li>
+          <li class="nav-sub-item"><a href="#sec-ux-brutalism">[5.2] Design Tokens System</a></li>
+          <li class="nav-sub-item"><a href="#sec-ux-telemetry">[5.3] SSE Live Telemetry</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 6 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[06] DEPLOYMENT & OPERATIONS</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-ops-docker">[6.1] Docker Containerization</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-watchdog">[6.2] Continuous Watchdog Agent</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-notifications">[6.3] Multi-Channel Notifications</a></li>
+          <li class="nav-sub-item"><a href="#sec-ops-debt">[6.4] Tech Debt & Continuity Rules</a></li>
+        </ul>
+      </div>
+
+      <!-- Module 7 -->
+      <div class="nav-module-group">
+        <div class="nav-module-title">
+          <span>[07] KNOWLEDGE TRANSFER</span>
+          <span>[+]</span>
+        </div>
+        <ul class="nav-sub-list">
+          <li class="nav-sub-item"><a href="#sec-kt-troubleshooting">[7.1] Operator Diagnostic Matrix</a></li>
+          <li class="nav-sub-item"><a href="#sec-kt-guidelines">[7.2] Developer Guidelines</a></li>
+          <li class="nav-sub-item"><a href="#sec-kt-export">[7.3] Dataset Export & Outputs</a></li>
+        </ul>
+      </div>
+
+    </nav>
+
+    <!-- Main Viewport -->
+    <main class="main-content">
+
+      <!-- SECTION 1.1 -->
+      <section id="sec-scope-overview" class="doc-section active">
+        <div class="section-header">
+          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
+          <h1>Core System Scope</h1>
+          <p class="section-desc">High-speed, multi-engine stealth web scraping engine designed for autonomous media
+            extraction and dataset generation.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">1.1 System Architecture & Objectives</h2>
+          <p>scrAPE is an enterprise-grade, multi-tier web extraction engine engineered to crawl complex Web2 and Web3
+            platforms, bypass WAF protections (Cloudflare, Incapsula, Datadome), and generate high-resolution
+            image/video datasets for AI training models (Kohya_ss LoRA, Stable Diffusion).</p>
+
+          <div class="alert important">
+            <div class="alert-title">[!] CORE OPERATIONAL GUARANTEE</div>
+            The system executes via an 8-tier WAF fallback pipeline, ensuring request escalation from lightweight direct
+            HTTP requests up to headful stealth browser automation when Cloudflare challenge loops are detected.
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Implementation Layer</th>
+                  <th>Primary Function</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>CLI Engine</td>
+                  <td><code>src/cli/main.py</code></td>
+                  <td>Primary execution interface accepting flags, seeds, and extraction budgets.</td>
+                </tr>
+                <tr>
+                  <td>BFS Crawler Engine</td>
+                  <td><code>src/core/engine.py</code></td>
+                  <td>Asynchronous Breadth-First-Search link traversal, page scoring, and worker thread pool.</td>
+                </tr>
+                <tr>
+                  <td>Stealth Pipeline</td>
+                  <td><code>src/network/stealth_pipeline.py</code></td>
+                  <td>Dynamic 8-tier WAF escalation pipeline with circuit breaker isolation.</td>
+                </tr>
+                <tr>
+                  <td>Media Downloader</td>
+                  <td><code>src/storage/file_downloader.py</code></td>
+                  <td>Concurrent media stream downloader with MIME/size validation and rejected item retention.</td>
+                </tr>
+                <tr>
+                  <td>WebUI Dashboard</td>
+                  <td><code>frontend/app.py</code></td>
+                  <td>Decoupled FastAPI + HTMX dashboard with real-time SSE log streaming and visual network tree.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 1.2 -->
+      <section id="sec-scope-boundaries" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
+          <h1>Media & Data Limits</h1>
+          <p class="section-desc">Supported file formats, extraction limits, and storage constraints.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">1.2 Supported Formats & Extraction Capabilities</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Supported Types / Protocols</th>
+                  <th>Processing Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Image Media</td>
+                  <td>PNG, JPEG, WEBP (VP8, VP8L, VP8X), GIF</td>
+                  <td>Direct stream fetch, high-res transformation, dimension verification.</td>
+                </tr>
+                <tr>
+                  <td>Video Media</td>
+                  <td>MP4, WEBM, M4V, HLS (.m3u8), YouTube/TikTok SPA</td>
+                  <td>Direct stream download or specialized extraction plugin (`yt-dlp`).</td>
+                </tr>
+                <tr>
+                  <td>Dataset Output</td>
+                  <td>ZIP, CSV, JSON, SQLite WAL</td>
+                  <td>Structured sidecar metadata `.txt` generator and Kohya_ss LoRA dataset exporter.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 1.3 -->
+      <section id="sec-scope-rules" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [01] // REQUIREMENTS & SCOPE</div>
+          <h1>Scope & Non-Goals</h1>
+          <p class="section-desc">Strict architectural boundaries and coding constraints.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">1.3 Architectural Rules & Boundary Enforcement</h2>
+          <div class="alert warning">
+            <div class="alert-title">[!] MANDATORY RULE: NO HARDCODED DOMAIN RULES IN SOURCE</div>
+            Never hardcode domain-specific URL normalization rules or subject names directly in Python source files
+            under <code>src/</code>. All URL canonicalization rules MUST reside in
+            <code>data/url_normalisation_rules.json</code> and domain configurations in
+            <code>data/domain_config.json</code>.
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.1 -->
+      <section id="sec-quickstart-setup" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <h1>System Prerequisites</h1>
+          <p class="section-desc">Environment requirements and installation steps.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.1 System Requirements & Environment Setup</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>BASH // INSTALLATION COMMANDS</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Clone Repository
+git clone https://github.com/rhaffle87/scrAPE.git
+cd scrAPE
+
+# Setup Virtual Environment (Python 3.10+)
+python -m venv venv
+venv\Scripts\activate  # Windows PowerShell: .\venv\Scripts\Activate.ps1
+
+# Install Core Python Dependencies
+pip install -r requirements.txt
+
+# Install Crawlee Node Bridge Dependencies (Optional Stealth Tier 7)
+cd crawlee_bridge && npm install && cd ..</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.2 -->
+      <section id="sec-quickstart-launchers" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <h1>Master Launchers & Wizard</h1>
+          <p class="section-desc">Unified interactive launcher scripts.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.2 Master Launcher Options</h2>
+          <p>The system provides automated cross-platform launchers to start the WebUI, run interactive setup wizards,
+            manage sessions, or check environment health.</p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // MASTER LAUNCHER</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Windows Master Launcher (Interactive Menu: WebUI, Wizard, Auth, Docker)
+.\run.bat
+
+# Linux / macOS Launcher
+./run.sh</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.3 -->
+      <section id="sec-quickstart-recipes" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <h1>Standard Execution Recipes</h1>
+          <p class="section-desc">Common execution commands for standard operations.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.3 Command Recipes</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>RECIPE 1 // STANDARD SEED EXTRACTION WITH REJECTED MEDIA RETENTION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>python src/cli/main.py --keyword "meenfox" --seed seeds/meenfox.txt \
+  --max-results 200 --workers 12 --dl-workers 16 \
+  --page-limit 300 --crawl-depth 3 --download-media \
+  --save-rejected "low_subject_relevance,preview_or_thumbnail"</pre>
+          </div>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>RECIPE 2 // CONTINUOUS WATCHDOG AGENT WITH STATE CACHE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>python src/cli/monitor_agent.py --keyword "akariiiii_cos" \
+  --seed seeds/akariiiii_cos.txt --use-state-cache</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.4 -->
+      <section id="sec-cli-matrix" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <h1>Complete CLI Flag Matrix</h1>
+          <p class="section-desc">Complete, exhaustive reference of all main.py command-line options.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.4 CLI Parameter Reference</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th>Type</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>--keyword</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Target keyword or subject name to search and extract.</td>
+                </tr>
+                <tr>
+                  <td><code>--seed-file</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Path to <code>.txt</code> seed manifest file containing URLs and annotations.</td>
+                </tr>
+                <tr>
+                  <td><code>--download-media</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Download discovered images and videos into <code>output/&lt;subject&gt;/</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>--save-rejected</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>Comma-separated rejection reasons to save to disk (e.g.
+                    <code>low_subject_relevance,preview_or_thumbnail</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>--max-results</code></td>
+                  <td>int</td>
+                  <td>50</td>
+                  <td>Maximum media items per type to download. Use 0 for unlimited.</td>
+                </tr>
+                <tr>
+                  <td><code>--workers</code></td>
+                  <td>int</td>
+                  <td>6</td>
+                  <td>Number of page parsing worker threads operating concurrently.</td>
+                </tr>
+                <tr>
+                  <td><code>--dl-workers</code></td>
+                  <td>int</td>
+                  <td>16</td>
+                  <td>Number of media stream downloader worker threads.</td>
+                </tr>
+                <tr>
+                  <td><code>--page-limit</code></td>
+                  <td>int</td>
+                  <td>100</td>
+                  <td>Maximum pages to fetch during the BFS crawl loop.</td>
+                </tr>
+                <tr>
+                  <td><code>--crawl-depth</code></td>
+                  <td>int</td>
+                  <td>2</td>
+                  <td>Maximum recursion depth for discovered link traversal.</td>
+                </tr>
+                <tr>
+                  <td><code>--strict-domain</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Restrict crawl strictly to domains declared in the seed file.</td>
+                </tr>
+                <tr>
+                  <td><code>--use-state-cache</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Persist processed URLs in SQLite DB (<code>state_cache.db</code>) across runs.</td>
+                </tr>
+                <tr>
+                  <td><code>--clear-cache</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Clear state cache database before starting the crawl.</td>
+                </tr>
+                <tr>
+                  <td><code>--ignore-robots</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Bypass <code>robots.txt</code> restrictions.</td>
+                </tr>
+                <tr>
+                  <td><code>--capsolver-key</code></td>
+                  <td>string</td>
+                  <td>None</td>
+                  <td>API key for automated CapSolver WAF challenge resolution.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.5 -->
+      <section id="sec-cli-builder" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [02] // QUICKSTART & USAGE</div>
+          <h1>Interactive CLI Command Builder</h1>
+          <p class="section-desc">Visually configure parameters and copy the generated command line.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">2.5 Visual Command Builder</h2>
+
+          <div class="builder-grid">
+            <div class="builder-field">
+              <label class="builder-label" for="cli-keyword">Target Keyword / Subject</label>
+              <input type="text" id="cli-keyword" class="builder-input" value="meenfox" placeholder="e.g. meenfox">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-seed">Seed Manifest File Path</label>
+              <input type="text" id="cli-seed" class="builder-input" value="seeds/meenfox.txt"
+                placeholder="e.g. seeds/meenfox.txt">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-max-results">Max Results Per Type</label>
+              <input type="number" id="cli-max-results" class="builder-input" value="200">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-workers">Page Parsing Workers</label>
+              <input type="number" id="cli-workers" class="builder-input" value="12">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-dl-workers">Download Workers</label>
+              <input type="number" id="cli-dl-workers" class="builder-input" value="16">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-save-rejected">Save Rejected Reasons (Comma-Separated)</label>
+              <input type="text" id="cli-save-rejected" class="builder-input"
+                value="low_subject_relevance,preview_or_thumbnail">
+            </div>
+          </div>
+
+          <div class="builder-label">Execution Flags</div>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-download-media" checked> Download Media Files
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-use-state-cache" checked> Use State Cache DB
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-strict-domain"> Strict Domain Mode
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-ignore-robots"> Ignore robots.txt
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-skip-search"> Skip Search Engine
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="cli-clear-cache"> Clear Cache Before Run
+            </label>
+          </div>
+
+          <div style="margin-top: 24px;">
+            <div class="code-block-container">
+              <div class="code-header">
+                <span>GENERATED CLI COMMAND STRING</span>
+                <button class="copy-btn" data-target="generated-cli-output">COPY COMMAND</button>
+              </div>
+              <pre
+                id="generated-cli-output">python src/cli/main.py --keyword "meenfox" --seed "seeds/meenfox.txt" --max-results 200 --workers 12 --dl-workers 16 --save-rejected "low_subject_relevance,preview_or_thumbnail" --download-media --use-state-cache</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3.1 -->
+      <section id="sec-arch-engine" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
+          <h1>BFS Engine Loop</h1>
+          <p class="section-desc">Core crawl engine logic and asynchronous worker architecture.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.1 Crawler Execution Flow</h2>
+          <p>The crawling engine (`src/core/engine.py`) operates a concurrent Breadth-First-Search queue. Page parsing
+            tasks submit candidate URLs back to the queue after canonicalization and scope validation.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 3.2 -->
+      <section id="sec-arch-waf" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
+          <h1>8-Tier Stealth WAF Pipeline</h1>
+          <p class="section-desc">Automated escalation hierarchy for WAF bypass and challenge resolution.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.2 WAF Escalation Flow</h2>
+          <div class="waf-diagram-container">
+            <svg width="100%" height="220" viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="#ff5500" />
+                </marker>
+              </defs>
+
+              <!-- Tier 1 -->
+              <rect x="20" y="30" width="130" height="70" class="waf-step-box" />
+              <text x="85" y="60" class="waf-text-title">TIER 1</text>
+              <text x="85" y="80" class="waf-text-desc">Direct HTTPX</text>
+
+              <line x1="150" y1="65" x2="170" y2="65" class="waf-arrow" />
+
+              <!-- Tier 2 -->
+              <rect x="180" y="30" width="130" height="70" class="waf-step-box" />
+              <text x="245" y="60" class="waf-text-title">TIER 2-4</text>
+              <text x="245" y="80" class="waf-text-desc">TLS Impersonate</text>
+
+              <line x1="310" y1="65" x2="330" y2="65" class="waf-arrow" />
+
+              <!-- Tier 5 -->
+              <rect x="340" y="30" width="130" height="70" class="waf-step-box" />
+              <text x="405" y="60" class="waf-text-title">TIER 5</text>
+              <text x="405" y="80" class="waf-text-desc">FlareSolverr</text>
+
+              <line x1="470" y1="65" x2="490" y2="65" class="waf-arrow" />
+
+              <!-- Tier 6 -->
+              <rect x="500" y="30" width="130" height="70" class="waf-step-box" />
+              <text x="565" y="60" class="waf-text-title">TIER 6</text>
+              <text x="565" y="80" class="waf-text-desc">Crawlee Node</text>
+
+              <line x1="630" y1="65" x2="650" y2="65" class="waf-arrow" />
+
+              <!-- Tier 7 -->
+              <rect x="660" y="30" width="120" height="70" class="waf-step-box active" />
+              <text x="720" y="60" class="waf-text-title">TIER 7-8</text>
+              <text x="720" y="80" class="waf-text-desc">Camoufox Browser</text>
+
+              <text x="400" y="160" class="waf-text-desc" fill="#e0e0e0">AUTOMATED escalation triggers when 403
+                Forbidden, 429 Rate Limit, or Cloudflare JS Challenges are detected.</text>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3.3 -->
+      <section id="sec-arch-captcha" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
+          <h1>Universal Captcha Strategy</h1>
+          <p class="section-desc">Automated integration with CapSolver, 2Captcha, and AntiCaptcha providers.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.3 Automated Challenge Solver</h2>
+          <p>When Turnstile, reCAPTCHA, or hCaptcha tokens are required to proceed, the captcha strategy module
+            (`src/captcha/captcha_strategy.py`) dispatches tasks to configured providers and injects authorization
+            tokens into session pool cookies.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 3.4 -->
+      <section id="sec-arch-filters" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
+          <h1>Quality Scoring & Rejection</h1>
+          <p class="section-desc">Hard rejection rules, soft penalties, and rejected item disk retention.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.4 Quality Scoring Heuristics</h2>
+          <p>Every candidate media URL is evaluated by `src/core/filters.py` before downloading:</p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rejection Reason Token</th>
+                  <th>Trigger Criteria</th>
+                  <th>Retention Path</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>low_subject_relevance</code></td>
+                  <td>Subject name absent in URL path, alt-text, and surrounding context text.</td>
+                  <td><code>output/&lt;subject&gt;/rejected/low_subject_relevance/</code></td>
+                </tr>
+                <tr>
+                  <td><code>preview_or_thumbnail</code></td>
+                  <td>URL matches thumbnail patterns (e.g. <code>256px</code>, <code>pic256.jpg</code>,
+                    <code>/thumbs/</code>).</td>
+                  <td><code>output/&lt;subject&gt;/rejected/preview_or_thumbnail/</code></td>
+                </tr>
+                <tr>
+                  <td><code>utility_asset</code></td>
+                  <td>File is a UI logo, icon, avatar, sprite, or tracking pixel.</td>
+                  <td>Discarded unless explicitly saved.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3.5 -->
+      <section id="sec-arch-seeds" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // TECHNICAL ARCHITECTURE</div>
+          <h1>Seed Manifest Syntax</h1>
+          <p class="section-desc">Format specifications and header annotations for seed manifest files.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.5 Seed Manifest File Rules</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>MANIFEST // SEED ANNOTATION EXAMPLE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Subject: Meenfox
+
+# -- erothots1.com --
+# type: mixed
+# crawl: index→detail
+# depth: 1
+# Rate-limit: 0.4 req/s
+# max_pages: 5
+# [CDN] erocdn.co
+# Note: Cap crawl to bound crawler churn on index pages.
+https://erothots1.com/videos/meenfox</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4.1 -->
+      <section id="sec-test-suite" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
+          <h1>Automated Test Suite</h1>
+          <p class="section-desc">Running pytest and unit verification.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.1 Pytest Suite Execution</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // RUN FULL TEST SUITE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Run all unit and integration tests
+pytest tests/ -v</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4.2 -->
+      <section id="sec-test-tdai" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
+          <h1>TDAI & Verification Protocol</h1>
+          <p class="section-desc">Empirical verification rules and RED-GREEN-REFACTOR cycles.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.2 Verification Rules</h2>
+          <p>Never declare a feature or bug fix completed without running empirical runtime verification commands and
+            confirming that the test suite passes cleanly.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 4.3 -->
+      <section id="sec-test-log-diagnostics" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // TESTING STRATEGY</div>
+          <h1>Log Diagnostics Strategy</h1>
+          <p class="section-desc">Log analysis and error tracing recipes.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.3 Diagnostic Log Inspection</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // GREP LOGS FOR WAF BLOCKS AND 429 FAILURES</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>Select-String -Path "logs/*.log" -Pattern "HTTP 429|cloudflare_blocked|ScraperBypassError"</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5.1 -->
+      <section id="sec-ux-webui" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
+          <h1>WebUI Architecture</h1>
+          <p class="section-desc">FastAPI backend and HTMX frontend integration.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.1 Dashboard Server</h2>
+          <p>The interactive WebUI dashboard server (`frontend/app.py`) provides real-time control over extraction jobs,
+            live log streaming via Server-Sent Events (SSE), and visual Canvas network trees.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 5.2 -->
+      <section id="sec-ux-brutalism" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
+          <h1>Design Tokens System</h1>
+          <p class="section-desc">Utilitarian Brutalism design rules and color tokens.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.2 Color Tokens & Typography</h2>
+          <p>Strict 90° square corners (`border-radius: 0 !important`), high contrast dark mode (`#0b0d0c` / `#ff5500`),
+            `Oswald` headers, and `JetBrains Mono` forms and logs.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 5.3 -->
+      <section id="sec-ux-telemetry" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [05] // UX & DASHBOARD</div>
+          <h1>SSE Live Telemetry</h1>
+          <p class="section-desc">Real-time log broadcasting and status streaming.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">5.3 Live Telemetry Pipeline</h2>
+          <p>Streams live run events, WAF challenge triggers, and harvested item counts directly to the user dashboard
+            without polling.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 6.1 -->
+      <section id="sec-ops-docker" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
+          <h1>Docker Containerization</h1>
+          <p class="section-desc">Multi-container orchestration setup.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.1 Docker Compose Deployment</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>BASH // DOCKER COMPOSE LAUNCH</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>docker-compose up -d --build</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 6.2 -->
+      <section id="sec-ops-watchdog" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
+          <h1>Continuous Watchdog Agent</h1>
+          <p class="section-desc">Continuous monitoring loop and SQLite state cache management.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.2 Watchdog Agent Execution</h2>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // WATCHDOG LAUNCHER</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>.\run_monitor.bat --keyword "meenfox" --use-state-cache</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 6.3 -->
+      <section id="sec-ops-notifications" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
+          <h1>Multi-Channel Notifications</h1>
+          <p class="section-desc">Pluggable notification providers for Telegram, Discord, Slack, and Webhooks.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.3 Notification Pipeline Configuration</h2>
+          <p>Configure credentials in <code>.env</code> to receive completion summaries and WAF block alerts across
+            Telegram, Discord, Slack, or custom HTTP webhooks.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 6.4 -->
+      <section id="sec-ops-debt" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // DEPLOYMENT & OPERATIONS</div>
+          <h1>Tech Debt & Continuity Rules</h1>
+          <p class="section-desc">Guidelines for codebase hygiene and architectural continuity.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.4 Maintenance & Continuity Principles</h2>
+          <div class="alert important">
+            <div class="alert-title">[!] CONTINUITY & TECH DEBT PREVENTION</div>
+            Always preserve backward compatibility across API contracts, use safe filter concatenation
+            (`filters.safe_join`), and trace errors back to authoritative code before making file edits.
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7.1 -->
+      <section id="sec-kt-troubleshooting" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
+          <h1>Operator Diagnostic Matrix</h1>
+          <p class="section-desc">Troubleshooting guide for runtime issues and WAF challenges.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">7.1 Symptom Resolution Table</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symptom</th>
+                  <th>Root Cause Location</th>
+                  <th>Resolution Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Low image/video count</td>
+                  <td><code>domain_report.json</code></td>
+                  <td>Add better seed URLs or check if domain is blacklisted in <code>data/blacklist.json</code>.</td>
+                </tr>
+                <tr>
+                  <td>Frequent HTTP 429 Errors</td>
+                  <td>Log grep for <code>HTTP 429</code></td>
+                  <td>Lower RPS rate limit in <code>data/domain_config.json</code> under <code>rate_limits</code>.</td>
+                </tr>
+                <tr>
+                  <td>Booru thumbnails only</td>
+                  <td>Seed manifest URL</td>
+                  <td>Set <code># crawl: index→detail</code> and <code># depth: 1</code> for that domain.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7.2 -->
+      <section id="sec-kt-guidelines" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
+          <h1>Developer Guidelines</h1>
+          <p class="section-desc">Documentation standards and agent rules.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">7.2 Developer Resources</h2>
+          <p>Consult <code>AGENTS.md</code> for workspace operational guidelines, <code>CONTRIBUTING.md</code> for
+            contribution workflows, and <code>SECURITY.md</code> for static analysis compliance.</p>
+        </div>
+      </section>
+
+      <!-- SECTION 7.3 -->
+      <section id="sec-kt-export" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [07] // KNOWLEDGE TRANSFER</div>
+          <h1>Dataset Export & Outputs</h1>
+          <p class="section-desc">Kohya_ss LoRA dataset ZIP export and metadata sidecars.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">7.3 Output Files & LoRA Exporter</h2>
+          <p>Scraped media files are saved under <code>output/&lt;subject&gt;/runs/&lt;run_id&gt;/</code> along with
+            structured <code>results.json</code> payload, <code>domain_report.json</code>, and Kohya_ss formatted ZIP
+            archives.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
