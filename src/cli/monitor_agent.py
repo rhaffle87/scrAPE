@@ -9,8 +9,10 @@ import threading
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+import logging
 
 shutdown_event = threading.Event()
+LOGGER = logging.getLogger(__name__)
 
 
 def signal_handler(signum, frame):
@@ -36,8 +38,8 @@ def load_watchdog_config(config_path: str = "data/domain_config.json") -> dict:
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
             return data.get("watchdog", {})
-        except Exception:
-            pass
+        except Exception as _exc:
+            LOGGER.debug("Failed to load watchdog config from %s: %s", config_path, _exc)
     return {}
 
 
@@ -168,8 +170,8 @@ def broadcast_watchdog_event(event_name: str, payload: dict) -> None:
         from frontend.app import broadcaster
 
         broadcaster.broadcast(event_name, payload)
-    except Exception:
-        pass
+    except Exception as _exc:
+        LOGGER.debug("Failed to broadcast watchdog event '%s': %s", event_name, _exc)
 
 
 def discover_rotation_targets(seeds_dir: str) -> list[tuple[str, str]]:
@@ -202,8 +204,8 @@ def parse_latest_run_yield(keyword: str) -> tuple[int, int, int] | None:
             vids = len(data.get("videos", []))
             rejs = len(data.get("rejected_items", []))
             return imgs, vids, rejs
-        except Exception:
-            pass
+        except Exception as _exc:
+            LOGGER.debug("Failed to parse results.json for subject '%s': %s", keyword, _exc)
     return None
 
 

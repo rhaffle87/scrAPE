@@ -103,16 +103,14 @@ class ProxyPoolManager:
 
     def _background_refresh_loop(self) -> None:
         import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        async def loop_task():
-            # Initial wait so we don't block startup too aggressively, but we want it fast enough to be useful early
+
+        async def loop_task() -> None:
+            # Brief startup delay so we don't block initial app startup aggressively.
             for _ in range(20):
                 if self._stop_event.is_set():
                     return
                 await asyncio.sleep(0.1)
-            
+
             while not self._stop_event.is_set():
                 try:
                     await self.refresh_pool()
@@ -121,21 +119,19 @@ class ProxyPoolManager:
                         LOGGER.error("Error in background proxy refresh: %s", e)
                     except ValueError:
                         pass
-                # Sleep for 60 minutes before next refresh
+                # Sleep for 60 minutes before next refresh, polling stop_event each second.
                 for _ in range(3600):
                     if self._stop_event.is_set():
                         return
                     await asyncio.sleep(1.0)
-                
+
         try:
-            loop.run_until_complete(loop_task())
+            asyncio.run(loop_task())
         except Exception as e:
             try:
                 LOGGER.error("Background proxy refresh loop terminated: %s", e)
             except ValueError:
                 pass
-        finally:
-            loop.close()
 
     def shutdown(self) -> None:
         self._stop_event.set()

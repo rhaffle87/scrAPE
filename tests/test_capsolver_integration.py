@@ -34,6 +34,7 @@ def test_capsolver_sitekey_extraction():
 
 
 def test_capsolver_strategy_execute_success(monkeypatch):
+    monkeypatch.setattr("notifications.telegram_bot.requests.post", lambda *a, **k: MagicMock(status_code=200))
     provider = CapSolverProvider(api_key="TEST_KEY_123")
     strategy = ThirdPartyCaptchaStrategy(provider=provider)
 

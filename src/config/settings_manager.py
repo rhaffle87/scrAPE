@@ -46,8 +46,9 @@ class SettingsManager:
             row = cursor.fetchone()
             if row and row[0]:
                 return row[0]
-        except Exception:
-            pass
+        except Exception as _exc:
+            import logging as _log
+            _log.getLogger(__name__).debug("Settings DB read failed for key '%s': %s", key, _exc)
         return os.getenv(key, default)
 
     def set(self, key: str, value: str):

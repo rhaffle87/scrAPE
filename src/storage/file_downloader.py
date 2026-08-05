@@ -35,41 +35,9 @@ from network.rate_limiter import RateLimiter
 
 LOGGER = get_logger(__name__)
 
-# Per-hostname rate limiters used exclusively during the download phase.
-# These run at DOWNLOAD_RATE_LIMIT_RPS (5 req/s) and are independent of the
-# crawl-phase limiters so that concurrent download workers are not serialized
-# by a slow crawl rate (e.g. 0.1 req/s) on the same domain.
-_FAST_DOWNLOAD_LIMITERS: dict[str, RateLimiter] = {}
-_HOST_SEMAPHORES: dict[str, threading.Semaphore] = {}
-_FAST_DL_LOCK = threading.Lock()
+# Constants remain module-level (they are immutable and safe to share).
 DOWNLOAD_RATE_LIMIT_RPS = 5.0  # Max requests/sec for non-CDN download hosts
 MAX_CONCURRENT_PER_HOST = 4    # Max simultaneous active downloads per host domain
-
-
-def _fast_limiter_for(host: str) -> RateLimiter:
-    """Return (or lazily create) the fast download-phase RateLimiter for *host*.
-
-    These limiters cap at ``DOWNLOAD_RATE_LIMIT_RPS`` and are not shared with
-    the main crawl-phase limiters, so download threads never block on crawl
-    rate limits and vice-versa.
-    """
-    with _FAST_DL_LOCK:
-        if host not in _FAST_DOWNLOAD_LIMITERS:
-            _FAST_DOWNLOAD_LIMITERS[host] = RateLimiter(DOWNLOAD_RATE_LIMIT_RPS)
-        return _FAST_DOWNLOAD_LIMITERS[host]
-
-
-def _host_semaphore_for(host: str, max_concurrent: int = MAX_CONCURRENT_PER_HOST) -> threading.Semaphore:
-    """Return (or lazily create) a per-host concurrency Semaphore.
-
-    The semaphore value is ``max(MAX_CONCURRENT_PER_HOST, max_concurrent)`` so
-    that callers who explicitly request higher concurrency (e.g. bulk download
-    workers) are not silently capped below what they asked for.
-    """
-    with _FAST_DL_LOCK:
-        if host not in _HOST_SEMAPHORES:
-            _HOST_SEMAPHORES[host] = threading.Semaphore(max(MAX_CONCURRENT_PER_HOST, max(1, max_concurrent)))
-        return _HOST_SEMAPHORES[host]
 
 
 IMAGE_SIGNATURES = (
@@ -125,6 +93,11 @@ class MediaDownloader:
         
         self._curl_session = None
         self._curl_session_lock = threading.Lock()
+        # Per-hostname rate limiters and concurrency semaphores are instance-scoped
+        # so that long-lived watchdog processes don't accumulate stale module-level state.
+        self._fast_limiters: dict[str, RateLimiter] = {}
+        self._host_semaphores: dict[str, threading.Semaphore] = {}
+        self._dl_lock = threading.Lock()
         # Seed in-memory pHash set from persistent DB for cross-run deduplication
         if self._state_cache is not None:
             try:
@@ -138,6 +111,28 @@ class MediaDownloader:
                     )
             except Exception as exc:
                 LOGGER.warning("MediaDownloader: failed to load persisted pHashes: %s", exc)
+
+    def _fast_limiter_for(self, host: str) -> RateLimiter:
+        """Return (or lazily create) a per-host download-phase RateLimiter.
+
+        Instance-scoped to avoid state accumulation across watchdog iterations.
+        """
+        with self._dl_lock:
+            if host not in self._fast_limiters:
+                self._fast_limiters[host] = RateLimiter(DOWNLOAD_RATE_LIMIT_RPS)
+            return self._fast_limiters[host]
+
+    def _host_semaphore_for(self, host: str, max_concurrent: int = MAX_CONCURRENT_PER_HOST) -> threading.Semaphore:
+        """Return (or lazily create) a per-host concurrency Semaphore.
+
+        The semaphore value is ``max(MAX_CONCURRENT_PER_HOST, max_concurrent)`` so
+        that callers who explicitly request higher concurrency (e.g. bulk download
+        workers) are not silently capped below what they asked for.
+        """
+        with self._dl_lock:
+            if host not in self._host_semaphores:
+                self._host_semaphores[host] = threading.Semaphore(max(MAX_CONCURRENT_PER_HOST, max(1, max_concurrent)))
+            return self._host_semaphores[host]
 
     def _get_curl_session(self):
         with self._curl_session_lock:
@@ -445,7 +440,7 @@ class MediaDownloader:
             try:
                 # Rate-limit gate: skip for CDN hosts, use fast limiter otherwise.
                 if not _is_cdn:
-                    _fast_limiter_for(_url_host).wait()
+                    self._fast_limiter_for(_url_host).wait()
 
                 bytes_written = 0
                 if media_kind == "video" and temp_target.exists():
@@ -508,7 +503,7 @@ class MediaDownloader:
                             else:
                                 raise ssl_err
 
-                with _host_semaphore_for(_url_host, max_concurrent=self.workers):
+                with self._host_semaphore_for(_url_host, max_concurrent=self.workers):
                     with _do_request() as response:
                         content_type = response.headers.get("content-type", "")
 

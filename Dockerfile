@@ -45,14 +45,16 @@ COPY --from=builder --chown=root:root /app/crawlee_bridge ./crawlee_bridge
 COPY --chown=root:root frontend/ ./frontend/
 COPY --chown=root:root .bandit ./.bandit
 
-# Only runtime-writable dirs get appuser ownership
-RUN mkdir -p data seeds && chown appuser:appuser data seeds
+# Runtime-writable dirs setup & Playwright system dependencies (as root)
+RUN mkdir -p data seeds && chown appuser:appuser data seeds \
+    && pip install --no-cache-dir playwright \
+    && python -m playwright install-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 USER appuser
 
-# Playwright + Chromium headless-shell, installed into appuser's own cache dir
-RUN pip install --no-cache-dir playwright \
-    && python -m playwright install --with-deps --only-shell chromium
+# Install Chromium headless-shell binary into appuser's home cache
+RUN python -m playwright install --only-shell chromium
 
 EXPOSE 10001
 

@@ -85,6 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Download discovered media into the output directory.",
     )
     parser.add_argument(
+        "--tag-dataset",
+        action="store_true",
+        help="Auto-generate AI caption and tag sidecar .txt files for downloaded image datasets.",
+    )
+    parser.add_argument(
         "--save-rejected",
         type=str,
         default="",
@@ -716,6 +721,15 @@ def main() -> None:
             crop_res = cropper.crop_directory(images_dir)
             logger.info("Auto-crop complete: cropped %d images into %s", crop_res.get("cropped_count", 0), crop_res.get("output_dir"))
 
+    if getattr(args, "tag_dataset", False):
+        from ml.dataset_tagger import DatasetTagger
+        images_dir = OUTPUT_DIR / result.keyword_slug / "images"
+        if images_dir.exists():
+            logger.info("Executing AI dataset auto-tagging on %s...", images_dir)
+            tagger = DatasetTagger(use_vision_model=True)
+            tag_res = tagger.tag_directory(images_dir)
+            logger.info("Auto-tagging complete: %d images tagged (%d sidecars created)", tag_res.get("processed", 0), tag_res.get("sidecars_created", 0))
+
     output_root = OUTPUT_DIR / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -813,8 +827,8 @@ def _silence_win32_com_errors():
     if sys.platform.startswith("win"):
         try:
             sys.stderr = open(os.devnull, "w")
-        except Exception:
-            pass
+        except Exception as _exc:
+            pass  # Intentional: best-effort stderr suppression at teardown; logging may be unavailable
 
 atexit.register(_silence_win32_com_errors)
 

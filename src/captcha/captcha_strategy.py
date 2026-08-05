@@ -183,6 +183,13 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
             if retry_resp and retry_resp.status_code < 400 and not (hasattr(client, "_is_cloudflare_challenge") and client._is_cloudflare_challenge(retry_resp.text)):
                 cookie_dict = dict(retry_resp.cookies)
                 self._inject_session(url, cookie_dict, client)
+                try:
+                    from urllib.parse import urlparse
+                    from notifications.notification_manager import NotificationPipeline
+                    dom = urlparse(url).netloc
+                    NotificationPipeline().notify_captcha_solved(dom, getattr(self.provider, "name", "CaptchaProvider"))
+                except Exception as _notify_exc:
+                    LOGGER.debug("Failed to dispatch captcha_solved notification for %s: %s", url, _notify_exc)
                 return StealthResponse(
                     status_code=retry_resp.status_code, text=retry_resp.text,
                     cookies=cookie_dict, headers=dict(retry_resp.headers),

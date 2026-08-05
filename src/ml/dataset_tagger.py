@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import concurrent.futures
 import logging
 import os
 from pathlib import Path
@@ -9,21 +8,43 @@ from typing import Any
 LOGGER = logging.getLogger(__name__)
 
 
+def get_inference_device() -> str:
+    """Detect if CUDA GPU is available for inference, defaulting to CPU."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+    except Exception:
+        pass
+    return "cpu"
+
+
 class DatasetTagger:
-    """Auto-tagger engine generating comma-separated tag .txt sidecars for image datasets."""
+    """Auto-tagger engine generating comma-separated tag & caption .txt sidecars for image datasets."""
 
     def __init__(
         self,
         confidence_threshold: float = 0.35,
         trigger_tag: str | None = None,
         use_vision_model: bool = False,
+        device: str | None = None,
     ):
         self.confidence_threshold = confidence_threshold
         self.trigger_tag = (trigger_tag or "").strip()
         self.use_vision_model = use_vision_model
+        self.device = device or get_inference_device()
 
     def _predict_vision_tags(self, image_path: Path) -> list[str]:
-        """Opt-in vision model tag prediction (WD14 Booru ViT / ONNX / transformers)."""
+        """Opt-in vision model tag prediction (WD14 Booru ViT / BLIP captioner / heuristics).
+
+        Note: ``self.device`` is set to ``'cuda'`` or ``'cpu'`` by :func:`get_inference_device`.
+        When a real WD14/BLIP model is wired in, load it with::
+
+            model = load_model(...)
+            model.to(self.device)
+
+        Currently, heuristic-only inference is device-agnostic (pure PIL, no tensors).
+        """
         if not self.use_vision_model:
             return []
         tags: list[str] = []
@@ -39,7 +60,7 @@ class DatasetTagger:
                         tags.append("portrait")
                     else:
                         tags.append("square")
-                    
+
                     if w >= 1920 or h >= 1920:
                         tags.append("highres")
                     elif w <= 640 and h <= 640:
@@ -109,27 +130,22 @@ class DatasetTagger:
         return sidecar_path
 
     def tag_directory(
-        self, directory: Path, metadata_map: dict[str, dict[str, Any]] | None = None
+        self,
+        directory: Path,
+        metadata_map: dict[str, dict[str, Any]] | None = None,
+        max_workers: int = 4,
     ) -> dict[str, int]:
-        """Batch tag all image files in a directory."""
-        import os
-        
-        # 1. Normalize and get absolute path (string manipulation only)
+        """Batch tag all image files in a directory concurrently."""
         abs_path = os.path.abspath(os.path.normpath(str(directory).strip()))
         
-        # 2. Get the safe root of this absolute path (e.g. '/' or 'C:\\')
-        # We reconstruct the root strictly from the OS module to ensure it is untainted
         if os.name == 'nt':
-            # On Windows, abspath always includes the drive letter (e.g. 'C:\')
             drive = os.path.splitdrive(abs_path)[0]
-            # Verify the drive is just a simple A-Z drive letter to drop taint
             if not drive or not drive[0].isalpha() or len(drive) != 2:
                 return {"processed": 0, "sidecars_created": 0}
             safe_root = drive.upper() + "\\"
         else:
             safe_root = os.path.abspath(os.sep)
             
-        # 3. Structural validation to drop CodeQL taint: verify the path starts with an untainted root
         if not abs_path.startswith(safe_root):
             return {"processed": 0, "sidecars_created": 0}
             
@@ -139,15 +155,28 @@ class DatasetTagger:
 
         metadata_map = metadata_map or {}
         image_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-        processed = 0
-        created = 0
+        image_files = [
+            f for f in safe_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in image_extensions
+        ]
 
-        for file_path in safe_dir.iterdir():
-            if file_path.is_file() and file_path.suffix.lower() in image_extensions:
-                processed += 1
+        if not image_files:
+            return {"processed": 0, "sidecars_created": 0}
+
+        def _process_single(file_path: Path) -> bool:
+            try:
                 meta = metadata_map.get(file_path.name, {})
                 tags = self.generate_tags_for_image(file_path, meta)
                 self.create_sidecar_file(file_path, tags)
-                created += 1
+                return True
+            except Exception as exc:
+                LOGGER.warning("Failed sidecar creation for %s: %s", file_path.name, exc)
+                return False
 
-        return {"processed": processed, "sidecars_created": created}
+        created = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(image_files), max_workers)) as executor:
+            results = executor.map(_process_single, image_files)
+            created = sum(1 for r in results if r)
+
+        return {"processed": len(image_files), "sidecars_created": created}
+

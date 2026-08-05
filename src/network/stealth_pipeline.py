@@ -14,6 +14,21 @@ import time
 from typing import Any
 import httpx
 
+__all__ = [
+    "StealthResponse",
+    "StealthStrategy",
+    "StealthPipeline",
+    "HttpxStrategy",
+    "CurlCffiStrategy",
+    "CrawleeStrategy",
+    "Crawl4AIStrategy",
+    "DrissionPageStrategy",
+    "HeliumStrategy",
+    "FlareSolverrStrategy",
+    "CamoufoxStrategy",
+    "NodriverStrategy",
+]
+
 
 @dataclass
 class StealthResponse:
@@ -183,13 +198,26 @@ class CurlCffiStrategy(StealthStrategy):
 class CrawleeStrategy(StealthStrategy):
     name = "crawlee"
 
+    # TTL-cached availability: avoids an HTTP ping to the Node.js bridge per URL.
+    _avail_result: bool = False
+    _avail_until: float = 0.0
+    _avail_lock: threading.Lock = threading.Lock()
+    _AVAIL_TTL_S: float = 30.0
+
     def is_available(self) -> bool:
+        now = time.monotonic()
+        with self.__class__._avail_lock:
+            if now < self.__class__._avail_until:
+                return self.__class__._avail_result
         try:
             from network.crawlee_client import CrawleeClient
-            client = CrawleeClient()
-            return client._is_server_running()
+            result = CrawleeClient()._is_server_running()
         except Exception:
-            return False
+            result = False
+        with self.__class__._avail_lock:
+            self.__class__._avail_result = result
+            self.__class__._avail_until = time.monotonic() + self.__class__._AVAIL_TTL_S
+        return result
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         # Tier A: Fast cheerio
@@ -238,23 +266,6 @@ class Crawl4AIStrategy(StealthStrategy):
         return None
 
 
-class DrissionPageStrategy(StealthStrategy):
-    name = "drissionpage"
-
-    def execute(self, url: str, client: Any) -> StealthResponse | None:
-        try:
-            html, cookies = client._get_with_drissionpage(url)
-            if html and not client._is_blocked_page(html, url):
-                cookie_dict = {}
-                if isinstance(cookies, list):
-                    cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
-                elif isinstance(cookies, dict):
-                    cookie_dict = cookies
-                return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
-        return None
-
 
 class HeliumStrategy(StealthStrategy):
     name = "helium"
@@ -278,11 +289,23 @@ class FlareSolverrStrategy(StealthStrategy):
     name = "flaresolverr"
     _monitor = None
 
+    # TTL-cached availability: avoids an HTTP GET to the FlareSolverr container per URL.
+    _avail_result: bool = False
+    _avail_until: float = 0.0
+    _avail_lock: threading.Lock = threading.Lock()
+    _AVAIL_TTL_S: float = 60.0
+
     def is_available(self) -> bool:
         from config import FLARESOLVERR_URL, ENABLE_FLARESOLVERR_FALLBACK
         if not ENABLE_FLARESOLVERR_FALLBACK or not FLARESOLVERR_URL:
             return False
-            
+
+        now = time.monotonic()
+        with self.__class__._avail_lock:
+            if now < self.__class__._avail_until:
+                return self.__class__._avail_result
+
+        result = False
         # Check Docker telemetry health to avoid routing to a stuck FlareSolverr instance
         try:
             from network.flaresolverr_monitor import FlareSolverrMonitor
@@ -290,8 +313,10 @@ class FlareSolverrStrategy(StealthStrategy):
             if self.__class__._monitor is None:
                 self.__class__._monitor = FlareSolverrMonitor()
                 self.__class__._monitor.start()  # type: ignore
-            
             if not self.__class__._monitor.is_healthy():  # type: ignore
+                with self.__class__._avail_lock:
+                    self.__class__._avail_result = False
+                    self.__class__._avail_until = time.monotonic() + self.__class__._AVAIL_TTL_S
                 return False
         except ImportError:
             pass
@@ -299,9 +324,14 @@ class FlareSolverrStrategy(StealthStrategy):
         try:
             base_url = FLARESOLVERR_URL.rsplit("/v1", 1)[0] or FLARESOLVERR_URL
             r = httpx.get(base_url, timeout=1.5)
-            return r.status_code == 200
+            result = r.status_code == 200
         except Exception:
-            return False
+            result = False
+
+        with self.__class__._avail_lock:
+            self.__class__._avail_result = result
+            self.__class__._avail_until = time.monotonic() + self.__class__._AVAIL_TTL_S
+        return result
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:
@@ -322,10 +352,12 @@ class CamoufoxStrategy(StealthStrategy):
     name = "camoufox"
 
     def is_available(self) -> bool:
-        import sys
-        if sys.platform == "win32":
+        # Camoufox has supported Windows since v0.4.0 — use import-check, not platform check.
+        try:
+            import camoufox  # type: ignore  # noqa: F401
+            return True
+        except ImportError:
             return False
-        return True
 
     def execute(self, url: str, client: Any) -> StealthResponse | None:
         try:

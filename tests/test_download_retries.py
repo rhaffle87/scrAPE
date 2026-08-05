@@ -70,7 +70,7 @@ def test_download_file_retry_on_network_error(tmp_path):
     with (
         patch("time.sleep") as mock_sleep,
         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)),
-        patch("storage.file_downloader._fast_limiter_for", return_value=mock_fast_rl),
+        patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl),
         patch("curl_cffi.requests.Session") as mock_curl_session,
     ):
         mock_curl_resp = MagicMock()
@@ -142,7 +142,7 @@ def test_download_file_retry_on_server_error(tmp_path):
     with (
         patch("time.sleep") as mock_sleep,
         patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)),
-        patch("storage.file_downloader._fast_limiter_for", return_value=mock_fast_rl2),
+        patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl2),
     ):
         success, reason = downloader._download_file(
             url="https://example.com/img.jpg",

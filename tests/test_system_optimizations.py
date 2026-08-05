@@ -4,7 +4,7 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 from core.filters import transform_to_highres, is_search_page_url
-from storage.file_downloader import _host_semaphore_for
+from storage.file_downloader import MediaDownloader
 from network.http_client import HttpClient
 
 
@@ -102,7 +102,15 @@ def test_is_search_page_url():
 
 
 def test_dynamic_host_semaphore_scaling():
-    sem = _host_semaphore_for("test_dynamic_host.com", max_concurrent=16)
+    """_host_semaphore_for (now an instance method) must honour max_concurrent."""
+    from unittest.mock import MagicMock, patch
+    mock_http = MagicMock()
+    mock_http.get_proxy = MagicMock(return_value=None)
+    with patch("storage.file_downloader.HttpClient", return_value=mock_http), \
+         patch("network.bandwidth_limiter.BandwidthLimiter", MagicMock()), \
+         patch("ml.aesthetic_scorer.AestheticScorer", MagicMock()):
+        dl = MediaDownloader(http=mock_http)
+    sem = dl._host_semaphore_for("test_dynamic_host.com", max_concurrent=16)
     assert sem._value == 16
 
 
