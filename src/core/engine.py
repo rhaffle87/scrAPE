@@ -227,6 +227,14 @@ class ScrapingEngine:
         )
         orchestrator.media_processor = media_processor
 
+        # Start download pipeline if enabled
+        if options.download_media:
+            from config import DEFAULT_RUNS_SUBDIR
+            output_root = (
+                options.output_dir / result.keyword_slug / DEFAULT_RUNS_SUBDIR / result.run_id
+            )
+            media_processor.start_downloads(result, options, output_root)
+
         # Execute crawl
         orchestrator.execute_crawl(
             keyword=keyword,
@@ -235,6 +243,10 @@ class ScrapingEngine:
             page_limit=page_limit,
             crawl_depth=crawl_depth,
         )
+
+        # Stop download pipeline and wait for completion
+        if options.download_media:
+            media_processor.stop_downloads()
 
         result.images = media_processor.finalize_images(result, options)
         result.videos = media_processor.finalize_videos(result, options)
@@ -248,9 +260,6 @@ class ScrapingEngine:
                 except Exception:
                     pass
 
-        # Download media
-        if options.download_media:
-            media_processor.execute_deferred_downloads(result, options)
 
         end_time = time.time()
         result.run_metadata["total_duration_seconds"] = (

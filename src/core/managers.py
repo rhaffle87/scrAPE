@@ -537,195 +537,151 @@ class MediaProcessor:
             except Exception as e:
                 LOGGER.warning("Failed to save dead URLs to run dir: %s", e)
 
-    def execute_deferred_downloads(self, result, options) -> None:
-        import time
-        import re
+    def start_downloads(self, result, options, output_root) -> None:
+        import queue
+        import threading
         import concurrent.futures as _cf
-        from urllib.parse import urlparse
-        from config import (
-            DEFAULT_RUNS_SUBDIR,
-            DEFAULT_DOWNLOAD_IMAGES_SUBDIR,
-            DEFAULT_DOWNLOAD_VIDEOS_SUBDIR,
-            CONCURRENT_DOWNLOADS,
-        )
+        import json
+        from config import CONCURRENT_DOWNLOADS
         from monitoring.logger import get_logger
 
-        LOGGER = get_logger(__name__)
+        self.LOGGER = get_logger(__name__)
+        self.options = options
+        self.result = result
+        self.output_root = output_root
 
-        _download_start_time = time.monotonic()
-        output_root = (
-            options.output_dir
-            / result.keyword_slug
-            / DEFAULT_RUNS_SUBDIR
-            / result.run_id
-        )
-        image_dir = output_root / DEFAULT_DOWNLOAD_IMAGES_SUBDIR
-        video_dir = output_root / DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
-        image_dir.mkdir(parents=True, exist_ok=True)
-        video_dir.mkdir(parents=True, exist_ok=True)
-
-        # Load known dead URLs for this subject
+        # Load known dead URLs
         dead_urls_file = options.output_dir / result.keyword_slug / "dead_urls.json"
         if dead_urls_file.exists():
             try:
-                import json
                 with open(dead_urls_file, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
                     if isinstance(loaded, list):
                         with self.downloader._dead_urls_lock:
                             self.downloader._dead_urls.update(loaded)
-                LOGGER.info("Loaded %d known dead URLs from %s", len(self.downloader._dead_urls), dead_urls_file)
+                self.LOGGER.info("Loaded %d known dead URLs", len(self.downloader._dead_urls))
             except Exception as e:
-                LOGGER.warning("Failed to load dead URLs from %s: %s", dead_urls_file, e)
+                self.LOGGER.warning("Failed to load dead URLs: %s", e)
 
-        def get_domain_slug(url: str) -> str:
-            parsed = urlparse(url)
-            netloc = parsed.netloc.lower()
-            if ":" in netloc:
-                netloc = netloc.split(":")[0]
-            return netloc
-
-        # Group image items by domain
-        images_by_domain = {}
-        for item in result.images:
-            domain = get_domain_slug(item.source_page)
-            images_by_domain.setdefault(domain, []).append(item)
-
-        # Group video items by domain
-        videos_by_domain = {}
-        for item in result.videos:
-            if item.type in {"direct", "hls", "dash"}:
-                domain = get_domain_slug(item.source_page)
-                videos_by_domain.setdefault(domain, []).append(item)
-
-        image_tasks = []
-        for domain, items in images_by_domain.items():
-            domain_dir = image_dir / domain
-            domain_dir.mkdir(parents=True, exist_ok=True)
-            domain_prefix = domain.replace(".", "_")
-            for idx, item in enumerate(items, start=1):
-                stem_suffix = re.sub(
-                    r"[^a-zA-Z0-9]+",
-                    "_",
-                    (item.alt_text or item.page_title or "image").strip().lower(),
-                ).strip("_")
-                stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
-                stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
-                image_tasks.append((item, domain_dir, stem, "image"))
-
-        video_tasks = []
-        for domain, items in videos_by_domain.items():
-            domain_dir = video_dir / domain
-            domain_dir.mkdir(parents=True, exist_ok=True)
-            domain_prefix = domain.replace(".", "_")
-            for idx, item in enumerate(items, start=1):
-                stem_suffix = re.sub(
-                    r"[^a-zA-Z0-9]+",
-                    "_",
-                    (item.page_title or item.type).strip().lower(),
-                ).strip("_")
-                stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
-                stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
-                video_tasks.append((item, domain_dir, stem, "video"))
-
-        all_dl_tasks = image_tasks + video_tasks
-
-        # Pre-dedup: skip media items whose normalized URL is already queued
-        from core.filters import normalize_url as _norm_dl_url
-        _seen_download_urls: set[str] = set()
-        deduped_dl_tasks = []
-        for task in all_dl_tasks:
-            item, directory, stem, media_kind = task
-            norm = _norm_dl_url(item.url)
-            if norm in _seen_download_urls:
-                item.status = "skipped"
-                item.failure_reason = "duplicate_url_precheck"
-                result.download_stats["download_duplicate_url_precheck"] = (
-                    result.download_stats.get("download_duplicate_url_precheck", 0) + 1
-                )
-                continue
-            _seen_download_urls.add(norm)
-            deduped_dl_tasks.append(task)
-        if len(all_dl_tasks) != len(deduped_dl_tasks):
-            LOGGER.info(
-                "Pre-dedup removed %d duplicate download URLs.",
-                len(all_dl_tasks) - len(deduped_dl_tasks),
-            )
-        all_dl_tasks = deduped_dl_tasks
-
-        if not all_dl_tasks:
-            result.run_metadata["download_duration_seconds"] = 0.0
-            self._save_dead_urls(result, options, output_root)
-            return
-
-        LOGGER.info(
-            "Downloading %d images and %d videos...",
-            len(image_tasks),
-            len(video_tasks),
-        )
-
-        downloaded_video_urls = {item.url for item, _, _, _ in video_tasks}
-        for item in result.videos:
-            if item.url not in downloaded_video_urls:
-                item.status = "skipped"
-                item.failure_reason = "non_downloadable_type"
-
+        # Setup CDN hosts
+        self._cdn_hosts_deduped = []
         _cdn_hosts = []
         if options.seed_manifest is not None:
             _cdn_hosts.extend(getattr(options.seed_manifest, "all_allowed_hosts", []))
         elif options.domain_profiles:
             for _dp in options.domain_profiles.values():
                 _cdn_hosts.extend(getattr(_dp, "cdn_hosts", []))
-                
+        
         _seen_cdn = set()
-        _cdn_hosts_deduped = []
         for _h in _cdn_hosts:
             if _h not in _seen_cdn:
                 _seen_cdn.add(_h)
-                _cdn_hosts_deduped.append(_h)
+                self._cdn_hosts_deduped.append(_h)
+
+        # State for pipelining
+        self.download_queue = queue.Queue(maxsize=5000)
+        self.domain_counters = {}
+        self._seen_download_urls = set()
+        self._is_running = True
+        
+        self.dl_executor = _cf.ThreadPoolExecutor(
+            max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
+        )
+        
+        # Start a manager thread that consumes the queue and submits to the executor
+        self._manager_thread = threading.Thread(target=self._download_manager_loop, name="DlManagerThread", daemon=True)
+        self._manager_thread.start()
+        self.LOGGER.info("Started pipelined media downloader with max %d workers.", CONCURRENT_DOWNLOADS)
+
+    def enqueue_download(self, item, media_kind: str) -> None:
+        """Called by MediaPipeline to push an item for immediate download."""
+        if getattr(self, "download_queue", None) is None:
+            return  # Downloads not active
+
+        from urllib.parse import urlparse
+        import re
+        from core.filters import normalize_url as _norm_dl_url
+        from config import DEFAULT_DOWNLOAD_IMAGES_SUBDIR, DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
+
+        if media_kind == "video" and item.type not in {"direct", "hls", "dash"}:
+            item.status = "skipped"
+            item.failure_reason = "non_downloadable_type"
+            return
+
+        norm = _norm_dl_url(item.url)
+        if norm in self._seen_download_urls:
+            item.status = "skipped"
+            item.failure_reason = "duplicate_url_precheck"
+            return
+        self._seen_download_urls.add(norm)
+
+        domain = urlparse(item.source_page).netloc.lower()
+        if ":" in domain:
+            domain = domain.split(":")[0]
+            
+        self.domain_counters[domain] = self.domain_counters.get(domain, 0) + 1
+        idx = self.domain_counters[domain]
+        domain_prefix = domain.replace(".", "_")
+        
+        stem_suffix = re.sub(
+            r"[^a-zA-Z0-9]+", "_",
+            (getattr(item, "alt_text", "") or item.page_title or media_kind).strip().lower(),
+        ).strip("_")
+        stem_suffix = stem_suffix[:40] if stem_suffix else "asset"
+        stem = f"{domain_prefix}_{idx:03d}_{stem_suffix}"
+
+        # Determine directory
+        sub_dir = DEFAULT_DOWNLOAD_IMAGES_SUBDIR if media_kind == "image" else DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
+        domain_dir = self.output_root / sub_dir / domain
+        domain_dir.mkdir(parents=True, exist_ok=True)
+
+        task = (item, domain_dir, stem, media_kind)
+        # Block if queue is full (Soft Cap Backpressure)
+        self.download_queue.put(task)
+
+    def _download_manager_loop(self):
+        import time
+        from urllib.parse import urlparse
+        from core.models import RejectedItem
 
         def add_rejected(kind, url, source_page, reason, score):
-            result.rejected_items.append(
-                RejectedItem(
-                    kind=kind, url=url, source_page=source_page, reason=reason, score=score
-                )
+            self.result.rejected_items.append(
+                RejectedItem(kind=kind, url=url, source_page=source_page, reason=reason, score=score)
             )
 
-        completed_dl_count = 0
-        import gc
-
-        with _cf.ThreadPoolExecutor(
-            max_workers=CONCURRENT_DOWNLOADS, thread_name_prefix="dl"
-        ) as dl_executor:
-            dl_futures = {}
-            for item, directory, stem, media_kind in all_dl_tasks:
+        futures_map = {}
+        
+        while self._is_running or not self.download_queue.empty():
+            import queue
+            try:
+                task = self.download_queue.get(timeout=0.5)
+                if task is None:
+                    continue
+                item, directory, stem, media_kind = task
+                
                 dl_host = urlparse(item.source_page).netloc.lower()
-                profile = options.domain_profiles.get(dl_host) if options.domain_profiles else None
+                profile = self.options.domain_profiles.get(dl_host) if self.options.domain_profiles else None
                 min_size = getattr(profile, "min_image_size", None) if profile else None
                 thumb_pattern = getattr(profile, "thumbnail_prefix_pattern", None) if profile else None
                 needs_referer = getattr(profile, "requires_referer", False) if profile else False
                 referer = item.source_page if needs_referer else None
 
-                fut = dl_executor.submit(
+                fut = self.dl_executor.submit(
                     self.downloader._download_file,
-                    item.url,
-                    directory,
-                    stem,
-                    media_kind,
-                    referer,
-                    min_size,
-                    thumb_pattern,
-                    _cdn_hosts_deduped,
+                    item.url, directory, stem, media_kind, referer, min_size, thumb_pattern, self._cdn_hosts_deduped
                 )
-                dl_futures[fut] = (item, media_kind)
+                futures_map[fut] = (item, media_kind)
+                self.download_queue.task_done()
                 
-            for fut in _cf.as_completed(dl_futures):
-                completed_dl_count += 1
-                if completed_dl_count % 250 == 0:
-                    gc.collect()
-                item, media_kind = dl_futures[fut]
+            except queue.Empty:
+                pass
+            
+            # Periodically check for completed futures to avoid memory leaks
+            done = [f for f in futures_map if f.done()]
+            for f in done:
+                item, media_kind = futures_map.pop(f)
                 try:
-                    success, download_info = fut.result()
+                    success, download_info = f.result()
                     if success:
                         item.status = "downloaded"
                         item.file_path = download_info.get("file_path", "")
@@ -736,45 +692,39 @@ class MediaProcessor:
                             item.width = download_info.get("width")
                         if download_info.get("height") is not None:
                             item.height = download_info.get("height")
-                        result.download_stats["downloaded"] = result.download_stats.get("downloaded", 0) + 1
+                        self.result.download_stats["downloaded"] = self.result.download_stats.get("downloaded", 0) + 1
                     else:
                         reason = download_info.get("reason", "unknown")
-                        item.status = (
-                            "skipped"
-                            if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"}
-                            else "failed"
-                        )
+                        item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
                         item.failure_reason = reason
                         key = f"download_{reason}"
-                        result.download_stats[key] = result.download_stats.get(key, 0) + 1
+                        self.result.download_stats[key] = self.result.download_stats.get(key, 0) + 1
                         add_rejected(media_kind, item.url, item.source_page, f"download_{reason}", item.score)
                         
                         dl_host = urlparse(item.source_page).netloc.lower()
-                        if dl_host in result.domain_stats:
-                            result.domain_stats[dl_host]["rejected_count"] += 1
+                        if dl_host in self.result.domain_stats:
+                            self.result.domain_stats[dl_host]["rejected_count"] += 1
                             if media_kind == "image":
-                                result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
+                                self.result.domain_stats[dl_host]["images_kept"] = max(0, self.result.domain_stats[dl_host]["images_kept"] - 1)
                             else:
-                                result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
+                                self.result.domain_stats[dl_host]["videos_kept"] = max(0, self.result.domain_stats[dl_host]["videos_kept"] - 1)
                 except Exception as exc:
-                    LOGGER.warning("Download error for %s: %s", item.url, exc)
+                    self.LOGGER.warning("Download error for %s: %s", item.url, exc)
                     item.status = "failed"
                     item.failure_reason = f"exception_{type(exc).__name__}"
                     add_rejected(media_kind, item.url, item.source_page, f"download_failed:{type(exc).__name__}", item.score)
-                    
-                    dl_host = urlparse(item.source_page).netloc.lower()
-                    if dl_host in result.domain_stats:
-                        result.domain_stats[dl_host]["rejected_count"] += 1
-                        if media_kind == "image":
-                            result.domain_stats[dl_host]["images_kept"] = max(0, result.domain_stats[dl_host]["images_kept"] - 1)
-                        else:
-                            result.domain_stats[dl_host]["videos_kept"] = max(0, result.domain_stats[dl_host]["videos_kept"] - 1)
 
-        LOGGER.info("Download phase complete.")
-        download_duration = time.monotonic() - _download_start_time
-        result.run_metadata["download_duration_seconds"] = download_duration
+    def stop_downloads(self) -> None:
+        if getattr(self, "_is_running", False):
+            self._is_running = False
+            self.LOGGER.info("Waiting for pipelined downloads to complete...")
+            if getattr(self, "_manager_thread", None):
+                self._manager_thread.join()
+            if getattr(self, "dl_executor", None):
+                self.dl_executor.shutdown(wait=True)
+            self._save_dead_urls(self.result, self.options, self.output_root)
+            self.LOGGER.info("Download pipeline fully stopped.")
 
-        self._save_dead_urls(result, options, output_root)
 
 
 class CrawlOrchestrator:
@@ -878,7 +828,8 @@ class CrawlOrchestrator:
             workers=self.workers,
             rules_manager=self.rules_manager,
             page_limit=resolved_page_limit,
-            crawl_depth=resolved_crawl_depth
+            crawl_depth=resolved_crawl_depth,
+            media_processor=self.media_processor
         )
         
         # We start coordinator with candidate pages at depth 0

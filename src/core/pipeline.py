@@ -38,12 +38,14 @@ class MediaPipeline:
         options,
         media_queue: queue.Queue,
         add_rejected_cb,
+        media_processor=None,
     ):
         self.result = result
         self.result_lock = result_lock
         self.options = options
         self.media_queue = media_queue
         self.add_rejected = add_rejected_cb
+        self.media_processor = media_processor
         
         self.seen_images: Dict[str, ImageItem] = {}
         self.seen_videos: Dict[str, VideoItem] = {}
@@ -154,6 +156,8 @@ class MediaPipeline:
                 item.source_domain = get_domain_slug(item.source_page)
                 self.result.images.append(item)
                 stats["images_kept"] += 1
+                if self.media_processor:
+                    self.media_processor.enqueue_download(item, "image")
 
         for item in videos:
             item.url = normalize_url(item.url)
@@ -201,3 +205,5 @@ class MediaPipeline:
                 item.source_domain = get_domain_slug(item.source_page)
                 self.result.videos.append(item)
                 stats["videos_kept"] += 1
+                if self.media_processor:
+                    self.media_processor.enqueue_download(item, "video")

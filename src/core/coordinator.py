@@ -31,6 +31,7 @@ class CrawlCoordinator:
         rules_manager = None,
         page_limit: float = float('inf'),
         crawl_depth: float = 2,
+        media_processor=None,
     ):
         self.search_provider = search_provider
         self.video_scraper = video_scraper
@@ -41,6 +42,7 @@ class CrawlCoordinator:
         self.rules_manager = rules_manager
         self.page_limit = page_limit
         self.crawl_depth = crawl_depth
+        self.media_processor = media_processor
         
         self.max_results = getattr(options, "max_results", 0)
         self.workers = workers
@@ -107,7 +109,8 @@ class CrawlCoordinator:
             result_lock=self.result_lock,
             options=self.options,
             media_queue=self.media_queue,
-            add_rejected_cb=self.add_rejected
+            add_rejected_cb=self.add_rejected,
+            media_processor=self.media_processor,
         )
         pipeline.start()
 
