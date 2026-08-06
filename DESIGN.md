@@ -92,3 +92,5 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 ### 6.3 Downloader Semaphore & Range Resume Design
 - **Host Semaphore (`_host_semaphore_for`)**: Wraps active HTTP streaming connections to limit concurrency per domain host.
 - **HTTP Range Resumption**: Sends `Range: bytes={written}-` for partial video files (`.tmp`), resuming HTTP 206 partial content transfers seamlessly.
+
+hi
