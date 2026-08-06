@@ -2098,14 +2098,27 @@ def start_watchdog(req: WatchdogStartRequest):
                 "pid": _watchdog_process.pid,
             }
 
+        # Sanitize and validate inputs to prevent uncontrolled command execution (CodeQL remediation)
+        if not req.keyword or not re.match(r"^[\w\-. ]+$", req.keyword):
+            raise HTTPException(status_code=400, detail="Invalid subject keyword format.")
+        clean_keyword = re.sub(r"[^\w\-. ]", "", req.keyword).strip()
+        if not clean_keyword or len(clean_keyword) > 128:
+            raise HTTPException(status_code=400, detail="Subject keyword length or format invalid.")
+
+        interval_val = req.interval if req.interval is not None else 60
+        clean_interval = max(10, min(interval_val, 86400))
+
+
+
+
         cmd = [
             sys.executable,
             "-m",
             "src.cli.monitor_agent",
             "--keyword",
-            req.keyword,
+            clean_keyword,
             "--interval",
-            str(req.interval or 60),
+            str(clean_interval),
             "--use-state-cache",
         ]
         if req.seed:
@@ -2117,7 +2130,6 @@ def start_watchdog(req: WatchdogStartRequest):
             if not seed_resolved.startswith(seeds_base + os.sep):
                 raise HTTPException(status_code=400, detail="Seed path traverses outside allowed directory.")
             cmd.extend(["--seed", seed_resolved])
-
 
         try:
             proc = subprocess.Popen(
@@ -2133,19 +2145,20 @@ def start_watchdog(req: WatchdogStartRequest):
             _watchdog_info = {
                 "status": "active",
                 "pid": proc.pid,
-                "keyword": req.keyword,
-                "interval": req.interval or 60,
+                "keyword": clean_keyword,
+                "interval": clean_interval,
                 "started_at": time.time(),
             }
 
             return {
                 "status": "started",
-                "message": f"Watchdog daemon started for subject '{req.keyword}'",
+                "message": f"Watchdog daemon started for subject '{clean_keyword}'",
                 "pid": proc.pid,
             }
         except Exception as e:
-            logger.error(f"Failed to launch watchdog process: {e}")
-            return {"status": "error", "message": str(e)}
+            logger.error("Failed to launch watchdog process: %s", e)
+            return {"status": "error", "message": "Failed to launch watchdog daemon process."}
+
 
 
 @app.post("/api/watchdog/stop")

@@ -17,12 +17,19 @@ def temp_dataset_dir(tmp_path: Path) -> Path:
     images_dir = tmp_path / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create 3 synthetic test images
+    from PIL import ImageDraw
+
+    # Create 3 synthetic test images with distinct visual patterns (unique dHashes)
     for i in range(3):
-        img = Image.new("RGB", (800, 600), color=(50 * i, 100, 150))
+        img = Image.new("RGB", (800, 600), color=(30 * i, 80 + 30 * i, 150 - 40 * i))
+        draw = ImageDraw.Draw(img)
+        # Draw unique geometric shapes across quadrants
+        draw.rectangle([100 * (i + 1), 50 * (i + 1), 300 + 100 * i, 200 + 50 * i], fill=(255 - 60 * i, 100 + 40 * i, 200 - 50 * i))
+        draw.ellipse([50 + 150 * i, 300, 250 + 100 * i, 550], fill=(40 + 50 * i, 240 - 50 * i, 80 + 40 * i))
         img.save(images_dir / f"sample_{i}.png")
 
     return images_dir
+
 
 
 def test_dataset_tagger_basic_and_trigger_tag(temp_dataset_dir: Path):

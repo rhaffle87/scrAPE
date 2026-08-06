@@ -102,6 +102,54 @@ python src/cli/main.py --login protected-site.com
 python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 ```
 
+---
+
+## 4. Standardized Operating Profiles & Optimization Blueprint
+
+Depending on your operational objective, scrAPE provides pre-tuned standard operating procedures (SOPs) designed to maximize throughput while preventing IP bans and system lag:
+
+### Profile 1: Tactical WebUI Command Center (Most Convenient & Interactive)
+- **Launch**: `.\run.bat` (select Option 1) or `python frontend/app.py`
+- **URL**: `http://localhost:10001`
+- **Optimal Setup**:
+  - **Workers**: 8 scraper workers / 8 download workers.
+  - **Hardware Governor**: Enabled (scales thread pools 1x to 3x dynamically based on system RAM/CPU).
+  - **State Cache**: Enabled (`--use-state-cache`).
+- **Best Used For**: Interactive crawling, live Canvas visualization, node inspection, process controls, and instant LoRA/RAG dataset exports.
+
+### Profile 2: High-Throughput Production CLI Run (Maximum Speed & Efficiency)
+- **Launch Command**:
+  ```powershell
+  python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
+    --max-results 200 --workers 12 --dl-workers 16 ^
+    --page-limit 200 --crawl-depth 2 --download-media ^
+    --enable-governor --use-state-cache --headless
+  ```
+- **Safety Guardrails**: Add `--rate-limit 2.0` (req/s) and `--dl-speed-limit 5000` (KB/s) to prevent host 429 throttling and home network bandwidth saturation.
+
+### Profile 3: Continuous Watchdog Agent (Always-On Background Monitoring)
+- **Launch Command**: `.\run_monitor.bat --keyword "<subject>" --use-state-cache`
+- **Key Features**:
+  - Automatically monitors `seeds/<subject>.txt` for hot-reloaded URL additions.
+  - Uses exponential adaptive backoff during low-yield cycles.
+  - Persists processed URLs to `output/cache/state_cache.db` with composite SQLite indexes.
+  - Dispatches Telegram Bot alerts upon run completion or WAF escalation events.
+
+### Profile 4: Automated AI Dataset Curation & RAG Pipeline (ML Workflow)
+- **Launch Command**:
+  ```powershell
+  python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
+    --download-media --tag-dataset --auto-crop --export-rag ^
+    --aesthetic-score 5.5 --use-state-cache
+  ```
+- **Automated Pipeline Stages**:
+  1. **Crawl & Download**: Assets fetched and sanitized via Pillow.
+  2. **WD14 Auto-Tagging**: Generates `.txt` sidecar files (`landscape`, `portrait`, `highres`).
+  3. **Smart Aspect Cropping**: Center-crops images to target training resolutions ($1024 \times 1024$).
+  4. **Aesthetic Quality Gate**: Filters out items below `min_score: 5.5`.
+  5. **RAG Vector Export**: Chunks text into `rag_payload.jsonl` for vector embedding ingestion.
+
+
 ### Docker Execution
 ```bash
 # Build the container (PUPPETEER_SKIP_DOWNLOAD=true is automatically handled in the Dockerfile)
