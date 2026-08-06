@@ -1,3 +1,4 @@
+import shlex
 import sys
 import subprocess
 from subprocess import Popen, PIPE, STDOUT
@@ -18,6 +19,7 @@ from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
 import uvicorn
 import json
 import psutil
@@ -2101,15 +2103,14 @@ def start_watchdog(req: WatchdogStartRequest):
         # Sanitize and validate inputs to prevent uncontrolled command execution (CodeQL remediation)
         if not req.keyword or not re.match(r"^[\w\-. ]+$", req.keyword):
             raise HTTPException(status_code=400, detail="Invalid subject keyword format.")
-        clean_keyword = re.sub(r"[^\w\-. ]", "", req.keyword).strip()
-        if not clean_keyword or len(clean_keyword) > 128:
+        raw_clean_keyword = re.sub(r"[^\w\-. ]", "", req.keyword).strip()
+        if not raw_clean_keyword or len(raw_clean_keyword) > 128:
             raise HTTPException(status_code=400, detail="Subject keyword length or format invalid.")
+
+        clean_keyword = shlex.quote(raw_clean_keyword)
 
         interval_val = req.interval if req.interval is not None else 60
         clean_interval = max(10, min(interval_val, 86400))
-
-
-
 
         cmd = [
             sys.executable,
@@ -2129,7 +2130,8 @@ def start_watchdog(req: WatchdogStartRequest):
             seed_resolved = os.path.abspath(os.path.join(seeds_base, seed_basename))
             if not seed_resolved.startswith(seeds_base + os.sep):
                 raise HTTPException(status_code=400, detail="Seed path traverses outside allowed directory.")
-            cmd.extend(["--seed", seed_resolved])
+            cmd.extend(["--seed", shlex.quote(seed_resolved)])
+
 
         try:
             proc = subprocess.Popen(

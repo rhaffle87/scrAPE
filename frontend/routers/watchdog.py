@@ -1,5 +1,6 @@
 """FastAPI router for continuous Watchdog monitoring daemon controls."""
 
+import shlex
 import os
 import re
 import sys
@@ -43,20 +44,18 @@ def get_watchdog_status():
 
     with _watchdog_state_lock:
         if _watchdog_process is not None:
-            poll_result = _watchdog_process.poll()
-            if poll_result is not None:
+            if _watchdog_process.poll() is not None:
                 _watchdog_process = None
                 _watchdog_info["status"] = "idle"
                 _watchdog_info["pid"] = None
-            else:
-                _watchdog_info["status"] = "active"
 
         telemetry = get_watchdog_telemetry_snapshot()
         return {
             "status": _watchdog_info["status"],
             "pid": _watchdog_info["pid"],
-            "keyword": _watchdog_info.get("keyword"),
-            "interval": _watchdog_info.get("interval", 60),
+            "keyword": _watchdog_info["keyword"],
+            "interval": _watchdog_info["interval"],
+            "started_at": _watchdog_info["started_at"],
             "telemetry": telemetry,
         }
 
@@ -77,9 +76,11 @@ def start_watchdog(req: WatchdogStartRequest):
         # Sanitize and validate inputs to prevent uncontrolled command execution (CodeQL remediation)
         if not req.keyword or not re.match(r"^[\w\-. ]+$", req.keyword):
             raise HTTPException(status_code=400, detail="Invalid subject keyword format.")
-        clean_keyword = re.sub(r"[^\w\-. ]", "", req.keyword).strip()
-        if not clean_keyword or len(clean_keyword) > 128:
+        raw_clean_keyword = re.sub(r"[^\w\-. ]", "", req.keyword).strip()
+        if not raw_clean_keyword or len(raw_clean_keyword) > 128:
             raise HTTPException(status_code=400, detail="Subject keyword length or format invalid.")
+
+        clean_keyword = shlex.quote(raw_clean_keyword)
 
         interval_val = req.interval if req.interval is not None else 60
         clean_interval = max(10, min(interval_val, 86400))
@@ -105,7 +106,7 @@ def start_watchdog(req: WatchdogStartRequest):
             seed_resolved = os.path.abspath(os.path.join(seeds_base, seed_basename))
             if not seed_resolved.startswith(seeds_base + os.sep):
                 raise HTTPException(status_code=400, detail="Seed path traverses outside allowed directory.")
-            cmd.extend(["--seed", seed_resolved])
+            cmd.extend(["--seed", shlex.quote(seed_resolved)])
 
         try:
             proc = subprocess.Popen(
