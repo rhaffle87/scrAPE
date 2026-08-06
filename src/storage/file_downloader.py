@@ -8,9 +8,76 @@ import mimetypes
 import random
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import multiprocessing
 from pathlib import Path
 from urllib.parse import urlparse
+
+def _sleep(seconds: float):
+    time.sleep(seconds)
+
+_GLOBAL_SCORER = None
+
+def _init_worker(model_path: str | Path | None = None):
+    """Initializes the AestheticScorer globally in the worker process."""
+    global _GLOBAL_SCORER
+    from ml.aesthetic_scorer import AestheticScorer
+    _GLOBAL_SCORER = AestheticScorer(model_path)
+
+
+def _process_image_cpu_bound(temp_path_str: str, target_path_str: str, min_aesthetic_score: float | None = None) -> dict:
+    """Out-of-process CPU-bound worker for hashing, scoring, and sanitizing an image."""
+    import hashlib
+    from common.image_helper import compute_dhash
+    from PIL import Image
+    import io
+    
+    from typing import Any
+    
+    result: dict[str, Any] = {
+        "success": False,
+        "reason": "",
+        "hash": None,
+        "dhash": None,
+        "score": None,
+        "error": None
+    }
+    
+    temp_path = Path(temp_path_str)
+    target_path = Path(target_path_str)
+    
+    try:
+        content = temp_path.read_bytes()
+        
+        result["hash"] = hashlib.sha256(content).hexdigest()
+        result["dhash"] = compute_dhash(content)
+        
+        global _GLOBAL_SCORER
+        if min_aesthetic_score is not None and _GLOBAL_SCORER is not None:
+            score = _GLOBAL_SCORER.score_image(content)
+            result["score"] = score
+            if score < min_aesthetic_score:
+                result["reason"] = "low_aesthetic_score"
+                return result
+                
+        img = Image.open(io.BytesIO(content))
+        out_buffer = io.BytesIO()
+        save_format = img.format if img.format else "JPEG"
+        kwargs = {}
+        if getattr(img, "is_animated", False):
+            kwargs["save_all"] = True
+        img.save(out_buffer, format=save_format, **kwargs)
+        target_path.write_bytes(out_buffer.getvalue())
+        
+        result["success"] = True
+    except Exception as e:
+        result["error"] = str(e)
+        result["reason"] = "sanitization_failed"
+    finally:
+        temp_path.unlink(missing_ok=True)
+        
+    return result
 
 import httpx
 
@@ -88,7 +155,12 @@ class MediaDownloader:
         self._state_cache = state_cache
         self._keyword = keyword.strip().lower()
         self.min_aesthetic_score = min_aesthetic_score
-        self.aesthetic_scorer = AestheticScorer() if min_aesthetic_score is not None else None
+        
+        self._cpu_pool = ProcessPoolExecutor(
+            max_workers=max(1, multiprocessing.cpu_count() - 2),
+            initializer=_init_worker,
+            initargs=(None,)
+        )
         self.save_rejected_reasons = save_rejected_reasons
         
         self._curl_session = None
@@ -669,92 +741,88 @@ class MediaDownloader:
                     content_hash = hasher.hexdigest()
                     content_length = target.stat().st_size
 
-                with self._hash_lock:
-                    if content_hash in self._seen_hashes:
-                        LOGGER.info(
-                            "Skipping duplicate content hash %s for %s",
-                            content_hash,
-                            url,
-                        )
-                        if media_kind == "video":
-                            target.unlink(missing_ok=True)
-                        return False, {"reason": "duplicate"}
-                    self._seen_hashes.add(content_hash)
-
                 if media_kind == "image":
                     w, h = get_image_dimensions(content)
                     if w is not None and h is not None:
-                        limit_w = (
-                            min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
-                        )
-                        limit_h = (
-                            min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
-                        )
+                        limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
+                        limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
                         if w < limit_w or h < limit_h:
-                            LOGGER.info(
-                                "Skipping low-resolution image asset %s (%dx%d)",
-                                url,
-                                w,
-                                h,
-                            )
+                            LOGGER.info("Skipping low-resolution image asset %s (%dx%d)", url, w, h)
+                            temp_target.unlink(missing_ok=True)
                             return False, {"reason": "low_resolution"}
                     elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-                        LOGGER.info(
-                            "Skipping image with unparseable dimensions %s", url
-                        )
+                        LOGGER.info("Skipping image with unparseable dimensions %s", url)
+                        temp_target.unlink(missing_ok=True)
                         return False, {"reason": "unparseable_dimensions"}
 
-                    if self.min_aesthetic_score is not None and self.aesthetic_scorer is not None:
-                        score = self.aesthetic_scorer.score_image(content)
-                        if score < self.min_aesthetic_score:
-                            LOGGER.info(
-                                "Skipping low aesthetic image %s (score=%.1f < min=%.1f)",
-                                url,
-                                score,
-                                self.min_aesthetic_score,
-                            )
-                            return False, {"reason": "low_aesthetic_score", "score": score}
+                    # Save raw content to temp target for out-of-process CPU work
+                    temp_target.write_bytes(content)
 
-                if media_kind == "image":
-                    dhash_val = compute_dhash(content)
+                    # Offload CPU-bound hash/score/sanitize to ProcessPoolExecutor
+                    future = self._cpu_pool.submit(
+                        _process_image_cpu_bound,
+                        str(temp_target),
+                        str(target),
+                        self.min_aesthetic_score
+                    )
+                    proc_res = future.result()
+
+                    if not proc_res.get("success"):
+                        LOGGER.warning("Image processing failed for %s: %s (error: %s)", url, proc_res.get("reason"), proc_res.get("error"))
+                        return False, {"reason": proc_res.get("reason", "sanitization_failed"), "score": proc_res.get("score")}
+
+                    content_hash = proc_res["hash"]
+                    dhash_val = proc_res["dhash"]
+                    
+                    with self._hash_lock:
+                        if content_hash in self._seen_hashes:
+                            LOGGER.info("Skipping duplicate content hash %s for %s", content_hash, url)
+                            target.unlink(missing_ok=True)
+                            return False, {"reason": "duplicate"}
+                        self._seen_hashes.add(content_hash)
+
                     if dhash_val is not None:
+                        # Optimistic Concurrency Control for pHash check
+                        with self._hash_lock:
+                            snapshot = tuple(self._seen_phashes)
+                            
+                        # Compute distances outside lock
+                        duplicate_found = False
+                        for prev_hash in snapshot:
+                            if hamming_distance(dhash_val, prev_hash) <= 4:
+                                duplicate_found = True
+                                break
+                                
+                        if duplicate_found:
+                            LOGGER.info("Skipping perceptual duplicate image asset %s", url)
+                            target.unlink(missing_ok=True)
+                            return False, {"reason": "perceptual_duplicate"}
+                            
+                        # Double check inside lock
                         with self._hash_lock:
                             for prev_hash in self._seen_phashes:
-                                if hamming_distance(dhash_val, prev_hash) <= 4:
-                                    LOGGER.info(
-                                        "Skipping perceptual duplicate image asset %s (dHash distance <= 4)",
-                                        url,
-                                    )
-                                    return False, {"reason": "perceptual_duplicate"}
+                                if prev_hash not in snapshot and hamming_distance(dhash_val, prev_hash) <= 4:
+                                    duplicate_found = True
+                                    break
+                            if duplicate_found:
+                                LOGGER.info("Skipping perceptual duplicate image asset %s (double-check)", url)
+                                target.unlink(missing_ok=True)
+                                return False, {"reason": "perceptual_duplicate"}
                             self._seen_phashes.add(dhash_val)
-                            # Persist to DB for cross-run deduplication
-                            if self._state_cache is not None:
-                                try:
-                                    self._state_cache.store_phash(dhash_val, subject=self._keyword)
-                                except Exception as exc:
-                                    LOGGER.warning("Failed to persist pHash to StateCache: %s", exc)
-
-                    try:
-                        from PIL import Image
-                        import io
-                        
-                        img = Image.open(io.BytesIO(content))
-                        out_buffer = io.BytesIO()
-                        save_format = img.format if img.format else "JPEG"
-                        
-                        kwargs = {}
-                        if getattr(img, "is_animated", False):
-                            kwargs["save_all"] = True
                             
-                        # Strip EXIF and re-encode to sanitize image
-                        img.save(out_buffer, format=save_format, **kwargs)
-                        target.write_bytes(out_buffer.getvalue())
-                    except Exception as e:
-                        LOGGER.warning("Image sanitization failed for %s: %s", url, e)
-                        return False, {"reason": "sanitization_failed"}
+                        # Persist outside the lock
+                        if self._state_cache is not None:
+                            try:
+                                self._state_cache.store_phash(dhash_val, subject=self._keyword)
+                            except Exception as exc:
+                                LOGGER.warning("Failed to persist pHash to StateCache: %s", exc)
                 else:
-                    # Target is already renamed
-                    pass
+                    with self._hash_lock:
+                        if content_hash in self._seen_hashes:
+                            LOGGER.info("Skipping duplicate content hash %s for %s", content_hash, url)
+                            target.unlink(missing_ok=True)
+                            return False, {"reason": "duplicate"}
+                        self._seen_hashes.add(content_hash)
                 LOGGER.info("Downloaded %s", target)
 
                 relative_path = ""
@@ -805,12 +873,12 @@ class MediaDownloader:
                     if status == 416:
                         LOGGER.warning("Range not satisfiable (HTTP 416) for %s. Truncating temp file and retrying from scratch.", url)
                         temp_target.unlink(missing_ok=True)
-                        time.sleep(1.0)
+                        _sleep(1.0)
                         continue
                     if status in (403, 401) and not use_curl_cffi and attempt < max_attempts:
                         LOGGER.info("HTTP %d on %s. Retrying with curl_cffi TLS spoofing...", status, url)
                         use_curl_cffi = True
-                        time.sleep(1.0)
+                        _sleep(1.0)
                         continue
                     if status in (403, 401) and use_curl_cffi and attempt < max_attempts:
                         from config import ENABLE_DRISSIONPAGE_FALLBACK
@@ -837,7 +905,7 @@ class MediaDownloader:
                             max_attempts,
                             sleep_time,
                         )
-                        time.sleep(sleep_time)
+                        _sleep(sleep_time)
                         continue
                     if status == 404:
                         LOGGER.info("HTTP 404 downloading %s: %s", url, exc)
@@ -865,7 +933,7 @@ class MediaDownloader:
                         max_attempts,
                         sleep_time,
                     )
-                    time.sleep(sleep_time)
+                    _sleep(sleep_time)
                     continue
                     
                 LOGGER.warning("Failed to download %s: %s", url, exc)
@@ -1096,3 +1164,8 @@ class MediaDownloader:
         if lowered_suffix == ".ogv":
             return content.startswith(b"OggS")
         return any(content.startswith(sig) for sig in VIDEO_SIGNATURES)
+
+    def close(self):
+        """Cleanup the resources."""
+        if hasattr(self, '_cpu_pool') and self._cpu_pool:
+            self._cpu_pool.shutdown(wait=False)

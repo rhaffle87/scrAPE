@@ -96,8 +96,8 @@ def test_dead_url_tracking(tmp_path):
     
     options = MockOptions(output_dir)
     
-    # Run processor execute deferred downloads (which is empty but will save dead URLs)
-    processor.execute_deferred_downloads(result, options)
+    # Call _save_dead_urls directly (formerly part of execute_deferred_downloads/stop_downloads)
+    processor._save_dead_urls(result, options, output_dir)
     
     # Verify file was written to output/test/dead_urls.json
     dead_urls_file = output_dir / "test" / "dead_urls.json"

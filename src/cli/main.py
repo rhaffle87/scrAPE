@@ -617,9 +617,7 @@ def main() -> None:
     engine.downloader.workers = args.dl_workers
     engine.downloader.save_rejected_reasons = args.save_rejected
     if getattr(args, "aesthetic_score", None) is not None:
-        from ml.aesthetic_scorer import AestheticScorer
         engine.downloader.min_aesthetic_score = args.aesthetic_score
-        engine.downloader.aesthetic_scorer = AestheticScorer()
         logger.info("Aesthetic quality filter enabled: min_score=%.1f", args.aesthetic_score)
 
     log_run_start(
@@ -704,7 +702,11 @@ def main() -> None:
         _run_err_msg = _tb.format_exc()
         if _notif_active:
             _notif.notify_run_error(args.keyword, _run_err_msg)
+        engine.downloader.close()
         raise
+    finally:
+        engine.downloader.close()
+        
     result.duration_seconds = int(time.monotonic() - _run_start)
     metadata_updates = {
         "seed_file": str(active_seed_file) if active_seed_file else None,

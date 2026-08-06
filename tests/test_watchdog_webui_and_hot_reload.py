@@ -59,7 +59,7 @@ def test_webui_watchdog_status_and_control_endpoints():
     assert stop_resp.json()["status"] == "idle"
 
 
-@patch("frontend.app.subprocess.Popen")
+@patch("src.core.watchdog_manager.subprocess.Popen")
 def test_webui_watchdog_start_endpoint(mock_popen):
     mock_proc = MagicMock()
     mock_proc.poll.return_value = None

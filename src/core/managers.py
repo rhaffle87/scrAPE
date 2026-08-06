@@ -40,9 +40,22 @@ class DomainRulesManager:
         self._profile_mtime: float | None = None
         self._cached_config: dict = {}
         self._cached_profiles: dict = {}
+        
+        # TTL for checking file modification on disk
+        self._TTL_SECONDS = 10.0
+        self._config_last_checked = 0.0
+        self._profile_last_checked = 0.0
 
     def _get_config(self) -> dict:
+        now = time.monotonic()
+        if now - self._config_last_checked < self._TTL_SECONDS:
+            return self._cached_config
+            
         with self._lock:
+            # Double check inside the lock
+            now = time.monotonic()
+            if now - self._config_last_checked < self._TTL_SECONDS:
+                return self._cached_config
             try:
                 current_mtime = os.path.getmtime(self.config_path)
                 if self._config_mtime is None or current_mtime != self._config_mtime:
@@ -53,10 +66,18 @@ class DomainRulesManager:
                 if self._config_mtime is None:
                     LOGGER.warning(f"Failed to load domain config from {self.config_path}: {e}")
                     self._cached_config = {}
+            self._config_last_checked = time.monotonic()
             return self._cached_config
 
     def _get_profiles(self) -> dict:
+        now = time.monotonic()
+        if now - self._profile_last_checked < self._TTL_SECONDS:
+            return self._cached_profiles
+            
         with self._lock:
+            now = time.monotonic()
+            if now - self._profile_last_checked < self._TTL_SECONDS:
+                return self._cached_profiles
             try:
                 current_mtime = os.path.getmtime(self.profile_path)
                 if self._profile_mtime is None or current_mtime != self._profile_mtime:
@@ -67,6 +88,7 @@ class DomainRulesManager:
                 if self._profile_mtime is None:
                     LOGGER.warning(f"Failed to load subject profiles from {self.profile_path}: {e}")
                     self._cached_profiles = {}
+            self._profile_last_checked = time.monotonic()
             return self._cached_profiles
 
     def should_deep_scrape(self, domain: str) -> bool:

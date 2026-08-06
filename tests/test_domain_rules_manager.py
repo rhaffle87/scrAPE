@@ -60,6 +60,10 @@ def test_domain_rules_manager_caching_and_mtime_reload(tmp_path):
     config_file.write_text(json.dumps(updated_config), encoding="utf-8")
     profile_file.write_text(json.dumps(updated_profiles), encoding="utf-8")
 
+    # Force TTL expiration for tests
+    mgr._config_last_checked = 0
+    mgr._profile_last_checked = 0
+
     # Access methods again — should auto-reload because mtime changed
     assert mgr.should_deep_scrape("newdeep.com") is True
     assert mgr.filter_domains_by_profile(["allowed.com", "newblocked.com"], "test_profile") == ["allowed.com"]
