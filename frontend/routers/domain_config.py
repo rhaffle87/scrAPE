@@ -13,6 +13,9 @@ from core.managers import DomainRulesManager
 router = APIRouter(prefix="/api/domain-config", tags=["domain_config"])
 logger = logging.getLogger(__name__)
 
+import html
+
+# Import html at top level or use html.escape
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 CONFIG_PATH = ROOT_DIR / "data" / "domain_config.json"
 
@@ -51,7 +54,7 @@ def get_domain_config():
         }
     except Exception as exc:
         logger.error("Failed to read domain_config.json: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Failed to read configuration: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to read domain configuration.")
 
 
 @router.post("/save")
@@ -94,15 +97,23 @@ async def save_domain_config(request: Request):
             "config": config_data,
         }
     except json.JSONDecodeError as err:
-        msg = f"Invalid JSON syntax: {err}"
+        lineno = getattr(err, "lineno", None)
+        colno = getattr(err, "colno", None)
+        if lineno is not None and colno is not None:
+            msg = f"Invalid JSON syntax at line {lineno}, column {colno}."
+        else:
+            msg = "Invalid JSON syntax in domain configuration payload."
+        safe_msg = html.escape(msg)
+
         if "text/html" in request.headers.get("accept", "") or "hx-request" in request.headers:
             return HTMLResponse(
                 f'<div class="alert alert-danger" style="color: #ff3333; border: 1px solid #ff3333; padding: 10px; margin-top: 10px; font-family: \'JetBrains Mono\', monospace;">'
-                f'❌ {msg}'
+                f'[!] {safe_msg}'
                 f'</div>',
                 status_code=400,
             )
         raise HTTPException(status_code=400, detail=msg)
     except Exception as exc:
         logger.error("Failed saving domain configuration: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Failed saving domain configuration.")
+

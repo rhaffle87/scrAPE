@@ -25,22 +25,23 @@ def test_get_domain_config_endpoint():
 def test_save_domain_config_endpoint_success(tmp_path, monkeypatch):
     """Verify POST /api/domain-config/save updates configuration file and returns success."""
     test_cfg_file = tmp_path / "domain_config.json"
-    initial_data = {"rate_limits": {"example.com": 2.0}, "hotlink_protected": []}
+    target_domain = "test-domain.org"
+    initial_data = {"rate_limits": {target_domain: 2.0}, "hotlink_protected": []}
     test_cfg_file.write_text(json.dumps(initial_data), encoding="utf-8")
 
     import frontend.routers.domain_config as dc_module
     monkeypatch.setattr(dc_module, "CONFIG_PATH", test_cfg_file)
 
-    payload = {"config": {"rate_limits": {"example.com": 5.0}, "hotlink_protected": ["example.com"]}}
+    payload = {"config": {"rate_limits": {target_domain: 5.0}, "hotlink_protected": [target_domain]}}
     res = client.post("/api/domain-config/save", json=payload)
     assert res.status_code == 200
     res_data = res.json()
     assert res_data["status"] == "ok"
 
-    # Verify file content updated
+    # Verify file content updated using exact equality (avoiding URL substring matching CodeQL lints)
     updated_disk_data = json.loads(test_cfg_file.read_text(encoding="utf-8"))
-    assert updated_disk_data["rate_limits"]["example.com"] == 5.0
-    assert "example.com" in updated_disk_data["hotlink_protected"]
+    assert updated_disk_data["rate_limits"][target_domain] == 5.0
+    assert updated_disk_data["hotlink_protected"] == [target_domain]
 
 
 def test_save_domain_config_endpoint_invalid_json(tmp_path, monkeypatch):
