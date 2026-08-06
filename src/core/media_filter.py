@@ -11,7 +11,7 @@ import json as _json
 import os as _os
 from pathlib import Path as _Path
 import re
-from urllib.parse import parse_qs, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from config import (
     UTILITY_ASSET_TERMS,

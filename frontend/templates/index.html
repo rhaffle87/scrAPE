@@ -1341,8 +1341,17 @@
         }
 
         @keyframes flash-success {
-            0% { border-color: #00ff66; background-color: rgba(0, 255, 102, 0.2); box-shadow: 0 0 10px rgba(0,255,102,0.5); }
-            100% { border-color: var(--border-heavy); background-color: var(--bg-base); box-shadow: none; }
+            0% {
+                border-color: #00ff66;
+                background-color: rgba(0, 255, 102, 0.2);
+                box-shadow: 0 0 10px rgba(0, 255, 102, 0.5);
+            }
+
+            100% {
+                border-color: var(--border-heavy);
+                background-color: var(--bg-base);
+                box-shadow: none;
+            }
         }
     </style>
 </head>
@@ -1399,12 +1408,23 @@
                 </span>
                 <span>SEED STUDIO</span>
             </button>
+            <button type="button" class="nav-item" id="nav-watchdog" onclick="showWatchdogDashboard()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                </span>
+                <span>WATCHDOG</span>
+            </button>
             <button type="button" class="nav-item" id="nav-settings" onclick="showSettingsDashboard()">
                 <span class="nav-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
                         <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                        </path>
                     </svg>
                 </span>
                 <span>SETTINGS</span>
@@ -1927,6 +1947,88 @@
                 </div>
             </div>
 
+            <!-- Watchdog -->
+            <div id="watchdog-view" style="display: none; flex-direction: column; gap: 1rem; width: 100%;">
+                <!-- Full-width Status Banner -->
+                <div class="glass-panel" style="padding: 1rem; border-left: 4px solid #ffaa00;" id="watchdog-banner">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--text-primary);">
+                                DAEMON STATUS: <span id="watchdog-global-status" style="color: #ffaa00;">SYSTEM IDLE</span>
+                            </h2>
+                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                NETWORK OPERATIONS CENTER // BACKGROUND CRAWL MONITORING
+                            </div>
+                        </div>
+                        <span class="status-badge" id="watchdog-status-badge" style="border-color: #ffaa00; color: #ffaa00; font-size: 1.1rem; padding: 0.5rem 1rem;">IDLE</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
+                    <!-- Command & Control (Sector A) -->
+                    <div class="glass-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 1rem;">SECTOR A: COMMAND INTERFACE</h3>
+                            
+                            <div class="form-group">
+                                <label for="watchdog-keyword-input" style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">> SET TARGET_KEYWORD</label>
+                                <input type="text" id="watchdog-keyword-input" value="cyberpunk" placeholder="Target keyword..." style="background: #000; border: 1px solid var(--border-heavy); color: #fff;">
+                            </div>
+                            <div class="form-group">
+                                <label for="watchdog-interval-input" style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">> SET SWEEP_INTERVAL_SEC</label>
+                                <input type="number" id="watchdog-interval-input" value="60" min="10" step="10" style="background: #000; border: 1px solid var(--border-heavy); color: #fff;">
+                            </div>
+                        </div>
+                        
+                        <div class="button-bar" style="margin-top: 1.5rem; justify-content: flex-start; gap: 1rem;">
+                            <button type="button" class="btn" style="background-color: transparent; color: #00ff66; border: 2px solid #00ff66; font-size: 0.9rem; padding: 0.75rem 1.5rem; font-weight: bold; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#003311'" onmouseout="this.style.backgroundColor='transparent'" onclick="startWatchdogAgent()" id="btn-start-watchdog">
+                                [ ENGAGE DAEMON ]
+                            </button>
+                            <button type="button" class="btn" style="background-color: transparent; color: #cc0000; border: 2px solid #cc0000; font-size: 0.9rem; padding: 0.75rem 1.5rem; font-weight: bold; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#330000'" onmouseout="this.style.backgroundColor='transparent'" onclick="stopWatchdogAgent()" id="btn-stop-watchdog">
+                                [ ABORT ]
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Telemetry (Sector B) -->
+                    <div class="glass-panel">
+                        <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 1rem;">SECTOR B: ACTIVE TELEMETRY</h3>
+                        
+                        <div id="watchdog-metrics-panel" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary); display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                                <span>SYSTEM_PID:</span>
+                                <span id="telemetry-pid" style="color: var(--text-muted);">---</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                                <span>CURRENT_TARGET:</span>
+                                <span id="telemetry-target" style="color: var(--text-muted);">---</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                                <span>POLL_INTERVAL:</span>
+                                <span id="telemetry-interval" style="color: var(--text-muted);">---</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                                <span>STATE_CACHE_TTL:</span>
+                                <span style="color: #00ff66;">7 DAYS (AUTO-PRUNED)</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                                <span>HOT_SEED_RELOADING:</span>
+                                <span style="color: #00ff66;">ACTIVE (MTIME)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Operation Log (Sector C) -->
+                <div class="glass-panel" style="flex: 1; display: flex; flex-direction: column;">
+                    <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 0;">SECTOR C: LIVE RADAR LOG</h3>
+                    <div id="watchdog-log-window" style="flex: 1; min-height: 250px; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; margin-top: 1rem; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #00ff66; display: flex; flex-direction: column; gap: 0.25rem;">
+                        <div style="color: var(--text-muted);">[SYSTEM] Watchdog Cockpit initialized. Awaiting commands...</div>
+                    </div>
+                    <div id="watchdog-feedback" style="display:none;"></div> <!-- Kept hidden for legacy compat -->
+                </div>
+            </div>
+
             <!-- Subject Gallery View Grid -->
             <div class="gallery-view" id="gallery-view" style="display: none;">
                 <div class="gallery-header-bar">
@@ -1944,116 +2046,86 @@
             </div>
 
             <!-- Seed Studio View Grid -->
-            <div class="seed-studio-view" id="seed-studio-view" style="display: none;">
-                <div class="seed-studio-header glass-panel">
-                    <!-- Title row: mirrors SCRAPE PARAMETERS h2 + status-badge -->
-                    <h2>SEED MANIFEST STUDIO
-                        <span id="studio-status-indicator" class="status-badge">STATUS: IDLE</span>
-                    </h2>
-
-                    <!-- Manifest selector row: mirrors preset-header-row -->
-                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                        <label for="studio-seed-select"
-                            style="font-weight: 700; color: var(--accent); font-family: monospace; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT
-                            MANIFEST:</label>
-                        <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)"
-                            style="min-width: 260px; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 0.4rem; font-family: monospace;">
-                            <option value="">+ Create New Seed</option>
-                        </select>
+            <!-- Seed Studio View Grid -->
+            <div class="seed-studio-view" id="seed-studio-view" style="display: none; flex-direction: column; gap: 1rem; width: 100%;">
+                <div class="glass-panel" style="padding: 1rem; border-left: 4px solid #ffaa00; display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem;">
+                        <h2 style="margin: 0; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--text-primary);">
+                            MANIFEST CONFIGURATION <span id="studio-status-indicator" style="color: #ffaa00; font-size: 1rem;">[ IDLE ]</span>
+                        </h2>
                     </div>
 
-                    <!-- Action buttons row: mirrors profile-actions-row -->
-                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                        <button type="button" class="btn active" id="studio-btn-builder-mode"
-                            onclick="setStudioMode('builder')">[ VISUAL BUILDER ]</button>
-                        <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')">[
-                            RAW CODE ]</button>
-                        <button type="button" class="btn"
-                            style="border-color: var(--accent); color: var(--accent); display: inline-flex; align-items: center; gap: 0.4rem;"
-                            onclick="openAutoDiscoveryModal()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                            DISCOVER SEARCH URLS
-                        </button>
-                        <button type="button" class="btn"
-                            style="background: var(--accent); color: #000; font-weight: 700;"
-                            onclick="saveStudioSeed()">SAVE</button>
-                        <button type="button" class="btn delete" style="border-color: #cc0000; color: #cc0000;"
-                            onclick="deleteStudioSeed()">DELETE</button>
-                        <button type="button" class="btn"
-                            style="background: #00ff66; color: #000; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;"
-                            onclick="launchStudioSeedScrape()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2.5">
-                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                            </svg>
-                            QUICK RUN
-                        </button>
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <label for="studio-seed-select" style="font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT MANIFEST:</label>
+                            <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)"
+                                style="min-width: 300px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); padding: 0.5rem; font-family: 'JetBrains Mono', monospace; outline: none;">
+                                <option value="">+ Create New Seed</option>
+                            </select>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button type="button" class="btn active" id="studio-btn-builder-mode" onclick="setStudioMode('builder')" style="font-family: 'JetBrains Mono', monospace; background: #00ff66; color: #000; border-color: #00ff66;">[ VISUAL BUILDER ]</button>
+                            <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')" style="font-family: 'JetBrains Mono', monospace; background: transparent; color: var(--text-muted); border-color: var(--border-heavy);">[ RAW CODE ]</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #2a2f2c;">
+                            <button type="button" class="btn" style="border-color: var(--accent); color: var(--accent); font-family: 'JetBrains Mono', monospace; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="openAutoDiscoveryModal()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                [ DISCOVER URLs ]
+                            </button>
+                            <button type="button" class="btn" style="background: var(--accent); color: #000; font-family: 'JetBrains Mono', monospace;" onclick="saveStudioSeed()">[ COMMIT / SAVE ]</button>
+                            <button type="button" class="btn delete" style="border-color: #cc0000; color: #cc0000; font-family: 'JetBrains Mono', monospace;" onclick="deleteStudioSeed()">[ DELETE ]</button>
+                            <button type="button" class="btn" style="background: #00ff66; color: #000; font-family: 'JetBrains Mono', monospace; margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="launchStudioSeedScrape()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                [ EXECUTE QUICK RUN ]
+                            </button>
                     </div>
                 </div>
 
-                <!-- Studio Dual Pane Body -->
-                <div class="studio-body-container">
+                <div class="studio-body-container" style="display: flex; flex-direction: column; gap: 1rem;">
                     <!-- Visual Builder Mode -->
-                    <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem;">
-                        <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label for="studio-subject-input"
-                                style="font-weight: 700; font-family: monospace; color: var(--accent);"># SUBJECT
-                                NAME / TITLE</label>
-                            <input type="text" id="studio-subject-input"
-                                placeholder="Enter target subject or topic name" oninput="onStudioFormChanged()"
-                                style="width: 100%; padding: 0.5rem; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy);">
+                    <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #00ff66; font-size: 1.2rem;">> SET TARGET_SUBJECT</label>
+                            <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.75rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; outline: none;">
                         </div>
-                        <!-- Quick Domain Preset Templates Bar -->
-                        <div
-                            style="margin-bottom: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem;">
-                            <div
-                                style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: monospace; text-transform: uppercase; margin-bottom: 0.5rem;">
-                                QUICK DOMAIN PRESET TEMPLATES:</div>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button type="button" class="btn"
-                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
-                                    onclick="addPresetDomainBlock('gallery')">+ Gallery Index Block</button>
-                                <button type="button" class="btn"
-                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
-                                    onclick="addPresetDomainBlock('direct')">+ Direct Search Block</button>
-                                <button type="button" class="btn"
-                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
-                                    onclick="addPresetDomainBlock('stealth')">+ Stealth Protected Block</button>
-                                <button type="button" class="btn"
-                                    style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);"
-                                    onclick="addPresetDomainBlock('video')">+ Video Stream Block</button>
+                        
+                        <div style="background: #050505; border: 1px solid var(--border-heavy); padding: 1rem;">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">INJECT PRESET DIRECTIVE:</div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Inject Gallery Index</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Inject Direct Search</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Inject Stealth Protected</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Inject Video Stream</button>
                             </div>
                         </div>
-                        <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <!-- Domain cards rendered dynamically -->
+
+                        <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <!-- Domain directives rendered dynamically -->
                         </div>
-                        <button type="button" class="btn"
-                            style="margin-top: 1.5rem; width: 100%; background: transparent !important; color: var(--accent) !important; border: 2px dashed var(--accent) !important; padding: 0.85rem; font-family: monospace; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; cursor: pointer;"
-                            onclick="addStudioDomainCard()">+ ADD TARGET DOMAIN BLOCK</button>
+
+                        <button type="button" class="btn" style="width: 100%; background: #050505 !important; color: #00ff66 !important; border: 1px dashed #00ff66 !important; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; cursor: pointer; text-transform: uppercase;" onclick="addStudioDomainCard()">[ + APPEND NEW DIRECTIVE MODULE ]</button>
                     </div>
 
                     <!-- Raw Code Mode -->
-                    <div id="studio-code-panel" class="glass-panel"
-                        style="display: none; padding: 1.5rem; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;">
-                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor"
-                            style="width: 100%; max-width: 100%; box-sizing: border-box; height: 500px; font-family: monospace; background: var(--bg-surface); color: var(--text-primary); border: var(--border-heavy); padding: 1rem; resize: vertical; outline: none; overflow-y: auto;"
-                            oninput="onStudioCodeEditorChanged()"></textarea>
+                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 0; border: 1px solid var(--border-heavy);">
+                        <div style="padding: 0.5rem 1rem; background: #000; border-bottom: 1px solid var(--border-heavy); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; display: flex; justify-content: space-between;">
+                            <span>BUFFER: MANIFEST_SOURCE.TXT</span>
+                            <span>ENCODING: UTF-8</span>
+                        </div>
+                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor" style="width: 100%; height: 600px; font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff66; border: none; padding: 1rem; resize: vertical; outline: none; box-sizing: border-box;" oninput="onStudioCodeEditorChanged()"></textarea>
                     </div>
                 </div>
 
                 <!-- Floating Line-Jump Validation Console -->
-                <div id="studio-validation-console"
-                    style="margin-top: 1rem; background: var(--bg-surface); border: var(--border-heavy); padding: 0.75rem; font-family: monospace; font-size: 0.85rem;">
+                <div id="studio-validation-console" class="glass-panel" style="margin-top: 0; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="color: var(--accent); font-weight: 700;">SYNTAX & MANIFEST VALIDATION:</span>
                         <span id="studio-validation-status" style="color: #00ff66;">✓ MANIFEST VALID</span>
                     </div>
-                    <div id="studio-validation-warnings"
-                        style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
+                    <div id="studio-validation-warnings" style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
                         No syntax warnings detected.
                     </div>
                 </div>
@@ -2115,20 +2187,28 @@
             <div id="settings-view" style="display: none;">
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <h2>SYSTEM SETTINGS & INTEGRATIONS</h2>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Configure application defaults, third-party integrations, webhook URLs, and automation limits. Changes are saved dynamically into <code>data/settings.db</code> SQLite storage.</p>
-                    
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Configure
+                        application defaults, third-party integrations, webhook URLs, and automation limits. Changes are
+                        saved dynamically into <code>data/settings.db</code> SQLite storage.</p>
+
                     <form id="settings-form" onsubmit="event.preventDefault(); saveSettings();">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
                             <!-- General Settings -->
-                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
-                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">GENERAL SETTINGS</h3>
+                            <div class="glass-panel"
+                                style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3
+                                    style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                                    GENERAL SETTINGS</h3>
                                 <div class="form-group">
                                     <label for="setting-GLOBAL_MAX_RETRIES">GLOBAL MAX RETRIES</label>
-                                    <input type="number" id="setting-GLOBAL_MAX_RETRIES" value="3" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <input type="number" id="setting-GLOBAL_MAX_RETRIES" value="3"
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-LOG_LEVEL">LOG LEVEL</label>
-                                    <select id="setting-LOG_LEVEL" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <select id="setting-LOG_LEVEL"
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                         <option value="DEBUG">DEBUG</option>
                                         <option value="INFO" selected>INFO</option>
                                         <option value="WARNING">WARNING</option>
@@ -2142,11 +2222,15 @@
                             </div>
 
                             <!-- Proxy Settings -->
-                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
-                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">PROXY SETTINGS</h3>
+                            <div class="glass-panel"
+                                style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3
+                                    style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                                    PROXY SETTINGS</h3>
                                 <div class="form-group">
                                     <label for="setting-PROXY_ROTATION_STRATEGY">PROXY ROTATION STRATEGY</label>
-                                    <select id="setting-PROXY_ROTATION_STRATEGY" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <select id="setting-PROXY_ROTATION_STRATEGY"
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                         <option value="round_robin" selected>ROUND ROBIN</option>
                                         <option value="random">RANDOM</option>
                                         <option value="sticky">STICKY / DOMAIN</option>
@@ -2154,52 +2238,72 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-PROXY_COOLDOWN_SECONDS">PROXY COOLDOWN SECONDS</label>
-                                    <input type="number" id="setting-PROXY_COOLDOWN_SECONDS" value="30" style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                    <input type="number" id="setting-PROXY_COOLDOWN_SECONDS" value="30"
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
                                 </div>
                             </div>
 
                             <!-- Notification Settings -->
-                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
-                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">NOTIFICATIONS & WEBHOOKS</h3>
+                            <div class="glass-panel"
+                                style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3
+                                    style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                                    NOTIFICATIONS & WEBHOOKS</h3>
                                 <div class="form-group">
                                     <label for="setting-TELEGRAM_BOT_TOKEN">TELEGRAM BOT TOKEN</label>
-                                    <input type="password" id="setting-TELEGRAM_BOT_TOKEN" placeholder="bot12345:ABCDE..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-TELEGRAM_BOT_TOKEN"
+                                        placeholder="bot12345:ABCDE..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-TELEGRAM_CHAT_ID">TELEGRAM CHAT ID</label>
-                                    <input type="text" id="setting-TELEGRAM_CHAT_ID" placeholder="-100..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="text" id="setting-TELEGRAM_CHAT_ID" placeholder="-100..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-DISCORD_WEBHOOK_URL">DISCORD WEBHOOK URL</label>
-                                    <input type="password" id="setting-DISCORD_WEBHOOK_URL" placeholder="https://discord.com/api/webhooks/..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-DISCORD_WEBHOOK_URL"
+                                        placeholder="https://discord.com/api/webhooks/..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-SLACK_WEBHOOK_URL">SLACK WEBHOOK URL</label>
-                                    <input type="password" id="setting-SLACK_WEBHOOK_URL" placeholder="https://hooks.slack.com/services/..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-SLACK_WEBHOOK_URL"
+                                        placeholder="https://hooks.slack.com/services/..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                             </div>
 
                             <!-- Captcha Providers -->
-                            <div class="glass-panel" style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
-                                <h3 style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">CAPTCHA PROVIDERS</h3>
+                            <div class="glass-panel"
+                                style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
+                                <h3
+                                    style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                                    CAPTCHA PROVIDERS</h3>
                                 <div class="form-group">
                                     <label for="setting-CAPSOLVER_API_KEY">CAPSOLVER API KEY</label>
-                                    <input type="password" id="setting-CAPSOLVER_API_KEY" placeholder="CAI-..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-CAPSOLVER_API_KEY" placeholder="CAI-..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-2CAPTCHA_API_KEY">2CAPTCHA API KEY</label>
-                                    <input type="password" id="setting-2CAPTCHA_API_KEY" placeholder="Enter key..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-2CAPTCHA_API_KEY" placeholder="Enter key..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                                 <div class="form-group">
                                     <label for="setting-ANTICAPTCHA_API_KEY">ANTICAPTCHA API KEY</label>
-                                    <input type="password" id="setting-ANTICAPTCHA_API_KEY" placeholder="Enter key..." style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                                    <input type="password" id="setting-ANTICAPTCHA_API_KEY" placeholder="Enter key..."
+                                        style="width:100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                                 </div>
                             </div>
                         </div>
 
                         <div style="margin-top: 2rem; display: flex; gap: 1rem; align-items: center;">
-                            <button type="submit" class="btn" style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem;">SAVE SETTINGS</button>
-                            <span id="settings-status-indicator" style="font-family: monospace; color: var(--text-muted);"></span>
+                            <button type="submit" class="btn"
+                                style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem;">SAVE
+                                SETTINGS</button>
+                            <span id="settings-status-indicator"
+                                style="font-family: monospace; color: var(--text-muted);"></span>
                         </div>
                     </form>
                 </div>
@@ -2625,6 +2729,8 @@
                     if (studioEl) studioEl.style.display = 'none';
                     const settingsEl = document.getElementById('settings-view');
                     if (settingsEl) settingsEl.style.display = 'none';
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'none';
                     document.getElementById('main-title').innerText = "MEDIA VAULT";
                     document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
                     document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
@@ -2672,9 +2778,11 @@
                     document.getElementById('gallery-view').style.display = 'none';
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'none';
-                    
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'none';
+
                     document.getElementById('settings-view').style.display = 'block';
-                    
+
                     document.getElementById('main-title').innerText = "SYSTEM SETTINGS";
                     document.getElementById('main-subtitle').innerText = "Dynamic Configuration & Integrations Engine";
 
@@ -2688,7 +2796,7 @@
                         statsEl.removeAttribute('hx-get');
                         statsEl.removeAttribute('hx-trigger');
                     }
-                    
+
                     loadSettings();
                 }
 
@@ -2696,7 +2804,7 @@
                     const statusEl = document.getElementById('settings-status-indicator');
                     statusEl.innerText = "Loading settings...";
                     statusEl.style.color = "var(--text-muted)";
-                    
+
                     try {
                         const res = await fetch('/api/settings');
                         if (res.ok) {
@@ -2731,18 +2839,18 @@
                         statusEl.style.color = "#cc0000";
                         console.error("Failed to load settings", e);
                     }
-                    
-                    setTimeout(() => { if(statusEl.innerText.includes("LOADED")) statusEl.innerText = ""; }, 3000);
+
+                    setTimeout(() => { if (statusEl.innerText.includes("LOADED")) statusEl.innerText = ""; }, 3000);
                 }
 
                 async function saveSettings() {
                     const statusEl = document.getElementById('settings-status-indicator');
                     statusEl.innerText = "Saving...";
                     statusEl.style.color = "var(--accent)";
-                    
+
                     const settingsObj = {};
                     const inputs = document.querySelectorAll('#settings-form input, #settings-form select');
-                    
+
                     inputs.forEach(input => {
                         if (input.id && input.id.startsWith("setting-")) {
                             const key = input.id.replace("setting-", "");
@@ -2757,14 +2865,14 @@
                             }
                         }
                     });
-                    
+
                     try {
                         const res = await fetch('/api/settings', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ settings: settingsObj })
                         });
-                        
+
                         if (res.ok) {
                             statusEl.innerText = "✓ SETTINGS SAVED SUCCESSFULLY";
                             statusEl.style.color = "#00ff66";
@@ -2777,20 +2885,22 @@
                         statusEl.style.color = "#cc0000";
                         console.error("Failed to save settings", e);
                     }
-                    
-                    setTimeout(() => { if(statusEl.innerText.includes("SAVED")) statusEl.innerText = ""; }, 3000);
+
+                    setTimeout(() => { if (statusEl.innerText.includes("SAVED")) statusEl.innerText = ""; }, 3000);
                 }
 
                 function showSeedStudio() {
                     document.getElementById('command-center-view').style.display = 'none';
                     document.getElementById('gallery-view').style.display = 'none';
-                    
+
                     const settingsEl = document.getElementById('settings-view');
                     if (settingsEl) settingsEl.style.display = 'none';
-                    
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'none';
+
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'block';
-                    
+
                     document.getElementById('main-title').innerText = "SEED STUDIO";
                     document.getElementById('main-subtitle').innerText = "MANIFEST BUILDER";
 
@@ -2804,7 +2914,7 @@
                         statsEl.removeAttribute('hx-get');
                         statsEl.removeAttribute('hx-trigger');
                     }
-                    
+
                     loadStudioSeedsList();
                 }
                 async function loadStudioSeedsList() {
@@ -2881,12 +2991,28 @@
 
                     if (mode === 'builder') {
                         builderBtn.classList.add('active');
+                        builderBtn.style.background = '#00ff66';
+                        builderBtn.style.color = '#000';
+                        builderBtn.style.borderColor = '#00ff66';
+                        
                         codeBtn.classList.remove('active');
-                        builderPanel.style.display = 'block';
+                        codeBtn.style.background = 'transparent';
+                        codeBtn.style.color = 'var(--text-muted)';
+                        codeBtn.style.borderColor = 'var(--border-heavy)';
+                        
+                        builderPanel.style.display = 'flex';
                         codePanel.style.display = 'none';
                     } else {
                         codeBtn.classList.add('active');
+                        codeBtn.style.background = '#00ff66';
+                        codeBtn.style.color = '#000';
+                        codeBtn.style.borderColor = '#00ff66';
+                        
                         builderBtn.classList.remove('active');
+                        builderBtn.style.background = 'transparent';
+                        builderBtn.style.color = 'var(--text-muted)';
+                        builderBtn.style.borderColor = 'var(--border-heavy)';
+                        
                         codePanel.style.display = 'block';
                         builderPanel.style.display = 'none';
                         document.getElementById('studio-code-editor').value = buildManifestContentFromBuilder();
@@ -2923,36 +3049,37 @@
                     const urls = dData && dData.seed_urls ? dData.seed_urls.join('\n') : "";
 
                     card.innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid #2a2f2c; padding-bottom: 0.5rem;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <span class="block-title-text" style="font-weight: 700; font-family: monospace; color: var(--accent); letter-spacing: 0.05em;">TARGET DOMAIN BLOCK #${blockIndex}</span>
-                                <span class="badge" style="background: rgba(255, 85, 0, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 0.15rem 0.5rem; font-size: 0.7rem; font-family: monospace; text-transform: uppercase;">${media.toUpperCase()}</span>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span class="block-title-text" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #00ff66; font-size: 1.1rem;"># DIRECTIVE MODULE [ ${blockIndex} ]</span>
+                                <span class="badge" style="background: rgba(0, 255, 102, 0.1); color: #00ff66; border: 1px solid #00ff66; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">${media.toUpperCase()}</span>
                             </div>
-                            <button type="button" class="btn delete" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border-color: #cc0000; color: #cc0000; background: transparent;" onclick="removeStudioDomainCard(this)">[ X REMOVE BLOCK ]</button>
+                            <button type="button" class="btn delete" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; border-color: #cc0000; color: #cc0000; background: transparent; font-family: 'JetBrains Mono', monospace;" onclick="removeStudioDomainCard(this)">[ X PURGE MODULE ]</button>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                             <div class="form-group">
-                                <label for="card-domain-input" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">DOMAIN HOSTNAME</label>
-                                <input type="text" class="card-domain-input" id="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">TARGET HOSTNAME</label>
+                                <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                             </div>
                             <div class="form-group">
-                                <label for="card-media-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">MEDIA TYPE</label>
-                                <select class="card-media-select" id="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">MEDIA TYPE</label>
+                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                                     <option value="mixed" ${media === 'mixed' ? 'selected' : ''}>mixed</option>
                                     <option value="image" ${media === 'image' ? 'selected' : ''}>image</option>
                                     <option value="video" ${media === 'video' ? 'selected' : ''}>video</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="card-engine-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">CRAWL STRATEGY</label>
-                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">CRAWL STRATEGY</label>
+                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                                     <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
                                     <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">PREFERRED ENGINE</label>
-                                <select class="card-engine-select" id="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.5rem; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy);">
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">ENGINE</label>
+                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                                     <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
                                     <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
                                     <option value="flaresolverr" ${engine === 'flaresolverr' ? 'selected' : ''}>flaresolverr</option>
@@ -2960,17 +3087,18 @@
                                 </select>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 1.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; font-family: monospace;">
-                            <label for="card-urls-textarea" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                                <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()"> CLOUDFLARE PROTECTED
+
+                        <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem; background: #000; padding: 0.75rem; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #00ff66;">
+                                <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()" style="accent-color: #00ff66;"> [ WARN ] CLOUDFLARE WAF PRESENT
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                                <input type="checkbox" class="card-ref-check" ${ref} onchange="onStudioFormChanged()"> REQUIRES REFERER
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #00ff66;">
+                                <input type="checkbox" class="card-ref-check" ${ref} onchange="onStudioFormChanged()" style="accent-color: #00ff66;"> [ REQ ] REFERER HEADER
                             </label>
                         </div>
                         <div class="form-group">
-                            <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">SEED URLS (ONE PER LINE)</label>
-                            <textarea class="card-urls-textarea" id="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 110px; font-family: monospace; background: var(--bg-base); color: var(--text-primary); border: var(--border-heavy); padding: 0.6rem; resize: vertical; outline: none;"></textarea>
+                            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">> INJECT SEED_URLS (ONE PER LINE)</label>
+                            <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; box-sizing: border-box; height: 110px; font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); padding: 0.75rem; resize: vertical; outline: none; margin-top: 0.5rem;"></textarea>
                         </div>
                     `;
                     container.appendChild(card);
@@ -3261,7 +3389,9 @@
                     if (studioEl) studioEl.style.display = 'none';
                     const settingsEl = document.getElementById('settings-view');
                     if (settingsEl) settingsEl.style.display = 'none';
-                    
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'none';
+
                     document.getElementById('command-center-view').style.display = 'block';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
                     document.getElementById('main-subtitle').innerText = "DATA EXTRACTION COCKPIT";
@@ -3275,6 +3405,32 @@
                         statsEl.setAttribute('hx-get', '/htmx/active-stats');
                         statsEl.setAttribute('hx-trigger', 'load, every 2s');
                         htmx.process(statsEl);
+                    }
+                }
+
+                function showWatchdogDashboard() {
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'none';
+                    const settingsEl = document.getElementById('settings-view');
+                    if (settingsEl) settingsEl.style.display = 'none';
+
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'flex';
+
+                    document.getElementById('main-title').innerText = "WATCHDOG COCKPIT";
+                    document.getElementById('main-subtitle').innerText = "CONTINUOUS MONITORING & ADAPTIVE BACKOFF DAEMON";
+
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    const navBtn = document.getElementById('nav-watchdog');
+                    if (navBtn) navBtn.classList.add('active');
+
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl) {
+                        statsEl.innerHTML = '';
+                        statsEl.removeAttribute('hx-get');
+                        statsEl.removeAttribute('hx-trigger');
                     }
                 }
 
@@ -3325,7 +3481,11 @@
                     document.getElementById('progress-text').innerText = "";
 
                     // Reset visualizer canvas & streaming feed state for fresh scrape
-                    graphNodes.clear();
+                    if (window.graphNodes && typeof window.graphNodes.clear === 'function') {
+                        window.graphNodes.clear();
+                    }
+
+
                     streamedAssetsCount = 0;
                     const countElem = document.getElementById('graph-node-count');
                     if (countElem) countElem.innerText = 'NODES: 0';
@@ -3342,6 +3502,171 @@
                         pollLogsInterval = setInterval(pollLogs, 1000);
                     }
                 }
+
+                function appendWatchdogLog(message, type = 'info') {
+                    const logWindow = document.getElementById('watchdog-log-window');
+                    if (!logWindow) return;
+                    
+                    const time = new Date().toISOString().substring(11, 19); // HH:MM:SS
+                    const entry = document.createElement('div');
+                    
+                    let prefix;
+                    if (type === 'error') {
+                        entry.style.color = '#cc0000';
+                        prefix = '[ERROR] ';
+                    } else if (type === 'success') {
+                        entry.style.color = '#00ff66';
+                        prefix = '[DAEMON]';
+                    } else if (type === 'warn') {
+                        entry.style.color = '#ffaa00';
+                        prefix = '[WARN]  ';
+                    } else {
+                        entry.style.color = 'var(--text-muted)';
+                        prefix = '[INFO]  ';
+                    }
+                    
+                    entry.innerText = `[${time}] ${prefix} ${message}`;
+                    logWindow.appendChild(entry);
+                    logWindow.scrollTop = logWindow.scrollHeight;
+                }
+
+                async function startWatchdogAgent() {
+                    const kwInput = document.getElementById('watchdog-keyword-input');
+                    const intervalInput = document.getElementById('watchdog-interval-input');
+                    const badge = document.getElementById('watchdog-status-badge');
+                    const globalStatus = document.getElementById('watchdog-global-status');
+
+                    const kw = kwInput ? kwInput.value.trim() : 'cyberpunk';
+                    const interval = intervalInput ? Number.parseInt(intervalInput.value || '60', 10) : 60;
+
+                    appendWatchdogLog(`Initiating watchdog for target '${kw.toUpperCase()}'...`, 'info');
+
+                    try {
+                        const res = await fetch('/api/watchdog/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keyword: kw, interval: interval })
+                        });
+                        const data = await res.json();
+                        const isSuccess = res.ok && (data.status === 'started' || (data.message && data.message.toLowerCase().includes('started')));
+                        if (isSuccess) {
+                            appendWatchdogLog(`Daemon started successfully. PID: ${data.pid}. Monitor interval: ${interval}s.`, 'success');
+                            if (badge) {
+                                badge.innerText = `RUNNING (PID ${data.pid})`;
+                                badge.style.borderColor = '#00ff66';
+                                badge.style.color = '#00ff66';
+                            }
+                            if (globalStatus) {
+                                globalStatus.innerText = 'ACTIVE';
+                                globalStatus.style.color = '#00ff66';
+                            }
+                            
+                            // Update telemetry manually right away
+                            const tPid = document.getElementById('telemetry-pid');
+                            const tTarget = document.getElementById('telemetry-target');
+                            const tInterval = document.getElementById('telemetry-interval');
+                            if (tPid) tPid.innerText = data.pid || '---';
+                            if (tTarget) tTarget.innerText = kw;
+                            if (tInterval) tInterval.innerText = `${interval}s`;
+                        } else {
+                            appendWatchdogLog(`Failed to start daemon: ${data.message || 'Unknown error'}`, 'error');
+                        }
+                    } catch (e) {
+                        appendWatchdogLog(`Network Error: ${e.message}`, 'error');
+                    }
+                }
+
+                async function stopWatchdogAgent() {
+                    const badge = document.getElementById('watchdog-status-badge');
+                    const globalStatus = document.getElementById('watchdog-global-status');
+
+                    appendWatchdogLog('Sending abort signal to daemon...', 'warn');
+
+                    try {
+                        const res = await fetch('/api/watchdog/stop', { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            appendWatchdogLog('Daemon aborted successfully. System returning to idle.', 'info');
+                            if (badge) {
+                                badge.innerText = 'IDLE';
+                                badge.style.borderColor = '#ffaa00';
+                                badge.style.color = '#ffaa00';
+                            }
+                            if (globalStatus) {
+                                globalStatus.innerText = 'SYSTEM IDLE';
+                                globalStatus.style.color = '#ffaa00';
+                            }
+                            
+                            // Clear telemetry
+                            const tPid = document.getElementById('telemetry-pid');
+                            const tTarget = document.getElementById('telemetry-target');
+                            const tInterval = document.getElementById('telemetry-interval');
+                            if (tPid) tPid.innerText = '---';
+                            if (tTarget) tTarget.innerText = '---';
+                            if (tInterval) tInterval.innerText = '---';
+                        } else {
+                            appendWatchdogLog(`Failed to stop daemon: ${data.message || 'Unknown error'}`, 'error');
+                        }
+                    } catch (e) {
+                        appendWatchdogLog(`Network Error: ${e.message}`, 'error');
+                    }
+                }
+
+                async function checkWatchdogStatus() {
+                    try {
+                        const res = await fetch('/api/watchdog/status');
+                        if (res.ok) {
+                            const data = await res.json();
+                            const badge = document.getElementById('watchdog-status-badge');
+                            const globalStatus = document.getElementById('watchdog-global-status');
+
+                            if (data.status === 'active') {
+                                if (badge && !badge.innerText.includes('RUNNING')) {
+                                    badge.innerText = `RUNNING (PID ${data.pid})`;
+                                    badge.style.borderColor = '#00ff66';
+                                    badge.style.color = '#00ff66';
+                                }
+                                if (globalStatus && globalStatus.innerText !== 'ACTIVE') {
+                                    globalStatus.innerText = 'ACTIVE';
+                                    globalStatus.style.color = '#00ff66';
+                                }
+                                
+                                const tPid = document.getElementById('telemetry-pid');
+                                const tTarget = document.getElementById('telemetry-target');
+                                const tInterval = document.getElementById('telemetry-interval');
+                                if (tPid) tPid.innerText = data.pid || '---';
+                                if (tTarget) tTarget.innerText = data.keyword || '---';
+                                if (tInterval) tInterval.innerText = data.interval ? `${data.interval}s` : '---';
+                                
+                                appendWatchdogLog(`Daemon heartbeat OK. Sweeping target '${data.keyword}'...`, 'success');
+                            } else if (data.status === 'idle') {
+                                if (badge && badge.innerText.includes('RUNNING')) {
+                                    badge.innerText = 'IDLE';
+                                    badge.style.borderColor = '#ffaa00';
+                                    badge.style.color = '#ffaa00';
+                                    
+                                    if (globalStatus) {
+                                        globalStatus.innerText = 'SYSTEM IDLE';
+                                        globalStatus.style.color = '#ffaa00';
+                                    }
+                                    
+                                    const tPid = document.getElementById('telemetry-pid');
+                                    const tTarget = document.getElementById('telemetry-target');
+                                    const tInterval = document.getElementById('telemetry-interval');
+                                    if (tPid) tPid.innerText = '---';
+                                    if (tTarget) tTarget.innerText = '---';
+                                    if (tInterval) tInterval.innerText = '---';
+                                    
+                                    appendWatchdogLog('Daemon went idle.', 'warn');
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Watchdog status poll failed:", e);
+                    }
+                }
+                setInterval(checkWatchdogStatus, 5000);
+                document.addEventListener('DOMContentLoaded', checkWatchdogStatus);
 
                 // NOSONAR
                 function parseAndTriggerVisualizerEvents(line) {
@@ -4295,7 +4620,7 @@
                         })
                         .catch(err => console.error("Telemetry fetch error:", err));
                 }
-                
+
                 function handleWafBypassEvent(data) {
                     const tier = data.strategy;
                     const pill = document.getElementById(`stealth-pill-${tier}`);
@@ -4305,7 +4630,7 @@
                         pill.style.animation = 'none';
                         pill.getBoundingClientRect(); // trigger reflow
                         pill.style.animation = 'flash-success 1s ease-out';
-                        
+
                         // Optimistically update count
                         const currentText = badge.innerText;
                         if (currentText.includes('SOLVES')) {
@@ -4317,7 +4642,7 @@
                             badge.style.borderColor = '#00ff66';
                         }
                     }
-                    
+
                     // Add stylized terminal log
                     const terminalBody = document.getElementById('live-terminal-body');
                     if (terminalBody) {

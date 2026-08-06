@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import urljoin, urlparse, urlunparse
 
 from config import (
     ALWAYS_BLOCK_DOMAINS,
@@ -17,7 +17,6 @@ from config import (
     HLS_EXTENSIONS,
     IMAGE_EXTENSIONS,
     PREVIEW_MARKERS,
-    URL_NORMALISATION_RULES,
     VIDEO_EXTENSIONS,
 )
 from core.models import ImageItem, VideoItem
@@ -135,8 +134,10 @@ def normalize_url(url: str) -> str:
         quoted_query = quote(query, safe="=&%")
         cleaned = parsed._replace(fragment="", path=quoted_path, query=quoted_query)
         return urlunparse(cleaned)
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed canonicalizing URL '%s': %s", url, exc)
         return url.strip()
+
 
 
 def normalize_media_url(url: str) -> str:
@@ -148,15 +149,19 @@ def normalize_media_url(url: str) -> str:
         netloc = parsed.netloc.lower()
         path = unquote(parsed.path).lower().rstrip("/")
         return f"{scheme}://{netloc}{path}"
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed normalizing media URL '%s': %s", url, exc)
         return url.strip()
+
 
 
 def is_probable_image(url: str) -> bool:
     try:
         path = urlparse(url).path.lower().rstrip("/")
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed parsing URL for image probability check '%s': %s", url, exc)
         path = ""
+
     if _PAGE_LABEL_RE.search(path):
         return False
     basename = path.rsplit("/", 1)[-1]
@@ -168,8 +173,10 @@ def is_probable_image(url: str) -> bool:
 def is_probable_video(url: str) -> bool:
     try:
         path = urlparse(url).path.lower().rstrip("/")
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed parsing URL for video probability check '%s': %s", url, exc)
         path = ""
+
     return any(
         path.endswith(ext)
         for ext in VIDEO_EXTENSIONS | HLS_EXTENSIONS | DASH_EXTENSIONS
@@ -180,8 +187,10 @@ def is_thumbnail_url(url: str) -> bool:
     from core.media_filter import has_low_res_path_pattern
     try:
         path = urlparse(url).path.lower().rstrip("/")
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed parsing URL for thumbnail check '%s': %s", url, exc)
         path = ""
+
     if re.search(r"\.pic\d+\.jpe?g", path):
         _log.debug("Thumbnail detected (Booru picN): %s", url)
         return True
@@ -415,8 +424,10 @@ def is_allowed_path(url: str) -> bool:
         if "feed=" in query:
             return False
         return True
-    except Exception:
+    except Exception as exc:
+        _log.debug("Failed validating path allowed '%s': %s", url, exc)
         return False
+
 
 
 def is_pagination_url(url: str) -> bool:

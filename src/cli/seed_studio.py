@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 from monitoring.logger import get_logger

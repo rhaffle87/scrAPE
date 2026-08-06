@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import os
 import re
 import subprocess
 import sys
@@ -186,7 +185,7 @@ def main() -> None:
         print("\n[COMPLETE] Committed and tagged locally. Skiped push and GitHub release.")
         return
 
-    print(f"\n[5/5] Pushing commit and tag to GitHub origin...")
+    print("\n[5/5] Pushing commit and tag to GitHub origin...")
     _, push_main_out = run_command(["git", "push", "origin", "main"], check=False)
     print(f"  Main branch push: {push_main_out.strip()}")
 

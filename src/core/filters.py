@@ -1,5 +1,6 @@
 """
 filters.py — Backward-compatible re-export shim for core filter modules.
+# ruff: noqa: F405
 
 Re-exports all public symbols from:
   - core.url_classifier (URL normalization, search/archive page detection, domain rules)

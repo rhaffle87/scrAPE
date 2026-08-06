@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from storage.dataset_exporter import DatasetExporter, OllamaVisionProvider
+from ml.ollama_provider import DatasetExporter, OllamaVisionProvider
+
 
 
 def test_ollama_vision_provider_is_available():

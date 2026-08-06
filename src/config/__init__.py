@@ -6,7 +6,7 @@ import os
 import re as _re
 import logging
 
-from .version import VERSION, VERSION_TAG
+from .version import VERSION as VERSION, VERSION_TAG as VERSION_TAG
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -24,6 +24,17 @@ HARVEST_NOTIFY_THRESHOLD: int = int(os.getenv("HARVEST_NOTIFY_THRESHOLD", "50"))
 CAPSOLVER_API_KEY: str = os.getenv("CAPSOLVER_API_KEY", "").strip()
 TWOCAPTCHA_API_KEY: str = os.getenv("TWOCAPTCHA_API_KEY", "").strip()
 ANTICAPTCHA_API_KEY: str = os.getenv("ANTICAPTCHA_API_KEY", "").strip()
+
+# Operational Performance & Runtime Tunables
+DOWNLOAD_RATE_LIMIT_RPS: float = float(os.getenv("DOWNLOAD_RATE_LIMIT_RPS", "5.0"))
+MAX_CONCURRENT_PER_HOST: int = int(os.getenv("MAX_CONCURRENT_PER_HOST", "4"))
+BROWSER_PROFILE_MAX_AGE_DAYS: int = int(os.getenv("BROWSER_PROFILE_MAX_AGE_DAYS", "30"))
+STEALTH_TIER_COOLDOWN_SECONDS: float = float(os.getenv("STEALTH_TIER_COOLDOWN_SECONDS", "300.0"))
+OLLAMA_ENDPOINT: str = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434").strip()
+OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "moondream").strip()
+WEBUI_HOST: str = os.getenv("WEBUI_HOST", "0.0.0.0").strip()
+WEBUI_PORT: int = int(os.getenv("WEBUI_PORT", "10001"))
+
 
 ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True

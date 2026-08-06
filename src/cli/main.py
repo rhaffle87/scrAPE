@@ -80,6 +80,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export scraped results to a SQLite database (results.db).",
     )
     parser.add_argument(
+        "--export-rag",
+        action="store_true",
+        help="Export chunked text embedding payloads for RAG ingestion (rag_payload.jsonl).",
+    )
+
+    parser.add_argument(
         "--download-media",
         action="store_true",
         help="Download discovered media into the output directory.",
@@ -337,12 +343,14 @@ def main() -> None:
     args = build_parser().parse_args()
 
     if args.headless:
-        import network.http_client
-        network.http_client.FORCE_HEADLESS = True
+        import config
+
+        config.FORCE_HEADLESS = True
 
     if args.stealth_headful:
-        import network.http_client
-        network.http_client.STEALTH_HEADFUL = True
+        import config
+
+        config.STEALTH_HEADFUL = True
 
     if args.validate_seed:
         from core.seed_manifest import SeedManifest
@@ -745,6 +753,21 @@ def main() -> None:
         exporter = DatabaseExporter(db_path)
         exporter.export(result)
 
+    if getattr(args, "export_rag", False):
+        from ml.rag_exporter import RagExporter
+        logger.info("Exporting RAG vector embedding payload...")
+        rag = RagExporter(output_dir=output_root)
+        for p in result.page_reports:
+            page_url = p.url if hasattr(p, "url") else str(p)
+            page_title = getattr(p, "reason", "") or page_url
+            rag.export_page(
+                page_url=page_url,
+                page_title=page_title,
+                text_content=page_title,
+            )
+
+
+
     from collections import Counter as _Counter
     from urllib.parse import urlparse as _urlparse_report
 
@@ -819,8 +842,8 @@ def main() -> None:
     # ──────────────────────────────────────────────────────────────────────
 
 
-import atexit
-import os
+import atexit  # noqa: E402
+import os  # noqa: E402
 
 def _silence_win32_com_errors():
     """Suppress noisy 'Win32 exception occurred releasing IUnknown' during Python teardown."""

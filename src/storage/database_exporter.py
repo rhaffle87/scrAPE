@@ -1,8 +1,6 @@
 import sqlite3
 import logging
 from pathlib import Path
-from dataclasses import asdict
-from typing import Any
 
 from core.models import ScrapeResult
 

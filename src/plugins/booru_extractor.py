@@ -40,7 +40,7 @@ class BooruExtractor(ExtractorPlugin):
                         post_id = path_parts[1]
                         api_url = f"https://danbooru.donmai.us/posts/{post_id}.json"
                     else:
-                        api_url = f"https://danbooru.donmai.us/posts.json?limit=20"
+                        api_url = "https://danbooru.donmai.us/posts.json?limit=20"
 
                     res = client.get(api_url)
                     if res.status_code == 200:

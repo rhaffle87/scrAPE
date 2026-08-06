@@ -4,21 +4,14 @@ import os
 import re
 import threading
 import time
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from urllib.parse import urlparse
 
-from tqdm import tqdm
 
 from core.models import (
     EngineOptions,
-    ImageItem,
-    PageReport,
     ScrapeResult,
     RejectedItem,
-    VideoItem,
 )
-from core.engine import _video_resolution_hint
 from monitoring.logger import get_logger
 from core.filters import (
     normalize_url,
@@ -28,11 +21,9 @@ from core.filters import (
     rejection_reason_for_video,
     contains_subject_text,
     looks_like_media,
-    normalize_media_url,
     is_allowed_domain,
     is_allowed_path,
 )
-from scraper.specialized import SpecializedExtractor
 import json
 
 LOGGER = get_logger(__name__)
@@ -420,10 +411,7 @@ class DomainRulesManager:
                 # multi-segment content paths (/a/<id>) are subject posts.
                 and (
                     len(link_segments) == 1
-                    or not (
-                        seed_segments[0].lower()
-                        in {"search", "query", "results", "find"}
-                    )
+                    or seed_segments[0].lower() not in {"search", "query", "results", "find"}
                 )
             ):
                 return False
@@ -440,7 +428,6 @@ class MediaProcessor:
 
     def finalize_images(self, result, options) -> list:
         from core.filters import normalize_url
-        from core.models import RejectedItem
 
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
@@ -483,7 +470,6 @@ class MediaProcessor:
 
     def finalize_videos(self, result, options) -> list:
         from core.filters import normalize_url
-        from core.models import RejectedItem
 
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
@@ -699,7 +685,6 @@ class MediaProcessor:
                 _cdn_hosts_deduped.append(_h)
 
         def add_rejected(kind, url, source_page, reason, score):
-            from core.models import RejectedItem
             result.rejected_items.append(
                 RejectedItem(
                     kind=kind, url=url, source_page=source_page, reason=reason, score=score
@@ -837,7 +822,6 @@ class CrawlOrchestrator:
         page_limit: int = 20,
         crawl_depth: int = 2,
     ) -> ScrapeResult:
-        from core.engine import _is_target_met
         from core.filters import (
             normalize_url,
         )

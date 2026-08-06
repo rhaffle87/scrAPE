@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Optional
-from plugins.base import ExtractorPlugin, SpecializedResult, PluginRegistry
+from plugins.base import SpecializedResult, PluginRegistry
 
 if TYPE_CHECKING:
     from network.http_client import HttpClient

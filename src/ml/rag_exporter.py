@@ -1,3 +1,5 @@
+"""RAG vector payload exporter for chunking scraped text into rag_payload.jsonl."""
+
 import json
 import re
 from pathlib import Path
@@ -16,11 +18,17 @@ class RagExporter:
         chunk_size: int = 500,
         chunk_overlap: int = 50,
     ):
-        self.output_dir = Path(output_dir)
+        import os
+        abs_out = os.path.abspath(os.path.normpath(str(output_dir).strip()))
+        self.output_dir = Path(abs_out)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.jsonl_path = self.output_dir / "rag_payload.jsonl"
+        self.jsonl_path = (self.output_dir / "rag_payload.jsonl").resolve()
+        out_resolved = self.output_dir.resolve()
+        if not str(self.jsonl_path).startswith(str(out_resolved) + os.sep) and self.jsonl_path.parent != out_resolved:
+            raise ValueError("Security violation: jsonl_path traverses outside allowed output_dir")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+
 
     def chunk_text(self, text: str) -> list[str]:
         """Split text into chunks using hybrid section boundaries and sliding window fallback."""

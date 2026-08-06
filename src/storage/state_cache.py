@@ -90,6 +90,9 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON processed_urls(timestamp)
             """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_processed_urls_lower_url ON processed_urls(LOWER(url))
+            """)
             
             # Persistent cache for dead URLs (404/410)
             cursor.execute("""
@@ -122,7 +125,11 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_phash_ts ON phash_cache(timestamp)
             """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_phash_subject ON phash_cache(subject)
+            """)
             conn.commit()
+
 
     def _cleanup_old_entries(self):
         """Delete entries older than max_age_seconds to prevent endless database bloat."""
@@ -342,21 +349,6 @@ class StateCache:
         except Exception as e:
             LOGGER.warning("StateCache flush_phashes failed: %s", e)
         return deleted
-
-    def vacuum_db(self) -> int:
-        """Run SQLite VACUUM to reclaim disk space after TTL cleanup deletions.
-
-        Returns the file size in bytes after vacuuming.
-        """
-        try:
-            with self._get_connection() as conn:
-                conn.execute("VACUUM")
-            size_after = self.db_path.stat().st_size if self.db_path.exists() else 0
-            LOGGER.info("StateCache VACUUM complete. DB size: %d bytes.", size_after)
-            return size_after
-        except Exception as e:
-            LOGGER.warning("StateCache VACUUM failed: %s", e)
-            return 0
 
     def clear_domain(self, domain: str) -> int:
         """Delete all cached URL entries belonging to *domain*.

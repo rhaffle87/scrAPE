@@ -13,11 +13,9 @@ from urllib.parse import urlparse
 from config import (
     GENERIC_ASSET_TERMS,
     PREVIEW_MARKERS,
-    UTILITY_ASSET_TERMS,
 )
 from core.models import ImageItem, VideoItem
 from core.url_classifier import (
-    _aliases_for,
     _get_allowed_hosts,
     is_archive_or_index_page,
     is_cdn_asset_domain,

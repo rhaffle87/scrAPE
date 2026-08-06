@@ -1,6 +1,5 @@
 import logging
 import urllib.parse
-from typing import Any
 from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
 
@@ -69,7 +68,7 @@ class CivitaiExtractor(ExtractorPlugin):
 
             # Fallback: civitai images search API
             if not images:
-                api_url = f"https://civitai.com/api/v1/images?limit=20"
+                api_url = "https://civitai.com/api/v1/images?limit=20"
                 res = _fetch(api_url)
                 if res.status_code == 200:
                     data = res.json()

@@ -29,6 +29,8 @@ scrape
 | `--max-results` | `int` | `50` (or dynamic) | Maximum number of media items per type to keep. Use 0 for unlimited. |
 | `--output` | `{json,csv,both}` | `json` | Output format. |
 | `--export-db` | flag | `False` | Export scraped results to a SQLite database (`results.db`). |
+| `--export-rag` | flag | `False` | Export chunked text embedding payloads for RAG vector ingestion (`rag_payload.jsonl`). |
+| `--tag-dataset` | flag | `False` | Auto-generate AI caption and tag sidecar `.txt` files for downloaded image datasets. |
 | `--download-media` | flag | `False` | Download discovered media into the output directory. |
 | `--seed-url` | `str[]` | `[]` | Seed page URL to scrape directly. Repeat for multiple URLs. |
 | `--seed-file` | `str` | `None` | Text file containing one seed URL per line. |

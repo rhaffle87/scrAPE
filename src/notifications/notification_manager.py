@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import concurrent.futures
 import logging
-import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
@@ -318,7 +317,6 @@ class SlackNotifier(BaseNotifier):
         page_limit: int = 0,
         crawl_depth: int = 0,
     ) -> bool:
-        domains_str = ", ".join((seed_domains or [])[:6])
         payload = {
             "blocks": [
                 {"type": "header", "text": {"type": "plain_text", "text": "\U0001f680 scrAPE Run Started", "emoji": True}},

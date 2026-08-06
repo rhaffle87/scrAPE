@@ -84,8 +84,10 @@ python src/cli/main.py --keyword <subject> --seed-file seeds/<subject>.txt --max
 - **Resumable Crawl & Download Checkpointing** — Persistent SQLite queue and download state (`output/.crawl_state.sqlite`), paired with HTTP `Range` request byte resumption (HTTP 206 Partial Content) and per-host download semaphores (`_host_semaphore_for`).
 - **Multi-Platform Extractor Plugins** — Zero-DOM direct extraction plugins for YouTube, TikTok, Reddit, Civitai, Danbooru/Gelbooru, Pinterest, ArtStation, and Telegram. Domain-agnostic video extraction patterns in `video_scraper.py` handle lightbox anchors (`<a data-fslightbox>`), nested `<video controls loop>` containers, and base64-encoded iframe player parameters (via `Base64IframeExtractor`).
 - **Enterprise-Grade Security Compliance** — Resolves major static analysis warnings (OSV-Scanner, Semgrep, CodeQL) via strict structural path validation (`os.path.splitdrive` checking), mitigating path-injection natively without relying on superficial suppression comments.
+- **Codebase Observability & Dynamic Port Binding** — Comprehensive structured diagnostic logging (`LOGGER.debug`) across all scraper, storage, network, and classification modules replacing silent exception swallows, paired with dynamic host and port binding in `src/cli/launcher.py` derived directly from `config.WEBUI_HOST` and `config.WEBUI_PORT`.
 
 ---
+
 
 ## WAF, Turnstile & JS-Only Bypass
 

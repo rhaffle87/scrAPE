@@ -1,8 +1,13 @@
 import sys
+import subprocess
 from subprocess import Popen, PIPE, STDOUT
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 import asyncio
-from collections import deque, defaultdict
+from collections import deque
+
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import re
@@ -18,6 +23,7 @@ import json
 import psutil
 import os
 
+from config import WEBUI_HOST, WEBUI_PORT
 from network.http_client import HttpClient
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -69,7 +75,8 @@ class LogBroadcaster:
                 except Exception:
                     pass
 
-from monitoring.telemetry import register_telemetry_listener, broadcast_telemetry_event
+from monitoring.telemetry import register_telemetry_listener
+
 
 broadcaster = LogBroadcaster()
 register_telemetry_listener(broadcaster.broadcast)
@@ -77,9 +84,30 @@ register_telemetry_listener(broadcaster.broadcast)
 from src.config.version import VERSION
 app = FastAPI(title="scrAPE Web GUI", version=VERSION)
 
+from frontend.routers.dataset import router as dataset_router
+from frontend.routers.seeds import router as seeds_router
+from frontend.routers.watchdog import router as watchdog_router
+from frontend.routers.notifications import router as notifications_router
+
+app.include_router(dataset_router)
+app.include_router(seeds_router)
+app.include_router(watchdog_router)
+app.include_router(notifications_router)
+
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 
 class ScrapeRequest(BaseModel):
     keyword: str
@@ -518,6 +546,8 @@ def run_scrape(req: ScrapeRequest):
     }
     
     return {"message": "Scrape started", "pid": _current_process.pid}
+
+
 
 import time
 from typing import Any
@@ -970,9 +1000,10 @@ async def htmx_run(request: Request):
         run_scrape(req)
         broadcaster.broadcast("status", {"status": "running"})
         return render_control_buttons()
-    except Exception as e:
-        # Avoid Information exposure through an exception by not returning str(e)
+    except Exception:
+        # Avoid Information exposure through an exception by not returning exception details
         return HTMLResponse("<div style='color: red; margin-top: 1rem;'>ERR: An internal error occurred. Please check logs.</div>")
+
 
 @app.post("/htmx/kill")
 def kill_scrape():
@@ -1289,20 +1320,21 @@ def test_telegram_notification(token: str = Form(""), chat_id: str = Form("")):
 
 @app.post("/api/pause")
 def api_pause():
-    res = htmx_pause_scrape()
+    htmx_pause_scrape()
     return {"status": task_state["status"]}
 
 
 @app.post("/api/resume")
 def api_resume():
-    res = htmx_resume_scrape()
+    htmx_resume_scrape()
     return {"status": task_state["status"]}
 
 
 @app.post("/api/stop")
 def api_stop():
-    res = kill_scrape()
+    kill_scrape()
     return {"status": task_state["status"]}
+
 
 
 # Seed Studio endpoints defined below
@@ -1344,9 +1376,8 @@ def get_historical_stats(subject: str | None = None):
     IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
     VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".ogv", ".mov"}
 
-    pattern = f"{subject}/runs/*/" if subject else "*/runs/*/"
-
     if OUTPUT_DIR.exists():
+
         subj_dirs = [OUTPUT_DIR / subject] if subject else [d for d in OUTPUT_DIR.iterdir() if d.is_dir() and d.name not in ("cache", "test")]
         for sdir in subj_dirs:
             runs_dir = sdir / "runs"
@@ -1773,7 +1804,8 @@ def export_ai_dataset(payload: ExportDatasetPayload):
         raise HTTPException(status_code=400, detail="Invalid path")
     run_dir = Path(run_dir_str)
     if not run_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Run directory not found")
+        raise HTTPException(status_code=404, detail="Run directory not found")
+
 
     image_src = run_dir / "images"
     video_src = run_dir / "videos"
@@ -1924,8 +1956,9 @@ def export_rag_markdown(payload: ExportRAGPayload):
     try:
         with open(results_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-    except Exception as exc:
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to load results.json")
+
 
     try:
         rag_dir_str = os.path.abspath(str(ROOT_DIR / "rag_ingestion"))
@@ -2004,6 +2037,144 @@ def save_settings(payload: SettingsPayload):
         manager.set(key, value)
     return {"status": "success", "message": "Settings saved successfully"}
 
+
+# ---------------------------------------------------------------------------
+# Watchdog Daemon Management Endpoints
+# ---------------------------------------------------------------------------
+_watchdog_process: Optional[subprocess.Popen] = None
+_watchdog_state_lock = threading.Lock()
+_watchdog_info: dict = {
+    "status": "idle",
+    "pid": None,
+    "keyword": None,
+    "interval": 60,
+    "started_at": None,
+}
+
+
+class WatchdogStartRequest(BaseModel):
+    keyword: str
+    interval: Optional[int] = 60
+    seed: Optional[str] = None
+
+
+@app.get("/api/watchdog/status")
+def get_watchdog_status():
+    global _watchdog_process, _watchdog_info
+    from src.cli.monitor_agent import get_watchdog_telemetry_snapshot
+
+    with _watchdog_state_lock:
+        if _watchdog_process is not None:
+            poll_result = _watchdog_process.poll()
+            if poll_result is not None:
+                _watchdog_process = None
+                _watchdog_info["status"] = "idle"
+                _watchdog_info["pid"] = None
+            else:
+                _watchdog_info["status"] = "active"
+
+        telemetry = get_watchdog_telemetry_snapshot()
+        return {
+            "status": _watchdog_info["status"],
+            "pid": _watchdog_info["pid"],
+            "keyword": _watchdog_info.get("keyword"),
+            "interval": _watchdog_info.get("interval", 60),
+            "telemetry": telemetry,
+        }
+
+
+@app.post("/api/watchdog/start")
+def start_watchdog(req: WatchdogStartRequest):
+    global _watchdog_process, _watchdog_info
+    import sys
+    import subprocess
+    import time
+
+    with _watchdog_state_lock:
+        if _watchdog_process is not None and _watchdog_process.poll() is None:
+            return {
+                "status": "error",
+                "message": f"Watchdog is already running (PID {_watchdog_process.pid})",
+                "pid": _watchdog_process.pid,
+            }
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "src.cli.monitor_agent",
+            "--keyword",
+            req.keyword,
+            "--interval",
+            str(req.interval or 60),
+            "--use-state-cache",
+        ]
+        if req.seed:
+            seed_basename = os.path.basename(req.seed)
+            if not seed_basename or not re.match(r"^[\w\-. ]+\.txt$", seed_basename):
+                raise HTTPException(status_code=400, detail="Invalid seed file name.")
+            seeds_base = os.path.abspath(str(ROOT_DIR / "seeds"))
+            seed_resolved = os.path.abspath(os.path.join(seeds_base, seed_basename))
+            if not seed_resolved.startswith(seeds_base + os.sep):
+                raise HTTPException(status_code=400, detail="Seed path traverses outside allowed directory.")
+            cmd.extend(["--seed", seed_resolved])
+
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(ROOT_DIR),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+
+            _watchdog_process = proc
+            _watchdog_info = {
+                "status": "active",
+                "pid": proc.pid,
+                "keyword": req.keyword,
+                "interval": req.interval or 60,
+                "started_at": time.time(),
+            }
+
+            return {
+                "status": "started",
+                "message": f"Watchdog daemon started for subject '{req.keyword}'",
+                "pid": proc.pid,
+            }
+        except Exception as e:
+            logger.error(f"Failed to launch watchdog process: {e}")
+            return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/watchdog/stop")
+def stop_watchdog():
+    global _watchdog_process, _watchdog_info
+    import subprocess
+
+    with _watchdog_state_lock:
+        if _watchdog_process is None or _watchdog_process.poll() is not None:
+            _watchdog_process = None
+            _watchdog_info["status"] = "idle"
+            _watchdog_info["pid"] = None
+            return {"status": "idle", "message": "Watchdog was not running"}
+
+        try:
+            _watchdog_process.terminate()
+            try:
+                _watchdog_process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                _watchdog_process.kill()
+        except Exception as e:
+            logger.warning(f"Error terminating watchdog process: {e}")
+
+        _watchdog_process = None
+        _watchdog_info["status"] = "idle"
+        _watchdog_info["pid"] = None
+
+        return {"status": "idle", "message": "Watchdog daemon stopped successfully"}
+
 # Mount static files at the root to serve all media assets.
 # This MUST be declared last so it doesn't swallow API routes.
 app.mount("/", StaticFiles(directory=str(OUTPUT_DIR), html=False), name="output")
@@ -2011,7 +2182,8 @@ app.mount("/", StaticFiles(directory=str(OUTPUT_DIR), html=False), name="output"
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=10001)
+    parser.add_argument("--host", type=str, default=WEBUI_HOST)
+    parser.add_argument("--port", type=int, default=WEBUI_PORT)
     args = parser.parse_args()
     
-    uvicorn.run("frontend.app:app", host="localhost", port=args.port, reload=False)
+    uvicorn.run("frontend.app:app", host=args.host, port=args.port, reload=False)

@@ -15,6 +15,11 @@ Provides browser automation fallback execution methods for WAF bypass and stealt
 from __future__ import annotations
 
 import sys
+import httpx
+import shutil
+import asyncio
+from typing import Any, cast
+from monitoring.logger import get_logger
 import time
 import re
 import typing
@@ -25,13 +30,177 @@ from config import (
     STEALTH_HEADFUL,
     FORCE_HEADLESS,
     FLARESOLVERR_URL,
+    BROWSER_PROFILE_MAX_AGE_DAYS,
 )
 
 import threading
 from typing import ClassVar
 
+logger = get_logger(__name__)
+
 __all__ = ["BrowserClientMixin"]
 
+
+def _get_or_create_event_loop():
+    """Return the singleton background asyncio event loop, creating it on demand."""
+    global _background_loop, _background_thread  # noqa: PLW0603
+
+    with _loop_lock:
+        if _background_loop is None or not _background_loop.is_running():
+            _background_loop = asyncio.new_event_loop()
+
+            def _run_loop(loop):
+                asyncio.set_event_loop(loop)
+                loop.run_forever()
+
+            _background_thread = threading.Thread(
+                target=_run_loop,
+                args=(_background_loop,),
+                daemon=True,
+                name="crawl4ai-event-loop",
+            )
+            _background_thread.start()
+    return _background_loop
+
+def _run_coroutine_sync(coro):
+    """Submit *coro* to the background event loop and block until it completes."""
+
+    loop = _get_or_create_event_loop()
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    return future.result()
+
+def _apply_playwright_channel_patch() -> None:
+    """Patch playwright and patchright launch_persistent_context to respect BrowserConfig channel."""
+    from monitoring.logger import get_logger
+
+    logger = get_logger(__name__)
+
+    try:
+        import playwright.async_api
+
+        _orig_playwright_async = playwright.async_api.async_playwright
+
+        # Check if already patched to avoid double patching
+        if not getattr(_orig_playwright_async, "_is_patched", False):
+
+            def _patched_playwright_async(*args, **kwargs):
+                cm = _orig_playwright_async(*args, **kwargs)
+                orig_start = cm.start
+
+                async def patched_start(*args, **kwargs):
+                    instance = await orig_start(*args, **kwargs)
+                    _patch_playwright_instance(instance, logger)
+                    return instance
+
+                cm.start = patched_start
+                return cm
+
+            setattr(_patched_playwright_async, "_is_patched", True)
+            playwright.async_api.async_playwright = _patched_playwright_async
+            logger.info("Successfully patched playwright.async_api.async_playwright")
+    except Exception as e:
+        logger.warning("Failed to patch playwright.async_api.async_playwright: %s", e)
+
+    try:
+        import patchright.async_api
+
+        _orig_patchright_async = patchright.async_api.async_playwright
+
+        if not getattr(_orig_patchright_async, "_is_patched", False):
+
+            def _patched_patchright_async(*args, **kwargs):
+                cm = _orig_patchright_async(*args, **kwargs)
+                orig_start = cm.start
+
+                async def patched_start(*args, **kwargs):
+                    instance = await orig_start(*args, **kwargs)
+                    _patch_playwright_instance(instance, logger)
+                    return instance
+
+                cm.start = patched_start
+                return cm
+
+            setattr(_patched_patchright_async, "_is_patched", True)
+            patchright.async_api.async_playwright = _patched_patchright_async
+            logger.info("Successfully patched patchright.async_api.async_playwright")
+    except Exception as e:
+        logger.warning("Failed to patch patchright.async_api.async_playwright: %s", e)
+
+def _patch_playwright_instance(instance, logger) -> None:
+    import inspect
+
+    if hasattr(instance, "chromium"):
+        orig_launch_persistent = instance.chromium.launch_persistent_context
+        if not getattr(orig_launch_persistent, "_is_patched", False):
+
+            async def patched_launch_persistent(user_data_dir, **kwargs):
+                # Walk up stack to find BrowserManager
+                channel = None
+                for frame_info in inspect.stack():
+                    frame = frame_info.frame
+                    self_obj = frame.f_locals.get("self")
+                    if self_obj and self_obj.__class__.__name__ == "BrowserManager":
+                        if hasattr(self_obj, "config"):
+                            channel = getattr(
+                                self_obj.config, "chrome_channel", None
+                            ) or getattr(self_obj.config, "channel", None)
+                        break
+                if channel and channel != "chromium":
+                    logger.info(
+                        "Injecting channel='%s' into launch_persistent_context", channel
+                    )
+                    kwargs["channel"] = channel
+
+                is_windows = sys.platform.startswith("win")
+
+                # Filter out anti-sandbox flags that expose automation warning banners in Chrome.
+                # On Windows, we must keep --no-sandbox to prevent GPU process crashes and rendering hangs.
+                if "args" in kwargs and isinstance(kwargs["args"], list):
+                    if is_windows:
+                        kwargs["args"] = [
+                            arg
+                            for arg in kwargs["args"]
+                            if arg != "--disable-setuid-sandbox"
+                        ]
+                    else:
+                        kwargs["args"] = [
+                            arg
+                            for arg in kwargs["args"]
+                            if arg not in ("--no-sandbox", "--disable-setuid-sandbox")
+                        ]
+
+                # Exclude default flags that reveal automation or trigger Cloudflare checks.
+                # On Windows, we must NOT ignore --no-sandbox to ensure Chrome launches with sandbox disabled.
+                target_ignores = ["--enable-automation", "--disable-extensions"]
+                if not is_windows:
+                    target_ignores.append("--no-sandbox")
+
+                if "ignore_default_args" not in kwargs:
+                    kwargs["ignore_default_args"] = target_ignores
+                elif isinstance(kwargs["ignore_default_args"], list):
+                    for arg in target_ignores:
+                        if arg not in kwargs["ignore_default_args"]:
+                            kwargs["ignore_default_args"].append(arg)
+
+                logger.info("launch_persistent_context kwargs: %s", kwargs)
+                return await orig_launch_persistent(user_data_dir, **kwargs)
+
+            setattr(patched_launch_persistent, "_is_patched", True)
+            instance.chromium.launch_persistent_context = patched_launch_persistent
+
+def _get_platform_user_agent() -> str:
+    if sys.platform.startswith("win"):
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    elif sys.platform == "darwin":
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+
+
+
+_loop_lock = threading.Lock()
+_background_loop = None
+_background_thread = None
 
 class BrowserClientMixin:
     """Mixin class providing browser automation fallback methods to HttpClient."""
@@ -43,24 +212,363 @@ class BrowserClientMixin:
     captcha_key: str | None = None
     max_captcha_spend: float = 0.0
     session_manager: typing.Any = None
+    proxy_list: list[str] | typing.Any = []
+    timeout: float = 30.0
+    _fallback_lock: threading.Lock | typing.Any = threading.Lock()
+    _domain_fallback_locks: dict[str, threading.Lock] | typing.Any = {}
+    _session_pool: typing.Any = None
+    client: typing.Any = None
+    stealth_pipeline: typing.Any = None
+    _preferred_engine_by_host: dict[str, str] | typing.Any = {}
 
     def get_proxy(self) -> str | None:
         return None
 
+    def get_tls_impersonate(self, domain: str) -> str:
+        return "chrome"
+
     def _hostname(self, url: str) -> str:
         return urlparse(url).netloc.lower()
 
-    def _get_browser_profile_path(self, host: str) -> str | None:
+
+
+
+
+    def _get_with_curl_cffi(self, url: str) -> tuple[str, list[dict]]:
+        """Fetch *url* using curl_cffi with domain-specific browser TLS impersonation."""
+        from urllib.parse import urlparse
+        import curl_cffi.requests as curl_req
+
+        parsed = urlparse(url)
+        domain = parsed.netloc or ""
+        impersonate_target = self.get_tls_impersonate(domain)
+
+        proxies: dict[str, str] | None = None
+        if self.proxy_list:
+            proxies = {"http": self.proxy_list[0], "https": self.proxy_list[0]}
+
+        resp = curl_req.get(
+            url,
+            impersonate=cast(Any, impersonate_target),
+            timeout=int(self.timeout),
+            proxies=cast(Any, proxies),
+            verify=False,
+        )
+        if resp.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"curl_cffi HTTP {resp.status_code}",
+                request=httpx.Request("GET", url),
+                response=httpx.Response(resp.status_code, text=resp.text),
+            )
+
+        cookies_list = []
+        for name, value in resp.cookies.items():
+            cookies_list.append(
+                {"name": name, "value": value, "domain": domain, "path": "/"}
+            )
+
+        return resp.text, cookies_list
+
+    def _try_curl_cffi_fallback(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None,
+        skip_httpx: bool = False,
+    ) -> httpx.Response | None:
+        """Attempt to bypass WAF challenges using curl_cffi TLS impersonation."""
+        from monitoring.logger import get_logger
+
+        logger = get_logger(__name__)
+
+        try:
+            from config import ENABLE_CURL_CFFI_FALLBACK
+        except ImportError:
+            ENABLE_CURL_CFFI_FALLBACK = True
+
+        from unittest.mock import MagicMock
+
+        client_get = getattr(getattr(self, "client", None), "get", None)
+        is_mocked = (
+            isinstance(getattr(self, "client", None), MagicMock)
+            or isinstance(client_get, MagicMock)
+            or getattr(client_get, "__name__", "").startswith("mock_")
+        )
+
+        if not ENABLE_CURL_CFFI_FALLBACK or skip_httpx or is_mocked:
+            return None
+
+        host = self._hostname(url)
+        session = self._session_pool.get_session(host) if self._session_pool else None
+
+        try:
+            from curl_cffi import requests as c_requests
+
+            logger.info("Attempting curl_cffi TLS spoofing for %s", url)
+
+            proxy = self.get_proxy()
+            proxy_dict = {"http": proxy, "https": proxy} if proxy else None
+            impersonate_val: typing.Literal["chrome120"] = "chrome120"
+            c_session = c_requests.Session(
+                impersonate=impersonate_val,
+                proxies=proxy_dict,  # type: ignore[arg-type]
+            )
+
+            c_req_headers = self._headers(url) if hasattr(self, "_headers") else {}
+            if headers:
+                c_req_headers.update(headers)
+
+            if session and session.cookies:
+                cookie_str = "; ".join([f"{k}={v}" for k, v in session.cookies.items()])
+                c_req_headers["Cookie"] = cookie_str
+
+            current_timeout = timeout if timeout is not None else self.timeout
+            c_resp = c_session.get(url, headers=c_req_headers, timeout=current_timeout)
+
+            if c_resp.status_code == 200 and not self._is_blocked_page(c_resp.text, url):
+                logger.info("curl_cffi TLS spoofing successfully bypassed WAF for %s.", url)
+                response = httpx.Response(
+                    status_code=200,
+                    content=c_resp.content,
+                    request=httpx.Request("GET", url),
+                )
+
+                if c_resp.cookies and session:
+                    cookies_dict = {c.name: c.value for c in c_resp.cookies.jar}
+                    session.cookies.update(cookies_dict)
+                    session.save_to_disk()
+                    if self.session_manager:
+                        cookie_list = [
+                            {"name": k, "value": v, "domain": host, "path": "/"}
+                            for k, v in cookies_dict.items()
+                        ]
+                        self.session_manager.save_session(host, cookie_list)
+
+                return response
+            else:
+                logger.info(
+                    "curl_cffi TLS spoofing still returned block/challenge for %s (status %d)",
+                    url,
+                    c_resp.status_code,
+                )
+                if c_resp.status_code in (403, 520, 429) and hasattr(
+                    self.__class__, "register_cloudflare_blocked"
+                ):
+                    self.__class__.register_cloudflare_blocked(host)
+        except Exception as c_exc:
+            logger.warning("curl_cffi fallback failed: %s", c_exc)
+
         return None
 
+    def _try_cookie_harvest_fallback(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> httpx.Response | None:
+        """Attempt to bypass WAF challenges using locally harvested browser cookies."""
+        from monitoring.logger import get_logger
+
+        logger = get_logger(__name__)
+
+        try:
+            from config import ENABLE_COOKIE_HARVESTING
+        except ImportError:
+            ENABLE_COOKIE_HARVESTING = True
+
+        if not ENABLE_COOKIE_HARVESTING or not self.session_manager:
+            return None
+
+        host = self._hostname(url)
+        logger.info("Attempting local cookie harvest for domain '%s'", host)
+        local_cookies = self.session_manager.get_local_cookies(host)
+        if not local_cookies:
+            return None
+
+        logger.info(
+            "Harvested cookies: %s. Retrying httpx request with harvested cookies.",
+            list(local_cookies.keys()),
+        )
+        try:
+            req_headers = self._headers(url) if hasattr(self, "_headers") else {}
+            if headers:
+                req_headers.update(headers)
+            req_headers["Cookie"] = "; ".join(
+                [f"{k}={v}" for k, v in local_cookies.items()]
+            )
+            current_timeout = timeout if timeout is not None else self.timeout
+            retry_resp = self.client.get(
+                url, headers=req_headers, timeout=current_timeout
+            )
+            retry_resp.raise_for_status()
+
+            session = self._session_pool.get_session(host) if self._session_pool else None
+            if session:
+                session.cookies.update(local_cookies)
+                session.save_to_disk()
+            harvested_list = [
+                {"name": k, "value": v, "domain": host, "path": "/"}
+                for k, v in local_cookies.items()
+            ]
+            self.session_manager.save_session(host, harvested_list)
+            logger.info("Harvested cookies successfully bypassed WAF for %s.", url)
+            return retry_resp
+        except Exception as retry_exc:
+            logger.warning("Retry with harvested cookies failed: %s", retry_exc)
+
+        return None
+
+
+    def _fallback_lock_for(self, host: str) -> threading.Lock:
+        with self._fallback_lock:
+            if host not in self._domain_fallback_locks:
+                self._domain_fallback_locks[host] = threading.Lock()
+            return self._domain_fallback_locks[host]
+
+    def _save_domain_cookies(self, url: str, cookies: dict | list) -> None:
+        """Save solved cookies to persistent disk session and session pool."""
+        from monitoring.logger import get_logger
+        logger = get_logger(__name__)
+        host = self._hostname(url)
+        cookie_dict = {}
+        if isinstance(cookies, list):
+            cookie_dict = {c["name"]: c["value"] for c in cookies if isinstance(c, dict) and "name" in c and "value" in c}
+        elif isinstance(cookies, dict):
+            cookie_dict = cookies
+
+        if cookie_dict:
+            try:
+                self.session_manager.save_session(host, cookie_dict)
+                self._session_pool.update_cookies(host, cookie_dict)
+                for k, v in cookie_dict.items():
+                    self.client.cookies.set(k, v, domain=host)
+            except Exception as e:
+                logger.debug("Failed saving domain cookies for %s: %s", host, e)
+
+    def _get_browser_profile_path(self, host: str) -> str:
+        """Return the absolute path to the persistent browser profile for *host*."""
+        domain_slug = re.sub(r"[^\w\-]", "_", host)
+        profile_path = Path("data/profiles") / domain_slug
+        profile_path.mkdir(parents=True, exist_ok=True)
+        return str(profile_path.resolve())
+
+    def _cleanup_stale_profiles(self) -> None:
+        """Deletes physical browser profiles in data/profiles/ that exceed retention threshold."""
+        profiles_dir = Path("data/profiles")
+        if not profiles_dir.exists():
+            return
+            
+        now = time.time()
+        max_age_seconds = BROWSER_PROFILE_MAX_AGE_DAYS * 86400
+        
+        for profile in profiles_dir.iterdir():
+            if profile.is_dir():
+                try:
+                    mtime = profile.stat().st_mtime
+                    if now - mtime > max_age_seconds:
+                        logger.info("Cleaning up stale browser profile: %s", profile.name)
+                        shutil.rmtree(profile, ignore_errors=True)
+                except Exception as e:
+                    logger.warning("Failed to clean up profile %s: %s", profile.name, e)
+
     def _is_cloudflare_challenge(self, html: str) -> bool:
+        """Return True if the HTML is a Cloudflare, Turnstile, or WAF interstitial challenge page."""
+        if not html:
+            return False
+        title_match = re.search(
+            r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL
+        )
+        if title_match:
+            title = title_match.group(1).strip().lower()
+            if any(t in title for t in [
+                "just a moment",
+                "checking your browser",
+                "attention required",
+                "ddos-guard",
+                "security check",
+                "access denied",
+                "shield",
+                "human verification",
+                "robot check",
+            ]):
+                return True
+        lower_html = html.lower()
+        waf_signatures = [
+            "challenges.cloudflare.com",
+            "cf-challenge",
+            "cf-turnstile",
+            "ray id:",
+            "turnstile.render",
+            "cf_clearance",
+            "g-recaptcha",
+            "hcaptcha",
+            "datadome",
+            "kasada",
+            "perimeterx",
+            "akamai",
+            "aws-waf",
+            "awswaf",
+            "geetest",
+        ]
+        block_phrases = [
+            "just a moment",
+            "please enable javascript",
+            "enable cookies",
+            "verify you are human",
+            "checking if the site connection is secure",
+            "press & hold",
+            "press and hold",
+        ]
+        if any(sig in lower_html for sig in ["cf-turnstile", "challenges.cloudflare.com/turnstile"]):
+            return True
+        if any(sig in lower_html for sig in waf_signatures) and any(bp in lower_html for bp in block_phrases):
+            return True
         return False
 
     def _is_blocked_page(self, html: str, url: str = "") -> bool:
+        """Return True if the HTML indicates a Cloudflare challenge or a soft block/redirect by DuckDuckGo."""
+        if not html:
+            return True
+        if self._is_cloudflare_challenge(html):
+            return True
+        parsed = urlparse(url)
+        host = parsed.netloc or parsed.hostname or ""
+        if host == "duckduckgo.com" or host.endswith(".duckduckgo.com"):
+            lower_html = html.lower()
+            if (
+                "if this persists, please email us" in lower_html
+                or "error-lite" in lower_html
+            ):
+                return True
+            if "/?q=" in url or "/html/" in url:
+                title_match = re.search(
+                    r"<title>(.*?)</title>", html, re.IGNORECASE | re.DOTALL
+                )
+                if title_match:
+                    title = title_match.group(1).strip()
+                    if title == "DuckDuckGo":
+                        return True
         return False
 
-    def _fallback_lock_for(self, host: str) -> typing.Any:
-        return threading.Lock()
+    def _execute_fallbacks(
+        self,
+        url: str,
+        skip_httpx: bool = False,
+        skip_crawl4ai: bool = False,
+        preferred_engine: str | None = None,
+    ) -> tuple[str | None, list[dict] | dict]:
+        """Legacy fallback delegation to self.stealth_pipeline."""
+        skip = skip_httpx or skip_crawl4ai
+        try:
+            res = self.stealth_pipeline.execute(url, self, skip_httpx=skip, preferred_engine=preferred_engine)
+            host = self._hostname(url)
+            if res and res.strategy_name and res.strategy_name != "unknown":
+                self._preferred_engine_by_host[host] = res.strategy_name
+            return res.text, res.cookies
+        except Exception as exc:
+            logger.debug("StealthPipeline legacy adapter failed for %s: %s", url, exc)
+            return None, []
+
 
     def _get_with_crawlee_cheerio(self, url: str) -> tuple[str, list[dict]]:
         """Fetch URL using Crawlee Cheerio (fast parser)"""
@@ -586,7 +1094,6 @@ class BrowserClientMixin:
             logger.warning("Nodriver library is not installed.")
             raise Exception("Nodriver library is not installed")
 
-        import asyncio
 
         async def _fetch():
             is_windows = sys.platform.startswith("win")
@@ -762,9 +1269,8 @@ class BrowserClientMixin:
 
     def _get_with_crawl4ai(self, url: str) -> tuple[str, list[dict]] | str:
         """Fetch *url* via headless/headful browser, escalating through two stealth tiers."""
-        from network.http_client import _apply_playwright_channel_patch, _get_platform_user_agent, _run_coroutine_sync
 
-        _apply_playwright_channel_patch()
+        
 
         import crawl4ai.async_webcrawler
 

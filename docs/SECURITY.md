@@ -24,8 +24,10 @@ A core focus is mitigating arbitrary path injections when writing files to disk 
 - **Untainted OS Roots**: Paths are always verified against untainted, OS-derived roots (using `os.path.splitdrive` on Windows or `os.sep` on POSIX).
 - **Absolute Normalization**: User inputs and dynamically generated paths are forced through `os.path.abspath(os.path.normpath(...))` to neutralize directory traversal payloads (`../`).
 - **Boundary Verification**: The final path is strictly verified against the untainted base prefix using `.startswith()`. This structural validation satisfies CodeQL and Semgrep rules out-of-the-box, ensuring zero false-positives and eliminating the need for manual rule suppressions.
+- **WebUI Input Sanitization**: All WebUI file and dataset endpoints (`frontend/app.py`), including `/api/run`, `/api/watchdog/start`, `/htmx/open-folder`, and `/api/dataset/export`, enforce strict `os.path.basename` extraction, whitelist regexes (`^[\w\-. ]+$`), and canonical path boundary checks against `OUTPUT_DIR` and `seeds/`.
 
 ---
+
 
 ## 3. Docker Security & Dependency Isolation
 

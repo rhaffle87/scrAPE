@@ -1,7 +1,8 @@
 import pytest
 from pathlib import Path
 from common.image_helper import hamming_distance
-from storage.dataset_exporter import DatasetExporter
+from ml.ollama_provider import DatasetExporter
+
 
 
 def test_hamming_distance():

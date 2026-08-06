@@ -7,7 +7,7 @@ This document provides unified project-scoped instructions, architectural guidel
 ## 1. Project Layout & Architecture
 
 ```text
-src/cli/main.py                     — CLI entry point, all flags documented via --help
+src/cli/main.py                     — CLI entry point, all flags documented via --help (--export-rag support)
 src/cli/monitor_agent.py            — Watchdog entry point, continuous monitoring loop
 src/cli/cli_wizard.py               — Interactive wizard for standard & watchdog runs
 src/config/__init__.py              — Tunable constants & .env credential loader
@@ -17,12 +17,15 @@ src/core/models.py                  — ScrapeResult, ImageItem, VideoItem datac
 src/scraper/google_images.py        — Search provider + page scraper + link/media extraction
 src/storage/file_downloader.py      — Concurrent media downloader with MIME/size validation
 src/network/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
+src/network/browser_client.py         — Browser automation fallback mixin (BrowserClientMixin)
 src/network/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
 src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
 src/notifications/telegram_bot.py           — Telegram Bot alerts & interactive command handler
 src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
 src/ml/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
 src/ml/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
+src/ml/ollama_provider.py        — Local Ollama vision API captioning provider
+src/ml/rag_exporter.py           — Vector embedding payload chunker (rag_payload.jsonl)
 src/common/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
 src/network/session.py                — Persistent cookie cache (data/sessions/)
 src/network/session_pool.py           — Per-domain sticky sessions with disk persistence
@@ -35,17 +38,19 @@ data/url_normalisation_rules.json   — URL canonicalisation rules loaded into c
 src/config/subject_profiles.json   — Subject profile presets (priority domains, max results)
 seeds/                              — Per-subject seed manifest files (.txt)
 output/<subject>/runs/<run_id>/     — Run output (results.json, domain_report.json, CSVs)
-frontend/app.py                     — Interactive FastAPI/HTMX dashboard server
+frontend/app.py                     — Interactive FastAPI/HTMX dashboard server (OWASP security headers)
+frontend/routers/                   — Decoupled APIRouters (dashboard, dataset, seeds, watchdog, notifications)
 frontend/templates/index.html       — Brutalist WebUI dashboard template with Live Canvas Visualizer
 run.bat / run.sh                     — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
 run_monitor.bat / run_monitor.sh     — Continuous Watchdog Agent launcher
 docker-compose.yml                  — Multi-container orchestration (Scraper + FlareSolverr)
 Dockerfile                          — Container build instructions
 docs/SECURITY.md                    — Security policies and static analysis compliance
-output/cache/state_cache.db         — SQLite database persisting processed URLs across watchdog runs
+output/cache/state_cache.db         — SQLite database persisting processed URLs with composite indexes
 logs/run_<run_id>.log               — Full structured log per run
 tests/                              — Dedicated automated unit & integration test suite
 scratch/                            — Ad-hoc test scripts, scratch validation scripts, and diagnostic tools
+
 ```
 
 ---

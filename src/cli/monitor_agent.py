@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
+import typing
 
 shutdown_event = threading.Event()
 LOGGER = logging.getLogger(__name__)
@@ -162,6 +163,60 @@ class AdaptiveBackoffTracker:
             next_delay = min(self.max_interval_s, current * self.backoff_factor)
         self.subject_delays[subject] = next_delay
         return next_delay
+
+
+class HotSeedReloader:
+    """Monitors file modification time (st_mtime) of seed files and detects updates on the fly."""
+
+    def __init__(self, seed_path: str | None = None):
+        self.seed_path = seed_path
+        self._last_mtime: float | None = None
+        if seed_path and Path(seed_path).exists():
+            try:
+                self._last_mtime = Path(seed_path).stat().st_mtime
+            except Exception:
+                pass
+
+    def check_and_reload(self, seed_path: str | None = None) -> bool:
+        path_str = seed_path or self.seed_path
+        if not path_str:
+            return False
+        p = Path(path_str)
+        if not p.exists():
+            return False
+        try:
+            current_mtime = p.stat().st_mtime
+            if self._last_mtime is None:
+                self._last_mtime = current_mtime
+                return False
+            if current_mtime > self._last_mtime:
+                self._last_mtime = current_mtime
+                return True
+        except Exception:
+            pass
+        return False
+
+
+_WATCHDOG_SNAPSHOT_LOCK = threading.Lock()
+_WATCHDOG_SNAPSHOT: dict[str, typing.Any] = {
+    "status": "idle",
+    "cycle": 0,
+    "current_keyword": "",
+    "current_seed": "",
+    "backoff_delays": {},
+    "last_yield": {"images": 0, "videos": 0, "rejected": 0},
+    "last_sweep_time": None,
+}
+
+
+def update_watchdog_snapshot(updates: dict[str, typing.Any]) -> None:
+    with _WATCHDOG_SNAPSHOT_LOCK:
+        _WATCHDOG_SNAPSHOT.update(updates)
+
+
+def get_watchdog_telemetry_snapshot() -> dict[str, typing.Any]:
+    with _WATCHDOG_SNAPSHOT_LOCK:
+        return dict(_WATCHDOG_SNAPSHOT)
 
 
 def broadcast_watchdog_event(event_name: str, payload: dict) -> None:
@@ -455,6 +510,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    seed_reloader = HotSeedReloader(args.seed_file)
     cycle_count = 0
 
     try:
@@ -465,8 +521,27 @@ def main():
                 target_keyword = args.keyword
                 target_seed = args.seed_file
 
+            if target_seed and seed_reloader.check_and_reload(target_seed):
+                print(f"[{datetime.now().isoformat()}] [HOT SEED RELOAD] Seed file '{target_seed}' was modified on disk. Re-ingesting new seeds.")
+                broadcast_watchdog_event(
+                    "watchdog",
+                    {
+                        "type": "hot_seed_reload",
+                        "seed_file": target_seed,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
+
             cycle_count += 1
             print(f"\n[{datetime.now().isoformat()}] --- WATCHDOG CYCLE #{cycle_count} [{target_keyword}] ---")
+
+            update_watchdog_snapshot({
+                "status": "active",
+                "cycle": cycle_count,
+                "current_keyword": target_keyword,
+                "current_seed": target_seed or "",
+                "last_sweep_time": datetime.now().isoformat(),
+            })
 
             # Periodic 7-day TTL cache maintenance
             if args.auto_prune_cache and (cycle_count % args.prune_interval_cycles == 0):

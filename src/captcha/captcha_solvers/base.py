@@ -4,7 +4,6 @@ base.py - Base interface for third-party Captcha Solver providers.
 from __future__ import annotations
 
 import abc
-from typing import Optional
 
 
 class CaptchaSolverProvider(abc.ABC):

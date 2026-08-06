@@ -1,8 +1,12 @@
+"""Ollama vision API integration and ML caption dataset sidecar exporter."""
+
 import base64
 import json
 from pathlib import Path
 from typing import Any
 import requests
+
+from config import OLLAMA_ENDPOINT, OLLAMA_MODEL
 from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
@@ -11,7 +15,7 @@ LOGGER = get_logger(__name__)
 class OllamaVisionProvider:
     """Helper to query local Ollama vision API for automated image captioning."""
 
-    def __init__(self, endpoint: str = "http://localhost:11434", model: str = "moondream"):
+    def __init__(self, endpoint: str = OLLAMA_ENDPOINT, model: str = OLLAMA_MODEL):
         self.endpoint = endpoint.rstrip("/")
         self.model = model
 
@@ -19,7 +23,8 @@ class OllamaVisionProvider:
         try:
             resp = requests.get(f"{self.endpoint}/api/tags", timeout=2.0)
             return resp.status_code == 200
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Ollama tagging endpoint %s not available: %s", self.endpoint, exc)
             return False
 
     def generate_caption(self, image_path: Path | str, prompt: str = "Describe this image in detailed tags for AI training.") -> str | None:

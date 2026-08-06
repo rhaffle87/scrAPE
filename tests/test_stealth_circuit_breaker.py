@@ -79,7 +79,7 @@ def test_fallback_cookie_sync_and_locking(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        "network.http_client._run_coroutine_sync", mock_run_coroutine_sync
+        "network.browser_client._run_coroutine_sync", mock_run_coroutine_sync
     )
 
     # Trigger directly

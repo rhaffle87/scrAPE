@@ -38,6 +38,20 @@
 - **`_host_semaphore_for` Concurrency Logic** (`src/storage/file_downloader.py`):
   - Restored the semaphore creation from `min(MAX_CONCURRENT_PER_HOST, max_concurrent)` back to `max(MAX_CONCURRENT_PER_HOST, max_concurrent)`. The `min()` variant (introduced by a prior session) silently capped concurrency at 4 for all callers regardless of what they requested, including `--dl-workers` settings above the default. The `max()` variant correctly allows higher explicit concurrency requests to take effect.
 
+### Observability, Security & Infrastructure Updates (0.24.0)
+
+- **Codebase-wide Structured Diagnostic Logging**:
+  - Replaced silent exception swallows (`except Exception: pass`) across all scraper, storage, network, and classification modules with structured `LOGGER.debug` / `logger.debug` / `_log.debug` diagnostics.
+  - Affected files: `src/storage/file_downloader.py` (telemetry events), `src/scraper/google_images.py` (link normalization and JSON-LD parsing), `src/scraper/video_scraper.py` (JSON-LD script tags and lightbox anchors), `src/network/stealth_pipeline.py` (all 8 WAF fallback engine executions), `src/network/session.py` (cookie DB unlinking and decryption), `src/core/url_classifier.py` (canonicalization, image/video probability, and thumbnail checks).
+
+- **Path Traversal & Security Hardening** (`frontend/app.py`):
+  - Hardened `/api/watchdog/start` endpoint with strict `os.path.basename` resolution and canonical path boundary validation (`startswith(seeds_base + os.sep)`), preventing path-traversal attacks via seed parameter inputs.
+  - Cleared all 31 static analysis warnings and unused imports across `frontend/app.py` and `pyproject.toml`.
+
+- **Dynamic Environment Host & Port Binding** (`src/cli/launcher.py`):
+  - Bound CLI launcher, tray icon menu, system tray notifications, and Uvicorn process startup directly to `config.WEBUI_HOST` and `config.WEBUI_PORT`, enabling seamless `.env` port customization while preserving default port `10001`.
+
+
 ## [0.23.0] — 2026-08-02
 
 ### Added & Changed (0.23.0)

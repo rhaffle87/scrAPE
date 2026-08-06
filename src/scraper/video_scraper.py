@@ -16,7 +16,10 @@ from core.filters import (
     normalize_url,
 )
 from core.models import VideoItem
+from monitoring.logger import get_logger
 from network.http_client import HttpClient
+
+logger = get_logger(__name__)
 
 YOUTUBE_PATTERNS = [
     re.compile(r"https?://(?:www\.)?youtube\.com/watch\?v=[\w-]+"),
@@ -62,8 +65,8 @@ def extract_videos_from_html(
             if src:
                 try:
                     seen.add(normalize_url(absolutize_url(src, page_url)))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to normalize layout container media url %s: %s", src, exc)
 
     def add_video(item: VideoItem) -> None:
         normalized = normalize_url(item.url)
@@ -227,8 +230,11 @@ def _extract_lightbox_anchor_videos(
 
         try:
             parsed_path = urlparse(href).path.lower().rstrip("/")
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed parsing anchor path '%s': %s", href, exc)
             continue
+
+
 
         is_video_link = any(parsed_path.endswith(ext) for ext in _VIDEO_EXTS)
         if not (has_lightbox_attr or is_video_link):
@@ -365,8 +371,11 @@ def _extract_video_objects_from_jsonld(
             continue
         try:
             payload = json.loads(content)
-        except Exception:
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.debug("Skipping unparseable JSON script tag: %s", exc)
             continue
+
+
 
         for item in _walk_json(payload):
             if not isinstance(item, dict):
@@ -446,7 +455,9 @@ def detect_video_type(url: str) -> str | None:
         return "vimeo"
     try:
         path = urlparse(url).path.lower().rstrip("/")
-    except Exception:
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("Failed to parse URL path for video type detection %s: %s", url, exc)
         path = ""
     if path.endswith(".m3u8"):
         return "hls"
@@ -503,7 +514,9 @@ class VideoScraper:
             try:
                 response = self.http.get(search_url)
                 soup = BeautifulSoup(response.text, "lxml")
-            except Exception:
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning("DuckDuckGo video search failed for %s: %s", search_url, exc)
                 break
 
             for anchor in soup.select("a.result__a"):

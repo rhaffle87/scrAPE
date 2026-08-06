@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import random
 import threading
-import httpx
 from config import USER_AGENTS
 import json
 from pathlib import Path

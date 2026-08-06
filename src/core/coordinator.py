@@ -4,7 +4,7 @@ import queue
 import time
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from urllib.parse import urlparse
-from typing import Optional, List, Tuple
+from typing import List, Tuple
 
 from core.governor import CrawlGovernor
 from core.pipeline import MediaPipeline
@@ -232,8 +232,6 @@ class CrawlCoordinator:
                                             # Normalise so locale-prefixed profile seeds
                                             # collapse to their canonical
                                             # bare form and still trigger the profile rule.
-                                            seed_for_host = normalize_url(seed_for_host)
-                                            seed_path = (urlparse(seed_for_host).path or "/").lower()
                                             discovered_links = [
                                                 lnk for lnk in discovered_links
                                                 if (
@@ -368,7 +366,6 @@ class CrawlCoordinator:
                                     "pages_scanned": 0, "images_kept": 0, "videos_kept": 0,
                                     "rejected_count": 0, "error_429_count": 0, "error_other_count": 0,
                                 }
-                            stats = self.result.domain_stats[host]
                             # error counts are now incremented when the error is reported,
                             # even if the page is going to be retried (and thus loops with `continue`).
                             

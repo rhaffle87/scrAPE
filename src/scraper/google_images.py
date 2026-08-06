@@ -292,8 +292,9 @@ class SearchProviderScraper(BaseSearchScraper):
                                 absolute = normalize_url(absolutize_url(candidate, url))
                                 if not absolute.lower().endswith(tuple(IMAGE_EXTENSIONS)) and not absolute.lower().endswith(tuple(VIDEO_EXTENSIONS)):
                                     links.append(absolute)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                LOGGER.debug("Failed normalizing JSON candidate link: %s", exc)
+
             except Exception as exc:
                 LOGGER.warning("Failed to discover links from JSON content: %s", exc)
         else:
@@ -408,8 +409,9 @@ class SearchProviderScraper(BaseSearchScraper):
                                         tuple(VIDEO_EXTENSIONS)
                                     ):
                                         links.append(absolute)
-                                except Exception:
-                                    pass
+                                except Exception as exc:
+                                    LOGGER.debug("Failed normalizing candidate link in search: %s", exc)
+
                     return [
                         link
                         for link in links
@@ -512,8 +514,9 @@ class SearchProviderScraper(BaseSearchScraper):
                                             page_title=page_title,
                                         )
                                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                LOGGER.debug("Failed parsing JSON-LD structured data block: %s", exc)
+
 
         for image in soup.find_all("img"):
             if not isinstance(image, Tag):
@@ -558,8 +561,9 @@ class SearchProviderScraper(BaseSearchScraper):
                 h_attr = _get_attr_str(image, "height")
                 if h_attr and h_attr.isdigit():
                     height = int(h_attr)
-            except Exception:
-                pass
+            except Exception as exc:
+                LOGGER.debug("Failed parsing image dimensions: %s", exc)
+
 
             parent_anchor = image.find_parent("a")
             parent_anchor_text = ""
@@ -798,8 +802,9 @@ class SearchProviderScraper(BaseSearchScraper):
                                     page_title="JSON API Data",
                                 )
                             )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        LOGGER.debug("Failed parsing JSON video candidate: %s", exc)
+
         return images, videos
 
     @staticmethod

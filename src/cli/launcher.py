@@ -16,7 +16,9 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.config.version import VERSION_TAG as VERSION
+from src.config.version import VERSION_TAG as VERSION  # noqa: E402
+from src.config import WEBUI_HOST, WEBUI_PORT  # noqa: E402
+
 
 # Fix for pythonw.exe on Windows where sys.stdout and sys.stderr are None
 if sys.stdout is None:
@@ -129,7 +131,8 @@ def create_icon_image():
 
 def start_server():
     """Run the uvicorn server in this thread."""
-    uvicorn.run("frontend.app:app", host="localhost", port=10001, reload=False, log_level="warning")
+    uvicorn.run("frontend.app:app", host=WEBUI_HOST, port=WEBUI_PORT, reload=False, log_level="warning")
+
 
 
 def check_and_install_dependencies():
@@ -179,7 +182,8 @@ def check_and_install_dependencies():
 
 def on_open_dashboard(icon, item):
     """Open the web dashboard in the default browser."""
-    webbrowser.open("http://localhost:10001/")
+    webbrowser.open(f"http://localhost:{WEBUI_PORT}/")
+
 
 
 def on_quit(icon, item):
@@ -194,7 +198,8 @@ def _build_menu() -> pystray.Menu:
         "✓ Auto-start Enabled" if is_autostart_enabled() else "Auto-start Disabled"
     )
     return pystray.Menu(
-        pystray.MenuItem(f"scrAPE  (Port 10001)", None, enabled=False),
+        pystray.MenuItem(f"scrAPE  (Port {WEBUI_PORT})", None, enabled=False),
+
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Open Dashboard", on_open_dashboard, default=True),
         pystray.MenuItem(autostart_label, toggle_autostart),
@@ -208,8 +213,9 @@ def run_tray():
     server_thread.start()
 
     icon_image = create_icon_image()
-    icon = pystray.Icon("scrAPE", icon_image, "scrAPE - Port 10001", _build_menu())
+    icon = pystray.Icon("scrAPE", icon_image, f"scrAPE - Port {WEBUI_PORT}", _build_menu())
     icon.run()
+
 
 
 def clear_screen():
@@ -229,8 +235,9 @@ def main():
     clear_screen()
     print("========================================")
     print(f"  Choose Interface ({VERSION})")
-    print("  🚀 Server: http://localhost:10001")
+    print(f"  🚀 Server: http://localhost:{WEBUI_PORT}")
     print("========================================\n")
+
     
     autostart_status = "Enabled ✓" if is_autostart_enabled() else "Disabled"
     choice = questionary.select(
@@ -267,8 +274,9 @@ def main():
         # Give server a moment to bind
         time.sleep(1)
         print("[INFO] Opening browser...")
-        webbrowser.open("http://localhost:10001/")
+        webbrowser.open(f"http://localhost:{WEBUI_PORT}/")
         print("[INFO] Server is running. Press CTRL+C to exit.")
+
         try:
             while True:
                 time.sleep(1)
@@ -298,7 +306,8 @@ def main():
             creationflags=DETACHED_PROCESS
         )
         print(f"🔔 scrAPE is now running in background (PID: {proc.pid})")
-        print("Server: http://localhost:10001\n")
+        print(f"Server: http://localhost:{WEBUI_PORT}\n")
+
         print("💡 You can close this terminal. Right-click tray icon to quit.")
         time.sleep(2)
         sys.exit(0)

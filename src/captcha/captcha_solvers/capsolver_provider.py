@@ -7,7 +7,6 @@ import logging
 import os
 import time
 import requests
-from typing import Any
 
 from notifications.notification_manager import NotificationPipeline
 from captcha.captcha_solvers.base import CaptchaSolverProvider

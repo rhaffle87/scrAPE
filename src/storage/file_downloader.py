@@ -30,14 +30,14 @@ from core.models import ScrapeResult
 from common.image_helper import get_image_dimensions, compute_dhash, hamming_distance
 from network.http_client import HttpClient
 from monitoring.logger import get_logger
+from config import (
+    DOWNLOAD_RATE_LIMIT_RPS,
+    MAX_CONCURRENT_PER_HOST,
+)
 from network.rate_limiter import RateLimiter
 
 
 LOGGER = get_logger(__name__)
-
-# Constants remain module-level (they are immutable and safe to share).
-DOWNLOAD_RATE_LIMIT_RPS = 5.0  # Max requests/sec for non-CDN download hosts
-MAX_CONCURRENT_PER_HOST = 4    # Max simultaneous active downloads per host domain
 
 
 IMAGE_SIGNATURES = (
@@ -159,7 +159,8 @@ class MediaDownloader:
                 if header.startswith(sig):
                     return True
             return False
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Failed header signature validation for %s: %s", file_path, exc)
             return False
 
     def _is_hotlink_protected(self, url: str) -> bool:
@@ -172,8 +173,8 @@ class MediaDownloader:
             domain_match = re.search(r"https?://([^/]+)", url)
             if domain_match:
                 return domain_match.group(1) in HOTLINK_PROTECTED_DOMAINS
-        except Exception:
-            pass
+        except Exception as exc:
+            LOGGER.debug("Error checking hotlink protection for %s: %s", url, exc)
         return False
 
     def download(self, result: ScrapeResult, output_root: Path) -> None:
@@ -776,8 +777,10 @@ class MediaDownloader:
                         "mime_type": content_type or mimetypes.guess_type(target.name)[0] or "",
                         "file_size_bytes": content_length,
                     })
-                except Exception:
-                    pass
+                except Exception as exc:
+                    LOGGER.debug("Failed broadcasting download telemetry event: %s", exc)
+
+
 
                 return True, {
                     "reason": "ok",
@@ -900,8 +903,7 @@ class MediaDownloader:
         import re
         import mimetypes
         from DrissionPage import ChromiumOptions, ChromiumPage
-        from config import FORCE_HEADLESS, MIN_IMAGE_DOWNLOAD_BYTES, MIN_VIDEO_DOWNLOAD_BYTES, MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, OUTPUT_DIR
-        import sys
+        from config import MIN_IMAGE_DOWNLOAD_BYTES, MIN_VIDEO_DOWNLOAD_BYTES, MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, OUTPUT_DIR
 
         host = urlparse(url).netloc
         domain_slug = re.sub(r"[^\w\-]", "_", host)
@@ -1019,7 +1021,8 @@ class MediaDownloader:
                         kwargs["save_all"] = True
                     img.save(out_buffer, format=save_format, **kwargs)
                     target.write_bytes(out_buffer.getvalue())
-                except Exception:
+                except Exception as exc:
+                    LOGGER.warning("Image sanitization failed for %s: %s", target, exc)
                     return False, {"reason": "sanitization_failed"}
             else:
                 temp_target.rename(target)
@@ -1046,8 +1049,8 @@ class MediaDownloader:
             if page:
                 try:
                     page.quit()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    LOGGER.debug("Failed to close DrissionPage instance: %s", exc)
 
     @staticmethod
     def _is_manifest_url(url: str) -> bool:

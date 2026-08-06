@@ -15,7 +15,7 @@ import base64
 import logging
 import re
 from typing import TYPE_CHECKING, Optional
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 

@@ -2,7 +2,8 @@ import json
 import tempfile
 from pathlib import Path
 
-from storage.rag_exporter import RagExporter
+from ml.rag_exporter import RagExporter
+
 
 
 def test_rag_exporter_chunk_text():

@@ -1,6 +1,5 @@
 import logging
 import urllib.parse
-import re
 from typing import TYPE_CHECKING, Optional
 from plugins.base import ExtractorPlugin, SpecializedResult
 

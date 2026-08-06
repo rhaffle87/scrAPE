@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import logging
-import queue
-import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional, ContextManager, TYPE_CHECKING
+from typing import ContextManager, TYPE_CHECKING
 import contextlib
 
 if TYPE_CHECKING:
@@ -107,7 +106,6 @@ class BrowserPoolManager:
         from DrissionPage import ChromiumOptions, ChromiumPage
         import uuid
         from pathlib import Path
-        import re
 
         co = ChromiumOptions()
         co.set_argument("--no-sandbox")
@@ -173,5 +171,4 @@ WebGLRenderingContext.prototype.getParameter = function(parameter) {
                     pass
             cls._pool.clear()
 
-import atexit
 atexit.register(BrowserPoolManager.shutdown)

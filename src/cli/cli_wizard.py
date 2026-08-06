@@ -42,7 +42,6 @@ from cli.cli_wizard_standard import (
     CLR_FAIL,
     CLR_END,
     CLR_BOLD,
-    CLR_UNDERLINE,
 )
 from cli.cli_wizard_watchdog import mode_continuous_watchdog
 

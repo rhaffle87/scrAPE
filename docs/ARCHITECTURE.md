@@ -50,13 +50,19 @@ scrape-dashboard/
 │   └── package.json             —got-scraping & puppeteer-extra-plugin-stealth
 │
 ├── frontend/                    — Decoupled FastAPI + HTMX WebUI
-│   ├── app.py                   — FastAPI backend, /htmx/subject-stats, telemetry, process controller
+│   ├── app.py                   — FastAPI backend, OWASP security middleware, static mounts
 │   ├── static/                  — SVG logo, favicon, and CSS assets
-│   └── templates/               — HTMX dashboard templates (index.html, gallery.html)
+│   ├── templates/               — HTMX dashboard templates (index.html, gallery.html)
+│   └── routers/                 — Decoupled APIRouter sub-modules:
+│       ├── dashboard.py         — Process controls, HTMX gallery, telemetry & log streaming
+│       ├── dataset.py           — WD14 tagging, sidecar text files, aesthetic scoring, LoRA exports
+│       ├── seeds.py             — Seed Studio manifest auto-discovery, linter, and subject listings
+│       ├── watchdog.py          — Continuous Watchdog daemon status, start, and stop controls
+│       └── notifications.py     — Telegram Bot config & test notification alerts
 │
 ├── src/                         — Python Source Core
 │   ├── cli/
-│   │   ├── main.py              — Primary CLI entry point & dry-run runner
+│   │   ├── main.py              — Primary CLI entry point & dry-run runner (--export-rag support)
 │   │   ├── launcher.py          — Interactive launcher & custom PIL RGBA 64x64 system tray renderer
 │   │   ├── cli_wizard.py        — Interactive wizard for crawls, watchdog, and AI dataset formatting
 │   │   ├── monitor_agent.py     — Continuous watchdog monitoring loop
@@ -98,16 +104,19 @@ scrape-dashboard/
 │   │   └── robots.py            — Thread-safe RobotsChecker parser cache
 │   ├── ml/
 │   │   ├── aesthetic_scorer.py  — Opt-in aesthetic quality scorer
-│   │   ├── dataset_tagger.py    — AI dataset auto-tagging
-│   │   ├── dataset_cropper.py   — AI dataset smart cropping
+│   │   ├── dataset_tagger.py    — AI dataset auto-tagging & sidecar .txt generator
+│   │   ├── dataset_cropper.py   — AI dataset smart aspect-ratio cropper
 │   │   ├── dataset_exporter.py  — Kohya_ss LoRA dataset ZIP exporter
+│   │   ├── ollama_provider.py   — Local Ollama vision API captioning provider
+│   │   ├── rag_exporter.py      — Vector embedding payload chunker (rag_payload.jsonl)
 │   │   └── vector_phash.py      — Vectorized perceptual hashing utilities
 │   ├── monitoring/
 │   │   ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
 │   │   ├── logger.py            — Telemetry and structured logging
 │   │   └── telemetry.py         — Application telemetry collection
 │   ├── network/
-│   │   ├── http_client.py       — 8-tier WAF fallback pipeline, Camoufox/FlareSolverr, telemetry counters
+│   │   ├── http_client.py       — Tiered HTTP client with rate limiting, session pooling, disk cache, and 429 circuit breaker
+│   │   ├── browser_client.py    — Browser automation fallback mixin (BrowserClientMixin)
 │   │   ├── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
 │   │   ├── session.py           — Secure session cookie store (0o600 permissions)
 │   │   ├── session_pool.py      — Per-domain sticky sessions with disk persistence
@@ -123,14 +132,12 @@ scrape-dashboard/
 │   │   └── notification_manager.py — Pluggable multi-channel notification pipeline
 │   └── storage/
 │       ├── file_downloader.py   — Resumable Range HTTP fetcher, Pillow sanitization, post-hashing
-│       ├── state_cache.py       — Persistent SQLite state cache in WAL mode
-│       ├── checkpoint_db.py     — Persistent crawling checkpoints
+│       ├── state_cache.py       — Persistent SQLite state cache in WAL mode with composite indexes
 │       ├── db_store.py          — General SQLite data store wrappers
 │       ├── csv_writer.py        — Flat CSV exporter
 │       ├── json_writer.py       — JSON object lines exporter
-│       ├── rag_exporter.py      — Markdown/JSONL RAG ingestion formats
-│       ├── dataset_exporter.py  — Structured dataset exporter
 │       └── database_exporter.py — SQLite database bulk exporter
+
 │
 ├── data/                        — JSON Configurations & Registries
 │   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides, domain_handlers,

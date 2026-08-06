@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import time
 import httpx
-from typing import Optional
 
 from captcha.captcha_solvers.base import CaptchaSolverProvider
 from monitoring.logger import get_logger

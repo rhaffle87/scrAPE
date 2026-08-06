@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import os
 import sys
-import subprocess
-from pathlib import Path
 
 __all__ = ["mode_continuous_watchdog"]
 
@@ -25,11 +23,9 @@ def mode_continuous_watchdog():
         get_bool_input,
         validate_not_empty,
         validate_seed_file,
-        load_subject_profiles,
         run_command,
     )
 
-    profiles = load_subject_profiles()
     subject_choice = get_input(
         "Enter Subject/Keyword to monitor",
         default="",
@@ -51,7 +47,7 @@ def mode_continuous_watchdog():
         "--seed",
         seed_path,
         "--interval",
-        str(interval),
+        interval,
     ]
 
     if use_cache:

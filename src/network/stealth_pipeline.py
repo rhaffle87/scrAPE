@@ -13,11 +13,16 @@ import threading
 import time
 from typing import Any
 import httpx
+from config import STEALTH_TIER_COOLDOWN_SECONDS
+from monitoring.logger import get_logger
+
+logger = get_logger(__name__)
 
 __all__ = [
     "StealthResponse",
     "StealthStrategy",
     "StealthPipeline",
+    "StealthTierHealthManager",
     "HttpxStrategy",
     "CurlCffiStrategy",
     "CrawleeStrategy",
@@ -28,6 +33,105 @@ __all__ = [
     "CamoufoxStrategy",
     "NodriverStrategy",
 ]
+
+
+class StealthTierHealthManager:
+    """Monitors real-time health, latency, and auto-cooldown circuit breaking for WAF stealth tiers."""
+
+    _instance: StealthTierHealthManager | None = None
+    _lock = threading.Lock()
+
+    def __init__(self) -> None:
+        self._tier_lock = threading.Lock()
+        self._health: dict[str, dict[str, Any]] = {}
+        for tier in ["flaresolverr", "crawlee", "drissionpage", "camoufox", "nodriver"]:
+            self._health[tier] = {
+                "successes": 0,
+                "failures": 0,
+                "consecutive_failures": 0,
+                "total_latency_ms": 0.0,
+                "avg_latency_ms": 0.0,
+                "cooldown_until": 0.0,
+            }
+
+    @classmethod
+    def get_instance(cls) -> StealthTierHealthManager:
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+
+    def is_healthy(self, tier: str) -> bool:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.get(tier_name)
+            if not info:
+                return True
+            if time.monotonic() < info["cooldown_until"]:
+                return False
+            return True
+
+    def record_success(self, tier: str, latency_ms: float) -> None:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.setdefault(
+                tier_name,
+                {
+                    "successes": 0,
+                    "failures": 0,
+                    "consecutive_failures": 0,
+                    "total_latency_ms": 0.0,
+                    "avg_latency_ms": 0.0,
+                    "cooldown_until": 0.0,
+                },
+            )
+            info["successes"] += 1
+            info["consecutive_failures"] = 0
+            info["total_latency_ms"] += latency_ms
+            info["avg_latency_ms"] = round(
+                info["total_latency_ms"] / max(1, info["successes"]), 1
+            )
+
+    def record_failure(self, tier: str) -> None:
+        tier_name = tier.lower()
+        with self._tier_lock:
+            info = self._health.setdefault(
+                tier_name,
+                {
+                    "successes": 0,
+                    "failures": 0,
+                    "consecutive_failures": 0,
+                    "total_latency_ms": 0.0,
+                    "avg_latency_ms": 0.0,
+                    "cooldown_until": 0.0,
+                },
+            )
+            info["failures"] += 1
+            info["consecutive_failures"] += 1
+            if info["consecutive_failures"] >= 3:
+                info["cooldown_until"] = time.monotonic() + STEALTH_TIER_COOLDOWN_SECONDS
+                logger.warning(
+                    "WAF stealth tier '%s' entered circuit-breaker cooldown (3 consecutive failures).",
+                    tier_name,
+                )
+
+    def get_health_snapshot(self) -> dict[str, Any]:
+        with self._tier_lock:
+            now = time.monotonic()
+            snapshot = {}
+            for t, info in self._health.items():
+                snapshot[t] = {
+                    "healthy": now >= info["cooldown_until"],
+                    "successes": info["successes"],
+                    "failures": info["failures"],
+                    "consecutive_failures": info["consecutive_failures"],
+                    "avg_latency_ms": info["avg_latency_ms"],
+                    "cooldown_remaining_sec": max(
+                        0, int(info["cooldown_until"] - now)
+                    ),
+                }
+            return snapshot
+
 
 
 @dataclass
@@ -164,8 +268,9 @@ class DrissionPageStrategy(StealthStrategy):
                     strategy_name=self.name,
                     user_agent=user_agent
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'drissionpage' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -174,7 +279,7 @@ class CurlCffiStrategy(StealthStrategy):
 
     def is_available(self) -> bool:
         try:
-            import curl_cffi.requests
+            import curl_cffi.requests  # noqa: F401
             return True
         except ImportError:
             return False
@@ -190,8 +295,9 @@ class CurlCffiStrategy(StealthStrategy):
                     elif isinstance(cookies, dict):
                         cookie_dict = cookies
                     return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'curl_cffi' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -225,8 +331,9 @@ class CrawleeStrategy(StealthStrategy):
             html, _ = client._get_with_crawlee_cheerio(url)
             if html and not client._is_blocked_page(html, url):
                 return StealthResponse(status_code=200, text=html, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'crawlee_cheerio' execution failed for %s: %s", url, exc)
+
 
         # Tier B: Puppeteer stealth
         try:
@@ -238,8 +345,9 @@ class CrawleeStrategy(StealthStrategy):
                 elif isinstance(cookies, dict):
                     cookie_dict = cookies
                 return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'crawlee_puppeteer' execution failed for %s: %s", url, exc)
+
 
         return None
 
@@ -261,8 +369,9 @@ class Crawl4AIStrategy(StealthStrategy):
                 elif isinstance(cookies, dict):
                     cookie_dict = cookies
                 return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'crawl4ai' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -280,8 +389,9 @@ class HeliumStrategy(StealthStrategy):
                 elif isinstance(cookies, dict):
                     cookie_dict = cookies
                 return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'helium' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -343,8 +453,9 @@ class FlareSolverrStrategy(StealthStrategy):
                 elif isinstance(cookies, dict):
                     cookie_dict = cookies
                 return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'flaresolverr' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -369,8 +480,9 @@ class CamoufoxStrategy(StealthStrategy):
                 elif isinstance(cookies, dict):
                     cookie_dict = cookies
                 return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'camoufox' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -379,7 +491,7 @@ class NodriverStrategy(StealthStrategy):
 
     def is_available(self) -> bool:
         try:
-            import nodriver  # type: ignore
+            import nodriver  # noqa: F401 # type: ignore
             return True
         except ImportError:
             return False
@@ -395,8 +507,9 @@ class NodriverStrategy(StealthStrategy):
                     elif isinstance(cookies, dict):
                         cookie_dict = cookies
                     return StealthResponse(status_code=200, text=html, cookies=cookie_dict, strategy_name=self.name)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Strategy 'nodriver' execution failed for %s: %s", url, exc)
+
         return None
 
 
@@ -439,10 +552,8 @@ class StealthPipeline:
     def execute(
         self, url: str, client: Any, skip_httpx: bool = False, preferred_engine: str | None = None
     ) -> StealthResponse:
-        import concurrent.futures
         from network.http_client import ScraperBypassError
         from monitoring.logger import get_logger
-        from monitoring.hardware_governor import get_governor
 
         logger = get_logger(__name__)
         host = client._hostname(url)
