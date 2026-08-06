@@ -218,6 +218,25 @@ class MediaDownloader:
                     pass
             return self._curl_session
 
+    def clear_download_state(self) -> None:
+        """Reset per-host rate limiters, semaphores, and in-memory hashes to prevent state accumulation."""
+        with self._dl_lock:
+            self._fast_limiters.clear()
+            self._host_semaphores.clear()
+        with self._dead_urls_lock:
+            self._dead_urls.clear()
+        with self._hash_lock:
+            self._seen_hashes.clear()
+            self._seen_phashes.clear()
+
+    def close(self) -> None:
+        """Shut down resources including process pool workers."""
+        try:
+            self._cpu_pool.shutdown(wait=False, cancel_futures=True)
+        except Exception as exc:
+            LOGGER.debug("Error shutting down MediaDownloader CPU pool: %s", exc)
+        self.clear_download_state()
+
     def verify_magic_bytes(self, file_path: Path) -> bool:
         """Verifies that a downloaded file starts with valid image/video magic byte headers."""
         if not file_path.exists() or file_path.stat().st_size == 0:

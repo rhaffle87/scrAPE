@@ -1429,6 +1429,17 @@
                 </span>
                 <span>SETTINGS</span>
             </button>
+            <button type="button" class="nav-item" id="nav-domain-studio" onclick="showDomainStudio()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <rect x="3" y="3" width="18" height="18" rx="0" ry="0"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                </span>
+                <span>DOMAIN STUDIO</span>
+            </button>
         </nav>
         <div class="sidebar-section-title">
             <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
@@ -2308,6 +2319,55 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Domain Config Studio View -->
+            <div id="domain-studio-view" style="display: none;">
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
+                        <div>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">DOMAIN CONFIG STUDIO</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Live JSON Rule Editor & Hotlink / Rate-Limit Directives Manager (data/domain_config.json)</p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn" onclick="loadDomainStudio()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
+                        </div>
+                    </div>
+
+                    <!-- Domain Config Stats Cards -->
+                    <div id="domain-studio-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Hotlink Protected</div>
+                            <div id="ds-stat-hotlink" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Custom Rate Limits</div>
+                            <div id="ds-stat-ratelimits" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Stealth Required</div>
+                            <div id="ds-stat-stealth" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Deep Scrape Targets</div>
+                            <div id="ds-stat-deep" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                    </div>
+
+                    <!-- JSON Editor Form -->
+                    <form id="domain-studio-form" hx-post="/api/domain-config/save" hx-target="#domain-studio-alert-box" hx-swap="innerHTML">
+                        <div style="margin-bottom: 1rem;">
+                            <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON RULE MATRIX (data/domain_config.json)</label>
+                            <textarea id="domain-studio-raw-json" name="raw_json" rows="22" spellcheck="false"
+                                style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn" style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem; font-family: 'JetBrains Mono', monospace;">[ COMMIT & HOT-RELOAD RULES ]</button>
+                            <span id="domain-studio-status" style="font-family: monospace; color: var(--text-muted);"></span>
+                        </div>
+                        <div id="domain-studio-alert-box" style="margin-top: 1rem;"></div>
+                    </form>
+                </div>
+            </div>
             <!-- Media Preview Modal -->
             <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1"
                 onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
@@ -2731,6 +2791,8 @@
                     if (settingsEl) settingsEl.style.display = 'none';
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'none';
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'none';
                     document.getElementById('main-title').innerText = "MEDIA VAULT";
                     document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
                     document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
@@ -2780,6 +2842,8 @@
                     if (studioEl) studioEl.style.display = 'none';
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'none';
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'none';
 
                     document.getElementById('settings-view').style.display = 'block';
 
@@ -2798,6 +2862,54 @@
                     }
 
                     loadSettings();
+                }
+
+                function showDomainStudio() {
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    const studioEl = document.getElementById('seed-studio-view');
+                    if (studioEl) studioEl.style.display = 'none';
+                    const watchdogEl = document.getElementById('watchdog-view');
+                    if (watchdogEl) watchdogEl.style.display = 'none';
+                    const settingsEl = document.getElementById('settings-view');
+                    if (settingsEl) settingsEl.style.display = 'none';
+
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'block';
+
+                    document.getElementById('main-title').innerText = "DOMAIN CONFIG STUDIO";
+                    document.getElementById('main-subtitle').innerText = "Per-Domain Routing, Rate Limiting & Hotlink Directives";
+
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    const navBtn = document.getElementById('nav-domain-studio');
+                    if (navBtn) navBtn.classList.add('active');
+
+                    loadDomainStudio();
+                }
+
+                async function loadDomainStudio() {
+                    const statusEl = document.getElementById('domain-studio-status');
+                    if (statusEl) statusEl.innerText = "Fetching configuration...";
+                    try {
+                        const res = await fetch('/api/domain-config');
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.detail || errData.error || `HTTP ${res.status} ${res.statusText}`);
+                        }
+                        const data = await res.json();
+                        const textarea = document.getElementById('domain-studio-raw-json');
+                        if (textarea) textarea.value = data.raw_json || "";
+
+                        if (data.stats) {
+                            document.getElementById('ds-stat-hotlink').innerText = data.stats.hotlink_domains || 0;
+                            document.getElementById('ds-stat-ratelimits').innerText = data.stats.rate_limits || 0;
+                            document.getElementById('ds-stat-stealth').innerText = data.stats.stealth_required || 0;
+                            document.getElementById('ds-stat-deep').innerText = data.stats.deep_scrape || 0;
+                        }
+                        if (statusEl) statusEl.innerText = "Configuration loaded cleanly.";
+                    } catch (err) {
+                        if (statusEl) statusEl.innerText = "Error: " + err.message;
+                    }
                 }
 
                 async function loadSettings() {
@@ -2897,6 +3009,8 @@
                     if (settingsEl) settingsEl.style.display = 'none';
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'none';
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'none';
 
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'block';
@@ -3391,6 +3505,8 @@
                     if (settingsEl) settingsEl.style.display = 'none';
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'none';
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'none';
 
                     document.getElementById('command-center-view').style.display = 'block';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
@@ -3415,6 +3531,8 @@
                     if (studioEl) studioEl.style.display = 'none';
                     const settingsEl = document.getElementById('settings-view');
                     if (settingsEl) settingsEl.style.display = 'none';
+                    const domainStudioEl = document.getElementById('domain-studio-view');
+                    if (domainStudioEl) domainStudioEl.style.display = 'none';
 
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'flex';

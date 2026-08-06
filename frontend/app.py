@@ -90,11 +90,13 @@ from frontend.routers.dataset import router as dataset_router
 from frontend.routers.seeds import router as seeds_router
 from frontend.routers.watchdog import router as watchdog_router
 from frontend.routers.notifications import router as notifications_router
+from frontend.routers.domain_config import router as domain_config_router
 
 app.include_router(dataset_router)
 app.include_router(seeds_router)
 app.include_router(watchdog_router)
 app.include_router(notifications_router)
+app.include_router(domain_config_router)
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

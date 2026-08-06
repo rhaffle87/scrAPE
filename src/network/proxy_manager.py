@@ -12,6 +12,8 @@ from notifications.notification_manager import NotificationPipeline
 
 LOGGER = logging.getLogger(__name__)
 
+__all__ = ["ProxyInfo", "ProxyPoolManager"]
+
 
 class ProxyInfo:
     """Dataclass holding health metrics and metadata for a single proxy."""

@@ -46,6 +46,14 @@ class DomainRulesManager:
         self._config_last_checked = 0.0
         self._profile_last_checked = 0.0
 
+    def clear_cache(self) -> None:
+        """Invalidate in-memory TTL cache, forcing fresh reload from disk on next access."""
+        with self._lock:
+            self._config_last_checked = 0.0
+            self._profile_last_checked = 0.0
+            self._config_mtime = None
+            self._profile_mtime = None
+
     def _get_config(self) -> dict:
         now = time.monotonic()
         if now - self._config_last_checked < self._TTL_SECONDS:
