@@ -1,6 +1,26 @@
 # scrAPE — Scraper for Archival & Production Extraction
 > Autonomous media extraction and stealth crawl engine engineered for high-throughput asset discovery and resilient WAF bypass.
 
+<p align="center">
+  <img src="assets\repo-card.png" alt="scrAPE Logo" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
+  <img src="https://img.shields.io/badge/RELEASE-V0.24.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
+  <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
+  <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
+</p>
+
+<p align="center">
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#key-features">Key Features</a> •
+  <a href="#request-lifecycle-waf-pipeline">WAF Pipeline</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="docs/">Documentation</a>
+</p>
+
 scrAPE is an autonomous media extraction & stealth crawl engine that runs locally on your machine. Built for domain crawling, high-throughput asset discovery, WAF bypass, and AI dataset curation, it handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.
 
 ## Key Features
