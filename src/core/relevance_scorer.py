@@ -97,7 +97,10 @@ def contains_subject_text(
 
 def _preview_penalty(text: str) -> int:
     """Calculate penalty points for preview/sample/thumbnail indicators in text."""
-    return sum(6 for marker in PREVIEW_MARKERS if marker in text)
+    penalty = sum(6 for marker in PREVIEW_MARKERS if marker in text)
+    if penalty > 0 and any(w in text for w in {"gallery", "post", "full", "highres"}):
+        penalty = max(0, penalty - 6)
+    return penalty
 
 
 def score_image_relevance(

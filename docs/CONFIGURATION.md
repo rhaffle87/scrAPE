@@ -1,27 +1,26 @@
 # Configuration & Settings Reference — scrAPE
-
-> Complete reference guide for seed manifest annotations, dynamic JSON configuration files, WAF circuit breakers, parameter safety guardrails, and AI dataset tools.
+> Complete reference guide for seed manifest annotations, dynamic JSON configuration files, and system parameter guardrails.
 
 ---
 
 ## 1. Seed Manifest Annotations
 
-Seed files (`seeds/*.txt`) configure extraction rules per domain. Annotations are formatted as comment lines (`# key: value`) preceding a domain or URL block:
+Seed files (`seeds/*.txt`) configure extraction rules per domain. Annotations are formatted as comment lines (`# key: value`) preceding a domain or URL block.
 
 | Annotation | Syntax / Values | Default | Description |
 |---|---|---|---|
 | `type` | `# type: <video \| image \| mixed>` | `mixed` | Expected target media type hint and extraction policy. |
-| `crawl` | `# crawl: <direct \| index→detail>` | `index→detail` | `direct` scrapes target URLs only (depth 0). `index→detail` performs BFS link discovery. |
-| `depth` | `# depth: <int>` | `None` (engine default) | BFS crawl depth limit override for the domain. |
-| `Rate-limit` | `# Rate-limit: <float> req/s` | `None` (1.0 req/s) | Per-domain request speed ceiling (e.g. `0.2 req/s` = 1 req / 5 sec). |
-| `max_pages` | `# max_pages: <int>` | `None` (unlimited) | Hard ceiling on pages crawled for this domain per run. |
-| `engine` | `# engine: <camoufox \| flaresolverr \| uc \| crawl4ai>` | `None` | Prioritizes a specific WAF fallback engine for this domain. |
-| `cloudflare` | `# cloudflare: true` | `false` | Instructs engine to fail fast on 403/429, skipping light browser fallback loops. |
+| `crawl` | `# crawl: <direct \| index→detail>` | `index→detail` | `direct` scrapes target URLs only. `index→detail` performs BFS link discovery. |
+| `depth` | `# depth: <int>` | `None` | BFS crawl depth limit override for the domain. |
+| `Rate-limit` | `# Rate-limit: <float> req/s` | `None` | Per-domain request speed ceiling (e.g., `0.2 req/s` = 1 req / 5 sec). |
+| `max_pages` | `# max_pages: <int>` | `None` | Hard ceiling on pages crawled for this domain per run. |
+| `engine` | `# engine: <camoufox \| flaresolverr \| ...>` | `None` | Prioritizes a specific WAF fallback engine for this domain. |
+| `cloudflare` | `# cloudflare: true` | `false` | Instructs engine to fail fast on 403/429, skipping light fallback loops. |
 | `skip-link-discovery` | `# skip-link-discovery` | `false` | Disables page scanning and link discovery entirely for this domain. |
-| `[CDN]` | `# [CDN] <hostname>` | `[]` | Whitelists hostname as a CDN domain (bypasses archive/index page penalties). |
-| `# min_image_size` | `# min_image_size: WxH` | `None` | Minimum image dimension filter (e.g. `800x600`). Smaller images are rejected. |
+| `[CDN]` | `# [CDN] <hostname>` | `[]` | Whitelists hostname as a CDN domain (bypasses archive/index penalties). |
+| `# min_image_size` | `# min_image_size: WxH` | `None` | Minimum image dimension filter (e.g., `800x600`). |
 | `# thumbnail_prefix` | `# thumbnail_prefix: <pattern>` | `None` | Path prefix pattern used to identify and skip thumbnail URLs early. |
-| `# requires_referer` | `# requires_referer` | `false` | Sends page URL as HTTP Referer header during file download to bypass hotlink protection. |
+| `# requires_referer` | `# requires_referer` | `false` | Sends page URL as HTTP Referer header during file download. |
 | `# google-fallback` | `# google-fallback: true` | `false` | Fall back to Google Images when page returns 0 images. |
 
 ### Example Seed Manifest
@@ -52,9 +51,11 @@ https://cdn.apple-assets.org/videos
 
 ## 2. Dynamic JSON Configuration Files
 
-JSON files in the `data/` directory isolate domain parameters and canonicalisation rules from Python source code:
+JSON files in the `data/` directory isolate domain parameters and canonicalisation rules from Python source code.
 
 ### 2.1 Domain Configuration (`data/domain_config.json`)
+
+Controls dynamic settings for known domains to prevent blocks and optimize extraction.
 
 ```json
 {
@@ -76,15 +77,15 @@ JSON files in the `data/` directory isolate domain parameters and canonicalisati
 }
 ```
 
-- `hotlink_protected`: Domains enforcing Referer header checks on media downloads.
-- `rate_limits`: Default requests-per-second ceilings per domain.
-- `deep_scrape`: Domains configured for deep traversal.
-- `referer_overrides`: Custom HTTP Referer header values sent during requests.
-- `domain_handlers`: Per-domain link discovery configuration. Each entry specifies a `link_pattern` regex that the BFS crawler uses to identify detail/post page links from index pages (used with `# crawl: index→detail`).
-- `stealth_required`: Domains that skip lightweight HTTP tiers and escalate immediately to stealth browsers on any non-200 response.
-- `preferred_engines`: Manually pinned WAF fallback engine per domain (overrides the auto-learned `_preferred_engine_by_host`).
-- `highres_transforms`: URL substring replacement rules applied to discovered image URLs to upgrade thumbnails to full-resolution CDN paths.
-- `auth_gated`: Domains that require authentication; the crawler skips them unless a valid session cookie is available.
+- **`hotlink_protected`**: Domains enforcing Referer header checks on media downloads.
+- **`rate_limits`**: Default requests-per-second ceilings per domain.
+- **`deep_scrape`**: Domains configured for deep traversal.
+- **`referer_overrides`**: Custom HTTP Referer header values sent during requests.
+- **`domain_handlers`**: Per-domain link discovery configuration (`link_pattern` regex used with `# crawl: index→detail`).
+- **`stealth_required`**: Domains that skip lightweight HTTP tiers and escalate immediately to stealth browsers on any non-200 response.
+- **`preferred_engines`**: Manually pinned WAF fallback engine per domain.
+- **`highres_transforms`**: URL substring replacement rules applied to discovered image URLs.
+- **`auth_gated`**: Domains that require authentication (crawler skips them unless a valid session cookie is available).
 
 ### 2.2 URL Normalisation Rules (`data/url_normalisation_rules.json`)
 
@@ -126,38 +127,13 @@ scrAPE uses environment variables (loaded via `.env` or system environment) to c
 | `TELEGRAM_BOT_TOKEN` | API token for the Telegram notification bot. |
 | `TELEGRAM_CHAT_ID` | Target chat ID for Telegram notifications. |
 | `CAPSOLVER_API_KEY` | API key for CapSolver universal captcha resolution. |
-| `PUPPETEER_SKIP_DOWNLOAD` | If `true`, prevents `npm install` from downloading Chromium. **Mandatory in Docker** to ensure the Node.js bridge hooks into the centrally patched Playwright Chromium binary provided by the base image. |
+| `PUPPETEER_SKIP_DOWNLOAD` | If `true`, prevents `npm install` from downloading Chromium. **Mandatory in Docker** to ensure the Node.js bridge hooks into the Playwright Chromium binary. |
 
 ---
 
-## 4. WAF & Stealth Browser Fallback Tiers
+## 4. Parameter Safety Guardrails
 
-When standard HTTP requests encounter anti-bot protection (Cloudflare, Turnstile, DataDome), `HttpClient` escalates through stealth browser and proxy fallbacks:
-
-| Tier / Strategy | Flag / Setting | Description |
-|---|---|---|
-| **Crawl4AI (Playwright)** | Default | Headless Playwright browser with stealth scripts. |
-| **Crawlee Cheerio / Puppeteer** | Default | Node.js bridge browser rendering fallback. |
-| **DrissionPage** | `ENABLE_DRISSIONPAGE_FALLBACK` | Chrome DP protocol automation fallback. |
-| **Helium** | `ENABLE_HELIUM_FALLBACK` | High-level web automation fallback. |
-| **undetected-chromedriver** | Default | Patched Chrome binary bypassing bot detection. |
-| **Camoufox** | `ENABLE_CAMOUFOX_FALLBACK` | Custom Firefox C++ anti-fingerprint browser engine. |
-| **FlareSolverr** | `ENABLE_FLARESOLVERR_FALLBACK`, `FLARESOLVERR_URL` | Local proxy server solving Cloudflare challenges (`http://127.0.0.1:8191/v1`) with background Docker container auto-start (`docker start flaresolverr`). |
-
----
-
-## 5. Dual Speed & Rate Limiting System
-
-| Option | CLI Flag | WebUI Input | Default | Purpose |
-|---|---|---|---|---|
-| **Page Rate Limit** | `--rate-limit` | `rate_limit` (RPS) | `0` (Uncapped) | Token-Bucket rate limiter controlling outgoing page HTTP request rate per second. |
-| **Download Speed Limit** | `--dl-speed-limit` | `dl_speed_limit` (KBPS) | `0` (Uncapped) | Network bandwidth throttle limiting media chunk download transfer rate in KB/s. |
-
----
-
-## 6. Parameter Safety Guardrails & Recommendations
-
-To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-limiting during extractions:
+To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-limiting during extractions, adhere to these guidelines:
 
 | Parameter | Safe Baseline | High-Performance | Warning Threshold | System Risk / Impact |
 |---|---|---|---|---|
@@ -167,20 +143,4 @@ To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-l
 | **Max Results** (`--max-results`) | **50 – 200** | **500 – 1000** | **0 (Unlimited)** | Unbounded disk usage (gigabytes of media) |
 | **Page Limit** (`--page-limit`) | **20 – 50** | **100 – 200** | **0 (Unlimited)** | High network traffic, long job duration |
 
-*The WebUI Command Center includes a dynamic JavaScript validator (`validateSafetyThresholds()`) that displays warning badges if worker counts exceed safe hardware thresholds.*
-
----
-
-## 7. AI Ingestion & Dataset Formatting Settings
-
-The interactive wizard (`python src/cli/cli_wizard.py`) provides export settings for AI model training:
-
-### 4.1 Structured AI Dataset Layouts (Option 4)
-- **Consolidated Flat**: Copies all images and videos into a single directory, prefixing filenames with domain names to avoid collisions.
-- **Domain-Grouped**: Subdirectories per origin domain (`/domain_com/images/`).
-- **Media-Type Grouped**: Organized into `/images` and `/videos` folders.
-
-### 4.2 LLM RAG Ingestion Formats (Option 5)
-- **Single Consolidated Markdown**: A unified `.md` file summarizing page titles, alt texts, image contexts, and source URLs.
-- **Chunked Page Markdown Documents**: Individual `.md` files per page, formatted for vector database document splitters (LangChain, LlamaIndex).
-- **JSON-Lines (JSONL) Embeddings Format**: One JSON object per line containing normalized metadata ready for vector embedding models.
+*The WebUI Command Center includes a dynamic JavaScript validator that displays warning badges if worker counts exceed safe hardware thresholds.*

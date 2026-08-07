@@ -1,4 +1,5 @@
-# Changelog
+# Changelog — scrAPE
+> Chronological record of all notable changes, additions, and fixes made to the project.
 
 ## [0.24.0] — 2026-08-03
 

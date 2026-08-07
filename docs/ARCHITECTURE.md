@@ -1,5 +1,4 @@
 # Architecture Guide — scrAPE
-
 > Technical reference covering system design, module organization, multi-tier fallback pipeline, concurrency model, and storage architecture.
 
 ---
@@ -41,121 +40,38 @@ scrape-dashboard/
 ├── run.bat / run.sh             — Unified Master Launcher (WebUI, Wizard, Auth, Autostart, Install)
 ├── run_monitor.bat / .sh        — Continuous Watchdog Agent launcher
 ├── docker-compose.yml           — Multi-container orchestration (Scraper + FlareSolverr)
-├── Dockerfile                   — Container build instructions
 ├── requirements.txt             — Python dependencies
 ├── README.md                    — Primary documentation portal
 │
 ├── crawlee_bridge/              — Node.js Express Bridge Server
 │   ├── index.mjs                — Crawlee Cheerio & Puppeteer stealth servers
-│   └── package.json             —got-scraping & puppeteer-extra-plugin-stealth
+│   └── package.json             — got-scraping & puppeteer-extra-plugin-stealth
 │
 ├── frontend/                    — Decoupled FastAPI + HTMX WebUI
 │   ├── app.py                   — FastAPI backend, OWASP security middleware, static mounts
 │   ├── static/                  — SVG logo, favicon, and CSS assets
 │   ├── templates/               — HTMX dashboard templates (index.html, gallery.html)
-│   └── routers/                 — Decoupled APIRouter sub-modules:
-│       ├── dashboard.py         — Process controls, HTMX gallery, telemetry & log streaming
-│       ├── dataset.py           — WD14 tagging, sidecar text files, aesthetic scoring, LoRA exports
-│       ├── seeds.py             — Seed Studio manifest auto-discovery, linter, and subject listings
-│       ├── watchdog.py          — Continuous Watchdog daemon status, start, and stop controls
-│       └── notifications.py     — Telegram Bot config & test notification alerts
+│   └── routers/                 — Decoupled APIRouter sub-modules (dashboard, dataset, seeds, watchdog, notifications)
 │
 ├── src/                         — Python Source Core
-│   ├── cli/
-│   │   ├── main.py              — Primary CLI entry point & dry-run runner (--export-rag support)
-│   │   ├── launcher.py          — Interactive launcher & custom PIL RGBA 64x64 system tray renderer
-│   │   ├── cli_wizard.py        — Interactive wizard for crawls, watchdog, and AI dataset formatting
-│   │   ├── monitor_agent.py     — Continuous watchdog monitoring loop
-│   │   ├── auth.py              — Interactive headful login browser & cookie importer
-│   │   ├── cleanup.py           — Output and cache cleanup utilities
-│   │   ├── release.py           — Automated release packaging script
-│   │   └── seed_studio.py       — AI-assisted seed generation and discovery
-│   ├── core/
-│   │   ├── engine.py            — ScrapingEngine main orchestration entry point
-│   │   ├── managers.py          — CrawlOrchestrator, MediaProcessor, DomainRulesManager
-│   │   ├── filters.py           — Relevance scoring, low-res detection, path pre-filtering
-│   │   ├── models.py            — ScrapeResult, EngineOptions, DomainProfile data models
-│   │   ├── seed_manifest.py     — SeedManifest parser & domain annotation builder
-│   │   ├── coordinator.py       — Cross-manager state synchronization
-│   │   ├── governor.py          — Concurrency governor base classes
-│   │   ├── parser.py            — HTML structure and link extraction
-│   │   ├── pipeline.py          — Extractor processing pipeline
-│   │   ├── run_summary.py       — Run outcome report generation
-│   │   └── semantic_selectors.py — CSS selector heuristics
-│   ├── scraper/
-│   │   ├── base.py              — Base Scraper classes
-│   │   ├── google_images.py     — Search provider & fallback page scraper
-│   │   ├── specialized.py       — SpecializedExtractor plugin loader
-│   │   └── video_scraper.py     — Video extraction: JSON-LD, inline scripts, lightbox anchors, nested <video>, base64 iframes
-│   ├── plugins/
-│   │   ├── base.py                     — ExtractorPlugin abstract base class
-│   │   ├── base64_iframe_extractor.py   — Extracts video URLs from base64-encoded iframe player params
-│   │   ├── booru_extractor.py           — Danbooru/Gelbooru image board extractor
-│   │   ├── civitai_extractor.py         — Civitai model/asset gallery extractor
-│   │   ├── reddit_extractor.py          — Reddit API extraction plugin
-│   │   ├── ytdlp_extractor.py           — YouTube/Generic video extraction via yt-dlp
-│   │   └── *_extractor.py               — Platform extractors: Twitter, Instagram, Pinterest, ArtStation, Telegram
-│   ├── captcha/
-│   │   ├── captcha_strategy.py  — Third-party captcha solving strategy and orchestrator
-│   │   └── captcha_solvers/     — Universal captcha providers (CapSolver, 2Captcha, AntiCaptcha)
-│   ├── common/
-│   │   ├── blacklist.py         — Circuit breaker persistent domain blacklist
-│   │   ├── image_helper.py      — Fast image header parser & 64-bit dHash perceptual hashing
-│   │   └── robots.py            — Thread-safe RobotsChecker parser cache
-│   ├── ml/
-│   │   ├── aesthetic_scorer.py  — Opt-in aesthetic quality scorer
-│   │   ├── dataset_tagger.py    — AI dataset auto-tagging & sidecar .txt generator
-│   │   ├── dataset_cropper.py   — AI dataset smart aspect-ratio cropper
-│   │   ├── dataset_exporter.py  — Kohya_ss LoRA dataset ZIP exporter
-│   │   ├── ollama_provider.py   — Local Ollama vision API captioning provider
-│   │   ├── rag_exporter.py      — Vector embedding payload chunker (rag_payload.jsonl)
-│   │   └── vector_phash.py      — Vectorized perceptual hashing utilities
-│   ├── monitoring/
-│   │   ├── hardware_governor.py — Dynamic memory and CPU monitoring for concurrency scaling
-│   │   ├── logger.py            — Telemetry and structured logging
-│   │   └── telemetry.py         — Application telemetry collection
-│   ├── network/
-│   │   ├── http_client.py       — Tiered HTTP client with rate limiting, session pooling, disk cache, and 429 circuit breaker
-│   │   ├── browser_client.py    — Browser automation fallback mixin (BrowserClientMixin)
-│   │   ├── stealth_pipeline.py  — Orchestrates 8-tier WAF bypass with HardwareLoadGovernor concurrency
-│   │   ├── session.py           — Secure session cookie store (0o600 permissions)
-│   │   ├── session_pool.py      — Per-domain sticky sessions with disk persistence
-│   │   ├── proxy_manager.py     — Proxy pool manager with latency auto-quarantine & domain binding
-│   │   ├── proxy_fetcher.py     — Automated free proxy fetcher and validator
-│   │   ├── crawlee_client.py    — Python client for Crawlee Express bridge
-│   │   ├── flaresolverr_monitor.py — FlareSolverr lifecycle manager
-│   │   ├── rate_limiter.py      — Token-bucket request rate limiting
-│   │   ├── bandwidth_limiter.py — Asset download bandwidth limiting
-│   │   └── browser_pool.py      — Headless browser instance pooling
-│   ├── notifications/
-│   │   ├── telegram_bot.py      — Telegram Bot alerts & interactive command handler
-│   │   └── notification_manager.py — Pluggable multi-channel notification pipeline
-│   └── storage/
-│       ├── file_downloader.py   — Resumable Range HTTP fetcher, Pillow sanitization, post-hashing
-│       ├── state_cache.py       — Persistent SQLite state cache in WAL mode with composite indexes
-│       ├── db_store.py          — General SQLite data store wrappers
-│       ├── csv_writer.py        — Flat CSV exporter
-│       ├── json_writer.py       — JSON object lines exporter
-│       └── database_exporter.py — SQLite database bulk exporter
-
+│   ├── cli/                     — Primary CLI, interactive wizards, watchdog loop, seed studio
+│   ├── core/                    — ScrapingEngine main orchestration, BFS crawling, parsing
+│   ├── scraper/                 — Base Scraper classes, fallback logic
+│   ├── plugins/                 — Platform-specific extractors (Booru, Civitai, Reddit, yt-dlp)
+│   ├── captcha/                 — Universal CAPTCHA strategy providers
+│   ├── ml/                      — AI tagging, cropping, LoRA exporting, Ollama vision
+│   ├── monitoring/              — Hardware governor, structured telemetry
+│   ├── network/                 — Tiered HTTP client, stealth pipeline, rate limiting
+│   ├── notifications/           — Pluggable notification pipeline
+│   └── storage/                 — SQLite WAL state caching, chunked downloading
 │
 ├── data/                        — JSON Configurations & Registries
-│   ├── domain_config.json       — Rate limits, hotlink protection, referer overrides, domain_handlers,
-│   │                              stealth_required, preferred_engines, highres_transforms, auth_gated
+│   ├── domain_config.json       — Rate limits, referer overrides, stealth_required, etc.
 │   ├── url_normalisation_rules.json — Canonicalisation regex rules
 │   └── blacklist.json           — Dynamic circuit breaker blacklist
-│   ├── seeds/                       — Per-subject seed manifest files
-│   │   ├── subject1.txt / subject2.txt / subject3.txt — Creator-specific domain profiles
-│   │   ├── subject4.txt / subject5.txt              — Creator-specific domain profiles
-│   │   └── general_topic1.txt / general_topic2.txt  — General-subject example seeds
 │
+├── seeds/                       — Per-subject seed manifest files (`.txt`)
 └── docs/                        — Technical Documentation Portal
-    ├── CHANGELOG.md             — Version release history
-    ├── USAGE.md                 — CLI & WebUI user manual
-    ├── ARCHITECTURE.md          — Technical architecture overview
-    ├── CONFIGURATION.md         — Seed annotations & settings reference
-    ├── QUALITY_FILTERS.md       — Scoring rules & low-res algorithms
-    └── SECURITY.md              — Security policies and static analysis compliance
 ```
 
 ---
@@ -170,10 +86,9 @@ The core architecture is decoupled across specialized managers inside `src/core/
 - **`MediaProcessor`**: Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
 - **`DomainRulesManager`**: Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
 
-### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/network/http_client.py` & `src/network/stealth_pipeline.py`)
+### 3.2 8-Tier WAF & Challenge Escalation Pipeline
 
 When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching.
-The `StealthPipeline` uses a `HardwareLoadGovernor` to dynamically adjust worker concurrency (1x to 3x scaling) based on real-time system RAM and CPU telemetry, automatically forcing garbage collection when approaching OOM limits:
 
 ```mermaid
 flowchart LR
@@ -188,69 +103,60 @@ flowchart LR
 ```
 
 #### WAF Engine Overrides & Host Memory
-- **Seed Manifest Annotations**: `# engine: <name>` (e.g. `# engine: camoufox`) forces a specific fallback engine to run first.
-- **Host Engine Memory**: Successful solver choices are automatically cached per host (`HttpClient._preferred_engine_by_host`) and prioritized on subsequent requests.
-- **Universal Captcha Strategy**: During challenge loops, the `ThirdPartyCaptchaStrategy` automatically delegates CAPTCHA solving (Turnstile, reCAPTCHA, hCaptcha) to configured providers (`CapSolver`, `2Captcha`, `AntiCaptcha`) and caches the tokens.
-- **Camoufox Fingerprint Tuning**: Matches host OS platform (`win`/`mac`/`lin`), enables humanized cursor/scrolling (`humanize=True`), 1920x1080 viewport, and escalates to visible headful mode for 20s if Turnstile challenge is detected on a GUI system.
-#### FlareSolverr Service Integration & Daemon Stability
-- **Binding & Session Reuse**: Binds natively to `http://127.0.0.1:8191/v1` with dual-stack fallback (`localhost:8191`). If port 8191 is unreachable, executes background Docker auto-start (`docker start flaresolverr`) and waits 3.5s before re-pinging. Automatically forwards proxies (`self.get_proxy()`), reuses domain-keyed browser sessions (`session_domain_slug`), and enriches downstream CDN streaming media requests with session cookies. If FlareSolverr is offline, auto-disables for the run to avoid connection timeout overhead.
-- **Graceful Thread Shutdown**: The background `FlareSolverrMonitor` daemon thread ensures a clean tear-down during Python interpreter shutdown (e.g. at the end of pytest suites). It uses interruptible 1-second sleep loops and explicitly traps `ValueError: I/O operation on closed file` when the main thread closes logging streams, preventing noisy stack traces and zombie threads.
+- **Seed Manifest Annotations**: `# engine: <name>` forces a specific fallback engine to run first.
+- **Host Engine Memory**: Successful solver choices are automatically cached per host and prioritized on subsequent requests.
+- **Universal Captcha Strategy**: Delegates CAPTCHA solving to configured providers (`CapSolver`, `2Captcha`, `AntiCaptcha`) and caches tokens.
+- **Camoufox Fingerprint Tuning**: Matches host OS platform, enables humanized cursor/scrolling, and escalates to visible headful mode for 20s if Turnstile challenge is detected on a GUI system.
 
-#### Circuit Breakers & Fast-Fail Triggers
-- **Consecutive Error Cutoff**: If a host triggers **3 consecutive request errors**, the domain is marked as failed for the run. Remaining queued items for that domain are skipped instantly with status `host_failed_skipped`.
-- **Auth Wall Redirect Cutoff**: Redirects to authentication paths (`/login`, `/signin`, `/signup`, `/auth`) trigger an immediate domain cutoff.
+#### FlareSolverr Service Integration
+- Binds natively to `http://127.0.0.1:8191/v1`. Executes background Docker auto-start (`docker start flaresolverr`) if unreachable.
+- Reuses domain-keyed browser sessions and enriches downstream CDN streaming media requests with session cookies.
+
+#### Failure Models & Circuit Breakers (Fast-Fail)
+To prevent infinite hanging on dead/blocked domains:
+- **Consecutive Error Cutoff**: If a host triggers **3 consecutive request errors** (e.g., timeouts, strict WAF blocks), the domain is marked as failed. Remaining queued items for that domain are skipped instantly.
+- **Auth Wall Redirect Cutoff**: Redirects to authentication paths (`/login`, `/signin`) trigger immediate domain cutoff.
 - **Cloudflare Fast-Fail Pre-Registration**: Domains annotated with `# cloudflare: true` skip browser fallback loops instantly on 403/429.
 
-### 3.3 Download Pipeline, Speed Limiters & Range Resumption (`src/storage/file_downloader.py`)
+### 3.3 Hardware Load Governor (`src/monitoring/hardware_governor.py`)
 
-The download pipeline provides high-throughput, resilient asset fetching with bandwidth throttling:
+The `HardwareLoadGovernor` dynamically throttles Python thread concurrency based on real-time system metrics:
+- **Metrics Tracked**: CPU % utilization and available RAM %.
+- **Thresholds**: 
+  - **High Load** (CPU ≥ 85.0%, RAM Avail ≤ 15.0%): Throttles worker multiplier to 0.50x.
+  - **Critical Load** (CPU ≥ 95.0%, RAM Avail ≤ 5.0%): Throttles worker multiplier to 0.25x.
+- Automatically forces garbage collection (`gc.collect()`) when approaching OOM limits.
+
+### 3.4 Download Pipeline & Range Resumption (`src/storage/file_downloader.py`)
+
+Provides high-throughput, resilient asset fetching with bandwidth throttling:
 
 - **Independent Downloader Pool**: Separate thread pool (`--dl-workers`) decoupled from crawler thread limits.
-- **Dual Token-Bucket Speed Limiters**:
-  - **Page Rate Limiter (`--rate-limit` / `RPS`)**: Regulates outgoing page requests per second.
-  - **Download Speed Limiter (`--dl-speed-limit` / `KBPS`)**: Throttles network throughput across active asset download streams.
-- **Per-Host Download Semaphore (`_host_semaphore_for`)**: Wraps active HTTP streaming requests to enforce host-level concurrency caps during download transfers.
-- **CDN Rate-Limit Bypass**: Whitelisted CDN hosts bypass downloader rate limiting entirely; non-CDN hosts execute against a dedicated download limiter.
-- **HTTP Range Resumption**: Checks for existing `.tmp` files. If present, requests remaining bytes using `Range: bytes=N-`:
-  - **HTTP 206 Partial Content**: Appends streaming bytes (`"ab"` mode).
-  - **HTTP 200 OK**: Truncates and downloads from scratch.
-  - **HTTP 416 Range Not Satisfiable**: Unlinks corrupted temp chunk and retries.
-- **Pillow Image Sanitization**: Intercepts image byte streams in memory, verifies image integrity, drops embedded EXIF metadata (GPS/device info), and re-encodes clean files to disk.
-- **Post-Download Disk Hashing**: Calculates SHA-256 checksums directly from completed disk files, ensuring accuracy across multi-session download resumptions.
+- **Token-Bucket Limiters**: Page requests (`RPS`) and asset downloads (`KBPS`) are throttled by strict token-bucket algorithms.
+- **Per-Host Concurrency Caps**: Wraps active HTTP streaming requests via semaphores.
+- **HTTP Range Resumption**: 
+  - Checks for existing `.tmp` files. Requests remaining bytes using `Range: bytes=N-`.
+  - HTTP 206 appends bytes; HTTP 200 truncates/restarts; HTTP 416 unlinks and retries.
+- **Pillow Image Sanitization**: Intercepts image byte streams in memory, verifies integrity, drops EXIF metadata, and re-encodes safe files.
 
-### 3.4 Persistent SQLite WAL State Cache (`src/storage/state_cache.py`)
+### 3.5 Storage Architecture
 
-Persistent cross-session URL caching uses SQLite configured with Write-Ahead Logging (`PRAGMA journal_mode=WAL;`). This allows concurrent multi-threaded writes without disk lock contention during massive multi-worker crawls.
-
-### 3.5 Security & Static Analysis (CodeQL & Semgrep)
-
-To natively pass enterprise CodeQL and Semgrep static analysis without relying on manual suppression flags (`# codeql`, `// nosemgrep`), the project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`):
-- **Untainted Root Generation**: Arbitrary path resolutions dynamically rebuild their base drive or root prefix (`os.path.splitdrive(abs_path)[0]` on Windows, `os.sep` on POSIX) directly from the OS, guaranteeing the base prefix is untainted by user input.
-- **Absolute Normalization**: Input paths are forced through `os.path.abspath(os.path.normpath(user_input))` to prevent `../` directory traversal.
-- **Prefix Boundary Enforcement**: The normalized absolute path is strictly checked against the untainted root via `.startswith(safe_root)`, satisfying static analyzers' requirement for mathematical proof of bounds checking before filesystem sink access.
-
-### 3.6 Docker Architecture & Dependency Isolation
-
-When deploying scrAPE in containerized environments, the architecture explicitly separates Playwright's browser management from the Node.js `crawlee_bridge`:
-- **`PUPPETEER_SKIP_DOWNLOAD=true`**: Because the `crawlee_bridge` relies on `puppeteer-extra-plugin-stealth`, a standard `npm install` attempts to download its own Chromium binaries. By enforcing `PUPPETEER_SKIP_DOWNLOAD=true` at the environment level, we prevent redundant browser downloads and ensure Puppeteer seamlessly hooks into the managed, centrally patched Playwright Chromium binary already provided by the base image.
-- **Base Image Symlinking**: The Dockerfile orchestrates symlinks between Playwright's Chromium executable and the paths expected by the Node.js bridge to guarantee stealth features operate without conflicts.
+- **Persistent SQLite WAL State Cache (`src/storage/state_cache.py`)**: Uses `PRAGMA journal_mode=WAL;` to allow concurrent multi-threaded writes without disk lock contention.
+- **Post-Download Hashing**: Calculates SHA-256 checksums directly from completed disk files.
 
 ---
 
-## 4. Concurrency Architecture
+## 4. Security & Static Analysis (CodeQL & Semgrep)
 
-```mermaid
-flowchart TD
-    subgraph CrawlPhase["Crawl Phase (Page Discovery)"]
-        PP["ThreadPoolExecutor (--workers)<br/>Latency-Aware Concurrency Tuning<br/>Per-Domain RateLimiter"]
-    end
+The project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`), avoiding manual `# codeql` suppressions:
+1. **Untainted Root Generation**: Dynamically rebuilds the base drive (`os.path.splitdrive`).
+2. **Absolute Normalization**: Forces input paths through `os.path.abspath(os.path.normpath())`.
+3. **Prefix Boundary Enforcement**: Checks bounds via `.startswith(safe_root)`.
 
-    subgraph DownloadPhase["Download Phase (Asset Fetching)"]
-        DP["ThreadPoolExecutor (--dl-workers)<br/>CDN Whitelist Bypass<br/>Resumable HTTP Range Streaming"]
-    end
+---
 
-    CrawlPhase -- Passes Qualified Asset URLs --> DownloadPhase
-```
+## 5. Docker Architecture
 
-- **Reentrant Locks**: Shared state updates are protected using reentrant locks (`RLock`) to prevent deadlocks across nested closures.
-- **Thread-Safe Deduplication**: Global deduplication closures maintain normalized URL keys to reject duplicates before network requests are initiated.
+When deploying in containerized environments:
+- Enforces `PUPPETEER_SKIP_DOWNLOAD=true` to prevent redundant Chromium downloads.
+- Symlinks Playwright's Chromium executable for the Node.js bridge to guarantee stealth features operate without conflicts.

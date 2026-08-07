@@ -238,7 +238,7 @@ class CrawlCoordinator:
                                             discovered_links = [
                                                 lnk for lnk in discovered_links
                                                 if (
-                                                    self.rules_manager and self.rules_manager.is_detail_page(lnk, seed_for_host, self.options.keyword, self.options.entity_tokens)
+                                                    self.rules_manager and self.rules_manager.is_detail_page(lnk["url"], seed_for_host, self.options.keyword, self.options.entity_tokens, anchor_text=lnk.get("anchor_text", ""))
                                                 )
                                                 or (
                                                     # Pagination links are legal index nodes for
@@ -248,8 +248,8 @@ class CrawlCoordinator:
                                                     # subject-scoped (same host, share the seed's
                                                     # first path segment). Keeps off-subject
                                                     # pagination (/page/2 site-wide) out.
-                                                    is_pagination_url(lnk)
-                                                    and lnk.startswith(seed_for_host.rstrip("/") + "/")
+                                                    is_pagination_url(lnk["url"])
+                                                    and lnk["url"].startswith(seed_for_host.rstrip("/") + "/")
                                                 )
                                             ]
 
@@ -257,12 +257,12 @@ class CrawlCoordinator:
                                         if self.rules_manager:
                                             discovered_links = [
                                                 lnk for lnk in discovered_links
-                                                if self.rules_manager.link_pattern_allows(lnk, host)
+                                                if self.rules_manager.link_pattern_allows(lnk["url"], host)
                                             ]
                                         
                                         # Enqueue new links
                                         for link in discovered_links:
-                                            normalized_link = normalize_url(link)
+                                            normalized_link = normalize_url(link["url"])
                                             if looks_like_media(normalized_link):
                                                 continue
                                             

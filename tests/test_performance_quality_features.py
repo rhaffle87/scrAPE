@@ -184,7 +184,7 @@ def test_yield_based_domain_filtering():
 
     # Let's populate mock links so crawler has pages to fetch
     # We want 35 pages from unseeded.com
-    pages = [f"https://unseeded.com/page{i}" for i in range(35)]
+    pages = [{"url": f"https://unseeded.com/page{i}", "anchor_text": ""} for i in range(35)]
 
     # Mock discover_links side_effect: return pages for the start page, empty list for others
     engine.search_provider.discover_links_from_content.side_effect = (
@@ -256,7 +256,7 @@ def test_low_yield_domain_filtering_at_30():
     mock_video_scraper.search.return_value = []
     engine.video_scraper = mock_video_scraper
 
-    pages = [f"https://unseeded.com/page{i}" for i in range(35)]
+    pages = [{"url": f"https://unseeded.com/page{i}", "anchor_text": ""} for i in range(35)]
     engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )

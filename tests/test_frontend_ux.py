@@ -171,6 +171,10 @@ def test_ux_modular_components(page_session):
 
 def test_ux_flow_transitions(mock_media_folder, page_session):
     """Test transitions between dashboard views and tabs on sidebar vault clicks."""
+    # Reset page session to ensure fresh DOM state and sidebar HTMX load
+    page_session.reload(wait_until="commit")
+    page_session.wait_for_selector("#command-center-view", state="visible")
+    
     # Verify initial Command Center visibility
     cmd_view = page_session.locator("#command-center-view")
     gallery_view = page_session.locator("#gallery-view")

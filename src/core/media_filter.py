@@ -253,7 +253,13 @@ def rejection_reason_for_image(
                 getattr(item, "parent_anchor_href", ""),
             ]
         ).lower()
-        if not contains_subject_text(
+        
+        is_upscaled = False
+        upscaled_url, orig = transform_to_highres(item.url)
+        if upscaled_url != orig:
+            is_upscaled = True
+            
+        if not is_upscaled and not contains_subject_text(
             asset_text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
         ):
             return "low_subject_relevance"

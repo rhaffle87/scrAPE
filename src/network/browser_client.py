@@ -26,9 +26,8 @@ import typing
 from pathlib import Path
 from urllib.parse import urlparse
 
+import config
 from config import (
-    STEALTH_HEADFUL,
-    FORCE_HEADLESS,
     FLARESOLVERR_URL,
     BROWSER_PROFILE_MAX_AGE_DAYS,
 )
@@ -605,7 +604,7 @@ class BrowserClientMixin:
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
-        headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+        headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
         logger.info("Requesting pooled DrissionPage for %s (headless=%s)", url, headless_mode)
 
@@ -696,7 +695,7 @@ class BrowserClientMixin:
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
-        headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+        headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
         logger.info("Launching Helium for %s (headless=%s)", url, headless_mode)
 
@@ -818,7 +817,7 @@ class BrowserClientMixin:
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
-        headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+        headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
         logger.info(
             "Launching undetected-chromedriver for %s (headless=%s)", url, headless_mode
@@ -1016,9 +1015,9 @@ class BrowserClientMixin:
         is_windows = sys.platform.startswith("win")
         is_macos = sys.platform == "darwin"
         is_local_gui = is_windows or is_macos
-        headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+        headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
-        camou_os = "win" if is_windows else ("mac" if is_macos else "lin")
+        camou_os = "windows" if is_windows else ("mac" if is_macos else "linux")
 
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
@@ -1063,7 +1062,7 @@ class BrowserClientMixin:
         try:
             return _fetch_camou(headless_mode)
         except Exception as exc:
-            if headless_mode and is_local_gui and not FORCE_HEADLESS:
+            if headless_mode and is_local_gui and not config.FORCE_HEADLESS:
                 logger.warning(
                     "\n"
                     "========================================================================\n"
@@ -1099,7 +1098,7 @@ class BrowserClientMixin:
             is_windows = sys.platform.startswith("win")
             is_macos = sys.platform == "darwin"
             is_local_gui = is_windows or is_macos
-            headless_mode = False if (STEALTH_HEADFUL or force_headful) else (True if FORCE_HEADLESS else (not is_local_gui))
+            headless_mode = False if (config.STEALTH_HEADFUL or force_headful) else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
             logger.info("Launching Nodriver for %s (headless=%s, force_headful=%s)", url, headless_mode, force_headful)
 
@@ -1127,7 +1126,7 @@ class BrowserClientMixin:
 
                 content = await page.get_content()
                 if self._is_cloudflare_challenge(content):
-                    if headless_mode and is_local_gui and not FORCE_HEADLESS:
+                    if headless_mode and is_local_gui and not config.FORCE_HEADLESS:
                         logger.warning("Nodriver failed Cloudflare challenge in headless mode. Escalating to headful mode.")
                         raise TimeoutError("Nodriver hit Cloudflare challenge (headless mode).")
                     elif not headless_mode:
@@ -1320,7 +1319,7 @@ class BrowserClientMixin:
             is_windows = sys.platform.startswith("win")
             is_macos = sys.platform == "darwin"
             is_local_gui = is_windows or is_macos
-            headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+            headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
             session_cookies = self.session_manager.load_session(host) or {}
             playwright_cookies = []
@@ -1417,7 +1416,7 @@ class BrowserClientMixin:
             is_windows = sys.platform.startswith("win")
             is_macos = sys.platform == "darwin"
             is_local_gui = is_windows or is_macos
-            headless_mode = False if STEALTH_HEADFUL else (True if FORCE_HEADLESS else (not is_local_gui))
+            headless_mode = False if config.STEALTH_HEADFUL else (True if config.FORCE_HEADLESS else (not is_local_gui))
 
             if not headless_mode:
                 logger.warning(

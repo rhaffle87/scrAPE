@@ -1,99 +1,57 @@
 # Usage Guide — scrAPE
-
 > Comprehensive reference for the scrAPE CLI engine, Interactive Terminal Wizard, and Decoupled WebUI Dashboard.
 
 ---
 
 ## 1. Synopsis
 
+The core entry point for scrAPE is the Python CLI engine. You can invoke it directly or via the global binary wrapper:
+
 ```bash
+# Direct Python invocation
 python src/cli/main.py --keyword <keyword> --seed <path> [options]
-```
 
-Or run via global binary wrapper:
-
-```bash
-scrape
+# Global binary wrapper (if installed via pip install -e .)
+scrape --keyword <keyword> --seed <path> [options]
 ```
 
 ---
 
-## 2. CLI Arguments Reference
+## 2. Standardized Operating Profiles (Examples First)
 
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `--keyword` | `str` | `None` | Keyword query to search for. |
-| `--login` | `str` | `None` | Interactive headful login for the specified domain to save session cookies. |
-| `--inject-cookies` | `str` | `None` | Import a JSON or Netscape `cookies.txt` file. |
-| `--domain` | `str` | `None` | Domain to associate with the injected cookies. |
-| `--max-results` | `int` | `50` (or dynamic) | Maximum number of media items per type to keep. Use 0 for unlimited. |
-| `--output` | `{json,csv,both}` | `json` | Output format. |
-| `--export-db` | flag | `False` | Export scraped results to a SQLite database (`results.db`). |
-| `--export-rag` | flag | `False` | Export chunked text embedding payloads for RAG vector ingestion (`rag_payload.jsonl`). |
-| `--tag-dataset` | flag | `False` | Auto-generate AI caption and tag sidecar `.txt` files for downloaded image datasets. |
-| `--download-media` | flag | `False` | Download discovered media into the output directory. |
-| `--seed-url` | `str[]` | `[]` | Seed page URL to scrape directly. Repeat for multiple URLs. |
-| `--seed-file` | `str` | `None` | Text file containing one seed URL per line. |
-| `--seed-domain` | `str[]` | `[]` | Additional domain roots to treat as in-scope for strict-domain mode. |
-| `--allow-domain` | `str[]` | `[]` | Restrict scraping to these domains. Repeat for multiple domains. |
-| `--block-domain` | `str[]` | `[]` | Skip these domains. Repeat for multiple domains. |
-| `--entity-token` | `str[]` | `[]` | Extra name/entity token to boost relevance scoring. Repeat as needed. |
-| `--skip-search` | flag | `False` | Disable keyword search and only scrape provided seed URLs. |
-| `--page-limit` | `int` | `100` | Maximum number of pages to visit during the crawl. Use 0 for unlimited. |
-| `--crawl-depth` | `int` | `2` | Maximum depth for recursive link traversal. Use 0 for unlimited. |
-| `--strict-domain` | flag | `False` | Keep crawl candidates inside the seed domain set. |
-| `--site-tree-only` | flag | `False` | Keep discovered links within the same seed path subtree. |
-| `--domain-delay` | `str[]` | `[]` | Override the per-domain request rate (e.g. `example.com=3.0`). |
-| `--proxy` | `str` | `None` | A single HTTP/SOCKS proxy URL to use for all requests. |
-| `--proxy-list` | `str` | `None` | A text file containing one proxy URL per line for rotation. |
-| `--captcha-provider` | `str` | `None` | Provider for solving captchas (`capsolver`, `2captcha`, `anticaptcha`). |
-| `--captcha-key` | `str` | `None` | API key for the selected captcha provider. |
-| `--max-captcha-spend` | `float`| `None` | Maximum per-run budget for captcha solving (USD). |
-| `--workers` | `int` | `6` | Number of pages to fetch concurrently. |
-| `--dl-workers` | `int` | `16` | Number of media files to download concurrently. |
-| `--enable-governor` | flag | `False` | Enable dynamic system CPU/RAM load governor to scale worker threads dynamically. |
-| `--dl-speed-limit` | `float`| `0.0` | Maximum total media download bandwidth limit in KB/s (0 = unlimited). |
-| `--rate-limit` | `float`| `0.0` | Maximum global page request rate limit in req/sec (0.0 = unlimited). |
-| `--force-search` | flag | `False` | Force DuckDuckGo keyword search even when a seed file is present. |
-| `--clear-cache` | flag | `False` | Wipe the entire cache directory before starting the crawl. |
-| `--ignore-robots` | flag | `False` | Bypass `robots.txt` rules and fetch all URLs. |
-| `--use-state-cache` | flag | `False` | Use a persistent SQLite state cache to prevent re-crawling URLs across runs. |
-| `--headless` | flag | `False` | Force the browser to run in headless mode. |
-| `--stealth-headful` | flag | `False` | Run stealth browser fallbacks in headful mode (visible browser). |
-| `--validate-seed` | `str` | `None` | Validate the syntax and annotations of the specified seed file, then exit. |
-| `--aesthetic-score` | `float`| `None` | Minimum aesthetic quality score threshold (1.0-10.0) for downloaded images. |
-| `--auto-crop` | flag | `False` | Automatically generate smart face/body-centered cropped images for LoRA training. |
+Depending on your objective, use these pre-tuned profiles designed to maximize throughput while preventing IP bans and system lag:
 
----
+### Profile 1: Tactical WebUI Command Center (Interactive)
+Best for interactive crawling, live visualization, and instant RAG exports.
+- **Launch**: `.\run.bat` (Select Option 1) or `python frontend/app.py`
+- **URL**: `http://localhost:10001`
 
-## 3. Common Execution Commands
-
-### Basic Extraction Run
+### Profile 2: High-Throughput Production CLI Run
+Maximum speed and efficiency for large-scale scrapes.
 ```bash
-python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
+python src/cli/main.py --keyword "architecture" --seed seeds/architecture.txt \
+  --max-results 200 --workers 12 --dl-workers 16 \
+  --page-limit 200 --crawl-depth 2 --download-media \
+  --enable-governor --use-state-cache --headless \
+  --rate-limit 2.0 --dl-speed-limit 5000
 ```
 
-### High-Precision Multi-Token Run
+### Profile 3: Continuous Watchdog Agent (Always-On)
+Long-running background monitoring loop with adaptive backoff.
 ```bash
-python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
-  --entity-token "Apple Inc" --entity-token "iPhone" --entity-token "MacBook" ^
-  --download-media
+.\run_monitor.bat --keyword "architecture" --use-state-cache
 ```
 
-### High-Performance Sweep
+### Profile 4: Automated AI Dataset Curation (ML Workflow)
+Automated pipeline for tagging, cropping, and exporting data for LLM/RAG ingestion.
 ```bash
-python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
-  --max-results 200 --workers 16 --dl-workers 12 ^
-  --page-limit 300 --crawl-depth 3 --download-media
+python src/cli/main.py --keyword "concept art" --seed seeds/art.txt \
+  --download-media --tag-dataset --auto-crop --export-rag \
+  --aesthetic-score 5.5 --use-state-cache
 ```
 
-### Stealth Crawl (Polite Speed)
-```bash
-python src/cli/main.py --keyword apple --seed seeds/apple.txt ^
-  --workers 2 --dl-workers 2 --page-limit 20 --crawl-depth 1 --download-media
-```
-
-### Cookie Injection & Session Authentication
+### Profile 5: Cookie Injection & Session Authentication
+Capture or inject session cookies for WAF bypass.
 ```bash
 # Capture session cookies via interactive login browser
 python src/cli/main.py --login protected-site.com
@@ -104,114 +62,68 @@ python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 
 ---
 
-## 4. Standardized Operating Profiles & Optimization Blueprint
+## 3. CLI Arguments Reference
 
-Depending on your operational objective, scrAPE provides pre-tuned standard operating procedures (SOPs) designed to maximize throughput while preventing IP bans and system lag:
+### Core Arguments
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--keyword` | `str` | `None` | Keyword query to search for. |
+| `--seed-file` | `str` | `None` | Text file containing one seed URL per line (e.g. `seeds/subject.txt`). |
+| `--seed-url` | `str[]` | `[]` | Seed page URL to scrape directly. Repeat for multiple URLs. |
 
-### Profile 1: Tactical WebUI Command Center (Most Convenient & Interactive)
-- **Launch**: `.\run.bat` (select Option 1) or `python frontend/app.py`
-- **URL**: `http://localhost:10001`
-- **Optimal Setup**:
-  - **Workers**: 8 scraper workers / 8 download workers.
-  - **Hardware Governor**: Enabled (scales thread pools 1x to 3x dynamically based on system RAM/CPU).
-  - **State Cache**: Enabled (`--use-state-cache`).
-- **Best Used For**: Interactive crawling, live Canvas visualization, node inspection, process controls, and instant LoRA/RAG dataset exports.
+### Limits & Scope
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--max-results` | `int` | `50` | Maximum media items per type to keep (0 = unlimited). |
+| `--page-limit` | `int` | `100` | Maximum pages to visit during the crawl (0 = unlimited). |
+| `--crawl-depth` | `int` | `2` | Maximum depth for recursive link traversal (0 = unlimited). |
+| `--strict-domain` | flag | `False` | Keep crawl candidates inside the seed domain set. |
+| `--site-tree-only` | flag | `False` | Keep discovered links within the same seed path subtree. |
+| `--allow-domain` | `str[]` | `[]` | Restrict scraping to these domains. |
+| `--block-domain` | `str[]` | `[]` | Skip these domains. |
 
-### Profile 2: High-Throughput Production CLI Run (Maximum Speed & Efficiency)
-- **Launch Command**:
-  ```powershell
-  python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
-    --max-results 200 --workers 12 --dl-workers 16 ^
-    --page-limit 200 --crawl-depth 2 --download-media ^
-    --enable-governor --use-state-cache --headless
-  ```
-- **Safety Guardrails**: Add `--rate-limit 2.0` (req/s) and `--dl-speed-limit 5000` (KB/s) to prevent host 429 throttling and home network bandwidth saturation.
+### Concurrency & Throttling
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--workers` | `int` | `6` | Number of pages to fetch concurrently. |
+| `--dl-workers` | `int` | `16` | Number of media files to download concurrently. |
+| `--enable-governor` | flag | `False` | Enable dynamic system CPU/RAM load governor to scale worker threads. |
+| `--dl-speed-limit` | `float`| `0.0` | Max total media download bandwidth limit in KB/s (0 = unlimited). |
+| `--rate-limit` | `float`| `0.0` | Max global page request rate limit in req/sec (0.0 = unlimited). |
+| `--domain-delay` | `str[]` | `[]` | Override the per-domain request rate (e.g. `example.com=3.0`). |
 
-### Profile 3: Continuous Watchdog Agent (Always-On Background Monitoring)
-- **Launch Command**: `.\run_monitor.bat --keyword "<subject>" --use-state-cache`
-- **Key Features**:
-  - Automatically monitors `seeds/<subject>.txt` for hot-reloaded URL additions.
-  - Uses exponential adaptive backoff during low-yield cycles.
-  - Persists processed URLs to `output/cache/state_cache.db` with composite SQLite indexes.
-  - Dispatches Telegram Bot alerts upon run completion or WAF escalation events.
+### ML, AI & Export Options
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--download-media` | flag | `False` | Download discovered media into the output directory. |
+| `--output` | `enum` | `json` | Output format (`json`, `csv`, `both`). |
+| `--export-db` | flag | `False` | Export scraped results to a SQLite database (`results.db`). |
+| `--export-rag` | flag | `False` | Export chunked text embeddings (`rag_payload.jsonl`). |
+| `--tag-dataset` | flag | `False` | Auto-generate AI caption/tag sidecar `.txt` files for images. |
+| `--auto-crop` | flag | `False` | Generate smart cropped images for LoRA training. |
+| `--aesthetic-score`| `float`| `None` | Minimum aesthetic quality score threshold (1.0-10.0). |
 
-### Profile 4: Automated AI Dataset Curation & RAG Pipeline (ML Workflow)
-- **Launch Command**:
-  ```powershell
-  python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
-    --download-media --tag-dataset --auto-crop --export-rag ^
-    --aesthetic-score 5.5 --use-state-cache
-  ```
-- **Automated Pipeline Stages**:
-  1. **Crawl & Download**: Assets fetched and sanitized via Pillow.
-  2. **WD14 Auto-Tagging**: Generates `.txt` sidecar files (`landscape`, `portrait`, `highres`).
-  3. **Smart Aspect Cropping**: Center-crops images to target training resolutions ($1024 \times 1024$).
-  4. **Aesthetic Quality Gate**: Filters out items below `min_score: 5.5`.
-  5. **RAG Vector Export**: Chunks text into `rag_payload.jsonl` for vector embedding ingestion.
+### Stealth, Proxy & CAPTCHA
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--headless` | flag | `False` | Force the browser to run in headless mode. |
+| `--stealth-headful`| flag | `False` | Run stealth browser fallbacks in headful mode (visible browser). |
+| `--proxy` | `str` | `None` | A single HTTP/SOCKS proxy URL. |
+| `--proxy-list` | `str` | `None` | A text file containing one proxy URL per line for rotation. |
+| `--captcha-provider`| `str` | `None` | CAPTCHA provider (`capsolver`, `2captcha`, `anticaptcha`). |
+| `--captcha-key` | `str` | `None` | API key for the selected captcha provider. |
 
-
-### Docker Execution
-```bash
-# Build the container (PUPPETEER_SKIP_DOWNLOAD=true is automatically handled in the Dockerfile)
-docker build -t scrape-engine .
-
-# Run the interactive Command Center
-docker run -p 10001:10001 scrape-engine
-
-# Run a CLI sweep via Docker
-docker run -v ${PWD}/output:/app/output scrape-engine python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
-```
-
----
-
-## 4. Interactive Terminal Wizard & AI Fuel Tools
-
-Launch the interactive CLI wizard:
-
-```bash
-python src/cli/cli_wizard.py
-```
-
-The terminal wizard provides guided menus for scraping, continuous watchdog scheduling, and downstream AI dataset preparation:
-
-1. **Broad Search Scraping** — Performs automated search queries and recursive crawling.
-2. **Targeted Manifest Scraping** — Runs structured crawls against selected seed manifests.
-3. **Continuous Watchdog Agent** — Launches long-running monitoring loops (`monitor_agent.py`) using persistent SQLite WAL caching to process target sites on a set schedule.
-4. **Create Structured AI Dataset** — Packages completed run output into consolidated structures:
-   - *Consolidated Flat*: All files copied into one folder with domain prefixes.
-   - *Domain-Grouped*: Subdirectories per origin domain.
-   - *Media-Type Grouped*: Separate `/images` and `/videos` directories.
-5. **Enterprise LLM RAG Ingestion** — Extracts page titles, alt texts, image contexts, and URLs into clean formats ready for vector indexing:
-   - *Single Consolidated Markdown Document*
-   - *Chunked Page-Level `.md` Files* (ideal for RAG document splitters)
-   - *JSONL Embeddings Format*
+### State & Cache
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--use-state-cache`| flag | `False` | Use persistent SQLite WAL cache to prevent re-crawling URLs. |
+| `--clear-cache` | flag | `False` | Wipe the entire cache directory before starting the crawl. |
 
 ---
 
-## 5. Master Launcher & Dashboard Startup
+## 4. Output Directory Structure & Manifest Schema
 
-```powershell
-# Unified Interactive Master Launcher (Menu: WebUI, Wizard, Auth Login, Autostart, Global Install)
-.\run.bat
-
-# Continuous Watchdog Monitoring Agent
-.\run_monitor.bat --keyword "<subject>" --use-state-cache
-```
-
-Open `http://localhost:10001` in your browser.
-
-### Key WebUI Features
-
-- **Command Center Dashboard**: Configure parameters, select preset profile slots (Slot 1–5), toggle Instant Unlimited mode, and view live OS telemetry (CPU, RAM, Disk).
-- **Option C Context-Aware Statistics**: Telemetry cards display global totals on the Command Center and automatically switch to subject-scoped counts when viewing a subject in the Media Vault (including a `/ N total` global comparison sub-line).
-- **Media Vault Gallery**: Browse downloaded assets grouped recursively by domain. Directly delete unwanted files or open their containing folder on disk via HTMX.
-- **Hardware Safety Threshold Warnings**: Client-side validator alerts users if worker settings exceed safe bounds (>16 scrapers, >24 download threads).
-- **Live Resizable Terminal Console**: Real-time progress streaming with severity color-coding and progress bar formatting.
-- **System Tray Management**: Runs as a background taskbar tray application (`launcher.py`) with status indicator menu options.
-
----
-
-## 6. Output Directory Structure & Manifest Schema
+All runs are organized cleanly into the `output/` directory:
 
 ```text
 output/{keyword_slug}/runs/{run_id}/
@@ -240,3 +152,18 @@ output/{keyword_slug}/runs/{run_id}/
 | `videos` | `list[dict]` | Kept video items with resolution hints and disk paths |
 | `rejected_items` | `list[dict]` | Items filtered out with score and rejection reasons |
 | `domain_stats` | `dict` | Per-domain stats (pages scanned, kept, rejected, error counts) |
+
+---
+
+## 5. Docker Execution
+
+```bash
+# Build the container (PUPPETEER_SKIP_DOWNLOAD=true is automatically handled in the Dockerfile)
+docker build -t scrape-engine .
+
+# Run the interactive Command Center WebUI
+docker run -p 10001:10001 scrape-engine
+
+# Run a CLI sweep via Docker (mounting output to host)
+docker run -v ${PWD}/output:/app/output scrape-engine python src/cli/main.py --keyword apple --seed seeds/apple.txt --download-media
+```

@@ -263,7 +263,7 @@ class SearchProviderScraper(BaseSearchScraper):
         content_type: str,
         allow_domains: list[str] | None = None,
         block_domains: list[str] | None = None,
-    ) -> list[str]:
+    ) -> list[dict]:
         from core.filters import (
             absolutize_url,
             is_http_url,
@@ -273,7 +273,7 @@ class SearchProviderScraper(BaseSearchScraper):
 
         allow_domains = allow_domains or []
         block_domains = block_domains or []
-        links: list[str] = []
+        links: list[dict] = []
 
         if "application/json" in content_type:
             try:
@@ -291,7 +291,7 @@ class SearchProviderScraper(BaseSearchScraper):
                             try:
                                 absolute = normalize_url(absolutize_url(candidate, url))
                                 if not absolute.lower().endswith(tuple(IMAGE_EXTENSIONS)) and not absolute.lower().endswith(tuple(VIDEO_EXTENSIONS)):
-                                    links.append(absolute)
+                                    links.append({"url": absolute, "anchor_text": ""})
                             except Exception as exc:
                                 LOGGER.debug("Failed normalizing JSON candidate link: %s", exc)
 
@@ -304,10 +304,10 @@ class SearchProviderScraper(BaseSearchScraper):
         return [
             link
             for link in links
-            if is_allowed_domain(link, allow_domains, block_domains) and is_allowed_path(link)
+            if is_allowed_domain(link["url"], allow_domains, block_domains) and is_allowed_path(link["url"])
         ]
 
-    def _extract_page_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
+    def _extract_page_links(self, soup: BeautifulSoup, page_url: str) -> list[dict]:
         from core.filters import (
             absolutize_url,
             is_cdn_asset_domain,
@@ -317,12 +317,23 @@ class SearchProviderScraper(BaseSearchScraper):
             is_allowed_path,
         )
 
-        links: list[str] = []
+        links: list[dict] = []
         seen: set[str] = set()
         current_host = urlparse(page_url).netloc.lower()
         for element in soup.find_all(["a", "iframe", "embed", "link"]):
             if not isinstance(element, Tag):
                 continue
+                
+            # DOM Boundary Filtering: Skip links in structural exclusion zones (sidebars, footers, etc.)
+            if element.find_parent(["nav", "aside", "footer", "header"]):
+                continue
+            
+            import re
+            if element.find_parent(class_=re.compile(r"sidebar|related|widget|footer|header|nav|menu|comments", re.I)):
+                continue
+            if element.find_parent(id=re.compile(r"sidebar|related|widget|footer|header|nav|menu|comments", re.I)):
+                continue
+                
             href = _get_attr_str(element, "href") or _get_attr_str(element, "src") or _get_attr_str(element, "data-href")
             if not href:
                 continue
@@ -341,9 +352,14 @@ class SearchProviderScraper(BaseSearchScraper):
             if absolute_url in seen:
                 continue
             seen.add(absolute_url)
-            links.append(absolute_url)
+            anchor_text = element.get_text(separator=" ", strip=True).lower()
+            if not anchor_text:
+                img_tag = element.find("img")
+                if img_tag and isinstance(img_tag, Tag):
+                    anchor_text = _get_attr_str(img_tag, "alt", "").strip().lower()
+            links.append({"url": absolute_url, "anchor_text": anchor_text})
 
-        links.sort(key=self._link_priority)
+        links.sort(key=lambda x: self._link_priority(x["url"]))
         return links
 
     def discover_links(
@@ -353,7 +369,7 @@ class SearchProviderScraper(BaseSearchScraper):
         block_domains: list[str] | None = None,
         keyword: str | None = None,
         entity_tokens: list[str] | None = None,
-    ) -> list[str]:
+    ) -> list[dict]:
         from core.filters import looks_like_media
 
         if looks_like_media(url):
@@ -408,15 +424,15 @@ class SearchProviderScraper(BaseSearchScraper):
                                     ) and not absolute.lower().endswith(
                                         tuple(VIDEO_EXTENSIONS)
                                     ):
-                                        links.append(absolute)
+                                        links.append({"url": absolute, "anchor_text": ""})
                                 except Exception as exc:
                                     LOGGER.debug("Failed normalizing candidate link in search: %s", exc)
 
                     return [
                         link
                         for link in links
-                        if is_allowed_domain(link, allow_domains, block_domains)
-                        and is_allowed_path(link)
+                        if is_allowed_domain(link["url"], allow_domains, block_domains)
+                        and is_allowed_path(link["url"])
                     ]
                 except Exception as exc:
                     LOGGER.warning(
@@ -429,8 +445,8 @@ class SearchProviderScraper(BaseSearchScraper):
             return [
                 link
                 for link in links
-                if is_allowed_domain(link, allow_domains, block_domains)
-                and is_allowed_path(link)
+                if is_allowed_domain(link["url"], allow_domains, block_domains)
+                and is_allowed_path(link["url"])
             ]
         except Exception as exc:
             exc_str = str(exc).lower()

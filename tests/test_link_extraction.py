@@ -12,7 +12,7 @@ def test_extract_page_links_returns_absolute_internal_links() -> None:
 
     links = scraper._extract_page_links(soup, "https://example.com/home")
 
-    assert links == ["https://example.com/about", "https://example.com/contact"]
+    assert links == [{"url": "https://example.com/about", "anchor_text": "about"}, {"url": "https://example.com/contact", "anchor_text": "contact"}]
 
 
 def test_extract_page_links_skips_media_links() -> None:
@@ -24,7 +24,7 @@ def test_extract_page_links_skips_media_links() -> None:
 
     links = scraper._extract_page_links(soup, "https://example.com/home")
 
-    assert links == ["https://example.com/about"]
+    assert links == [{"url": "https://example.com/about", "anchor_text": "about"}]
 
 
 def test_discover_links_skips_media() -> None:

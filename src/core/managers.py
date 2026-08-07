@@ -180,6 +180,7 @@ class DomainRulesManager:
         seed_page: str,
         keyword_or_entity: str | list[str] | None = None,
         entity_tokens: list[str] | None = None,
+        anchor_text: str = "",
     ) -> bool:
         """
         Return True if *link* is a concrete detail page relative to *seed_page*.
@@ -445,6 +446,40 @@ class DomainRulesManager:
                 )
             ):
                 return False
+
+        # Fast-Fail Sibling Gallery Rejection:
+        # If we are on ANY page and discover a link to the same host,
+        # but the path does not contain the subject token and it's NOT a pagination link,
+        # check the anchor text. If the anchor text also doesn't contain the token,
+        # we reject it, UNLESS the seed is already an opaque search seed or we have no tokens.
+        # But we only apply this strictness if we HAVE tokens and it's a same-host link.
+        if all_tokens and urlparse(link).netloc.lower() == seed_parsed.netloc.lower():
+            normalized_link_path = link_path.lower()
+            
+            # If the path has the token, it's fine.
+            path_has_token = contains_subject_text(normalized_link_path, keyword, entity_tokens)
+            
+            # If the anchor has the token, it's fine.
+            anchor_has_token = False
+            if anchor_text:
+                anchor_has_token = contains_subject_text(anchor_text, keyword, entity_tokens)
+                
+            # Allow pagination and root
+            is_pag_or_root = any(p in normalized_link_path for p in {"/page/", "/p/", "/pg/"}) or normalized_link_path == ""
+
+            # If neither the path nor the anchor text indicates relevance, and it's not a generic listing/pagination,
+            # we reject it to prevent wandering into unrelated galleries.
+            if not path_has_token and not anchor_has_token and not is_pag_or_root:
+                # One exception: if the URL is an opaque post ID (e.g. /post/12345) and anchor_text is completely empty
+                # (e.g. a naked image link without alt text), we might want to allow it if it's on a known profile.
+                # But to be strict and improve yield, if there's no evidence it's relevant, we drop it.
+                
+                # To prevent breaking sites where everything is opaque, we only apply this strict filter 
+                # if the seed page ITSELF had the token in the URL. If the seed didn't have the token in the URL,
+                # then we must be on a site that relies on opaque URLs, so we shouldn't strictly block them.
+                seed_has_token = contains_subject_text(seed_path.lower(), keyword, entity_tokens)
+                if seed_has_token:
+                    return False
 
         return True
 

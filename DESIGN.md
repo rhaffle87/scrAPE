@@ -1,5 +1,4 @@
 # Design System: scrAPE Tactical Dashboard
-
 > Source of truth for the visual design language, component specs, typography, and UI guidelines for the **scrAPE** web user interface.
 
 ---

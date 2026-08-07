@@ -320,11 +320,12 @@ class MediaDownloader:
                     reason_dir.mkdir(parents=True, exist_ok=True)
                     prefix = self._build_file_stem(idx, "rejected")
                     # item.kind should be "image" or "video", fallback to "image"
+                    media_kind = item.kind if hasattr(item, "kind") else "image"
                     rejected_tasks.append((
                         item.url,
                         reason_dir,
                         prefix,
-                        item.kind if hasattr(item, "kind") else "image",
+                        f"rejected_{media_kind}",
                         item.source_page,
                         item.url,
                     ))
@@ -500,6 +501,10 @@ class MediaDownloader:
                 url,
             )
             return False, {"reason": "low_resolution"}
+        is_rejected = False
+        if media_kind.startswith("rejected_"):
+            is_rejected = True
+            media_kind = media_kind.replace("rejected_", "", 1)
 
         from config import OUTPUT_DIR  # noqa: F401 — kept for potential future use
 
@@ -762,14 +767,14 @@ class MediaDownloader:
 
                 if media_kind == "image":
                     w, h = get_image_dimensions(content)
-                    if w is not None and h is not None:
+                    if w is not None and h is not None and not is_rejected:
                         limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
                         limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
                         if w < limit_w or h < limit_h:
                             LOGGER.info("Skipping low-resolution image asset %s (%dx%d)", url, w, h)
                             temp_target.unlink(missing_ok=True)
                             return False, {"reason": "low_resolution"}
-                    elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+                    elif suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif"} and not is_rejected:
                         LOGGER.info("Skipping image with unparseable dimensions %s", url)
                         temp_target.unlink(missing_ok=True)
                         return False, {"reason": "unparseable_dimensions"}
@@ -782,7 +787,7 @@ class MediaDownloader:
                         _process_image_cpu_bound,
                         str(temp_target),
                         str(target),
-                        self.min_aesthetic_score
+                        self.min_aesthetic_score if not is_rejected else None
                     )
                     proc_res = future.result()
 

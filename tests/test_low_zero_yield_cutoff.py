@@ -35,7 +35,7 @@ def test_consecutive_failures_circuit_breaker(mock_gov_time, mock_coord_time):
     engine.video_scraper = mock_video_scraper
 
     # Enqueue 10 pages for test-fail.com
-    pages = [f"https://test-fail.com/page{i}" for i in range(10)]
+    pages = [{"url": f"https://test-fail.com/page{i}", "anchor_text": ""} for i in range(10)]
     engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )
@@ -101,7 +101,7 @@ def test_auth_wall_redirect_cutoff():
     mock_video_scraper.search.return_value = []
     engine.video_scraper = mock_video_scraper
 
-    pages = [f"https://auth-wall.com/page{i}" for i in range(10)]
+    pages = [{"url": f"https://auth-wall.com/page{i}", "anchor_text": ""} for i in range(10)]
     engine.search_provider.discover_links_from_content.side_effect = (
         lambda url, *args, **kwargs: pages if "start" in url else []
     )

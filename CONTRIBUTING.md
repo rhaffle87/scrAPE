@@ -1,17 +1,9 @@
 # Contributing Guidelines — scrAPE
+> Development setup, coding standards, testing requirements, and pull request workflows for scrAPE.
 
-Thank you for contributing to **scrAPE**! This guide outlines development setup, coding standards, testing requirements, and pull request workflows.
+Thank you for contributing to **scrAPE**! 
 
----
-
-## 1. Getting Started
-
-### Prerequisites
-- Python 3.10+ (Python 3.12/3.13 supported)
-- Node.js 18+ and `npm` (for `crawlee_bridge`)
-- Git
-
-### Development Environment Setup
+## Quick Start (Development Setup)
 
 1. **Clone the repository and create a feature branch**:
    ```bash
@@ -47,35 +39,35 @@ Thank you for contributing to **scrAPE**! This guide outlines development setup,
    pytest
    ```
 
----
-
-## 2. Code Style & Architecture Standards
+## Code Style & Architecture Standards
 
 ### Python Guidelines
-- **Python Compatibility**: Maintain strict compatibility with Python 3.10+. Avoid deprecated APIs (e.g. use `subprocess.run(..., shell=True)` instead of `os.system`).
+- **Python Compatibility**: Maintain strict compatibility with Python 3.10+. Avoid deprecated APIs (e.g., use `subprocess.run(..., shell=True)` instead of `os.system`).
 - **Type Annotations**: Use modern Python type hints (`str | None`, `list[dict]`, `Any`).
 - **Docstrings & Comments**: Maintain existing docstrings and write clear explanations for non-obvious business logic. Avoid redundant "what" comments on self-explanatory lines.
 - **Error Logging**: Inspect full log tracebacks before diagnosing runtime errors. Never swallow exceptions or patch symptoms by deleting failing assertions.
 
 ### Core Engine & File Path Rules
-- **No Hardcoded URLs**: Never hardcode domain-specific URL normalisation regex rules in Python source files. Add all domain regex canonicalisation rules to `data/url_normalisation_rules.json`.
+
+> [!CAUTION]
+> **No Hardcoded URLs**: Never hardcode domain-specific URL normalisation regex rules in Python source files. Add all domain regex canonicalisation rules to `data/url_normalisation_rules.json`.
+
 - **Decoupled Architecture**: Keep CLI logic (`src/cli/`), Core Engine (`src/core/`), Extractor Plugins (`src/plugins/`), and WebUI (`frontend/`) cleanly isolated.
 - **`None`-Safety**: Use `filters.safe_join()` when concatenating string fields that may contain `None`.
 
----
-
-## 3. Security & Static Analysis Standards
+## Security & Static Analysis Standards
 
 We enforce strict security rules that govern how code interacts with the filesystem. Our CI/CD pipeline runs enterprise CodeQL static analysis, and we have a **zero-tolerance policy** for manual suppression of security warnings.
 
-### Strict Ban on `# codeql` Suppressions
-Do **NOT** use `# codeql[py/path-injection]` or similar suppression comments to bypass static analysis warnings. If CodeQL flags a vulnerability, it must be resolved via structural mitigation.
+> [!IMPORTANT]
+> **Strict Ban on `# codeql` Suppressions**
+> Do **NOT** use `# codeql[py/path-injection]` or similar suppression comments to bypass static analysis warnings. If CodeQL flags a vulnerability, it must be resolved via structural mitigation.
 
 ### Path-Injection Mitigations
-When resolving paths or accessing the filesystem based on user-provided input (e.g. processing URLs, generating filenames, creating datasets), you must mathematically prove to the analyzer that the resulting path cannot traverse outside a safe root directory.
+When resolving paths or accessing the filesystem based on user-provided input, you must mathematically prove to the analyzer that the resulting path cannot traverse outside a safe root directory.
 
 Follow this standard pattern:
-1. **Untainted Root Generation**: Dynamically rebuild the base drive or root prefix directly from the OS so that it is guaranteed untainted.
+1. **Untainted Root Generation**: Dynamically rebuild the base drive or root prefix directly from the OS.
 2. **Absolute Normalization**: Force the input path through `os.path.abspath(os.path.normpath(user_input))`.
 3. **Prefix Boundary Enforcement**: Check that the normalized path strictly begins with the safe root using `.startswith(safe_root)`.
 
@@ -101,17 +93,13 @@ def process_file(user_provided_path: str):
         pass
 ```
 
----
-
-## 4. Background Daemons & Thread Lifecycle
+## Background Daemons & Thread Lifecycle
 
 Any background threads or daemons (like WAF fallback orchestrators) must handle graceful shutdowns cleanly.
 - Use `self._running` flags checked inside an interruptible loop (e.g., `event.wait(1)` or `time.sleep(1)`) rather than large blocking sleeps.
 - Silently trap `ValueError` (`I/O operation on closed file`) when the Python interpreter tears down the `sys.stdout` or `sys.stderr` streams, especially during `pytest` teardown. Do not clutter CI logs with zombie thread stack traces.
 
----
-
-## 5. Testing Requirements
+## Testing Requirements
 
 All bug fixes, scraper enhancements, and new feature additions must include unit or integration test scripts under `tests/`.
 
@@ -125,15 +113,13 @@ pytest tests/test_enhanced_features.py -v
 ```
 
 ### Key Test Categories
-- `tests/test_enhanced_features.py` — Dynamic layout container parsing, dimension filtering, JSON API discovery, and Crawl4AI fallback verification.
-- `tests/test_stealth_cookie_sync.py` — In-memory WAF cookie propagation, SessionPool sync, and REST engine metrics verification.
-- `tests/test_stealth_circuit_breaker.py` — 429 rate limit circuit breaker and stealth escalation logic.
-- `tests/test_download_retries.py` — Multi-threaded downloader stream range request resumptions.
-- `tests/test_env_and_docs.py` — Credential loading, format validation, and `.gitignore` safeguards.
+- `tests/test_enhanced_features.py` — Dynamic layout parsing, JSON API discovery, Crawl4AI fallback verification.
+- `tests/test_stealth_cookie_sync.py` — In-memory WAF cookie propagation, SessionPool sync.
+- `tests/test_stealth_circuit_breaker.py` — 429 rate limit circuit breaker logic.
+- `tests/test_download_retries.py` — Multi-threaded downloader stream Range request resumptions.
+- `tests/test_env_and_docs.py` — Credential loading, `.gitignore` safeguards.
 
----
-
-## 6. Documentation Updates
+## Documentation Updates
 
 Whenever you make changes to core functionality, CLI flags, seed annotations, or WebUI behavior, you **must update the relevant documentation files**:
 
@@ -146,9 +132,7 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 | Web UI styling or component guidelines | `DESIGN.md` |
 | Release changes and version history | `docs/CHANGELOG.md` |
 
----
-
-## 7. Pull Request Checklist
+## Pull Request Checklist
 
 Before submitting your pull request:
 

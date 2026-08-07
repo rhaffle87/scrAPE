@@ -167,9 +167,9 @@ def test_json_api_link_discovery():
 
     # img.jpg is an image, next and related are links
     # So discovered links should contain next and related, but NOT the image itself
-    assert "https://example.com/api?page=2" in links
-    assert "https://example.com/related-page" in links
-    assert "https://example.com/img.jpg" not in links
+    assert "https://example.com/api?page=2" in [l["url"] for l in links]
+    assert "https://example.com/related-page" in [l["url"] for l in links]
+    assert "https://example.com/img.jpg" not in [l["url"] for l in links]
 
 
 def test_strict_subject_narrowing():
