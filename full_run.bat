@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 echo ========================================================
 echo [!] Wiping cache for clean diagnostic run...
 echo ========================================================
-python src\cli\main.py --clear-cache
+if exist "output\cache" rmdir /s /q "output\cache"
 
 for %%F in (seeds\*.txt) do (
     set "filename=%%~nF"
@@ -16,7 +16,7 @@ for %%F in (seeds\*.txt) do (
     echo ========================================================
     
     python src\cli\main.py --keyword "!filename!" --seed-file "!filepath!" ^
-        --max-results 1000 ^
+        --max-results 0 ^
         --page-limit 500 ^
         --crawl-depth 3 ^
         --workers 8 ^

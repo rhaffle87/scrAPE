@@ -4066,10 +4066,12 @@
                                 }
 
                                 if (isPollingLogs) {
-                                    clearInterval(pollLogsInterval);
-                                    isPollingLogs = false;
-                                    document.getElementById('log-speed-indicator').innerText = "IDLE";
-                                    htmx.trigger(document.getElementById('sidebar-list'), 'load');
+                                    pollLogs().then(() => {
+                                        clearInterval(pollLogsInterval);
+                                        isPollingLogs = false;
+                                        document.getElementById('log-speed-indicator').innerText = "IDLE";
+                                        htmx.trigger(document.getElementById('sidebar-list'), 'load');
+                                    });
                                 }
                             }
                         }
