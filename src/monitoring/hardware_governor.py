@@ -72,15 +72,15 @@ class HardwareLoadGovernor:
                 self.disk_critical = disk_avail_pct < self.min_disk_percent
                 
                 if self.disk_critical and not self._disk_alert_sent:
-                    LOGGER.critical("🚨 DISK SPACE CRITICAL: Only %.1f%% free. Downloads will be paused.", disk_avail_pct)
+                    LOGGER.critical("[CRITICAL] DISK SPACE CRITICAL: Only %.1f%% free. Downloads will be paused.", disk_avail_pct)
                     try:
                         from notifications.notification_manager import NotificationPipeline
-                        NotificationPipeline().notify_watchdog_status(f"🚨 <b>DISK SPACE CRITICAL</b>\nOnly {disk_avail_pct:.1f}% free space remaining. Downloads are paused until space is freed.")
+                        NotificationPipeline().notify_watchdog_status(f"[CRITICAL] <b>DISK SPACE CRITICAL</b>\nOnly {disk_avail_pct:.1f}% free space remaining. Downloads are paused until space is freed.")
                         self._disk_alert_sent = True
                     except Exception:
                         pass
                 elif not self.disk_critical and was_critical:
-                    LOGGER.info("✅ Disk space recovered to %.1f%%. Resuming downloads.", disk_avail_pct)
+                    LOGGER.info("[Disk space recovered] to %.1f%%. Resuming downloads.", disk_avail_pct)
                     self._disk_alert_sent = False
                     
                 self._last_poll_time = now

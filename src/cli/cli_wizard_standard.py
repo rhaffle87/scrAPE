@@ -132,7 +132,7 @@ def validate_number(val: str):
     return True, ""
 
 
-def load_subject_profiles(profile_path: str = "src/config/subject_profiles.json") -> dict:
+def load_subject_profiles(profile_path: str = "data/subject_profiles.json") -> dict:
     """Load subject profile presets from JSON configuration file."""
     import json
     try:

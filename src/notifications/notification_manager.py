@@ -489,7 +489,7 @@ class SMTPNotifier(BaseNotifier):
     ) -> bool:
         subject = f"[scrAPE Alert] Run Complete: {keyword}"
         html = f"""
-        <h2>✅ scrAPE Run Complete</h2>
+        <h2>[DONE] scrAPE Run Complete</h2>
         <p><b>Keyword:</b> <code>{keyword}</code></p>
         <p><b>Duration:</b> {duration_s:.1f}s</p>
         <ul>
@@ -503,7 +503,7 @@ class SMTPNotifier(BaseNotifier):
 
     def notify_waf_block(self, domain: str, cooldown_s: int, strategy_name: str = "") -> bool:
         subject = f"[scrAPE Alert] WAF Block on {domain}"
-        html = f"<h2>⚠️ WAF Challenge Block</h2><p><b>Domain:</b> {domain}</p><p><b>Cooldown:</b> {cooldown_s}s</p>"
+        html = f"<h2>[WARNING] WAF Challenge Block</h2><p><b>Domain:</b> {domain}</p><p><b>Cooldown:</b> {cooldown_s}s</p>"
         return self._send_email(subject, html)
 
     def notify_run_start(
@@ -511,17 +511,17 @@ class SMTPNotifier(BaseNotifier):
         max_results: int = 0, workers: int = 0, page_limit: int = 0, crawl_depth: int = 0,
     ) -> bool:
         subject = f"[scrAPE Alert] Run Started: {keyword}"
-        html = f"<h2>🚀 scrAPE Run Started</h2><p><b>Keyword:</b> {keyword}</p><p><b>Seeds:</b> {seed_count}</p>"
+        html = f"<h2>[START] scrAPE Run Started</h2><p><b>Keyword:</b> {keyword}</p><p><b>Seeds:</b> {seed_count}</p>"
         return self._send_email(subject, html)
 
     def notify_run_error(self, keyword: str, error_msg: str) -> bool:
         subject = f"[scrAPE Error] Run Error: {keyword}"
-        html = f"<h2>❌ scrAPE Run Error</h2><p><b>Keyword:</b> {keyword}</p><pre>{error_msg}</pre>"
+        html = f"<h2>[ERROR] scrAPE Run Error</h2><p><b>Keyword:</b> {keyword}</p><pre>{error_msg}</pre>"
         return self._send_email(subject, html)
 
     def notify_captcha_solved(self, domain: str, solver_name: str, cost: float = 0.0) -> bool:
         subject = f"[scrAPE Alert] Captcha Solved: {domain}"
-        html = f"<h2>🔓 Captcha Solved</h2><p><b>Domain:</b> {domain}</p><p><b>Solver:</b> {solver_name}</p><p><b>Cost:</b> ${cost:.4f}</p>"
+        html = f"<h2>[UNLOCK] Captcha Solved</h2><p><b>Domain:</b> {domain}</p><p><b>Solver:</b> {solver_name}</p><p><b>Cost:</b> ${cost:.4f}</p>"
         return self._send_email(subject, html)
 
 

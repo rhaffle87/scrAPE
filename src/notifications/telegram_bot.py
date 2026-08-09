@@ -3,6 +3,7 @@ import os
 import random
 import threading
 import time
+import json
 from typing import Any
 import requests
 
@@ -84,10 +85,10 @@ class TelegramBotNotifier:
         mins, secs = divmod(int(duration_s), 60)
         dur_str = f"{mins}m {secs}s" if mins else f"{secs}s"
         text = (
-            f"\u2705 <b>scrAPE Run Complete</b>\n\n"
+            f"[OK] <b>scrAPE Run Complete</b>\n\n"
             f"<b>Keyword:</b> <code>{keyword}</code>\n"
             f"<b>Duration:</b> {dur_str}\n"
-            f"<b>Pages:</b> {pages} | \U0001f5bc Images: {images} | \U0001f3ac Videos: {videos}"
+            f"<b>Pages:</b> {pages} | [IMG] Images: {images} | [VID] Videos: {videos}"
         )
         if extra_text:
             text += f"\n\n{extra_text}"
@@ -121,7 +122,7 @@ class TelegramBotNotifier:
             names = ", ".join(f"<code>{d}</code>" for d in shown)
             domain_line = f"\n<b>Seeds:</b> {names}" + (f" +{extra} more" if extra else "")
         text = (
-            f"\U0001f680 <b>scrAPE Run Started</b>\n\n"
+            f"[START] <b>scrAPE Run Started</b>\n\n"
             f"<b>Keyword:</b> <code>{keyword}</code>\n"
             f"<b>Seed URLs:</b> {seed_count}{domain_line}\n"
             f"<b>Max Results:</b> {max_results} | <b>Workers:</b> {workers}\n"
@@ -131,11 +132,13 @@ class TelegramBotNotifier:
 
     def notify_run_error(self, keyword: str, error_msg: str) -> bool:
         """Send error alert when a run crashes with an unhandled exception."""
-        trimmed = error_msg[:400] + "\u2026" if len(error_msg) > 400 else error_msg
+        trimmed = error_msg[:400] + "..." if len(error_msg) > 400 else error_msg
+        import html
+        escaped_err = html.escape(trimmed)
         text = (
-            f"\u274c <b>scrAPE Run Error</b>\n\n"
+            f"[ERROR] <b>scrAPE Run Error</b>\n\n"
             f"<b>Keyword:</b> <code>{keyword}</code>\n"
-            f"<b>Error:</b> <pre>{trimmed}</pre>"
+            f"<b>Error:</b> <pre>{escaped_err}</pre>"
         )
         return self.send_message(text)
 
@@ -163,6 +166,8 @@ class TelegramCommandHandler:
     def stop(self) -> None:
         """Stop command polling thread."""
         self._running = False
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=6.0)
 
     def _poll_loop(self) -> None:
         url = f"{self.notifier.api_url}/getUpdates"
@@ -196,11 +201,11 @@ class TelegramCommandHandler:
         if data == "confirm_stop":
             self.task_state["stop_requested"] = True
             self.notifier.answer_callback_query(cb_id, "Stop request confirmed")
-            self.notifier.send_message("<b>🛑 Graceful Stop Triggered</b>\nEngine will finish active downloads and halt.")
+            self.notifier.send_message("<b>[STOP] Graceful Stop Triggered</b>\nEngine will finish active downloads and halt.")
         elif data == "confirm_abort":
             self.task_state["abort_requested"] = True
             self.notifier.answer_callback_query(cb_id, "Abort request confirmed")
-            self.notifier.send_message("<b>💥 Hard Abort Triggered</b>\nExecution terminating immediately.")
+            self.notifier.send_message("<b>[ABORT] Hard Abort Triggered</b>\nExecution terminating immediately.")
         elif data == "cancel_action":
             self.notifier.answer_callback_query(cb_id, "Action cancelled")
             self.notifier.send_message("<i>Action cancelled.</i>")
@@ -237,26 +242,52 @@ class TelegramCommandHandler:
         elif cmd_name in {"/stop", "/stop@bot"}:
             keyboard = {
                 "inline_keyboard": [[
-                    {"text": "✅ Confirm Stop", "callback_data": "confirm_stop"},
-                    {"text": "❌ Cancel", "callback_data": "cancel_action"},
+                    {"text": "[OK] Confirm Stop", "callback_data": "confirm_stop"},
+                    {"text": "[X] Cancel", "callback_data": "cancel_action"},
                 ]]
             }
             self.notifier.send_message(
-                "<b>⚠️ Confirm Graceful Stop?</b>\nThis will finish active downloads and save results.",
+                "<b>[WARN] Confirm Graceful Stop?</b>\nThis will finish active downloads and save results.",
                 reply_markup=keyboard,
             )
 
         elif cmd_name in {"/abort", "/abort@bot"}:
             keyboard = {
                 "inline_keyboard": [[
-                    {"text": "✅ Confirm Hard Abort", "callback_data": "confirm_abort"},
-                    {"text": "❌ Cancel", "callback_data": "cancel_action"},
+                    {"text": "[!] Confirm Abort", "callback_data": "confirm_abort"},
+                    {"text": "[X] Cancel", "callback_data": "cancel_action"},
                 ]]
             }
             self.notifier.send_message(
-                "<b>💥 Confirm Hard Abort?</b>\nThis will terminate the scraper immediately without saving state.",
+                "<b>[WARN] Confirm Hard Abort?</b>\nExecution will be terminated immediately. Unsaved data may be lost.",
                 reply_markup=keyboard,
             )
+
+        elif cmd_name in {"/auth", "/auth@bot"}:
+            if not args:
+                self.notifier.send_message("<b>Error:</b> Provide a domain and JSON payload. Example:\n<code>/auth example.com [JSON]</code>")
+                return
+                
+            args_parts = args.split(maxsplit=1)
+            if len(args_parts) < 2:
+                self.notifier.send_message("<b>Error:</b> Provide a domain and JSON payload. Example:\n<code>/auth example.com [JSON]</code>")
+                return
+                
+            domain = args_parts[0]
+            json_str = args_parts[1]
+            
+            try:
+                cookie_data = json.loads(json_str)
+                os.makedirs("data/sessions", exist_ok=True)
+                session_file = f"data/sessions/{domain.replace('.', '_')}.json"
+                with open(session_file, "w", encoding="utf-8") as f:
+                    json.dump(cookie_data, f, indent=4)
+                self.notifier.send_message(f"[OK] <b>Auth Accepted for {domain}</b>\nSession saved successfully. Crawler will resume automatically.")
+            except json.JSONDecodeError:
+                self.notifier.send_message("[ERROR] <b>Error:</b> Invalid JSON payload. Please ensure you are pasting valid JSON.")
+            except Exception as e:
+                self.notifier.send_message(f"[ERROR] <b>Error processing auth:</b> {e}")
+
 
         elif cmd_name in {"/blacklist", "/blacklist@bot"}:
             if not args:
@@ -265,7 +296,7 @@ class TelegramCommandHandler:
             domain = args.lower().strip()
             add_to_blacklist(domain, reason="telegram_bot")
             self.task_state.setdefault("blacklisted_domains", []).append(domain)
-            self.notifier.send_message(f"<b>🚫 Blacklisted Domain:</b> <code>{domain}</code>")
+            self.notifier.send_message(f"<b>[BLOCKED] Blacklisted Domain:</b> <code>{domain}</code>")
 
         elif cmd_name in {"/setlimit", "/setlimit@bot"}:
             if not args.isdigit():
@@ -273,14 +304,14 @@ class TelegramCommandHandler:
                 return
             new_limit = int(args)
             self.task_state["max_results_override"] = new_limit
-            self.notifier.send_message(f"<b>🎯 Max Results Updated:</b> <code>{new_limit}</code>")
+            self.notifier.send_message(f"<b>[SET] Max Results Updated:</b> <code>{new_limit}</code>")
 
         elif cmd_name in {"/report", "/report@bot"}:
             report = self.task_state.get("domain_report", {})
             if not report:
                 self.notifier.send_message("<i>No domain report available yet.</i>")
                 return
-            lines = ["<b>📊 Domain Yield Report:</b>\n"]
+            lines = ["<b>[REPORT] Domain Yield Report:</b>\n"]
             for dom, stats in report.items():
                 p = stats.get("pages", 0)
                 i = stats.get("images", 0)
@@ -304,7 +335,7 @@ class TelegramCommandHandler:
 
             if sample_file:
                 filename = os.path.basename(sample_file)
-                self.notifier.send_photo(sample_file, caption=f"📸 <b>Preview:</b> <code>{filename}</code>")
+                self.notifier.send_photo(sample_file, caption=f"[IMG] <b>Preview:</b> <code>{filename}</code>")
             else:
                 self.notifier.send_message("<i>No local preview images found.</i>")
 
@@ -313,11 +344,11 @@ class TelegramCommandHandler:
             new_state = not current
             self.task_state["watchdog_active"] = new_state
             state_str = "ENABLED" if new_state else "DISABLED"
-            self.notifier.send_message(f"<b>🐕 Watchdog Continuous Agent:</b> <code>{state_str}</code>")
+            self.notifier.send_message(f"<b>[WATCHDOG] Continuous Agent:</b> <code>{state_str}</code>")
 
         elif cmd_name in {"/help", "/help@bot"}:
             help_text = (
-                "<b>🤖 scrAPE Bot Commands:</b>\n\n"
+                "<b>[BOT] scrAPE Bot Commands:</b>\n\n"
                 "/status - View current run status\n"
                 "/stats - View current pages & media counts\n"
                 "/report - Detailed per-domain yield breakdown\n"

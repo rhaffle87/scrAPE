@@ -128,6 +128,14 @@ class StateCache:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_phash_subject ON phash_cache(subject)
             """)
+            
+            # Profiler cooldowns (e.g. 24-hour timeout for unmapped domains)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS profiler_cooldown (
+                    domain TEXT PRIMARY KEY,
+                    cooldown_until REAL NOT NULL
+                )
+            """)
             conn.commit()
 
 
@@ -207,7 +215,37 @@ class StateCache:
                 cursor.execute("SELECT 1 FROM dead_urls WHERE url_hash = ?", (url_hash,))
                 return cursor.fetchone() is not None
         except Exception as e:
-            LOGGER.warning(f"Error checking dead URLs for {url}: {e}")
+            LOGGER.warning(f"Error checking if {url} is dead in state cache: {e}")
+            return False
+
+    def set_profiler_cooldown(self, domain: str, cooldown_hours: int = 24):
+        """Put a domain in cooldown so the profiler doesn't spam telegram auth requests."""
+        cooldown_until = time.time() + (cooldown_hours * 3600)
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO profiler_cooldown (domain, cooldown_until) VALUES (?, ?)",
+                    (domain, cooldown_until),
+                )
+                conn.commit()
+                LOGGER.info("Domain %s added to profiler cooldown until %s", domain, cooldown_until)
+        except Exception as e:
+            LOGGER.warning(f"Error setting profiler cooldown for {domain}: {e}")
+
+    def is_in_profiler_cooldown(self, domain: str) -> bool:
+        """Check if a domain is currently in a profiling cooldown period."""
+        now = time.time()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT 1 FROM profiler_cooldown WHERE domain = ? AND cooldown_until > ?", (domain, now)
+                )
+                result = cursor.fetchone()
+                return result is not None
+        except Exception as e:
+            LOGGER.warning(f"Error checking profiler cooldown for {domain}: {e}")
             return False
 
     def mark_dead(self, url: str, status: int = 404):

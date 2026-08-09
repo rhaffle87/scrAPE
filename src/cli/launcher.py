@@ -147,17 +147,17 @@ def check_and_install_dependencies():
     bridge_dir = ROOT_DIR / "crawlee_bridge"
     node_modules = bridge_dir / "node_modules"
     if bridge_dir.exists() and not node_modules.exists():
-        print("📦 Node.js dependencies for crawlee_bridge not found. Installing...")
+        print("[INFO] Node.js dependencies for crawlee_bridge not found. Installing...")
         try:
             # Check if npm is available
             npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
             subprocess.run([npm_cmd, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # nosec B603 B607
             # Run npm install
-            print("🚀 Running npm install in crawlee_bridge...")
+            print("[INSTALL] Node.js dependencies for crawlee_bridge...")
             subprocess.run([npm_cmd, "install"], cwd=str(bridge_dir), check=True)  # nosec B603 B607
-            print("✅ Node.js dependencies installed successfully!\n")
+            print("[SUCCESS] Node.js dependencies installed successfully!\n")
         except Exception as e:
-            print(f"⚠️ Failed to install Node.js dependencies: {e}. Please ensure Node.js and npm are installed and in your PATH.\n")
+            print(f"[FAILED] Failed to install Node.js dependencies: {e}. Please ensure Node.js and npm are installed and in your PATH.\n")
             time.sleep(2)
 
     # 2. Check Playwright browser dependencies
@@ -195,7 +195,7 @@ def on_quit(icon, item):
 def _build_menu() -> pystray.Menu:
     """Build the tray context menu, reflecting current autostart state."""
     autostart_label = (
-        "✓ Auto-start Enabled" if is_autostart_enabled() else "Auto-start Disabled"
+        "[x] Auto-start Enabled" if is_autostart_enabled() else "Auto-start Disabled"
     )
     return pystray.Menu(
         pystray.MenuItem(f"scrAPE  (Port {WEBUI_PORT})", None, enabled=False),
@@ -235,11 +235,11 @@ def main():
     clear_screen()
     print("========================================")
     print(f"  Choose Interface ({VERSION})")
-    print(f"  🚀 Server: http://localhost:{WEBUI_PORT}")
+    print(f"  [*] Server: http://localhost:{WEBUI_PORT}")
     print("========================================\n")
 
     
-    autostart_status = "Enabled ✓" if is_autostart_enabled() else "Disabled"
+    autostart_status = "Enabled [x]" if is_autostart_enabled() else "Disabled"
     choice = questionary.select(
         "",
         choices=[
@@ -291,24 +291,24 @@ def main():
     elif choice.startswith("Auto-start on Boot"):
         if is_autostart_enabled():
             disable_autostart()
-            print("\n✅ Auto-start disabled. scrAPE will NOT run on next boot.")
+            print("\n[SUCCESS] Auto-start disabled. scrAPE will NOT run on next boot.")
         else:
             enable_autostart()
-            print("\n✅ Auto-start enabled. scrAPE will launch silently on next boot.")
+            print("\n[SUCCESS] Auto-start enabled. scrAPE will launch silently on next boot.")
         time.sleep(1.5)
         main()
         
     elif choice == "Hide to Tray (Background)":
-        print("\n⌛ Starting background process... (tray icon will appear in ~3s)")
+        print("\n[WAIT] Starting background process... (tray icon will appear in ~3s)")
         DETACHED_PROCESS = 0x00000008
         proc = subprocess.Popen(  # nosec B603 B607
             [sys.executable.replace("python.exe", "pythonw.exe"), "-m", "src.cli.launcher"],
             creationflags=DETACHED_PROCESS
         )
-        print(f"🔔 scrAPE is now running in background (PID: {proc.pid})")
+        print(f"[ALERT] scrAPE is now running in background (PID: {proc.pid})")
         print(f"Server: http://localhost:{WEBUI_PORT}\n")
 
-        print("💡 You can close this terminal. Right-click tray icon to quit.")
+        print("[TIP] You can close this terminal. Right-click tray icon to quit.")
         time.sleep(2)
         sys.exit(0)
 

@@ -198,18 +198,23 @@ def test_yield_based_domain_filtering():
     profile = DomainProfile(domain="lowyield.com", crawl_depth=3)
     domain_profiles = {"lowyield.com": profile}
 
-    # Run crawler
-    result = engine.run(
-        keyword="apple",
-        max_results=10,
-        output_format="json",
-        download_media=False,
-        seed_urls=["https://lowyield.com/start"],
-        domain_profiles=domain_profiles,
-        page_limit=45,
-        crawl_depth=3,
-        ignore_robots=True,
-    )
+    def mock_load_configs(self):
+        self.domain_config = {"auto_mapped": ["unseeded.com"]}
+        self.rules_config = {}
+
+    with patch("core.profiler.DomainProfiler._load_configs", mock_load_configs):
+        # Run crawler
+        result = engine.run(
+            keyword="apple",
+            max_results=10,
+            output_format="json",
+            download_media=False,
+            seed_urls=["https://lowyield.com/start"],
+            domain_profiles=domain_profiles,
+            page_limit=45,
+            crawl_depth=3,
+            ignore_robots=True,
+        )
 
     # Scrape page should have been called 15 times for unseeded.com (scanned_pages count),
     # and the remaining pages should be skipped.
@@ -265,17 +270,22 @@ def test_low_yield_domain_filtering_at_30():
     profile = DomainProfile(domain="lowyield.com", crawl_depth=3)
     domain_profiles = {"lowyield.com": profile}
 
-    result = engine.run(
-        keyword="apple",
-        max_results=10,
-        output_format="json",
-        download_media=False,
-        seed_urls=["https://lowyield.com/start"],
-        domain_profiles=domain_profiles,
-        page_limit=45,
-        crawl_depth=3,
-        ignore_robots=True,
-    )
+    def mock_load_configs(self):
+        self.domain_config = {"auto_mapped": ["unseeded.com"]}
+        self.rules_config = {}
+
+    with patch("core.profiler.DomainProfiler._load_configs", mock_load_configs):
+        result = engine.run(
+            keyword="apple",
+            max_results=10,
+            output_format="json",
+            download_media=False,
+            seed_urls=["https://lowyield.com/start"],
+            domain_profiles=domain_profiles,
+            page_limit=45,
+            crawl_depth=3,
+            ignore_robots=True,
+        )
 
     stats = result.domain_stats.get("unseeded.com")
     assert stats is not None

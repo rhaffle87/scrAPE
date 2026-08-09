@@ -262,6 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force the browser to run in headless mode (overrides platform defaults).",
     )
     parser.add_argument(
+        "--no-bot",
+        action="store_true",
+        help="Disable the Telegram bot watcher for this run (used by watchdog).",
+    )
+    parser.add_argument(
         "--stealth-headful",
         action="store_true",
         help="Run stealth browser fallbacks (DrissionPage, Helium, Crawl4AI) in headful mode (visible browser).",
@@ -638,6 +643,27 @@ def main() -> None:
             "auto_crop": args.auto_crop,
         },
     )
+    
+    # Task state and Telemetry for Telegram integration
+    task_state = {
+        "status": "running",
+        "progress": 0,
+        "images_found": 0,
+        "videos_found": 0,
+        "abort_requested": False,
+        "stop_requested": False,
+    }
+    
+    cmd_handler = None
+    if not getattr(args, "no_bot", False):
+        try:
+            from notifications.telegram_bot import TelegramCommandHandler, TelegramBotNotifier
+            notifier = TelegramBotNotifier()
+            cmd_handler = TelegramCommandHandler(notifier, task_state)
+            cmd_handler.start()
+            logger.info("Telegram command handler started in standalone run.")
+        except Exception as e:
+            logger.warning("Failed to start Telegram command handler: %s", e)
 
     from notifications.notification_manager import NotificationPipeline
     from config import HARVEST_NOTIFY_THRESHOLD
@@ -669,11 +695,10 @@ def main() -> None:
     # Harvest milestone callback — fires once after crawl finishes if total > threshold
     _harvest_cb = None
     if _notif_active and HARVEST_NOTIFY_THRESHOLD > 0:
-        def _harvest_cb(total: int) -> None:  # noqa: E306
+        def _harvest_cb_func(total: int) -> None:
             _notif.notify_media_harvest(args.keyword, total)
-
-    # WAF block dedup — prevent repeat alerts for the same domain within one run
-    _waf_notified: set[str] = set()
+            return None
+        _harvest_cb = _harvest_cb_func
 
     _run_start = time.monotonic()
     try:
@@ -696,8 +721,9 @@ def main() -> None:
             domain_profiles=domain_profiles,
             run_id=run_id,
             harvest_callback=_harvest_cb,
+            task_state=task_state,
         )
-    except Exception as _run_exc:
+    except Exception:
         import traceback as _tb
         _run_err_msg = _tb.format_exc()
         if _notif_active:
@@ -843,6 +869,13 @@ def main() -> None:
         )
     # ──────────────────────────────────────────────────────────────────────
 
+    task_state["status"] = "finished"
+    task_state["progress"] = 100
+    
+    if cmd_handler:
+        logger.info("Stopping Telegram command handler...")
+        cmd_handler.stop()
+
 
 import atexit  # noqa: E402
 import os  # noqa: E402
@@ -852,7 +885,7 @@ def _silence_win32_com_errors():
     if sys.platform.startswith("win"):
         try:
             sys.stderr = open(os.devnull, "w")
-        except Exception as _exc:
+        except Exception:
             pass  # Intentional: best-effort stderr suppression at teardown; logging may be unavailable
 
 atexit.register(_silence_win32_com_errors)

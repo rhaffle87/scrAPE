@@ -91,12 +91,16 @@ from frontend.routers.seeds import router as seeds_router
 from frontend.routers.watchdog import router as watchdog_router
 from frontend.routers.notifications import router as notifications_router
 from frontend.routers.domain_config import router as domain_config_router
+from frontend.routers.url_rules import router as url_rules_router
+from frontend.routers.subject_profiles import router as subject_profiles_router
 
 app.include_router(dataset_router)
 app.include_router(seeds_router)
 app.include_router(watchdog_router)
 app.include_router(notifications_router)
 app.include_router(domain_config_router)
+app.include_router(url_rules_router)
+app.include_router(subject_profiles_router)
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -1764,7 +1768,8 @@ async def discover_search_urls(payload: DiscoverSeedPayload):
 class ExportDatasetPayload(BaseModel):
     subject: str
     run_id: str
-    layout: str = "1"  # "1" = flat, "2" = domain, "3" = media_type
+    layout: str = "1"
+    # "1" = flat, "2" = domain, "3" = media_type
 
 class ExportRAGPayload(BaseModel):
     subject: str

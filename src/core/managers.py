@@ -5,14 +5,18 @@ import re
 import threading
 import time
 from urllib.parse import urlparse
+import json
+import queue
+import concurrent.futures as _cf
 
+from config import CONCURRENT_DOWNLOADS, DEFAULT_DOWNLOAD_IMAGES_SUBDIR, DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
+from monitoring.logger import get_logger
 
 from core.models import (
     EngineOptions,
     ScrapeResult,
     RejectedItem,
 )
-from monitoring.logger import get_logger
 from core.filters import (
     normalize_url,
     score_image_relevance,
@@ -23,8 +27,8 @@ from core.filters import (
     looks_like_media,
     is_allowed_domain,
     is_allowed_path,
+    safe_join,
 )
-import json
 
 LOGGER = get_logger(__name__)
 
@@ -32,7 +36,7 @@ LOGGER = get_logger(__name__)
 class DomainRulesManager:
     """Manages domain-specific routing rules, blocklists, and crawling scopes."""
 
-    def __init__(self, config_path: str = "data/domain_config.json", profile_path: str = "src/config/subject_profiles.json"):
+    def __init__(self, config_path: str = "data/domain_config.json", profile_path: str = "data/subject_profiles.json"):
         self.config_path = config_path
         self.profile_path = profile_path
         self._lock = threading.RLock()
@@ -130,7 +134,6 @@ class DomainRulesManager:
             # Match against the URL path only (scheme+host stripped) so that
             # anchored patterns (^/$) behave predictably and unanchored
             # substring patterns (e.g. "/video/") keep working.
-            from urllib.parse import urlparse
             path = urlparse(url).path or "/"
             return re.search(pattern, path) is not None
         except re.error:
@@ -492,7 +495,6 @@ class MediaProcessor:
         self.downloader = downloader
 
     def finalize_images(self, result, options) -> list:
-        from core.filters import normalize_url
 
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
@@ -519,7 +521,6 @@ class MediaProcessor:
                 continue
             seen.add(item.url)
             kept.append(item)
-        from core.filters import contains_subject_text, safe_join
         kept.sort(
             key=lambda item: (
                 item.score,
@@ -534,7 +535,6 @@ class MediaProcessor:
         return kept
 
     def finalize_videos(self, result, options) -> list:
-        from core.filters import normalize_url
 
         seed_set = {normalize_url(u) for u in options.seed_urls}
         domain_profiles = options.domain_profiles or {}
@@ -564,7 +564,6 @@ class MediaProcessor:
                 continue
             seen.add(item.url)
             kept.append(item)
-        from core.filters import contains_subject_text, safe_join
         kept.sort(
             key=lambda item: (
                 item.score,
@@ -582,8 +581,6 @@ class MediaProcessor:
         with self.downloader._dead_urls_lock:
             dead_urls_list = sorted(list(self.downloader._dead_urls))
         if dead_urls_list:
-            import json
-            from monitoring.logger import get_logger
             LOGGER = get_logger(__name__)
             # 1. Save to subject directory (persistent)
             subject_dead_file = options.output_dir / result.keyword_slug / "dead_urls.json"
@@ -603,12 +600,6 @@ class MediaProcessor:
                 LOGGER.warning("Failed to save dead URLs to run dir: %s", e)
 
     def start_downloads(self, result, options, output_root) -> None:
-        import queue
-        import threading
-        import concurrent.futures as _cf
-        import json
-        from config import CONCURRENT_DOWNLOADS
-        from monitoring.logger import get_logger
 
         self.LOGGER = get_logger(__name__)
         self.options = options
@@ -663,17 +654,13 @@ class MediaProcessor:
         if getattr(self, "download_queue", None) is None:
             return  # Downloads not active
 
-        from urllib.parse import urlparse
-        import re
-        from core.filters import normalize_url as _norm_dl_url
-        from config import DEFAULT_DOWNLOAD_IMAGES_SUBDIR, DEFAULT_DOWNLOAD_VIDEOS_SUBDIR
-
+        
         if media_kind == "video" and item.type not in {"direct", "hls", "dash"}:
             item.status = "skipped"
             item.failure_reason = "non_downloadable_type"
             return
 
-        norm = _norm_dl_url(item.url)
+        norm = normalize_url(item.url)
         if norm in self._seen_download_urls:
             item.status = "skipped"
             item.failure_reason = "duplicate_url_precheck"
@@ -705,9 +692,6 @@ class MediaProcessor:
         self.download_queue.put(task)
 
     def _download_manager_loop(self):
-        import time
-        from urllib.parse import urlparse
-        from core.models import RejectedItem
 
         def add_rejected(kind, url, source_page, reason, score):
             self.result.rejected_items.append(
@@ -717,7 +701,6 @@ class MediaProcessor:
         futures_map = {}
         
         while self._is_running or not self.download_queue.empty():
-            import queue
             try:
                 task = self.download_queue.get(timeout=0.5)
                 if task is None:
@@ -836,6 +819,8 @@ class CrawlOrchestrator:
         result: ScrapeResult,
         page_limit: int = 20,
         crawl_depth: int = 2,
+        media_processor=None,
+        task_state: dict | None = None,
     ) -> ScrapeResult:
         from core.filters import (
             normalize_url,
@@ -894,7 +879,8 @@ class CrawlOrchestrator:
             rules_manager=self.rules_manager,
             page_limit=resolved_page_limit,
             crawl_depth=resolved_crawl_depth,
-            media_processor=self.media_processor
+            media_processor=media_processor or self.media_processor,
+            task_state=task_state,
         )
         
         # We start coordinator with candidate pages at depth 0
@@ -903,7 +889,6 @@ class CrawlOrchestrator:
         result = coordinator.execute(ordered_pages)
         
         # Sort the final lists of kept items by score for output consistency (as was done in the original)
-        from core.filters import contains_subject_text, safe_join
         result.images.sort(
             key=lambda item: (
                 item.score,

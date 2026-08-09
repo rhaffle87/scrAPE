@@ -83,4 +83,4 @@ def test_notify_telegram_summary_formatting(mock_notify):
     msg = mock_notify.call_args[0][0]
     assert "test_subject" in msg
     assert "12" in msg
-    assert "SUCCESS" in msg
+    assert "[DONE]" in msg

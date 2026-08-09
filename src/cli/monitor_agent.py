@@ -376,9 +376,9 @@ def notify_telegram_summary(
     """Send structured summary digest card after a subject watchdog cycle."""
     if yield_info:
         imgs, vids, rejs = yield_info
-        status = "✅ SUCCESS" if code == 0 else f"⚠️ FAILED ({code})"
+        status = "[DONE]" if code == 0 else f"[FAILED] ({code})"
         msg = (
-            f"<b>📊 Watchdog Cycle #{cycle} Complete</b>\n"
+            f"<b>[STATS] Watchdog Cycle #{cycle} Complete</b>\n"
             f"<b>Subject:</b> <code>{keyword}</code>\n"
             f"<b>Status:</b> {status}\n"
             f"<b>Images Harvested:</b> {imgs}\n"
@@ -386,7 +386,7 @@ def notify_telegram_summary(
             f"<b>Rejections Filtered:</b> {rejs}"
         )
     else:
-        msg = f"<b>📊 Watchdog Cycle #{cycle} Complete</b>\n<b>Subject:</b> <code>{keyword}</code>\n<b>Return Code:</b> {code}"
+        msg = f"<b>[STATS] Watchdog Cycle #{cycle} Complete</b>\n<b>Subject:</b> <code>{keyword}</code>\n<b>Return Code:</b> {code}"
     notify_telegram(msg)
 
 
@@ -512,6 +512,17 @@ def main():
 
     seed_reloader = HotSeedReloader(args.seed_file)
     cycle_count = 0
+    
+    # Initialize the Watchdog Bot instance
+    cmd_handler = None
+    try:
+        from notifications.telegram_bot import TelegramCommandHandler, TelegramBotNotifier
+        notifier = TelegramBotNotifier()
+        cmd_handler = TelegramCommandHandler(notifier, _WATCHDOG_SNAPSHOT)
+        cmd_handler.start()
+        print(f"[{datetime.now().isoformat()}] Telegram Bot started in Watchdog Mode.")
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] WARNING: Failed to start Telegram Bot: {e}")
 
     try:
         while not shutdown_event.is_set():
@@ -570,7 +581,20 @@ def main():
                 },
             )
 
+            # BATON PASSING: Stop watchdog bot so the active scraper can claim the token
+            if cmd_handler:
+                cmd_handler.stop()
+                time.sleep(1) # Ensure socket is fully released
+
             code = run_scraper(target_keyword, target_seed, args.download_media, extra_args)
+            
+            # Reclaim the baton
+            if cmd_handler:
+                try:
+                    cmd_handler.start()
+                except Exception as e:
+                    print(f"[{datetime.now().isoformat()}] Failed to restart bot after cycle: {e}")
+
             yield_info = parse_latest_run_yield(target_keyword)
 
             if wd_cfg.get("telegram_digest", True):
@@ -616,6 +640,11 @@ def main():
             f"\n[{datetime.now().isoformat()}] Sleep Monitoring Agent stopped by user request."
         )
         shutdown_event.set()
+    finally:
+        if cmd_handler:
+            cmd_handler.stop()
+        update_watchdog_snapshot({"status": "shutdown"})
+        broadcast_watchdog_event("watchdog", {"type": "shutdown"})
 
 
 if __name__ == "__main__":

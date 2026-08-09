@@ -5,12 +5,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from urllib.parse import urlparse
 from typing import List, Tuple
+from pathlib import Path
 
 from core.governor import CrawlGovernor
 from core.pipeline import MediaPipeline
 from core.models import ScrapeResult, PageReport
 from core.filters import normalize_url, looks_like_media, is_pagination_url
 from scraper.specialized import SpecializedExtractor
+from core.profiler import DomainProfiler
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class CrawlCoordinator:
         page_limit: float = float('inf'),
         crawl_depth: float = 2,
         media_processor=None,
+        task_state: dict | None = None,
     ):
         self.search_provider = search_provider
         self.video_scraper = video_scraper
@@ -43,11 +46,13 @@ class CrawlCoordinator:
         self.page_limit = page_limit
         self.crawl_depth = crawl_depth
         self.media_processor = media_processor
+        self.task_state = task_state or {}
         
         self.max_results = getattr(options, "max_results", 0)
         self.workers = workers
         
         self.governor = CrawlGovernor(initial_concurrency=workers)
+        self.profiler = DomainProfiler(state_cache=self.state_cache)
         
         self.media_queue = queue.Queue(maxsize=1000)
         self.result_lock = threading.RLock()
@@ -123,6 +128,9 @@ class CrawlCoordinator:
             
         visited_pages = {p for p, d in ordered_pages}
         
+        self.profiling_domains = set()
+        self.quarantined_domains = {}
+        
         futures = {}
         current_concurrency = self.workers
         total_pages_scanned = 0
@@ -131,6 +139,29 @@ class CrawlCoordinator:
             def submit_next():
                 nonlocal total_pages_scanned
                 while True:
+                    # Sync telemetry state
+                    self.task_state["images_found"] = len(self.result.images)
+                    self.task_state["videos_found"] = len(self.result.videos)
+                    if self.page_limit and self.page_limit > 0 and self.page_limit != float('inf'):
+                        self.task_state["progress"] = min(100, int((total_pages_scanned / self.page_limit) * 100))
+                    elif self.max_results and self.max_results > 0:
+                        total_media = self.task_state["images_found"] + self.task_state["videos_found"]
+                        self.task_state["progress"] = min(100, int((total_media / (self.max_results * 2)) * 100))
+
+                    if self.task_state.get("abort_requested"):
+                        LOGGER.warning("Hard abort requested via Telegram. Halting instantly.")
+                        pages_queue.clear()
+                        return False
+                        
+                    if self.task_state.get("stop_requested"):
+                        LOGGER.info("Graceful stop requested via Telegram. Clearing queue and waiting for active workers to finish.")
+                        pages_queue.clear()
+                        return False
+                        
+                    if self.task_state.get("status") == "paused":
+                        time.sleep(1.0)
+                        continue
+
                     skipped = []
                     while pages_queue:
                         if total_pages_scanned >= self.page_limit:
@@ -148,6 +179,68 @@ class CrawlCoordinator:
                             continue
 
                         host = urlparse(next_page).netloc.lower()
+                        
+                        # -- AUTO-PROFILER INTERCEPTION START --
+                        
+                        # 1. Check if quarantined (waiting for auth)
+                        if host in self.quarantined_domains:
+                            q_state = self.quarantined_domains[host]
+                            if time.monotonic() > q_state['expires_at']:
+                                LOGGER.warning(f"Timeout waiting for auth on {host}. Setting 24h cooldown.")
+                                if self.state_cache:
+                                    self.state_cache.set_profiler_cooldown(host, cooldown_hours=24)
+                                if getattr(self.profiler, 'notifier', None):
+                                    self.profiler.notifier.notify_watchdog_status(f"[TIMEOUT] <b>Timeout Reached:</b> {host} has been skipped for this run.")
+                                del self.quarantined_domains[host]
+                                continue # Drop this URL
+                                
+                            session_file = Path("data/sessions") / f"{host.replace('.', '_')}.json"
+                            if session_file.exists():
+                                LOGGER.info(f"Auto-Profiler: Cookie received for {host}. Resuming crawl.")
+                                self.profiler._mark_domain_mapped(host)
+                                del self.quarantined_domains[host]
+                            else:
+                                release_at = time.monotonic() + 10.0
+                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                continue
+
+                        # 2. Check if unmapped
+                        self.profiler._load_configs()
+                        is_mapped = (
+                            host in self.profiler.domain_config.get("auto_mapped", []) or
+                            host in self.profiler.domain_config.get("rate_limits", {}) or
+                            host in self.profiler.domain_config.get("referer_overrides", {}) or
+                            (getattr(self, "options", None) and host in getattr(self.options, "domain_profiles", {}))
+                        )
+                        
+                        if not is_mapped:
+                            if host in self.profiling_domains:
+                                release_at = time.monotonic() + 5.0
+                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                continue
+                                
+                            self.profiling_domains.add(host)
+                            
+                            def _run_profiler(d=host):
+                                import asyncio
+                                try:
+                                    res = asyncio.run(self.profiler.evaluate_domain(d))
+                                    if res == "AWAITING_AUTH":
+                                        self.quarantined_domains[d] = {
+                                            'status': 'AWAITING_AUTH',
+                                            'expires_at': time.monotonic() + 900
+                                        }
+                                except Exception as e:
+                                    LOGGER.error(f"Profiler failed on {d}: {e}")
+                                finally:
+                                    self.profiling_domains.discard(d)
+                                    
+                            executor.submit(_run_profiler)
+                            release_at = time.monotonic() + 5.0
+                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            continue
+                            
+                        # -- AUTO-PROFILER INTERCEPTION END --
 
                         if not self.governor.is_host_available(host):
                             with self.governor.lock:

@@ -67,7 +67,7 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
    - Trace errors back to authoritative code before modifying files.
 2. **No Hardcoded Domain Rules in Source**:
    - NEVER hardcode domain-specific URL normalisation regex rules or specific subject names in Python source files under `src/`.
-   - All URL canonicalisation rules MUST be placed in `data/url_normalisation_rules.json`. All domain-specific behavior goes in `data/domain_config.json`, `data/url_normalisation_rules.json`, `src/config/subject_profiles.json`, or `seeds/*.txt`.
+   - All URL canonicalisation rules MUST be placed in `data/url_normalisation_rules.json`. All domain-specific behavior goes in `data/domain_config.json`, `data/url_normalisation_rules.json`, `data/subject_profiles.json`, or `seeds/*.txt`.
 3. **`None`-Safety in Filters & Utilities**:
    - Always use `filters.safe_join(items)` when concatenating string tokens to prevent `TypeError` when processing items with `None` fields (e.g. missing alt text or page titles).
 4. **Preserve API Contracts & Backward Compatibility**:
@@ -88,6 +88,9 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
    - Use CSS variables (`var(--accent)`, `var(--bg-base)`, `var(--bg-surface)`, `var(--text-primary)`, `var(--text-muted)`).
 4. **Context-Aware Telemetry**:
    - Stat cards display global totals on Command Center view and subject-scoped totals on Media Vault view.
+5. **ASCII-Only Formatting (No Emojis)**:
+   - NEVER use emojis anywhere in the codebase (including logs, terminal output, Telegram messages, and HTML).
+   - Use ASCII equivalents instead (e.g., `[CRITICAL]`, `[OK]`, `[WARNING]`, `[*]`, etc).
 
 ---
 

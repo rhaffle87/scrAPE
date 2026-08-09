@@ -28,10 +28,10 @@ def ensure_config_files_exist():
             }
         }), encoding="utf-8")
 
-    # 2. ensure src/config/subject_profiles.json exists
-    config_dir = project_root / "src" / "config"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    subject_profiles_path = config_dir / "subject_profiles.json"
+    # 2. ensure data/subject_profiles.json exists
+    data_dir = project_root / "data"
+    data_dir.mkdir(exist_ok=True)
+    subject_profiles_path = data_dir / "subject_profiles.json"
     created_subject_profiles = False
     if not subject_profiles_path.exists():
         created_subject_profiles = True

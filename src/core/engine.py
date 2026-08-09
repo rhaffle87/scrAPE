@@ -161,6 +161,7 @@ class ScrapingEngine:
         run_id: str | None = None,
         ignore_robots: bool = False,
         harvest_callback: "Callable[[int], None] | None" = None,
+        task_state: dict | None = None,
     ):
         run_output_dir = Path(OUTPUT_DIR)
 
@@ -242,6 +243,8 @@ class ScrapingEngine:
             result=result,
             page_limit=page_limit,
             crawl_depth=crawl_depth,
+            media_processor=media_processor,
+            task_state=task_state,
         )
 
         # Stop download pipeline and wait for completion

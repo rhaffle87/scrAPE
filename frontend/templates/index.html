@@ -1440,9 +1440,30 @@
                 </span>
                 <span>DOMAIN STUDIO</span>
             </button>
+            <button type="button" class="nav-item" id="nav-url-rules" onclick="showUrlRules()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                </span>
+                <span>URL RULES</span>
+            </button>
+            <button type="button" class="nav-item" id="nav-subject-profiles" onclick="showSubjectProfiles()">
+                <span class="nav-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </span>
+                <span>PROFILES</span>
+            </button>
+
         </nav>
         <div class="sidebar-section-title">
-            <span style="color: var(--accent);">✦</span> SUBJECTS VAULT
+            <span style="color: var(--accent);">[*]</span> SUBJECTS VAULT
         </div>
         <div class="sidebar-subjects" hx-get="/htmx/sidebar" hx-trigger="load" id="sidebar-list">
             <!-- Loaded dynamically -->
@@ -1519,7 +1540,7 @@
                         <!-- Instant Unlimited Mode Active Banner -->
                         <div id="unlimited-mode-banner"
                             style="display:none; background: rgba(255, 102, 0, 0.12); border: 1px solid var(--accent); color: var(--text-primary); padding: 0.8rem 1rem; border-radius: 4px; margin-bottom: 1.2rem; font-size: 0.85rem; font-family: monospace;">
-                            ⚡ <strong style="color: var(--accent);">INSTANT UNLIMITED MODE ACTIVE:</strong> Preset
+                            [FAST] <strong style="color: var(--accent);">INSTANT UNLIMITED MODE ACTIVE:</strong> Preset
                             values applied: Max Results: 0 (Unlimited), Crawl Depth: 0 (Unlimited), Page Limit: 0
                             (Unlimited), Workers: 16, DL Workers: 24.
                         </div>
@@ -1527,7 +1548,7 @@
                         <!-- Dynamic Hardware & Safety Warning Banner -->
                         <div id="safety-warning-banner"
                             style="display:none; background: rgba(255, 102, 0, 0.15); border: 1px solid var(--accent); color: var(--text-primary); padding: 0.8rem 1rem; border-radius: 4px; margin-bottom: 1.2rem; font-size: 0.85rem; font-family: monospace;">
-                            ⚠️ <strong style="color: var(--accent);">HIGH PARAMETER CONCURRENCY WARNING:</strong> <span
+                            [WARNING] <strong style="color: var(--accent);">HIGH PARAMETER CONCURRENCY WARNING:</strong> <span
                                 id="safety-warning-text"></span>
                         </div>
 
@@ -2368,6 +2389,74 @@
                     </form>
                 </div>
             </div>
+            
+            <!-- URL Rules Studio View -->
+            <div id="url-rules-view" style="display: none;">
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
+                        <div>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">URL RULES STUDIO</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Regex Canonicalisation Patterns (data/url_normalisation_rules.json)</p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn" onclick="loadUrlRules()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
+                        </div>
+                    </div>
+                    <!-- URL Rules Stats Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Active Regex Rules</div>
+                            <div id="url-stat-count" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                    </div>
+                    <form id="url-rules-form" hx-post="/api/url-rules/save" hx-target="#url-rules-alert-box" hx-swap="innerHTML">
+                        <div style="margin-bottom: 1rem;">
+                            <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON ARRAY</label>
+                            <textarea id="url-rules-raw-json" name="raw_json" rows="22" spellcheck="false"
+                                style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn" style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem; font-family: 'JetBrains Mono', monospace;">[ COMMIT & HOT-RELOAD ]</button>
+                            <span id="url-rules-status" style="font-family: monospace; color: var(--text-muted);"></span>
+                        </div>
+                        <div id="url-rules-alert-box" style="margin-top: 1rem;"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Subject Profiles Studio View -->
+            <div id="subject-profiles-view" style="display: none;">
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
+                        <div>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SUBJECT PROFILES STUDIO</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Crawl Presets & Annotations (data/subject_profiles.json)</p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn" onclick="loadSubjectProfiles()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Saved Profiles</div>
+                            <div id="profile-stat-count" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
+                        </div>
+                    </div>
+                    <form id="subject-profiles-form" hx-post="/api/subject-profiles/save" hx-target="#subject-profiles-alert-box" hx-swap="innerHTML">
+                        <div style="margin-bottom: 1rem;">
+                            <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON PROFILES</label>
+                            <textarea id="subject-profiles-raw-json" name="raw_json" rows="22" spellcheck="false"
+                                style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn" style="background: var(--accent); color: #000; font-weight: 700; padding: 0.8rem 1.5rem; font-family: 'JetBrains Mono', monospace;">[ COMMIT PROFILES ]</button>
+                            <span id="subject-profiles-status" style="font-family: monospace; color: var(--text-muted);"></span>
+                        </div>
+                        <div id="subject-profiles-alert-box" style="margin-top: 1rem;"></div>
+                    </form>
+                </div>
+            </div>
+
             <!-- Media Preview Modal -->
             <div id="media-preview-modal" class="modal-backdrop" aria-hidden="true" tabindex="-1"
                 onkeydown="if(event.key === 'Enter') this.click();" onclick="onBackdropClick(event)">
@@ -2793,6 +2882,11 @@
                     if (watchdogEl) watchdogEl.style.display = 'none';
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = 'none';
+                    const urEl = document.getElementById('url-rules-view');
+                    if (urEl) urEl.style.display = 'none';
+                    const spEl = document.getElementById('subject-profiles-view');
+                    if (spEl) spEl.style.display = 'none';
+
                     document.getElementById('main-title').innerText = "MEDIA VAULT";
                     document.getElementById('main-subtitle').innerText = "Acquired target media gallery";
                     document.getElementById('gallery-subject-title').innerText = "SUBJECT: " + name.toUpperCase();
@@ -2844,6 +2938,11 @@
                     if (watchdogEl) watchdogEl.style.display = 'none';
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = 'none';
+                    const urEl = document.getElementById('url-rules-view');
+                    if (urEl) urEl.style.display = 'none';
+                    const spEl = document.getElementById('subject-profiles-view');
+                    if (spEl) spEl.style.display = 'none';
+
 
                     document.getElementById('settings-view').style.display = 'block';
 
@@ -2885,6 +2984,77 @@
                     if (navBtn) navBtn.classList.add('active');
 
                     loadDomainStudio();
+                }
+
+                
+                function showUrlRules() {
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    document.getElementById('seed-studio-view').style.display = 'none';
+                    document.getElementById('watchdog-view').style.display = 'none';
+                    document.getElementById('settings-view').style.display = 'none';
+                    document.getElementById('domain-studio-view').style.display = 'none';
+                    document.getElementById('subject-profiles-view').style.display = 'none';
+                    
+                    document.getElementById('url-rules-view').style.display = 'block';
+                    document.getElementById('main-title').innerText = "URL RULES STUDIO";
+                    document.getElementById('main-subtitle').innerText = "Regex Canonicalisation Patterns";
+                    document.getElementById('nav-url-rules').classList.add('active');
+                    loadUrlRules();
+                }
+
+                async function loadUrlRules() {
+                    const statusEl = document.getElementById('url-rules-status');
+                    if (statusEl) statusEl.innerText = "Fetching configuration...";
+                    try {
+                        const res = await fetch('/api/url-rules');
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const data = await res.json();
+                        const textarea = document.getElementById('url-rules-raw-json');
+                        if (textarea) textarea.value = data.raw_json || "";
+                        if (data.stats) {
+                            document.getElementById('url-stat-count').innerText = data.stats.rule_count || 0;
+                        }
+                        if (statusEl) statusEl.innerText = "Configuration loaded cleanly.";
+                    } catch (err) {
+                        if (statusEl) statusEl.innerText = "Error: " + err.message;
+                    }
+                }
+
+                function showSubjectProfiles() {
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                    document.getElementById('command-center-view').style.display = 'none';
+                    document.getElementById('gallery-view').style.display = 'none';
+                    document.getElementById('seed-studio-view').style.display = 'none';
+                    document.getElementById('watchdog-view').style.display = 'none';
+                    document.getElementById('settings-view').style.display = 'none';
+                    document.getElementById('domain-studio-view').style.display = 'none';
+                    document.getElementById('url-rules-view').style.display = 'none';
+                    
+                    document.getElementById('subject-profiles-view').style.display = 'block';
+                    document.getElementById('main-title').innerText = "SUBJECT PROFILES STUDIO";
+                    document.getElementById('main-subtitle').innerText = "Crawl Presets & Annotations";
+                    document.getElementById('nav-subject-profiles').classList.add('active');
+                    loadSubjectProfiles();
+                }
+
+                async function loadSubjectProfiles() {
+                    const statusEl = document.getElementById('subject-profiles-status');
+                    if (statusEl) statusEl.innerText = "Fetching configuration...";
+                    try {
+                        const res = await fetch('/api/subject-profiles');
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const data = await res.json();
+                        const textarea = document.getElementById('subject-profiles-raw-json');
+                        if (textarea) textarea.value = data.raw_json || "";
+                        if (data.stats) {
+                            document.getElementById('profile-stat-count').innerText = data.stats.profile_count || 0;
+                        }
+                        if (statusEl) statusEl.innerText = "Configuration loaded cleanly.";
+                    } catch (err) {
+                        if (statusEl) statusEl.innerText = "Error: " + err.message;
+                    }
                 }
 
                 async function loadDomainStudio() {
@@ -3011,6 +3181,11 @@
                     if (watchdogEl) watchdogEl.style.display = 'none';
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = 'none';
+                    const urEl = document.getElementById('url-rules-view');
+                    if (urEl) urEl.style.display = 'none';
+                    const spEl = document.getElementById('subject-profiles-view');
+                    if (spEl) spEl.style.display = 'none';
+
 
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'block';
@@ -3507,6 +3682,11 @@
                     if (watchdogEl) watchdogEl.style.display = 'none';
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = 'none';
+                    const urEl = document.getElementById('url-rules-view');
+                    if (urEl) urEl.style.display = 'none';
+                    const spEl = document.getElementById('subject-profiles-view');
+                    if (spEl) spEl.style.display = 'none';
+
 
                     document.getElementById('command-center-view').style.display = 'block';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
@@ -3533,6 +3713,11 @@
                     if (settingsEl) settingsEl.style.display = 'none';
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = 'none';
+                    const urEl = document.getElementById('url-rules-view');
+                    if (urEl) urEl.style.display = 'none';
+                    const spEl = document.getElementById('subject-profiles-view');
+                    if (spEl) spEl.style.display = 'none';
+
 
                     const watchdogEl = document.getElementById('watchdog-view');
                     if (watchdogEl) watchdogEl.style.display = 'flex';
