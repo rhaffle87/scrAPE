@@ -71,3 +71,6 @@ scratch/
 .qodo/
 .DS_Store
 Thumbs.db
+
+# --- Sonar ---
+.sonar/

@@ -35,3 +35,4 @@ Dockerfile
 docs/
 *.md
 !README.md
+.sonar/

@@ -568,17 +568,21 @@ class SearchProviderScraper(BaseSearchScraper):
             ):
                 continue
 
+            original_absolute = absolutize_url(source, page_url)
+            
             width = None
             height = None
-            try:
-                w_attr = _get_attr_str(image, "width")
-                if w_attr and w_attr.isdigit():
-                    width = int(w_attr)
-                h_attr = _get_attr_str(image, "height")
-                if h_attr and h_attr.isdigit():
-                    height = int(h_attr)
-            except Exception as exc:
-                LOGGER.debug("Failed parsing image dimensions: %s", exc)
+            # Only trust DOM dimensions if we haven't transformed the URL to a different (likely high-res) asset
+            if absolute_url == original_absolute:
+                try:
+                    w_attr = _get_attr_str(image, "width")
+                    if w_attr and w_attr.isdigit():
+                        width = int(w_attr)
+                    h_attr = _get_attr_str(image, "height")
+                    if h_attr and h_attr.isdigit():
+                        height = int(h_attr)
+                except Exception as exc:
+                    LOGGER.debug("Failed parsing image dimensions: %s", exc)
 
 
             parent_anchor = image.find_parent("a")
