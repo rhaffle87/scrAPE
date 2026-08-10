@@ -1209,11 +1209,13 @@ class BrowserClientMixin:
                     if not ping_success:
                         try:
                             import subprocess
+                            import sys
                             logger.info("FlareSolverr unreachable. Attempting background docker start flaresolverr...")
                             subprocess.Popen(  # nosec B603 B607
                                 ["docker", "start", "flaresolverr"],
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
+                                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
                             )
                             time.sleep(3.5)
                             for p_url in dict.fromkeys(ping_urls):

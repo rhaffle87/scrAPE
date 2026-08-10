@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """
 file_downloader.py — Concurrent media downloader with MIME/signature validation.
 """
@@ -94,7 +95,7 @@ from config import (
 )
 from core.filters import should_keep_image, should_keep_video
 from core.models import ScrapeResult
-from common.image_helper import get_image_dimensions, compute_dhash, hamming_distance
+from common.image_helper import get_image_dimensions, hamming_distance
 from network.http_client import HttpClient
 from monitoring.logger import get_logger
 from config import (
@@ -142,7 +143,6 @@ class MediaDownloader:
         save_rejected_reasons: str = "",
     ) -> None:
         from network.bandwidth_limiter import BandwidthLimiter
-        from ml.aesthetic_scorer import AestheticScorer
 
         self.http = http if http is not None else HttpClient()
         self.workers = max(1, workers)
@@ -211,9 +211,17 @@ class MediaDownloader:
             if self._curl_session is None:
                 try:
                     from curl_cffi import requests as c_requests
+                    from curl_cffi import CurlOpt
                     proxy = self.http.get_proxy() if hasattr(self.http, "get_proxy") else None
                     proxy_dict = {"http": proxy, "https": proxy} if proxy else None
-                    self._curl_session = c_requests.Session(impersonate="chrome120", proxies=proxy_dict)  # type: ignore[arg-type]
+                    self._curl_session = c_requests.Session(
+                        impersonate="chrome120", 
+                        proxies=proxy_dict,  # type: ignore
+                        curl_options={
+                            CurlOpt.LOW_SPEED_LIMIT: 1,
+                            CurlOpt.LOW_SPEED_TIME: 45,
+                        }
+                    )
                 except ImportError:
                     pass
             return self._curl_session
@@ -568,7 +576,7 @@ class MediaDownloader:
                         if session is None:
                             raise RuntimeError("curl_cffi not installed")
                         
-                        resp = session.get(safe_url, headers=req_headers, stream=True, timeout=60.0)
+                        resp = session.get(safe_url, headers=req_headers, stream=True, timeout=None)
                         try:
                             resp.raise_for_status()
                             class CurlRespWrapper:
@@ -1188,8 +1196,3 @@ class MediaDownloader:
         if lowered_suffix == ".ogv":
             return content.startswith(b"OggS")
         return any(content.startswith(sig) for sig in VIDEO_SIGNATURES)
-
-    def close(self):
-        """Cleanup the resources."""
-        if hasattr(self, '_cpu_pool') and self._cpu_pool:
-            self._cpu_pool.shutdown(wait=False)

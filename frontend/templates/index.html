@@ -27,6 +27,94 @@
             --border-accent: 2px solid var(--accent);
         }
 
+        /* Unified Card Header Styles */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #3a3f3c;
+            background: var(--bg-surface);
+            gap: 0.5rem;
+            overflow: visible;
+            margin: 0;
+        }
+
+        .card-header-title {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card-header-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+
+        .card-header-input {
+            height: 28px;
+            line-height: 28px;
+            padding: 0 10px;
+            margin: 0;
+            box-sizing: border-box;
+            display: inline-block;
+            vertical-align: middle;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            border: 1px solid #3a3f3c;
+            outline: none;
+        }
+        
+        .card-header-input:focus {
+            border-color: var(--accent);
+        }
+
+        .card-header-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .card-header-btn {
+            height: 28px;
+            line-height: 28px;
+            margin: 0;
+            box-sizing: border-box;
+            background: transparent;
+            border: 1px solid #3a3f3c;
+            color: var(--text-primary);
+            padding: 0 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.15s ease;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .card-header-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .card-header-btn.accent-btn {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -1797,17 +1885,15 @@
                     style="display: flex; flex-direction: column; gap: 1.5rem; height: 100%; min-height: 0;">
                     <!-- WAF Stealth Pipeline Telemetry Card -->
                     <div class="glass-panel" id="stealth-telemetry-card"
-                        style="border: var(--border-heavy); background: var(--bg-surface); padding: 0.75rem 1rem;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.4rem; margin-bottom: 0.6rem;">
-                            <span
-                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.85rem; letter-spacing: 1px;">STEALTH
-                                PIPELINE TELEMETRY</span>
-                            <button onclick="refreshStealthTelemetry()"
-                                style="background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; cursor: pointer; border-radius: 0 !important;">REFRESH</button>
+                        style="border: var(--border-heavy); background: var(--bg-surface); padding: 0 !important; display: flex; flex-direction: column; gap: 0 !important;">
+                        <div class="card-header">
+                            <span class="card-header-title">STEALTH PIPELINE TELEMETRY</span>
+                            <div class="card-header-actions">
+                                <button onclick="refreshStealthTelemetry()" class="card-header-btn accent-btn">REFRESH</button>
+                            </div>
                         </div>
                         <div id="stealth-tier-pills"
-                            style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 0.75rem 1rem !important; margin-top: 0 !important; background: #0b0d0c;">
                             <span
                                 style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING
                                 STEALTH STATS...</span>
@@ -1816,33 +1902,30 @@
 
                     <!-- Live Crawl Network Tree Graph (Top) -->
                     <div class="glass-panel" id="crawl-graph-card"
-                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base); gap: 0.5rem; flex-wrap: wrap;">
-                            <span
-                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">LIVE
-                                CRAWL NETWORK TREE</span>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0 !important; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface); gap: 0 !important;">
+                        <div class="card-header">
+                            <span class="card-header-title">LIVE CRAWL NETWORK TREE</span>
+                            <div class="card-header-actions">
                                 <input type="text" id="graph-search-input" aria-label="Search Node"
                                     placeholder="SEARCH NODE..." oninput="drawCrawlGraph()"
-                                    style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); width: 110px; outline: none; border-radius: 0 !important;">
+                                    class="card-header-input" style="width: 150px;">
                                 <select id="graph-depth-select" aria-label="Filter by depth" onchange="drawCrawlGraph()"
-                                    style="padding: 0.2rem 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-heavy); outline: none; border-radius: 0 !important;">
+                                    class="card-header-input">
                                     <option value="all">ALL DEPTHS</option>
                                     <option value="0">DEPTH 0 (SEEDS)</option>
                                     <option value="1">DEPTH 1</option>
                                     <option value="2">DEPTH 2+</option>
                                 </select>
-                                <span id="graph-node-count"
-                                    style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">NODES:
-                                    0</span>
+                                <span id="graph-node-count" class="card-header-badge">NODES: 0</span>
                                 <button type="button" id="btn-toggle-fullscreen"
-                                    title="Open Fullscreen View Mode (ESC to exit)" onclick="toggleFullscreenCanvas()"
-                                    style="background: var(--bg-surface); color: var(--accent); border: 1px solid var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem; cursor: pointer; border-radius: 0 !important; text-transform: uppercase; display: flex; align-items: center; gap: 4px; transition: all 0.15s ease;">⛶
-                                    FULLSCREEN</button>
+                                    title="Fullscreen" onclick="toggleFullscreenCanvas()"
+                                    class="card-header-btn accent-btn" style="padding: 0; min-width: 28px; width: 28px; height: 28px; flex-shrink: 0; box-sizing: border-box; overflow: hidden;">
+                                    <span class="icon-expand">⛶</span>
+                                    <span class="icon-compress" style="display: none;">✕</span>
+                                </button>
                             </div>
                         </div>
-                        <div style="flex: 1; position: relative; overflow: hidden; background: #050706;">
+                        <div style="flex: 1; position: relative; overflow: hidden; background: #050706 !important; margin: 0; padding: 0; margin-top: 0 !important; padding-top: 0 !important;">
                             <canvas id="crawl-graph-canvas"
                                 style="width: 100%; height: 100%; display: block; cursor: grab; touch-action: none;"></canvas>
 
@@ -1919,18 +2002,15 @@
 
                     <!-- Live Streaming Media Feed Grid (Bottom) -->
                     <div class="glass-panel"
-                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface);">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; border-bottom: var(--border-heavy); background: var(--bg-base);">
-                            <span
-                                style="font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px;">STREAMING
-                                MEDIA FEED</span>
-                            <span id="stream-item-count"
-                                style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); font-weight: 700;">ASSETS:
-                                0</span>
+                        style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0 !important; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface); gap: 0 !important;">
+                        <div class="card-header">
+                            <span class="card-header-title">STREAMING MEDIA FEED</span>
+                            <div class="card-header-actions">
+                                <span id="stream-item-count" class="card-header-badge">ASSETS: 0</span>
+                            </div>
                         </div>
                         <div id="live-media-stream-grid"
-                            style="flex: 1; overflow-y: auto; padding: 0.75rem; display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 120px; gap: 0.75rem; background: #080a09; align-content: start;">
+                            style="flex: 1; overflow-y: auto; padding: 0 0.75rem 0.75rem; margin-top: 0 !important; border-top: none !important; display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 120px; gap: 0.75rem; background: #080a09; align-content: start;">
                             <div id="stream-empty-placeholder"
                                 style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.05em;">
                                 AWAITING MEDIA ASSETS...
@@ -1941,30 +2021,25 @@
 
                 <!-- Live Log Terminal -->
                 <div class="terminal-panel" id="terminal-panel">
-                    <div class="terminal-header"
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div class="card-header">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span
-                                style="font-family: 'Oswald', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent);">LIVE
-                                TERMINAL FEED</span>
+                            <span class="card-header-title">LIVE TERMINAL FEED</span>
                             <span id="log-speed-indicator"
                                 style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0, 0, 0, 0.4); padding: 0.2rem 0.5rem; border: 1px solid var(--accent);">IDLE</span>
                             <span id="log-copy-feedback"
-                                style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #00ff66; font-weight: bold;">✓
-                                COPIED TO CLIPBOARD</span>
+                                style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #00ff66; font-weight: bold;">✓ COPIED TO CLIPBOARD</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="card-header-actions">
                             <span id="progress-text"
                                 style="color: var(--text-muted); font-size: 0.75rem; font-family: monospace; display: none;"></span>
                             <button type="button" id="btn-autoscroll" onclick="toggleAutoScroll()"
-                                style="background: transparent; border: 1px solid var(--border-color); color: var(--accent); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
-                                AUTO-SCROLL ON ]</button>
+                                class="card-header-btn accent-btn">[ AUTO-SCROLL ON ]</button>
+                            <button type="button" onclick="window.open('/api/logs/download', '_blank')"
+                                class="card-header-btn">[ DOWNLOAD LOGS ]</button>
                             <button type="button" onclick="copyTerminalLogs()"
-                                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
-                                COPY LOGS ]</button>
+                                class="card-header-btn">[ COPY LOGS ]</button>
                             <button type="button" onclick="clearTerminalFeed()"
-                                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.25rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; font-weight: 700;">[
-                                CLEAR ]</button>
+                                class="card-header-btn" style="color: var(--text-muted);">[ CLEAR ]</button>
                         </div>
                     </div>
                     <div id="progress-bar-container"
@@ -1981,18 +2056,17 @@
 
             <!-- Watchdog -->
             <div id="watchdog-view" style="display: none; flex-direction: column; gap: 1rem; width: 100%;">
-                <!-- Full-width Status Banner -->
-                <div class="glass-panel" style="padding: 1rem; border-left: 4px solid #ffaa00;" id="watchdog-banner">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="glass-panel" id="watchdog-banner" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="margin: 0; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--text-primary);">
-                                DAEMON STATUS: <span id="watchdog-global-status" style="color: #ffaa00;">SYSTEM IDLE</span>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">WATCHDOG DAEMON
+                                <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
+                                    <span class="tooltip-content">Continuous monitoring background process. Periodically wakes up to scrape target keyword based on interval.</span>
+                                </span>
+                                <span class="status-badge" id="watchdog-global-status" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[ IDLE ]</span>
                             </h2>
-                            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                                NETWORK OPERATIONS CENTER // BACKGROUND CRAWL MONITORING
-                            </div>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Continuous Monitoring & Adaptive Backoff Daemon</p>
                         </div>
-                        <span class="status-badge" id="watchdog-status-badge" style="border-color: #ffaa00; color: #ffaa00; font-size: 1.1rem; padding: 0.5rem 1rem;">IDLE</span>
                     </div>
                 </div>
 
@@ -2000,23 +2074,35 @@
                     <!-- Command & Control (Sector A) -->
                     <div class="glass-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 1rem;">SECTOR A: COMMAND INTERFACE</h3>
+                            <h2>SECTOR A: COMMAND INTERFACE
+                                <span class="tooltip-wrapper">?
+                                    <span class="tooltip-content">Configure daemon monitoring targets and polling intervals.</span>
+                                </span>
+                            </h2>
                             
                             <div class="form-group">
-                                <label for="watchdog-keyword-input" style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">> SET TARGET_KEYWORD</label>
-                                <input type="text" id="watchdog-keyword-input" value="cyberpunk" placeholder="Target keyword..." style="background: #000; border: 1px solid var(--border-heavy); color: #fff;">
+                                <label for="watchdog-keyword-input">> SET TARGET_KEYWORD
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">The search term the Daemon will repeatedly poll for updates.</span>
+                                    </span>
+                                </label>
+                                <input type="text" id="watchdog-keyword-input" value="cyberpunk" placeholder="Target keyword...">
                             </div>
                             <div class="form-group">
-                                <label for="watchdog-interval-input" style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">> SET SWEEP_INTERVAL_SEC</label>
-                                <input type="number" id="watchdog-interval-input" value="60" min="10" step="10" style="background: #000; border: 1px solid var(--border-heavy); color: #fff;">
+                                <label for="watchdog-interval-input">> SET SWEEP_INTERVAL_SEC
+                                    <span class="tooltip-wrapper">?
+                                        <span class="tooltip-content">Time in seconds the daemon will sleep before executing the next run.</span>
+                                    </span>
+                                </label>
+                                <input type="number" id="watchdog-interval-input" value="60" min="10" step="10">
                             </div>
                         </div>
                         
                         <div class="button-bar" style="margin-top: 1.5rem; justify-content: flex-start; gap: 1rem;">
-                            <button type="button" class="btn" style="background-color: transparent; color: #00ff66; border: 2px solid #00ff66; font-size: 0.9rem; padding: 0.75rem 1.5rem; font-weight: bold; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#003311'" onmouseout="this.style.backgroundColor='transparent'" onclick="startWatchdogAgent()" id="btn-start-watchdog">
+                            <button type="button" class="btn" style="color: var(--accent); border-color: var(--accent); flex: 1;" onclick="startWatchdogAgent()" id="btn-start-watchdog">
                                 [ ENGAGE DAEMON ]
                             </button>
-                            <button type="button" class="btn" style="background-color: transparent; color: #cc0000; border: 2px solid #cc0000; font-size: 0.9rem; padding: 0.75rem 1.5rem; font-weight: bold; flex: 1; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#330000'" onmouseout="this.style.backgroundColor='transparent'" onclick="stopWatchdogAgent()" id="btn-stop-watchdog">
+                            <button type="button" class="btn" style="color: #cc0000; border-color: #cc0000; flex: 1;" onclick="stopWatchdogAgent()" id="btn-stop-watchdog">
                                 [ ABORT ]
                             </button>
                         </div>
@@ -2024,28 +2110,32 @@
 
                     <!-- Live Telemetry (Sector B) -->
                     <div class="glass-panel">
-                        <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 1rem;">SECTOR B: ACTIVE TELEMETRY</h3>
+                        <h2>SECTOR B: ACTIVE TELEMETRY
+                            <span class="tooltip-wrapper">?
+                                <span class="tooltip-content">Real-time status metrics of the active watchdog daemon process.</span>
+                            </span>
+                        </h2>
                         
                         <div id="watchdog-metrics-panel" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary); display: flex; flex-direction: column; gap: 0.5rem;">
-                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
                                 <span>SYSTEM_PID:</span>
                                 <span id="telemetry-pid" style="color: var(--text-muted);">---</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
                                 <span>CURRENT_TARGET:</span>
                                 <span id="telemetry-target" style="color: var(--text-muted);">---</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
                                 <span>POLL_INTERVAL:</span>
                                 <span id="telemetry-interval" style="color: var(--text-muted);">---</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
                                 <span>STATE_CACHE_TTL:</span>
-                                <span style="color: #00ff66;">7 DAYS (AUTO-PRUNED)</span>
+                                <span style="color: var(--accent);">7 DAYS (AUTO-PRUNED)</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: #000; border: 1px solid var(--border-heavy);">
+                            <div style="display: flex; justify-content: space-between; padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
                                 <span>HOT_SEED_RELOADING:</span>
-                                <span style="color: #00ff66;">ACTIVE (MTIME)</span>
+                                <span style="color: var(--accent);">ACTIVE (MTIME)</span>
                             </div>
                         </div>
                     </div>
@@ -2053,8 +2143,12 @@
 
                 <!-- Live Operation Log (Sector C) -->
                 <div class="glass-panel" style="flex: 1; display: flex; flex-direction: column;">
-                    <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--accent); border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-bottom: 0;">SECTOR C: LIVE RADAR LOG</h3>
-                    <div id="watchdog-log-window" style="flex: 1; min-height: 250px; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; margin-top: 1rem; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #00ff66; display: flex; flex-direction: column; gap: 0.25rem;">
+                    <h2>SECTOR C: LIVE RADAR LOG
+                        <span class="tooltip-wrapper">?
+                            <span class="tooltip-content">Raw unbuffered stdout tailing the background daemon.</span>
+                        </span>
+                    </h2>
+                    <div id="watchdog-log-window" style="flex: 1; min-height: 250px; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); display: flex; flex-direction: column; gap: 0.25rem;">
                         <div style="color: var(--text-muted);">[SYSTEM] Watchdog Cockpit initialized. Awaiting commands...</div>
                     </div>
                     <div id="watchdog-feedback" style="display:none;"></div> <!-- Kept hidden for legacy compat -->
@@ -2080,13 +2174,18 @@
             <!-- Seed Studio View Grid -->
             <!-- Seed Studio View Grid -->
             <div class="seed-studio-view" id="seed-studio-view" style="display: none; flex-direction: column; gap: 1rem; width: 100%;">
-                <div class="glass-panel" style="padding: 1rem; border-left: 4px solid #ffaa00; display: flex; flex-direction: column; gap: 1rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem;">
-                        <h2 style="margin: 0; font-size: 1.5rem; letter-spacing: 0.1em; color: var(--text-primary);">
-                            MANIFEST CONFIGURATION <span id="studio-status-indicator" style="color: #ffaa00; font-size: 1rem;">[ IDLE ]</span>
-                        </h2>
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
+                        <div>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SEED STUDIO
+                                <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
+                                    <span class="tooltip-content">Configure and construct manifest files to explicitly govern search targets, crawl behavior, and overrides.</span>
+                                </span>
+                                <span class="status-badge" id="studio-status-indicator" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[ IDLE ]</span>
+                            </h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Manifest Builder & Search Seed Editor</p>
+                        </div>
                     </div>
-
                     <div style="display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <label for="studio-seed-select" style="font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT MANIFEST:</label>
@@ -2120,17 +2219,21 @@
                     <!-- Visual Builder Mode -->
                     <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
                         <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                            <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #00ff66; font-size: 1.2rem;">> SET TARGET_SUBJECT</label>
-                            <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.75rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; outline: none;">
+                            <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.2rem;">> SET TARGET_SUBJECT
+                                <span class="tooltip-wrapper">?
+                                    <span class="tooltip-content">The overarching subject name used for folder generation and matching.</span>
+                                </span>
+                            </label>
+                            <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()">
                         </div>
                         
-                        <div style="background: #050505; border: 1px solid var(--border-heavy); padding: 1rem;">
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-heavy); padding: 1rem;">
                             <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">INJECT PRESET DIRECTIVE:</div>
                             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Inject Gallery Index</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Inject Direct Search</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Inject Stealth Protected</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Inject Video Stream</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Inject Gallery Index</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Inject Direct Search</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Inject Stealth Protected</button>
+                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Inject Video Stream</button>
                             </div>
                         </div>
 
@@ -2138,24 +2241,28 @@
                             <!-- Domain directives rendered dynamically -->
                         </div>
 
-                        <button type="button" class="btn" style="width: 100%; background: #050505 !important; color: #00ff66 !important; border: 1px dashed #00ff66 !important; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; cursor: pointer; text-transform: uppercase;" onclick="addStudioDomainCard()">[ + APPEND NEW DIRECTIVE MODULE ]</button>
+                        <button type="button" class="btn" style="width: 100%; border: 1px dashed var(--accent); color: var(--accent); padding: 1rem; font-weight: 700;" onclick="addStudioDomainCard()">[ + APPEND NEW DIRECTIVE MODULE ]</button>
                     </div>
 
                     <!-- Raw Code Mode -->
-                    <div id="studio-code-panel" class="glass-panel" style="display: none; padding: 0; border: 1px solid var(--border-heavy);">
-                        <div style="padding: 0.5rem 1rem; background: #000; border-bottom: 1px solid var(--border-heavy); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; display: flex; justify-content: space-between;">
-                            <span>BUFFER: MANIFEST_SOURCE.TXT</span>
-                            <span>ENCODING: UTF-8</span>
+                    <div id="studio-code-panel" class="glass-panel" style="display: none; flex-direction: column; padding: 0;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: var(--border-heavy); padding: 1rem;">
+                            <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">[ SEED SOURCE MANIFEST ]</span>
+                            <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">ENCODING: UTF-8</span>
                         </div>
-                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor" style="width: 100%; height: 600px; font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff66; border: none; padding: 1rem; resize: vertical; outline: none; box-sizing: border-box;" oninput="onStudioCodeEditorChanged()"></textarea>
+                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor" oninput="onStudioCodeEditorChanged()"></textarea>
                     </div>
                 </div>
 
                 <!-- Floating Line-Jump Validation Console -->
-                <div id="studio-validation-console" class="glass-panel" style="margin-top: 0; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                <div id="studio-validation-console" class="glass-panel" style="margin-top: 0;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="color: var(--accent); font-weight: 700;">SYNTAX & MANIFEST VALIDATION:</span>
-                        <span id="studio-validation-status" style="color: #00ff66;">✓ MANIFEST VALID</span>
+                        <h2>SYNTAX & MANIFEST VALIDATION
+                            <span class="tooltip-wrapper">?
+                                <span class="tooltip-content">Live feedback on seed rules parsing. Warnings indicate invalid domains or unknown annotations.</span>
+                            </span>
+                        </h2>
+                        <span id="studio-validation-status" style="color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: bold;">[ MANIFEST VALID ]</span>
                     </div>
                     <div id="studio-validation-warnings" style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
                         No syntax warnings detected.
@@ -2218,10 +2325,16 @@
             <!-- Settings Dashboard View -->
             <div id="settings-view" style="display: none;">
                 <div class="glass-panel" style="margin-bottom: 2rem;">
-                    <h2>SYSTEM SETTINGS & INTEGRATIONS</h2>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Configure
-                        application defaults, third-party integrations, webhook URLs, and automation limits. Changes are
-                        saved dynamically into <code>data/settings.db</code> SQLite storage.</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
+                        <div>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SYSTEM SETTINGS
+                                <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
+                                    <span class="tooltip-content">Dynamic Configuration Engine for global parameters and integrations.</span>
+                                </span>
+                            </h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Dynamic Configuration & Integrations Engine</p>
+                        </div>
+                    </div>
 
                     <form id="settings-form" onsubmit="event.preventDefault(); saveSettings();">
                         <div
@@ -2231,7 +2344,11 @@
                                 style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
                                 <h3
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-                                    GENERAL SETTINGS</h3>
+                                    GENERAL SETTINGS
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Global execution defaults and verbosity controls.</span>
+                                    </span>
+                                </h3>
                                 <div class="form-group">
                                     <label for="setting-GLOBAL_MAX_RETRIES">GLOBAL MAX RETRIES</label>
                                     <input type="number" id="setting-GLOBAL_MAX_RETRIES" value="3"
@@ -2258,7 +2375,11 @@
                                 style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
                                 <h3
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-                                    PROXY SETTINGS</h3>
+                                    PROXY SETTINGS
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Configure how network traffic routes through proxy pools.</span>
+                                    </span>
+                                </h3>
                                 <div class="form-group">
                                     <label for="setting-PROXY_ROTATION_STRATEGY">PROXY ROTATION STRATEGY</label>
                                     <select id="setting-PROXY_ROTATION_STRATEGY"
@@ -2280,7 +2401,11 @@
                                 style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
                                 <h3
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-                                    NOTIFICATIONS & WEBHOOKS</h3>
+                                    NOTIFICATIONS & WEBHOOKS
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Alert channels for critical events, blocked domains, or WAF triggers.</span>
+                                    </span>
+                                </h3>
                                 <div class="form-group">
                                     <label for="setting-TELEGRAM_BOT_TOKEN">TELEGRAM BOT TOKEN</label>
                                     <input type="password" id="setting-TELEGRAM_BOT_TOKEN"
@@ -2311,7 +2436,11 @@
                                 style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
                                 <h3
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-                                    CAPTCHA PROVIDERS</h3>
+                                    CAPTCHA PROVIDERS
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">API keys for automated Cloudflare and CAPTCHA bypass services.</span>
+                                    </span>
+                                </h3>
                                 <div class="form-group">
                                     <label for="setting-CAPSOLVER_API_KEY">CAPSOLVER API KEY</label>
                                     <input type="password" id="setting-CAPSOLVER_API_KEY" placeholder="CAI-..."
@@ -2377,7 +2506,11 @@
                     <!-- JSON Editor Form -->
                     <form id="domain-studio-form" hx-post="/api/domain-config/save" hx-target="#domain-studio-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON RULE MATRIX (data/domain_config.json)</label>
+                            <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON RULE MATRIX (data/domain_config.json)
+                                <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Edit domain-specific routing overrides, rate-limits, and hotlink protections.</span>
+                                </span>
+                            </label>
                             <textarea id="domain-studio-raw-json" name="raw_json" rows="22" spellcheck="false"
                                 style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
                         </div>
@@ -2411,7 +2544,11 @@
                     </div>
                     <form id="url-rules-form" hx-post="/api/url-rules/save" hx-target="#url-rules-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON ARRAY</label>
+                            <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON ARRAY
+                                <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Define regex patterns to normalize and canonicalize URLs, preventing duplicate processing.</span>
+                                </span>
+                            </label>
                             <textarea id="url-rules-raw-json" name="raw_json" rows="22" spellcheck="false"
                                 style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
                         </div>
@@ -2444,7 +2581,11 @@
                     </div>
                     <form id="subject-profiles-form" hx-post="/api/subject-profiles/save" hx-target="#subject-profiles-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON PROFILES</label>
+                            <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON PROFILES
+                                <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Global subject-specific presets containing priorities and default max results.</span>
+                                </span>
+                            </label>
                             <textarea id="subject-profiles-raw-json" name="raw_json" rows="22" spellcheck="false"
                                 style="width: 100%; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: vertical; tab-size: 4;"></textarea>
                         </div>
@@ -2873,7 +3014,7 @@
                 function selectSubject(name) {
                     currentSubject = name;
                     document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'block';
+                    document.getElementById('gallery-view').style.display = '';
                     const studioEl = document.getElementById('seed-studio-view');
                     if (studioEl) studioEl.style.display = 'none';
                     const settingsEl = document.getElementById('settings-view');
@@ -2929,57 +3070,52 @@
                 let currentStudioMode = "builder"; // "builder" | "code"
                 let discoveredUrlsBuffer = [];
 
+                function resetGlobalStats() {
+                    const statsEl = document.getElementById('active-stats-container');
+                    if (statsEl && statsEl.getAttribute('hx-get') !== '/htmx/active-stats') {
+                        statsEl.setAttribute('hx-get', '/htmx/active-stats');
+                        statsEl.setAttribute('hx-trigger', 'load, every 2s');
+                        htmx.process(statsEl);
+                    }
+                }
+
+                function hideAllViews() {
+                    const views = [
+                        'command-center-view', 'gallery-view', 'seed-studio-view', 
+                        'watchdog-view', 'settings-view', 'domain-studio-view', 
+                        'url-rules-view', 'subject-profiles-view'
+                    ];
+                    views.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'none';
+                    });
+                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
+                }
+
                 function showSettingsDashboard() {
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-                    const studioEl = document.getElementById('seed-studio-view');
-                    if (studioEl) studioEl.style.display = 'none';
-                    const watchdogEl = document.getElementById('watchdog-view');
-                    if (watchdogEl) watchdogEl.style.display = 'none';
-                    const domainStudioEl = document.getElementById('domain-studio-view');
-                    if (domainStudioEl) domainStudioEl.style.display = 'none';
-                    const urEl = document.getElementById('url-rules-view');
-                    if (urEl) urEl.style.display = 'none';
-                    const spEl = document.getElementById('subject-profiles-view');
-                    if (spEl) spEl.style.display = 'none';
+                    hideAllViews();
+                    resetGlobalStats();
 
-
-                    document.getElementById('settings-view').style.display = 'block';
+                    document.getElementById('settings-view').style.display = '';
 
                     document.getElementById('main-title').innerText = "SYSTEM SETTINGS";
                     document.getElementById('main-subtitle').innerText = "Dynamic Configuration & Integrations Engine";
 
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     document.getElementById('nav-settings').classList.add('active');
-
-                    // Switch stats container to empty or generic to not pollute settings context
-                    const statsEl = document.getElementById('active-stats-container');
-                    if (statsEl) {
-                        statsEl.innerHTML = '';
-                        statsEl.removeAttribute('hx-get');
-                        statsEl.removeAttribute('hx-trigger');
-                    }
 
                     loadSettings();
                 }
 
                 function showDomainStudio() {
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-                    const studioEl = document.getElementById('seed-studio-view');
-                    if (studioEl) studioEl.style.display = 'none';
-                    const watchdogEl = document.getElementById('watchdog-view');
-                    if (watchdogEl) watchdogEl.style.display = 'none';
-                    const settingsEl = document.getElementById('settings-view');
-                    if (settingsEl) settingsEl.style.display = 'none';
+                    hideAllViews();
+                    resetGlobalStats();
 
                     const domainStudioEl = document.getElementById('domain-studio-view');
-                    if (domainStudioEl) domainStudioEl.style.display = 'block';
+                    if (domainStudioEl) domainStudioEl.style.display = '';
 
                     document.getElementById('main-title').innerText = "DOMAIN CONFIG STUDIO";
                     document.getElementById('main-subtitle').innerText = "Per-Domain Routing, Rate Limiting & Hotlink Directives";
 
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     const navBtn = document.getElementById('nav-domain-studio');
                     if (navBtn) navBtn.classList.add('active');
 
@@ -2988,16 +3124,10 @@
 
                 
                 function showUrlRules() {
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-                    document.getElementById('seed-studio-view').style.display = 'none';
-                    document.getElementById('watchdog-view').style.display = 'none';
-                    document.getElementById('settings-view').style.display = 'none';
-                    document.getElementById('domain-studio-view').style.display = 'none';
-                    document.getElementById('subject-profiles-view').style.display = 'none';
+                    hideAllViews();
+                    resetGlobalStats();
                     
-                    document.getElementById('url-rules-view').style.display = 'block';
+                    document.getElementById('url-rules-view').style.display = '';
                     document.getElementById('main-title').innerText = "URL RULES STUDIO";
                     document.getElementById('main-subtitle').innerText = "Regex Canonicalisation Patterns";
                     document.getElementById('nav-url-rules').classList.add('active');
@@ -3023,16 +3153,10 @@
                 }
 
                 function showSubjectProfiles() {
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-                    document.getElementById('seed-studio-view').style.display = 'none';
-                    document.getElementById('watchdog-view').style.display = 'none';
-                    document.getElementById('settings-view').style.display = 'none';
-                    document.getElementById('domain-studio-view').style.display = 'none';
-                    document.getElementById('url-rules-view').style.display = 'none';
+                    hideAllViews();
+                    resetGlobalStats();
                     
-                    document.getElementById('subject-profiles-view').style.display = 'block';
+                    document.getElementById('subject-profiles-view').style.display = '';
                     document.getElementById('main-title').innerText = "SUBJECT PROFILES STUDIO";
                     document.getElementById('main-subtitle').innerText = "Crawl Presets & Annotations";
                     document.getElementById('nav-subject-profiles').classList.add('active');
@@ -3172,37 +3296,17 @@
                 }
 
                 function showSeedStudio() {
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-
-                    const settingsEl = document.getElementById('settings-view');
-                    if (settingsEl) settingsEl.style.display = 'none';
-                    const watchdogEl = document.getElementById('watchdog-view');
-                    if (watchdogEl) watchdogEl.style.display = 'none';
-                    const domainStudioEl = document.getElementById('domain-studio-view');
-                    if (domainStudioEl) domainStudioEl.style.display = 'none';
-                    const urEl = document.getElementById('url-rules-view');
-                    if (urEl) urEl.style.display = 'none';
-                    const spEl = document.getElementById('subject-profiles-view');
-                    if (spEl) spEl.style.display = 'none';
-
+                    hideAllViews();
+                    resetGlobalStats();
 
                     const studioEl = document.getElementById('seed-studio-view');
-                    if (studioEl) studioEl.style.display = 'block';
+                    if (studioEl) studioEl.style.display = '';
 
                     document.getElementById('main-title').innerText = "SEED STUDIO";
                     document.getElementById('main-subtitle').innerText = "MANIFEST BUILDER";
 
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     const navBtn = document.getElementById('nav-seed-studio');
                     if (navBtn) navBtn.classList.add('active');
-
-                    const statsEl = document.getElementById('active-stats-container');
-                    if (statsEl) {
-                        statsEl.innerHTML = '';
-                        statsEl.removeAttribute('hx-get');
-                        statsEl.removeAttribute('hx-trigger');
-                    }
 
                     loadStudioSeedsList();
                 }
@@ -3348,7 +3452,11 @@
                         
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">TARGET HOSTNAME</label>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">TARGET HOSTNAME
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">The root domain to apply these specific crawl behaviors to.</span>
+                                    </span>
+                                </label>
                                 <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                             </div>
                             <div class="form-group">
@@ -3360,14 +3468,22 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">CRAWL STRATEGY</label>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">CRAWL STRATEGY
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">'index→detail' will find posts and follow links to scrape full-res. 'direct' extracts directly from the seed pages.</span>
+                                    </span>
+                                </label>
                                 <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                                     <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
                                     <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">ENGINE</label>
+                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">ENGINE
+                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Force a specific engine (e.g. Camoufox for JS-heavy stealth).</span>
+                                    </span>
+                                </label>
                                 <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
                                     <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
                                     <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
@@ -3386,7 +3502,11 @@
                             </label>
                         </div>
                         <div class="form-group">
-                            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">> INJECT SEED_URLS (ONE PER LINE)</label>
+                            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">> INJECT SEED_URLS (ONE PER LINE)
+                                <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
+                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Absolute URLs that the crawler will start from for this specific domain block.</span>
+                                </span>
+                            </label>
                             <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; box-sizing: border-box; height: 110px; font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); padding: 0.75rem; resize: vertical; outline: none; margin-top: 0.5rem;"></textarea>
                         </div>
                     `;
@@ -3673,68 +3793,28 @@
                 }
 
                 function showCommandCenter() {
-                    document.getElementById('gallery-view').style.display = 'none';
-                    const studioEl = document.getElementById('seed-studio-view');
-                    if (studioEl) studioEl.style.display = 'none';
-                    const settingsEl = document.getElementById('settings-view');
-                    if (settingsEl) settingsEl.style.display = 'none';
-                    const watchdogEl = document.getElementById('watchdog-view');
-                    if (watchdogEl) watchdogEl.style.display = 'none';
-                    const domainStudioEl = document.getElementById('domain-studio-view');
-                    if (domainStudioEl) domainStudioEl.style.display = 'none';
-                    const urEl = document.getElementById('url-rules-view');
-                    if (urEl) urEl.style.display = 'none';
-                    const spEl = document.getElementById('subject-profiles-view');
-                    if (spEl) spEl.style.display = 'none';
+                    hideAllViews();
+                    resetGlobalStats();
 
-
-                    document.getElementById('command-center-view').style.display = 'block';
+                    document.getElementById('command-center-view').style.display = '';
                     document.getElementById('main-title').innerText = "COMMAND CENTER";
                     document.getElementById('main-subtitle').innerText = "DATA EXTRACTION COCKPIT";
 
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     document.getElementById('nav-cmd-center').classList.add('active');
-
-                    // Re-init stats
-                    const statsEl = document.getElementById('active-stats-container');
-                    if (statsEl) {
-                        statsEl.setAttribute('hx-get', '/htmx/active-stats');
-                        statsEl.setAttribute('hx-trigger', 'load, every 2s');
-                        htmx.process(statsEl);
-                    }
                 }
 
                 function showWatchdogDashboard() {
-                    document.getElementById('command-center-view').style.display = 'none';
-                    document.getElementById('gallery-view').style.display = 'none';
-                    const studioEl = document.getElementById('seed-studio-view');
-                    if (studioEl) studioEl.style.display = 'none';
-                    const settingsEl = document.getElementById('settings-view');
-                    if (settingsEl) settingsEl.style.display = 'none';
-                    const domainStudioEl = document.getElementById('domain-studio-view');
-                    if (domainStudioEl) domainStudioEl.style.display = 'none';
-                    const urEl = document.getElementById('url-rules-view');
-                    if (urEl) urEl.style.display = 'none';
-                    const spEl = document.getElementById('subject-profiles-view');
-                    if (spEl) spEl.style.display = 'none';
-
+                    hideAllViews();
+                    resetGlobalStats();
 
                     const watchdogEl = document.getElementById('watchdog-view');
-                    if (watchdogEl) watchdogEl.style.display = 'flex';
+                    if (watchdogEl) watchdogEl.style.display = '';
 
                     document.getElementById('main-title').innerText = "WATCHDOG COCKPIT";
                     document.getElementById('main-subtitle').innerText = "CONTINUOUS MONITORING & ADAPTIVE BACKOFF DAEMON";
 
-                    document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => item.classList.remove('active'));
                     const navBtn = document.getElementById('nav-watchdog');
                     if (navBtn) navBtn.classList.add('active');
-
-                    const statsEl = document.getElementById('active-stats-container');
-                    if (statsEl) {
-                        statsEl.innerHTML = '';
-                        statsEl.removeAttribute('hx-get');
-                        statsEl.removeAttribute('hx-trigger');
-                    }
                 }
 
                 let isFormLocked = false;
@@ -4364,7 +4444,11 @@
                             card.webkitRequestFullscreen();
                         }
                         if (btn) {
-                            btn.innerHTML = '✕ EXIT FULLSCREEN';
+                            btn.title = "Exit Fullscreen";
+                            const expand = btn.querySelector('.icon-expand');
+                            const compress = btn.querySelector('.icon-compress');
+                            if (expand) expand.style.display = 'none';
+                            if (compress) compress.style.display = 'inline';
                             btn.style.color = '#ff5500';
                             btn.style.borderColor = '#ff5500';
                         }
@@ -4396,7 +4480,11 @@
                         }
                     }
                     if (btn) {
-                        btn.innerHTML = '⛶ FULLSCREEN';
+                        btn.title = "Fullscreen";
+                        const expand = btn.querySelector('.icon-expand');
+                        const compress = btn.querySelector('.icon-compress');
+                        if (expand) expand.style.display = 'inline';
+                        if (compress) compress.style.display = 'none';
                         btn.style.color = 'var(--accent)';
                         btn.style.borderColor = 'var(--accent)';
                     }
@@ -4902,22 +4990,33 @@
 
                             let html = '';
                             const tiers = ['httpx', 'capsolver', 'crawlee', 'crawl4ai', 'drissionpage', 'helium', 'flaresolverr', 'camoufox'];
+                            // Dynamic scaling: find the highest count, minimum floor of 10.
+                            const maxSolves = Math.max(...tiers.map(t => data.solve_counts[t] || 0), 10);
+
                             tiers.forEach(tier => {
                                 const count = data.solve_counts[tier] || 0;
                                 const health = (data.health_stats && data.health_stats[tier]) || {};
                                 const isCooldown = health.is_cooling_down;
-                                let statusColor = 'var(--text-muted)';
+                                
+                                let statusColor = '#3a3f3c'; // idle state
                                 if (isCooldown) {
                                     statusColor = '#ff3333';
                                 } else if (count > 0) {
                                     statusColor = '#00ff66';
                                 }
+                                
                                 const badgeText = isCooldown ? 'COOLDOWN' : `${count} SOLVES`;
+                                const widthPct = Math.min(100, (count / maxSolves) * 100);
 
                                 html += `
-                                    <div id="stealth-pill-${tier}" style="border: 1px solid var(--border-heavy); background: var(--bg-base); padding: 0.3rem 0.5rem; display: flex; align-items: center; gap: 0.4rem; border-radius: 0 !important; transition: border-color 0.3s, background-color 0.3s, box-shadow 0.3s;">
-                                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">${tier}</span>
-                                        <span id="stealth-badge-${tier}" style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: rgba(0,0,0,0.4); color: ${statusColor}; border: 1px solid ${statusColor}; padding: 1px 4px; font-weight: 700;">${badgeText}</span>
+                                    <div id="stealth-card-${tier}" style="display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--bg-surface); border: 1px solid var(--border-heavy);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">${tier}</span>
+                                            <span id="stealth-badge-${tier}" style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: ${statusColor === '#3a3f3c' ? 'var(--text-muted)' : statusColor}; font-weight: 700;">${badgeText}</span>
+                                        </div>
+                                        <div style="height: 6px; background: #1a1d1b; border: 1px solid #3a3f3c; overflow: hidden; width: 100%;">
+                                            <div id="stealth-bar-${tier}" style="height: 100%; width: ${widthPct}%; background: ${statusColor}; transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;"></div>
+                                        </div>
                                     </div>
                                 `;
                             });
@@ -4928,23 +5027,35 @@
 
                 function handleWafBypassEvent(data) {
                     const tier = data.strategy;
-                    const pill = document.getElementById(`stealth-pill-${tier}`);
                     const badge = document.getElementById(`stealth-badge-${tier}`);
-                    if (pill && badge) {
-                        // Flash animation
-                        pill.style.animation = 'none';
-                        pill.getBoundingClientRect(); // trigger reflow
-                        pill.style.animation = 'flash-success 1s ease-out';
+                    const bar = document.getElementById(`stealth-bar-${tier}`);
+                    if (badge && bar) {
+                        // Flash animation on the bar
+                        bar.style.boxShadow = '0 0 8px #00ff66';
+                        bar.style.background = '#00ff66';
+                        setTimeout(() => {
+                            if (bar) {
+                                bar.style.boxShadow = 'none';
+                            }
+                        }, 500);
 
                         // Optimistically update count
                         const currentText = badge.innerText;
+                        let newCount = 1;
                         if (currentText.includes('SOLVES')) {
                             const currentCount = Number.parseInt(currentText.split(' ')[0]) || 0;
-                            badge.innerText = `${currentCount + 1} SOLVES`;
+                            newCount = currentCount + 1;
+                            badge.innerText = `${newCount} SOLVES`;
                         } else if (currentText === 'COOLDOWN' || currentText === '0 SOLVES') {
                             badge.innerText = '1 SOLVES';
                             badge.style.color = '#00ff66';
-                            badge.style.borderColor = '#00ff66';
+                        }
+                        
+                        // We do a simple optimistic width boost for visual feedback.
+                        // The next API refresh will set it to the true percentage.
+                        const currentWidth = parseFloat(bar.style.width) || 0;
+                        if (currentWidth < 100) {
+                            bar.style.width = Math.min(100, currentWidth + 5) + '%';
                         }
                     }
 

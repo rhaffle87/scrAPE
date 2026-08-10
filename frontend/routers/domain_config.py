@@ -4,8 +4,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict
-from fastapi import APIRouter, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from core.managers import DomainRulesManager

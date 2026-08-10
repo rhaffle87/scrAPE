@@ -4,7 +4,6 @@
 
 # --- Environments and Credentials ---
 .env
-src/config/*.json
 
 # --- Python Bytecode and Virtual Envs ---
 __pycache__/

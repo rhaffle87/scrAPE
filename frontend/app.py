@@ -210,6 +210,16 @@ def read_subprocess_logs(proc: Popen):
         broadcaster.broadcast("progress", task_state["progress"])
 
     def process_log_line(log_line: str):
+        if "[TELEMETRY:" in log_line:
+            telemetry_match = re.search(r"\[TELEMETRY:([^\]]+)\]\s*(.*)", log_line)
+            if telemetry_match:
+                event_type = telemetry_match.group(1)
+                try:
+                    data = json.loads(telemetry_match.group(2))
+                    broadcaster.broadcast(event_type, data)
+                except Exception:
+                    pass
+                    
         log_buffer.append(log_line)
         lower_line = log_line.lower()
         with _state_lock:
@@ -301,6 +311,18 @@ async def stream_logs(request: Request):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.get("/api/logs/download")
+def download_logs():
+    log_dir = Path("logs")
+    if not log_dir.exists():
+        raise HTTPException(status_code=404, detail="Log directory not found")
+    
+    log_files = sorted(log_dir.glob("run_*.log"), key=os.path.getmtime, reverse=True)
+    if not log_files:
+        raise HTTPException(status_code=404, detail="No log files found")
+        
+    latest_log = log_files[0]
+    return FileResponse(path=latest_log, filename=latest_log.name, media_type="text/plain")
 
 @app.get("/api/telemetry/stats")
 def get_telemetry_stats():

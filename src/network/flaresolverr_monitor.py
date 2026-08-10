@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import threading
 import time
 
@@ -55,7 +56,8 @@ class FlareSolverrMonitor:
                     ["docker", "logs", "--tail", "50", self.container_name],
                     capture_output=True,
                     text=True,
-                    timeout=5.0
+                    timeout=5.0,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
                 )
                 
                 if result.returncode != 0:
@@ -75,7 +77,8 @@ class FlareSolverrMonitor:
                             subprocess.run(  # nosec B603 B607
                                 ["docker", "restart", self.container_name],
                                 check=True,
-                                timeout=20.0
+                                timeout=20.0,
+                                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
                             )
                             LOGGER.info("FlareSolverr container restarted successfully. Backing off for 30s to allow startup...")
                             time.sleep(30.0)

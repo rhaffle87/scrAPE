@@ -285,7 +285,8 @@ def run_scraper(
     return_code = -1
     try:
         process = subprocess.Popen(  # nosec B603
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         )
 
         start_time = time.time()

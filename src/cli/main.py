@@ -96,6 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Auto-generate AI caption and tag sidecar .txt files for downloaded image datasets.",
     )
     parser.add_argument(
+        "--edit-config",
+        action="store_true",
+        help="Open domain_config.json in the default text editor, validate on save, and exit.",
+    )
+    parser.add_argument(
         "--save-rejected",
         type=str,
         default="",
@@ -381,6 +386,36 @@ def main() -> None:
         from cli.auth import import_cookies
         import_cookies(args.domain, args.inject_cookies)
         return
+
+    if args.edit_config:
+        import subprocess
+        import os
+        config_path = Path("data/domain_config.json").resolve()
+        if not config_path.exists():
+            logger.error("domain_config.json not found at %s", config_path)
+            sys.exit(1)
+        
+        logger.info("Opening %s in default text editor...", config_path.name)
+        editor = os.environ.get("EDITOR", "notepad" if os.name == "nt" else "nano")
+        try:
+            # Block until editor is closed
+            subprocess.run([editor, str(config_path)], check=True)
+            
+            # Validate JSON schema
+            with open(config_path, "r", encoding="utf-8") as f:
+                json.load(f)
+            logger.info("Successfully validated domain_config.json")
+            sys.exit(0)
+        except subprocess.CalledProcessError as e:
+            logger.error("Editor closed with error: %s", e)
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            logger.error("JSON validation failed for domain_config.json: %s", e)
+            logger.error("Please fix the syntax error and try again.")
+            sys.exit(1)
+        except Exception as e:
+            logger.error("Failed to edit config: %s", e)
+            sys.exit(1)
         
     if not args.keyword and not args.seed_file and not args.seed_url:
         logger.error("--keyword, --seed-file, or --seed-url must be provided.")
@@ -875,6 +910,32 @@ def main() -> None:
     if cmd_handler:
         logger.info("Stopping Telegram command handler...")
         cmd_handler.stop()
+
+    # ── TUI ASCII Run Summary ──────────────────────────────────────────────
+    print("\n" + "+" + "-"*61 + "+")
+    print("|" + "RUN SUMMARY REPORT".center(61) + "|")
+    print("+" + "-"*61 + "+")
+    print(f"| Duration : {result.duration_seconds:<48.1f} |")
+    _pages_total = sum(s.get("pages_scanned", 0) for s in result.domain_stats.values())
+    print(f"| Pages    : {_pages_total:<48} |")
+    print(f"| Images   : {len(result.images):<48} |")
+    print(f"| Videos   : {len(result.videos):<48} |")
+    print("+" + "-"*61 + "+")
+    print("|" + "TOP DOMAINS YIELD".center(61) + "|")
+    print("+" + "-"*61 + "+")
+    _dom_sorted = sorted(
+        result.domain_stats.items(),
+        key=lambda kv: kv[1].get("images_kept", 0) + kv[1].get("videos_kept", 0),
+        reverse=True,
+    )
+    for idx, (d, s) in enumerate(_dom_sorted[:5], 1):
+        yield_str = f"{s.get('images_kept', 0)} imgs / {s.get('videos_kept', 0)} vids"
+        row = f"{idx}. {d:<25} -> {yield_str:<20}"
+        print(f"| {row:<59} |")
+    print("+" + "-"*61 + "+\n")
+    
+    if not getattr(args, "tag_dataset", False):
+        print("For human-in-the-loop visual cropping or AI Auto-Tagging, launch the WebUI Dataset Studio via run.bat\n")
 
 
 import atexit  # noqa: E402

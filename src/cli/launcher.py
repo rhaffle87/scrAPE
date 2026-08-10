@@ -303,7 +303,7 @@ def main():
         DETACHED_PROCESS = 0x00000008
         proc = subprocess.Popen(  # nosec B603 B607
             [sys.executable.replace("python.exe", "pythonw.exe"), "-m", "src.cli.launcher"],
-            creationflags=DETACHED_PROCESS
+            creationflags=DETACHED_PROCESS | (subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
         )
         print(f"[ALERT] scrAPE is now running in background (PID: {proc.pid})")
         print(f"Server: http://localhost:{WEBUI_PORT}\n")

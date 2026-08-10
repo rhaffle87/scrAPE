@@ -1,14 +1,11 @@
-import asyncio
 import json
 import logging
 import re
-import time
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
 
 import httpx
 
-from core.models import EngineOptions
 from notifications.notification_manager import NotificationPipeline
 
 LOGGER = logging.getLogger(__name__)
@@ -107,7 +104,6 @@ class DomainProfiler:
         LOGGER.info(f"Auto-Profiler: Auth Gate detected on {domain}. Requesting cookie via Telegram...")
         
         if self.notifier:
-            from notifications.notification_manager import TelegramNotifier
             for p in self.notifier.providers:
                 if hasattr(p, 'bot') and p.bot:
                     login_url = f"https://{domain}/login"

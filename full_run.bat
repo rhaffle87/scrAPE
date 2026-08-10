@@ -13,10 +13,10 @@ for %%F in (seeds\*.txt) do (
     
     python src\cli\main.py --keyword "!filename!" --seed-file "!filepath!" ^
         --max-results 0 ^
-        --page-limit 3000 ^
-        --crawl-depth 3 ^
+        --page-limit 0 ^
+        --crawl-depth 0 ^
         --workers 8 ^
-        --dl-workers 10 ^
+        --dl-workers 12 ^
         --dl-speed-limit 600 ^
         --use-state-cache ^
         --download-media ^
