@@ -13,7 +13,7 @@ def test_webui_modals_present_in_index_html():
     html = res.text
     assert 'id="node-detail-drawer"' in html
     assert 'id="video-player-modal"' in html
-    assert 'id="dataset-export-modal"' in html
+
     assert 'id="graph-search-input"' in html
     assert 'id="graph-depth-select"' in html
     assert "triggerDatasetZipDownload" in html

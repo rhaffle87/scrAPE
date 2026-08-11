@@ -42,6 +42,8 @@ from cli.cli_wizard_standard import (
     CLR_FAIL,
     CLR_END,
     CLR_BOLD,
+    CLR_DIM,
+    CLR_REVERSE,
 )
 from cli.cli_wizard_watchdog import mode_continuous_watchdog
 
@@ -75,17 +77,23 @@ def run_cli_wizard():
     while True:
         clear_screen()
         print_banner()
-        print(f" {CLR_BOLD}Interactive Operation Modes:{CLR_END}\n")
-        print(f"   1) {CLR_GREEN}{CLR_BOLD}General / Broad Scraping{CLR_END} (Search keyword, profile presets)")
-        print(f"   2) {CLR_CYAN}{CLR_BOLD}Specified Seed Scraping{CLR_END} (Targeted seed files, high limits)")
-        print(f"   3) {CLR_BLUE}{CLR_BOLD}Continuous Watchdog Agent{CLR_END} (Periodic background monitoring)")
-        print(f"   4) {CLR_HEADER}{CLR_BOLD}AI Dataset Exporter{CLR_END} (LoRA / Kohya_ss ZIP dataset format)")
-        print(f"   5) {CLR_WARNING}{CLR_BOLD}RAG Document Ingest{CLR_END} (Text & document chunk exporter)")
-        print(f"   6) {CLR_CYAN}Domain Configuration{CLR_END} (Dynamic per-domain rate limits)")
-        print(f"   7) {CLR_BLUE}Proxy & Auth Settings{CLR_END} (Save proxy configuration to .env)")
-        print(f"   8) {CLR_FAIL}Exit{CLR_END}\n")
+        print(f"{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ INTERACTIVE OPERATION MODES {CLR_END}")
+        print(f"{CLR_DIM}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 01 ] {CLR_GREEN}{CLR_BOLD}General / Broad Scraping{CLR_END}    {CLR_DIM}(Search keyword, presets){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 02 ] {CLR_CYAN}{CLR_BOLD}Specified Seed Scraping{CLR_END}     {CLR_DIM}(Targeted seed files){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 03 ] {CLR_BLUE}{CLR_BOLD}Continuous Watchdog Agent{CLR_END}   {CLR_DIM}(Periodic monitoring){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 04 ] {CLR_HEADER}{CLR_BOLD}AI Dataset Exporter{CLR_END}         {CLR_DIM}(LoRA / Kohya_ss ZIP){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 05 ] {CLR_WARNING}{CLR_BOLD}RAG Document Ingest{CLR_END}         {CLR_DIM}(Text chunk exporter){CLR_END}")
+        print(f"{CLR_DIM}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫{CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 06 ] {CLR_CYAN}Domain Configuration{CLR_END}        {CLR_DIM}(Rate limits){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 07 ] {CLR_BLUE}Proxy Settings{CLR_END}              {CLR_DIM}(Save to .env){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 08 ] {CLR_HEADER}Scraper Authentication{CLR_END}      {CLR_DIM}(Instagram/Twitter cookies){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 09 ] {CLR_WARNING}Export Local Database{CLR_END}       {CLR_DIM}(SQLite to CSV/JSON){CLR_END}")
+        print(f"{CLR_DIM}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫{CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 10 ] {CLR_FAIL}Exit System{CLR_END}")
+        print(f"{CLR_DIM}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{CLR_END}\n")
 
-        choice = get_input("Select mode (1-8)", default="1")
+        choice = get_input("Select mode (1-10)", default="1")
 
         if choice == "1":
             mode_general_scraping()
@@ -102,7 +110,13 @@ def run_cli_wizard():
         elif choice == "7":
             mode_proxy_auth()
         elif choice == "8":
-            print(f"\n{CLR_GREEN}Exiting scrAPE Wizard. Goodbye!{CLR_END}")
+            from cli.cli_wizard_standard import mode_scraper_auth
+            mode_scraper_auth()
+        elif choice == "9":
+            from cli.cli_wizard_standard import mode_export_database
+            mode_export_database()
+        elif choice == "10":
+            print(f"\n{CLR_FAIL}[SYSTEM] Exiting scrAPE Wizard. Goodbye!{CLR_END}")
             sys.exit(0)
 
         get_input("\nPress Enter to return to the main menu...")
@@ -112,7 +126,7 @@ def main():
     try:
         run_cli_wizard()
     except KeyboardInterrupt:
-        print(f"\n{CLR_FAIL}Wizard session terminated by user.{CLR_END}")
+        print(f"\n{CLR_FAIL}[SYSTEM] Wizard session terminated by user.{CLR_END}")
         sys.exit(0)
 
 

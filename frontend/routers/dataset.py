@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Form
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/dataset", tags=["dataset"])
 
@@ -140,3 +141,53 @@ def export_dataset_zip(subject: str, repeats: int = 10, concept: str = "concept"
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+import threading
+
+class DatasetExportRequest(BaseModel):
+    min_aesthetic_score: float = 5.5
+    enable_wd14_tagging: bool = True
+    smart_crop: bool = False
+
+@router.post("/export/{subject}")
+def export_dataset_post(subject: str, req: DatasetExportRequest):
+    """Trigger background dataset export with full ML processing."""
+    from ml.dataset_exporter import create_dataset_task
+    
+    safe_subject = os.path.basename(subject)
+    if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
+        raise HTTPException(status_code=400, detail="Invalid subject name")
+        
+    thread = threading.Thread(
+        target=create_dataset_task,
+        args=(safe_subject, req.min_aesthetic_score, req.enable_wd14_tagging, req.smart_crop, OUTPUT_DIR),
+        daemon=True
+    )
+    thread.start()
+    
+    return {"status": "ok", "message": f"Dataset export started for {safe_subject}"}
+
+class DatabaseExportRequest(BaseModel):
+    format: str = "csv"
+
+@router.post("/export-db/{subject}")
+def api_export_database(subject: str, req: DatabaseExportRequest):
+    """Export the local database to CSV or JSON format."""
+    safe_subject = os.path.basename(subject)
+    if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
+        raise HTTPException(status_code=400, detail="Invalid subject name")
+
+    base_dir = os.path.abspath(str(OUTPUT_DIR))
+    subject_path = Path(base_dir) / safe_subject
+    if not subject_path.exists():
+        raise HTTPException(status_code=404, detail="Subject directory not found")
+        
+    try:
+        from storage.analytics_exporter import export_analytics
+        export_analytics(subject_path, req.format)
+        return {"status": "ok", "message": f"Successfully exported database to {req.format.upper()} format."}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database export failed: {e}")

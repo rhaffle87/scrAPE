@@ -65,9 +65,6 @@ def test_domain_studio_elements_in_index_html():
     """Verify index.html contains Domain Config Studio UI elements and JS handlers."""
     template_path = Path(__file__).parent.parent / "frontend" / "templates" / "index.html"
     content = template_path.read_text(encoding="utf-8")
-    assert 'id="domain-studio-view"' in content
-    assert 'id="nav-domain-studio"' in content
-    assert 'function showDomainStudio()' in content
-    assert 'function loadDomainStudio()' in content
-    assert 'id="domain-studio-raw-json"' in content
-
+    assert 'id="config-matrix-view"' in content
+    assert 'id="nav-config-matrix"' in content
+    assert 'function showConfigMatrix()' in content

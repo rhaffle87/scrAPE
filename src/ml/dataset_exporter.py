@@ -172,3 +172,75 @@ class KohyaDatasetExporter:
         buffer.seek(0)
         return buffer.getvalue()
 
+
+def create_dataset_task(subject: str, min_aesthetic_score: float, enable_wd14_tagging: bool, smart_crop: bool, output_dir: Path):
+    """Background task to fully process and export a dataset for a subject."""
+    LOGGER.info("Starting dataset export task for subject: %s", subject)
+    try:
+        # Fallback between /images subdir or direct root
+        images_dir = output_dir / subject / "images"
+        if not images_dir.exists():
+            images_dir = output_dir / subject
+            
+        if not images_dir.exists():
+            LOGGER.error("Images directory not found for %s", subject)
+            return
+
+        if smart_crop:
+            LOGGER.info("Running smart crop on %s", subject)
+            try:
+                from ml.dataset_cropper import DatasetCropper
+                cropper = DatasetCropper()
+                cropper.crop_directory(images_dir)
+            except Exception as e:
+                LOGGER.error("Smart crop failed: %s", e)
+
+        if enable_wd14_tagging:
+            LOGGER.info("Running WD14 tagging on %s", subject)
+            try:
+                from ml.dataset_tagger import DatasetTagger
+                tagger = DatasetTagger(use_vision_model=True)
+                tagger.tag_directory(images_dir)
+            except Exception as e:
+                LOGGER.error("WD14 tagging failed: %s", e)
+
+        LOGGER.info("Exporting Kohya dataset for %s", subject)
+        exporter = KohyaDatasetExporter(
+            concept_name=subject,
+            min_aesthetic_score=min_aesthetic_score
+        )
+        zip_bytes = exporter.create_dataset_zip_bytes(images_dir)
+        if zip_bytes:
+            zip_path = output_dir / f"{subject}_dataset.zip"
+            zip_path.write_bytes(zip_bytes)
+            LOGGER.info("Successfully exported dataset to %s", zip_path.name)
+        else:
+            LOGGER.error("Failed to export dataset for %s (empty buffer)", subject)
+            
+    except Exception as e:
+        LOGGER.exception("Error in create_dataset_task for %s: %s", subject, e)
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Export Kohya_ss LoRA dataset.")
+    parser.add_argument("--input-dir", required=True, type=str, help="Path to input subject directory.")
+    parser.add_argument("--output-zip", required=False, type=str, help="Path to output zip file (optional).")
+    parser.add_argument("--min-aesthetic-score", type=float, default=5.5, help="Minimum aesthetic score for filtering.")
+    parser.add_argument("--ml-tag", action="store_true", help="Enable WD14 tagging before export.")
+    parser.add_argument("--ml-crop", action="store_true", help="Enable smart cropping before export.")
+    args = parser.parse_args()
+
+    input_path = Path(args.input_dir)
+    subject_name = input_path.name
+    output_base_dir = input_path.parent
+    
+    # Run the full ml pipeline task synchronously
+    create_dataset_task(
+        subject=subject_name,
+        min_aesthetic_score=args.min_aesthetic_score,
+        enable_wd14_tagging=args.ml_tag,
+        smart_crop=args.ml_crop,
+        output_dir=output_base_dir
+    )
+

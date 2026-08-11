@@ -1,7 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
 
-
 for %%F in (seeds\*.txt) do (
     set "filename=%%~nF"
     set "filepath=%%F"
@@ -17,7 +16,7 @@ for %%F in (seeds\*.txt) do (
         --crawl-depth 3 ^
         --workers 8 ^
         --dl-workers 12 ^
-        --dl-speed-limit 600 ^
+        --dl-speed-limit 550 ^
         --use-state-cache ^
         --download-media ^
         --enable-governor ^

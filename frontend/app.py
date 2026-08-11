@@ -93,6 +93,8 @@ from frontend.routers.notifications import router as notifications_router
 from frontend.routers.domain_config import router as domain_config_router
 from frontend.routers.url_rules import router as url_rules_router
 from frontend.routers.subject_profiles import router as subject_profiles_router
+from frontend.routers.auth import router as auth_router
+from frontend.routers.settings import router as settings_router
 
 app.include_router(dataset_router)
 app.include_router(seeds_router)
@@ -101,6 +103,8 @@ app.include_router(notifications_router)
 app.include_router(domain_config_router)
 app.include_router(url_rules_router)
 app.include_router(subject_profiles_router)
+app.include_router(auth_router)
+app.include_router(settings_router)
 
 STATIC_DIR = ROOT_DIR / "frontend" / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

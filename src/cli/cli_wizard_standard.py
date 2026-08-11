@@ -30,6 +30,8 @@ CLR_FAIL = "\033[91m"
 CLR_END = "\033[0m"
 CLR_BOLD = "\033[1m"
 CLR_UNDERLINE = "\033[4m"
+CLR_DIM = "\033[2m"
+CLR_REVERSE = "\033[7m"
 
 __all__ = [
     "clear_screen",
@@ -60,48 +62,29 @@ def clear_screen():
 
 def print_banner():
     banner = f"""{CLR_CYAN}{CLR_BOLD}
-         +-------------------------------------------------------------+
-         |              *  scrAPE // DATA & MEDIA SCRAPER              |
-         +-------------------------------------------------------------+
-
-       ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
-       t!:l!I:::::::::::::::::::::::::::::::::::::::::::::::::::::;ii:ltcc
-       t!:ncr:::::::::::::::::::::::::::::::::::::::::::::::::::::lt!:ltcc
-       t!:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!tcc
-       tl:::::::::::vooooooooooooooooooooooooooooooooooooav:::::::::::!tcc
-       tl:::::::::::vooooooooooooooooooooooooooooooooooooov:::::::::::!tcc
-       tl:::::fXf:::vooooooooooooooooooooooooooooooooooooov:::fXf:::::ltcc
-       t!::::!zu::::i!!!ll!llll!!!!ll!l!l!!lll!!!!!l!llllli::::uzl::::!tcc
-       tl:::inz:::::::::,....,.....,:aoooa:,.......,..,:::::::::zn;:::ltcc
-       tl:::FzI:::::::::,,..lfTl..,,:aoooa:,...lTfl...,:::::::::iXF:::ltcc
-       tl::iYf::::::::::,...fccF...,:aoooa:,,..Fccf...,::::::::::fXi::ltcc
-       tl:iXx:::::::::::,..,..,.,..,:aoooh:,.,..,.....,:::::::::::nX;:ltcc
-       tl:vz;::::::::::::,,,,,,,,,,::hoooh::,,,,,,,,,,::::::::::::;zv:ltcc
-       tl:;Xx::::::::::::::::::::::::ttttt::::::::::::::::::::::::xX;:ltcc
-       tl::IXf:::::::::lcccccccccccccccccccccccccccccccl:::::::::fYi::ltcc
-       tl:::FzI::::::::lccccccccccuTTfcccTfTuccccccccccl::::::::IXF:::ltcc
-       tl:::;nz::::::::lccccccccccn...ccc...nccccccccccl::::::::zn;:::ltcc
-       tl::::!zu:::::::lccccccccccn...ccc...nccccccccccl:::::::uzl::::ltcc
-       tl:::::fXf::::::lcccQQzcYQQccjfffffjccQQYczQQcccl::::::fXf:::::ltcc
-       tl::::::::::::::lcczooYcLooccI....,lccooLcYoozccl::::::::::::::!tcc
-       t!:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::ltcc
-       t!:!tl:::::::::::::::::::::::::::::::::::::::::::::::::::::rcn:ltcc
-       tl:;i;:::::::::::::::::::::::::::::::::::::::::::::::::::::Ill:ltcc
-       tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttcc
-          cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-  {CLR_END}"""
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ███████╗ ██████╗██████╗  █████╗ ██████╗ ███████╗            ┃
+┃ ██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝            ┃
+┃ ███████╗██║     ██████╔╝███████║██████╔╝█████╗              ┃
+┃ ╚════██║██║     ██╔══██╗██╔══██║██╔═══╝ ██╔══╝              ┃
+┃ ███████║╚██████╗██║  ██║██║  ██║██║     ███████╗            ┃
+┃ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝            ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ [SYSTEM] DATA & MEDIA AUTONOMOUS AGENT          v2.0.0      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+{CLR_END}"""
     print(banner)
 
 
 def get_input(prompt: str, default: str = "", val_fn=None) -> str:
     while True:
-        default_str = f" [{CLR_GREEN}{default}{CLR_END}]" if default else ""
-        sys.stdout.write(f" {prompt}{default_str}: ")
+        default_str = f" [{CLR_DIM}{default}{CLR_END}]" if default else ""
+        sys.stdout.write(f"{CLR_CYAN}[USER]{CLR_END} ▶ {prompt}{default_str}: ")
         sys.stdout.flush()
         try:
             val = sys.stdin.readline().strip()
         except KeyboardInterrupt:
-            print(f"\n\n{CLR_FAIL}Process interrupted by user.{CLR_END}")
+            print(f"\n\n{CLR_FAIL}[SYSTEM] Process interrupted by user.{CLR_END}")
             sys.exit(0)
 
         if not val and default:
@@ -109,7 +92,7 @@ def get_input(prompt: str, default: str = "", val_fn=None) -> str:
         if val_fn:
             valid, msg = val_fn(val)
             if not valid:
-                print(f" {CLR_FAIL}Error: {msg}{CLR_END}")
+                print(f"{CLR_FAIL}[SYSTEM] ✗ Error: {msg}{CLR_END}")
                 continue
         return val
 
@@ -160,10 +143,10 @@ def validate_seed_file(val: str):
 
 
 def run_command(cmd: list[str]):
-    print(
-        f"\n{CLR_BLUE}{CLR_BOLD}═════════════════════ EXECUTION ═════════════════════{CLR_END}"
-    )
-    print(f"Executing: {CLR_GREEN}{' '.join(cmd)}{CLR_END}\n")
+    print(f"\n{CLR_DIM}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{CLR_END}")
+    print(f"{CLR_DIM}┃{CLR_END} {CLR_CYAN}[AGENT]{CLR_END} ⚒ Running external command...")
+    print(f"{CLR_DIM}┃{CLR_END} {CLR_DIM}{' '.join(cmd)}{CLR_END}")
+    print(f"{CLR_DIM}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{CLR_END}\n")
     process = None
     try:
         process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)  # nosec B603
@@ -179,7 +162,7 @@ def run_command(cmd: list[str]):
 
 
 def mode_general_scraping():
-    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: General / Broad Scraping ───{CLR_END}\n")
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: GENERAL SCRAPING {CLR_END}\n")
     keyword = get_input("Enter search keyword", val_fn=validate_not_empty)
 
     print("\nChoose a scraping profile:")
@@ -253,9 +236,7 @@ def mode_general_scraping():
 
 
 def mode_specified_scraping():
-    print(
-        f"{CLR_BOLD}{CLR_CYAN}─── Mode: Specified / Targeted Seed Scraping ───{CLR_END}\n"
-    )
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: TARGETED SEED SCRAPING {CLR_END}\n")
     keyword = get_input(
         "Enter keyword identifier (e.g. 'apple')", val_fn=validate_not_empty
     )
@@ -306,15 +287,9 @@ def mode_specified_scraping():
 
 
 def print_mission_statement():
-    print(
-        f"\n{CLR_BOLD}{CLR_HEADER}═══ AI DATASET GENERATOR & TRAINING PIPELINE ═══{CLR_END}\n"
-    )
-    print(
-        "This tool formats raw scraped images into high-quality datasets for AI model"
-    )
-    print(
-        "training (LoRA, SDXL, Flux, ControlNet) using taggers and Kohya_ss exports."
-    )
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: AI DATASET GENERATOR & TRAINING PIPELINE {CLR_END}\n")
+    print(f"{CLR_DIM}┃{CLR_END} This tool formats raw scraped images into high-quality datasets for AI model")
+    print(f"{CLR_DIM}┃{CLR_END} training (LoRA, SDXL, Flux, ControlNet) using taggers and Kohya_ss exports.\n")
 
 
 def select_completed_run() -> Path | None:
@@ -355,6 +330,10 @@ def mode_create_dataset():
     print(f"\nProcessing dataset for: {CLR_BOLD}{target_dir.name}{CLR_END}")
     zip_name = sanitize_filename(target_dir.name) + "_dataset.zip"
     dest_path = Path("output") / zip_name
+    
+    min_score = get_input("Minimum Aesthetic Score (0.0 to disable)", default="5.5", val_fn=val_float)
+    enable_tagging = get_bool_input("Enable WD14 Vision Tagging?", default=True)
+    enable_crop = get_bool_input("Enable Smart Face Crop?", default=False)
 
     cmd = [
         sys.executable,
@@ -364,12 +343,20 @@ def mode_create_dataset():
         str(target_dir),
         "--output-zip",
         str(dest_path),
+        "--min-aesthetic-score",
+        min_score,
     ]
+    
+    if enable_tagging:
+        cmd.append("--ml-tag")
+    if enable_crop:
+        cmd.append("--ml-crop")
+
     run_command(cmd)
 
 
 def mode_rag_ingest():
-    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: RAG Text / Document Ingest ───{CLR_END}\n")
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: RAG TEXT / DOCUMENT INGEST {CLR_END}\n")
     target_dir = select_completed_run()
     if not target_dir:
         return
@@ -395,7 +382,7 @@ def val_float(v):
 
 
 def mode_domain_config():
-    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Dynamic Domain Configuration ───{CLR_END}\n")
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: DYNAMIC DOMAIN CONFIGURATION {CLR_END}\n")
     domain = get_input("Enter target domain (e.g. 'example.com')", val_fn=validate_not_empty)
     rps = get_input("Requests per second limit (0 for unthrottled)", default="1.0", val_fn=val_float)
 
@@ -417,7 +404,7 @@ def mode_domain_config():
 
 
 def mode_proxy_auth():
-    print(f"{CLR_BOLD}{CLR_CYAN}─── Mode: Proxy & Auth Settings ───{CLR_END}\n")
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: PROXY & AUTH SETTINGS {CLR_END}\n")
     proxy_url = get_input("Enter Proxy URL (e.g. http://user:pass@host:port, or blank to disable)", default="")
     env_path = Path(".env")
 
@@ -439,3 +426,48 @@ def mode_proxy_auth():
 
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     print(f"\n{CLR_GREEN}Proxy settings saved to .env file.{CLR_END}")
+
+
+def mode_scraper_auth():
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: CONFIGURE SCRAPER AUTHENTICATION {CLR_END}\n")
+    domain = get_input("Enter target platform domain (e.g. instagram.com, x.com, tiktok.com)", val_fn=validate_not_empty)
+    cookie_name = get_input("Enter cookie name (e.g. sessionid, auth_token)", val_fn=validate_not_empty)
+    cookie_value = get_input(f"Enter cookie value for {cookie_name}", val_fn=validate_not_empty)
+
+    try:
+        from network.session import SessionManager
+        manager = SessionManager()
+        existing = manager.load_session(domain) or {}
+        if isinstance(existing, list):
+            existing_dict = {c["name"]: c["value"] for c in existing if isinstance(c, dict)}
+        else:
+            existing_dict = existing
+            
+        existing_dict[cookie_name] = cookie_value
+        manager.save_session(domain, existing_dict)
+        print(f"\n{CLR_GREEN}Successfully saved authentication cookie for {domain}{CLR_END}")
+    except Exception as e:
+        print(f"\n{CLR_FAIL}Failed to save authentication: {e}{CLR_END}")
+
+def mode_export_database():
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: EXPORT LOCAL DATABASE {CLR_END}\n")
+    target_dir = select_completed_run()
+    if not target_dir:
+        return
+
+    fmt = get_input("Export format (csv or json)", default="csv").lower()
+    if fmt not in ("csv", "json"):
+        print(f"{CLR_FAIL}Invalid format. Using csv.{CLR_END}")
+        fmt = "csv"
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "src.storage.analytics_exporter",
+        "--input-dir",
+        str(target_dir),
+        "--format",
+        fmt
+    ]
+    run_command(cmd)
+
