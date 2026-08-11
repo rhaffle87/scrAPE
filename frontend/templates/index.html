@@ -50,7 +50,7 @@
         }
 
         .card-header-actions {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: nowrap;
@@ -62,7 +62,9 @@
             padding: 0 10px;
             margin: 0;
             box-sizing: border-box;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             vertical-align: middle;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
@@ -70,6 +72,7 @@
             color: var(--text-primary);
             border: 1px solid #3a3f3c;
             outline: none;
+            overflow: hidden;
         }
         
         .card-header-input:focus {
@@ -103,16 +106,58 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
+            overflow: hidden;
         }
         
         .card-header-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
+            border-color: var(--accent) !important;
+            background: var(--accent) !important;
+            color: #000 !important;
         }
 
         .card-header-btn.accent-btn {
             border-color: var(--accent);
             color: var(--accent);
+        }
+
+        #studio-domains-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .flag-chip {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-heavy);
+            padding: 6px 10px;
+            transition: all 0.2s;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .flag-chip:hover {
+            border-color: #555 !important;
+        }
+        .flag-chip.active-cf {
+            border-color: #ffaa00 !important;
+            background: rgba(255, 170, 0, 0.1) !important;
+            color: #ffaa00 !important;
+        }
+        .flag-chip.active-ref {
+            border-color: #00ff66 !important;
+            background: rgba(0, 255, 102, 0.1) !important;
+            color: #00ff66 !important;
+        }
+        @media (min-width: 1600px) {
+            #studio-domains-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 1024px) {
+            #studio-domains-container {
+                grid-template-columns: 1fr;
+            }
         }
 
         * {
@@ -610,15 +655,16 @@
             visibility: hidden;
             opacity: 0;
             position: absolute;
-            bottom: 160%;
+            bottom: 125%;
             left: 50%;
             transform: translateX(-50%);
             background-color: var(--bg-surface);
             border: var(--border-heavy);
             color: var(--text-primary);
-            padding: 0.5rem 0.75rem;
-            width: 250px;
-            z-index: 100;
+            padding: 6px 10px;
+            width: max-content;
+            max-width: 220px;
+            z-index: 1000;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
             font-weight: normal;
@@ -628,6 +674,13 @@
             text-transform: none;
             letter-spacing: normal;
             white-space: normal;
+            word-break: break-word;
+        }
+
+        .tooltip-wrapper.edge-right .tooltip-content {
+            right: 0;
+            left: auto;
+            transform: none;
         }
 
         .tooltip-wrapper:hover .tooltip-content {
@@ -1642,10 +1695,9 @@
 
                         <div class="form-grid">
                             <div class="form-group">
-                                <label for="keyword-input">Subject Keyword
+                                <label for="keyword-input">SUBJECT KEYWORD
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Primary keyword phrase used for query
-                                            matching.</span>
+                                        <span class="tooltip-content">Primary keyword phrase used for query matching. [Def: None]</span>
                                     </span>
                                 </label>
                                 <input type="text" name="keyword" id="keyword-input" placeholder="Search keyword"
@@ -1653,10 +1705,9 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="seed-selector">Seed Profile
+                                <label for="seed-selector">SEED PROFILE
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Select a pre-configured seed list from
-                                            seeds/.</span>
+                                        <span class="tooltip-content">Select a pre-configured seed list from seeds/. [Def: None]</span>
                                     </span>
                                 </label>
                                 <select name="seed" id="seed-selector" onchange="onSeedSelected(this)">
@@ -1665,50 +1716,45 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="max-results-input">Max Results
+                                <label for="max-results-input">MAX RESULTS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Maximum items to collect. Use 0 for unlimited.
-                                            [Rec: 50-200]</span>
+                                        <span class="tooltip-content">Maximum items to collect. Use 0 for unlimited. [Def: 0 | Rec: 50-200]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="max_results" id="max-results-input" value="100" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label for="crawl-depth-input">Crawl Depth
+                                <label for="crawl-depth-input">CRAWL DEPTH
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Recursive link depth. Use 0 for unlimited. [Rec:
-                                            1-2]</span>
+                                        <span class="tooltip-content">Recursive link depth. Use 0 for unlimited. [Def: 0 | Rec: 1-2]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="crawl_depth" id="crawl-depth-input" value="2" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label for="page-limit-input">Max Page limit
+                                <label for="page-limit-input">MAX PAGE LIMIT
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Absolute limit on the number of crawled pages. Use
-                                            0 for unlimited. [Rec: 20-100]</span>
+                                        <span class="tooltip-content">Absolute limit on the number of crawled pages. Use 0 for unlimited. [Def: 0 | Rec: 20-100]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="page_limit" id="page-limit-input" value="100" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label for="workers-input">Concurrency Workers
+                                <label for="workers-input">CONCURRENCY WORKERS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Number of simultaneous page scrapers to run. High
-                                            values (>16) spike CPU/RAM. [Rec: 4-8]</span>
+                                        <span class="tooltip-content">Parallel scraper processes. High values spike CPU/RAM. [Def: 8 | Rec: 4-8]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="workers" id="workers-input" value="8" required
                                     oninput="validateSafetyThresholds()">
                             </div>
                             <div class="form-group">
-                                <label for="dl-workers-input">Concurrency DL Workers
+                                <label for="dl-workers-input">CONCURRENCY DL WORKERS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Parallel download threads. High values (>24) may
-                                            cause CDN rate limits. [Rec: 8-12]</span>
+                                        <span class="tooltip-content">Parallel download threads. High values may cause CDN rate limits. [Def: 6 | Rec: 8-12]</span>
                                     </span>
                                 </label>
                                 <input type="number" name="dl_workers" id="dl-workers-input" value="6" required
@@ -1716,20 +1762,18 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="dl-speed-input">DL Bandwidth Limit (KB/s)
+                                <label for="dl-speed-input">DL BANDWIDTH LIMIT (KB/S)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for
-                                            unlimited bandwidth. [Rec: 500-5000]</span>
+                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for unlimited. [Def: 0 | Rec: 500-5000]</span>
                                     </span>
                                 </label>
                                 <input type="number" id="dl-speed-input" name="dl_speed_limit" value="0" min="0"
                                     step="100">
                             </div>
                             <div class="form-group">
-                                <label for="rate-limit-input">Crawl Rate Limit (req/s)
+                                <label for="rate-limit-input">CRAWL RATE LIMIT (REQ/S)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0
-                                            for unlimited. [Rec: 0.5-5.0]</span>
+                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0 for unlimited. [Def: 0.0 | Rec: 0.5-5.0]</span>
                                     </span>
                                 </label>
                                 <input type="number" id="rate-limit-input" name="rate_limit" value="0.0" min="0.0"
@@ -1737,10 +1781,9 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="output-input">Output Format
+                                <label for="output-input">OUTPUT FORMAT
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">File formats for saving extracted metadata
-                                            lists.</span>
+                                        <span class="tooltip-content">File formats for saving extracted metadata lists. [Def: Both]</span>
                                     </span>
                                 </label>
                                 <select name="output" id="output-input">
@@ -1760,37 +1803,56 @@
                             <div class="accordion-content">
                                 <div class="form-grid">
                                     <div class="form-group full-width">
-                                        <label for="seed-urls-input">Seed URLs (comma-separated)
+                                        <label for="seed-urls-input">SEED URLS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Provide a direct comma-separated list of
-                                                    URLs to crawl.</span>
+                                                <span class="tooltip-content">Direct endpoints to bootstrap the crawl. [Def: None]</span>
                                             </span>
                                         </label>
                                         <input type="text" name="seed_urls" id="seed-urls-input"
                                             placeholder="https://example.com/page1, https://example.com/page2">
                                     </div>
                                     <div class="form-group">
-                                        <label for="allow-domains-input">Allow Domains (comma-separated)</label>
+                                        <label for="allow-domains-input">ALLOW DOMAINS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Restrict crawling strictly to these domains. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" name="allow_domains" id="allow-domains-input"
                                             placeholder="example.com, sub.example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label for="block-domains-input">Block Domains (comma-separated)</label>
+                                        <label for="block-domains-input">BLOCK DOMAINS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Exclude specific domains from crawl scope. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" name="block_domains" id="block-domains-input"
                                             placeholder="example.com, block.example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label for="entity-tokens-input">Entity Tokens (comma-separated)</label>
+                                        <label for="entity-tokens-input">ENTITY TOKENS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Tokens that must be present to scrape media. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" name="entity_tokens" id="entity-tokens-input"
                                             placeholder="token1, token2">
                                     </div>
                                     <div class="form-group">
-                                        <label for="domain-delays-input">Domain Delays (comma-separated)</label>
+                                        <label for="domain-delays-input">DOMAIN DELAYS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Custom request delays per domain (e.g. domain=2.0). [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" name="domain_delays" id="domain-delays-input"
                                             placeholder="example.com=2.0, example2.com=5.0">
                                     </div>
                                     <div class="form-group full-width">
-                                        <label for="save-rejected-input">Save Rejected Reasons (comma-separated)</label>
+                                        <label for="save-rejected-input">SAVE REJECTED REASONS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Log urls failing specific criteria. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" name="save_rejected" id="save-rejected-input"
                                             placeholder="low_subject_relevance, preview_or_thumbnail">
                                     </div>
@@ -1807,12 +1869,20 @@
                             <div class="accordion-content">
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label for="proxy-input">Proxy Connection</label>
+                                        <label for="proxy-input">PROXY CONNECTION
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Route traffic through proxy node. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" id="proxy-input" name="proxy"
                                             placeholder="http://proxy-host:port">
                                     </div>
                                     <div class="form-group">
-                                        <label for="capsolver-key-input">CapSolver API Key</label>
+                                        <label for="capsolver-key-input">CAPSOLVER API KEY
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">API key for automated Cloudflare and CAPTCHA bypass. [Def: None]</span>
+                                            </span>
+                                        </label>
                                         <input type="text" id="capsolver-key-input" name="capsolver_key"
                                             placeholder="Enter API Key">
                                     </div>
@@ -1830,43 +1900,83 @@
                                 <div class="flag-card-grid">
                                     <div class="flag-card">
                                         <input type="checkbox" name="download_media" id="download_media" checked>
-                                        <label for="download_media">Download Media</label>
+                                        <label for="download_media">DOWNLOAD MEDIA
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Enable extraction of video/images. [Def: Checked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="ignore_robots" id="ignore_robots">
-                                        <label for="ignore_robots">Ignore robots.txt</label>
+                                        <label for="ignore_robots">IGNORE ROBOTS.TXT
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Bypass site robots rules. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="skip_search" id="skip_search">
-                                        <label for="skip_search">Skip Search</label>
+                                        <label for="skip_search">SKIP SEARCH
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Avoid query engines, use seeds directly. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="strict_domain" id="strict_domain">
-                                        <label for="strict_domain">Strict Domain Mode</label>
+                                        <label for="strict_domain">STRICT DOMAIN MODE
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Lock crawler entirely to seed domains. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="site_tree_only" id="site_tree_only">
-                                        <label for="site_tree_only">Path Subtree Only</label>
+                                        <label for="site_tree_only">PATH SUBTREE ONLY
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Constrain crawler to seed subdirectories. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="force_search" id="force_search">
-                                        <label for="force_search">Force Search with Seeds</label>
+                                        <label for="force_search">FORCE SEARCH WITH SEEDS
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Combine search engine with seed injections. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="clear_cache" id="clear_cache">
-                                        <label for="clear_cache">Wipe Cache First</label>
+                                        <label for="clear_cache">WIPE CACHE FIRST
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Clear previous run SQLite DB before start. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="use_state_cache" id="use_state_cache">
-                                        <label for="use_state_cache">State Cache (SQLite)</label>
+                                        <label for="use_state_cache">STATE CACHE (SQLITE)
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Resume capabilities and deduplication. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="headless" id="headless">
-                                        <label for="headless">Force Headless Mode</label>
+                                        <label for="headless">FORCE HEADLESS MODE
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Run browser invisibly. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                     <div class="flag-card">
                                         <input type="checkbox" name="stealth_headful" id="stealth_headful">
-                                        <label for="stealth_headful">Stealth Headful Mode</label>
+                                        <label for="stealth_headful">STEALTH HEADFUL MODE
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content">Render UI to bypass strict bot checks. [Def: Unchecked]</span>
+                                            </span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -1887,16 +1997,34 @@
                     <div class="glass-panel" id="stealth-telemetry-card"
                         style="border: var(--border-heavy); background: var(--bg-surface); padding: 0 !important; display: flex; flex-direction: column; gap: 0 !important;">
                         <div class="card-header">
-                            <span class="card-header-title">STEALTH PIPELINE TELEMETRY</span>
+                            <span class="card-header-title">STEALTH TELEMETRY</span>
                             <div class="card-header-actions">
                                 <button onclick="refreshStealthTelemetry()" class="card-header-btn accent-btn">REFRESH</button>
                             </div>
                         </div>
-                        <div id="stealth-tier-pills"
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 0.75rem 1rem !important; margin-top: 0 !important; background: #0b0d0c;">
-                            <span
-                                style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING
-                                STEALTH STATS...</span>
+                        
+                        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 0;">
+                            <div id="stealth-tier-pills"
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding: 0.75rem 1rem !important; margin-top: 0 !important; background: #0b0d0c;">
+                                <span
+                                    style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING
+                                    STEALTH STATS...</span>
+                            </div>
+                            
+                            <div id="stealth-metrics-panel" style="display: flex; flex-direction: column; padding: 0.75rem 1rem; background: #111412; border-left: 1px solid var(--border-heavy); justify-content: space-around;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">PROXY BANDWIDTH</span>
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--accent); font-weight: 700;"><span id="telemetry-proxy-bytes">0.00</span> / <span id="telemetry-proxy-max">Unlimited</span> MB</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">CAPSOLVER SPEND</span>
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #ffaa00; font-weight: 700;">$<span id="telemetry-capsolver-spend">0.0000</span></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">CAPSOLVER BALANCE</span>
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #00ff66; font-weight: 700;">$<span id="telemetry-capsolver-bal">0.0000</span></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1904,7 +2032,7 @@
                     <div class="glass-panel" id="crawl-graph-card"
                         style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0 !important; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface); gap: 0 !important;">
                         <div class="card-header">
-                            <span class="card-header-title">LIVE CRAWL NETWORK TREE</span>
+                            <span class="card-header-title">NETWORK TREE</span>
                             <div class="card-header-actions">
                                 <input type="text" id="graph-search-input" aria-label="Search Node"
                                     placeholder="SEARCH NODE..." oninput="drawCrawlGraph()"
@@ -2004,7 +2132,7 @@
                     <div class="glass-panel"
                         style="display: flex; flex-direction: column; flex: 1; min-height: 200px; padding: 0 !important; overflow: hidden; border: var(--border-heavy); background: var(--bg-surface); gap: 0 !important;">
                         <div class="card-header">
-                            <span class="card-header-title">STREAMING MEDIA FEED</span>
+                            <span class="card-header-title">MEDIA FEED</span>
                             <div class="card-header-actions">
                                 <span id="stream-item-count" class="card-header-badge">ASSETS: 0</span>
                             </div>
@@ -2023,7 +2151,7 @@
                 <div class="terminal-panel" id="terminal-panel">
                     <div class="card-header">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span class="card-header-title">LIVE TERMINAL FEED</span>
+                            <span class="card-header-title">TERMINAL FEED</span>
                             <span id="log-speed-indicator"
                                 style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0, 0, 0, 0.4); padding: 0.2rem 0.5rem; border: 1px solid var(--accent);">IDLE</span>
                             <span id="log-copy-feedback"
@@ -2063,7 +2191,7 @@
                                 <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
                                     <span class="tooltip-content">Continuous monitoring background process. Periodically wakes up to scrape target keyword based on interval.</span>
                                 </span>
-                                <span class="status-badge" id="watchdog-global-status" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[ IDLE ]</span>
+                                <span class="status-badge" id="watchdog-global-status" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[IDLE]</span>
                             </h2>
                             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Continuous Monitoring & Adaptive Backoff Daemon</p>
                         </div>
@@ -2074,7 +2202,7 @@
                     <!-- Command & Control (Sector A) -->
                     <div class="glass-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <h2>SECTOR A: COMMAND INTERFACE
+                            <h2>COMMAND INTERFACE
                                 <span class="tooltip-wrapper">?
                                     <span class="tooltip-content">Configure daemon monitoring targets and polling intervals.</span>
                                 </span>
@@ -2110,7 +2238,7 @@
 
                     <!-- Live Telemetry (Sector B) -->
                     <div class="glass-panel">
-                        <h2>SECTOR B: ACTIVE TELEMETRY
+                        <h2>ACTIVE TELEMETRY
                             <span class="tooltip-wrapper">?
                                 <span class="tooltip-content">Real-time status metrics of the active watchdog daemon process.</span>
                             </span>
@@ -2143,7 +2271,7 @@
 
                 <!-- Live Operation Log (Sector C) -->
                 <div class="glass-panel" style="flex: 1; display: flex; flex-direction: column;">
-                    <h2>SECTOR C: LIVE RADAR LOG
+                    <h2>RADAR LOG
                         <span class="tooltip-wrapper">?
                             <span class="tooltip-content">Raw unbuffered stdout tailing the background daemon.</span>
                         </span>
@@ -2158,7 +2286,7 @@
             <!-- Subject Gallery View Grid -->
             <div class="gallery-view" id="gallery-view" style="display: none;">
                 <div class="gallery-header-bar">
-                    <h2 id="gallery-subject-title">SUBJECT:</h2>
+                    <h2 id="gallery-subject-title">TARGET SUBJECT</h2>
                     <div class="gallery-tabs">
                         <button class="tab-btn active" data-kind="all" onclick="switchGalleryTab('all')">ALL</button>
                         <button class="tab-btn" data-kind="images" onclick="switchGalleryTab('images')">IMAGES</button>
@@ -2172,100 +2300,76 @@
             </div>
 
             <!-- Seed Studio View Grid -->
-            <!-- Seed Studio View Grid -->
             <div class="seed-studio-view" id="seed-studio-view" style="display: none; flex-direction: column; gap: 1rem; width: 100%;">
-                <div class="glass-panel" style="margin-bottom: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
-                        <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SEED STUDIO
-                                <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
-                                    <span class="tooltip-content">Configure and construct manifest files to explicitly govern search targets, crawl behavior, and overrides.</span>
-                                </span>
-                                <span class="status-badge" id="studio-status-indicator" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[ IDLE ]</span>
-                            </h2>
-                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Manifest Builder & Search Seed Editor</p>
-                        </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <label for="studio-seed-select" style="font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;">SELECT MANIFEST:</label>
-                            <select id="studio-seed-select" class="form-select" onchange="onStudioSeedSelectChange(this)"
-                                style="min-width: 300px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); padding: 0.5rem; font-family: 'JetBrains Mono', monospace; outline: none;">
-                                <option value="">+ Create New Seed</option>
-                            </select>
-                        </div>
-
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <button type="button" class="btn active" id="studio-btn-builder-mode" onclick="setStudioMode('builder')" style="font-family: 'JetBrains Mono', monospace; background: #00ff66; color: #000; border-color: #00ff66;">[ VISUAL BUILDER ]</button>
-                            <button type="button" class="btn" id="studio-btn-code-mode" onclick="setStudioMode('code')" style="font-family: 'JetBrains Mono', monospace; background: transparent; color: var(--text-muted); border-color: var(--border-heavy);">[ RAW CODE ]</button>
-                        </div>
+                <div class="card-header" style="margin-bottom: 1.5rem;">
+                    <!-- Left Section: Title & Badges -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span class="card-header-title">MANIFEST</span>
+                        <span class="status-badge" id="studio-status-indicator" style="border-color: #ffaa00; color: #ffaa00;">[IDLE]</span>
                     </div>
                     
-                    <div style="display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed #2a2f2c;">
-                            <button type="button" class="btn" style="border-color: var(--accent); color: var(--accent); font-family: 'JetBrains Mono', monospace; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="openAutoDiscoveryModal()">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                [ DISCOVER URLs ]
-                            </button>
-                            <button type="button" class="btn" style="background: var(--accent); color: #000; font-family: 'JetBrains Mono', monospace;" onclick="saveStudioSeed()">[ COMMIT / SAVE ]</button>
-                            <button type="button" class="btn delete" style="border-color: #cc0000; color: #cc0000; font-family: 'JetBrains Mono', monospace;" onclick="deleteStudioSeed()">[ DELETE ]</button>
-                            <button type="button" class="btn" style="background: #00ff66; color: #000; font-family: 'JetBrains Mono', monospace; margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem;" onclick="launchStudioSeedScrape()">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                [ EXECUTE QUICK RUN ]
-                            </button>
+                    <!-- Right Section: Toolbar -->
+                    <div class="card-header-actions">
+                        <select id="studio-seed-select" class="card-header-input" onchange="onStudioSeedSelectChange(this)" style="min-width: 180px; background: #000; color: #00ff66; cursor: pointer;">
+                            <option value="">+ Create New Seed</option>
+                        </select>
+                        
+                        <button type="button" class="card-header-btn active" id="studio-btn-builder-mode" onclick="setStudioMode('builder')" style="background: #00ff66; color: #000; border-color: #00ff66;">[ BUILDER ]</button>
+                        <button type="button" class="card-header-btn" id="studio-btn-code-mode" onclick="setStudioMode('code')" style="color: var(--text-muted);">[ CODE ]</button>
+                        
+                        <button type="button" class="card-header-btn" style="border-color: var(--accent); color: var(--accent);" onclick="openAutoDiscoveryModal()">[ PROBE ]</button>
+                        <button type="button" class="card-header-btn" style="background: var(--accent); color: #000; border-color: var(--accent);" onclick="saveStudioSeed()">[ SAVE ]</button>
+                        <button type="button" class="card-header-btn delete" style="border-color: #cc0000; color: #cc0000;" onclick="deleteStudioSeed()">[ PURGE ]</button>
+                        <button type="button" class="card-header-btn" style="background: #000; color: #00ff66; border-color: #00ff66; box-shadow: 0 0 5px rgba(0,255,102,0.3);" onclick="launchStudioSeedScrape()">[ LAUNCH ]</button>
                     </div>
                 </div>
 
                 <div class="studio-body-container" style="display: flex; flex-direction: column; gap: 1rem;">
                     <!-- Visual Builder Mode -->
                     <div id="studio-builder-panel" class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                        <div class="form-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                            <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.2rem;">> SET TARGET_SUBJECT
+                        <div class="form-group" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
+                            <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.1rem;">> SET TARGET_SUBJECT
                                 <span class="tooltip-wrapper">?
                                     <span class="tooltip-content">The overarching subject name used for folder generation and matching.</span>
                                 </span>
                             </label>
-                            <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()">
+                            <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()" style="width: 100%; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.1rem; padding: 0.5rem; background: #000; border: 1px solid var(--border-heavy); outline: none;">
                         </div>
                         
-                        <div style="background: var(--bg-surface); border: 1px solid var(--border-heavy); padding: 1rem;">
-                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.75rem;">INJECT PRESET DIRECTIVE:</div>
-                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('gallery')">+ Inject Gallery Index</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('direct')">+ Inject Direct Search</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('stealth')">+ Inject Stealth Protected</button>
-                                <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);" onclick="addPresetDomainBlock('video')">+ Inject Video Stream</button>
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.5rem; margin-top: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">INJECT PRESET DIRECTIVE:</span>
+                                <button type="button" class="card-header-btn" style="border-color: var(--accent); color: var(--accent); height: 24px; line-height: 22px; padding: 0 6px;" onclick="addPresetDomainBlock('gallery')">[+ GALLERY]</button>
+                                <button type="button" class="card-header-btn" style="border-color: var(--accent); color: var(--accent); height: 24px; line-height: 22px; padding: 0 6px;" onclick="addPresetDomainBlock('direct')">[+ DIRECT]</button>
+                                <button type="button" class="card-header-btn" style="border-color: var(--accent); color: var(--accent); height: 24px; line-height: 22px; padding: 0 6px;" onclick="addPresetDomainBlock('stealth')">[+ STEALTH]</button>
+                                <button type="button" class="card-header-btn" style="border-color: var(--accent); color: var(--accent); height: 24px; line-height: 22px; padding: 0 6px;" onclick="addPresetDomainBlock('video')">[+ VIDEO]</button>
                             </div>
+                            <button type="button" class="card-header-btn" style="border-style: dashed; border-color: var(--accent); color: var(--accent);" onclick="addStudioDomainCard()">[ + MODULE ]</button>
                         </div>
 
-                        <div id="studio-domains-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div id="studio-domains-container">
                             <!-- Domain directives rendered dynamically -->
                         </div>
-
-                        <button type="button" class="btn" style="width: 100%; border: 1px dashed var(--accent); color: var(--accent); padding: 1rem; font-weight: 700;" onclick="addStudioDomainCard()">[ + APPEND NEW DIRECTIVE MODULE ]</button>
                     </div>
 
                     <!-- Raw Code Mode -->
-                    <div id="studio-code-panel" class="glass-panel" style="display: none; flex-direction: column; padding: 0;">
-                        <div style="display: flex; justify-content: space-between; border-bottom: var(--border-heavy); padding: 1rem;">
-                            <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">[ SEED SOURCE MANIFEST ]</span>
-                            <span style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">ENCODING: UTF-8</span>
-                        </div>
-                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor" oninput="onStudioCodeEditorChanged()"></textarea>
+                    <div id="studio-code-panel" style="display: none;">
+                        <textarea id="studio-code-editor" class="code-editor" aria-label="Studio Code Editor" oninput="onStudioCodeEditorChanged()" style="width: 100%; box-sizing: border-box; background: #050505; color: #00ff66; border: var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 1rem; line-height: 1.4; resize: none; overflow: hidden; tab-size: 4;"></textarea>
                     </div>
                 </div>
 
-                <!-- Floating Line-Jump Validation Console -->
-                <div id="studio-validation-console" class="glass-panel" style="margin-top: 0;">
+                <!-- Low-Profile Validation Footer -->
+                <div id="studio-validation-console" class="glass-panel" style="margin-top: 0; padding: 0.75rem 1rem; max-height: 80px; display: flex; flex-direction: column;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <h2>SYNTAX & MANIFEST VALIDATION
-                            <span class="tooltip-wrapper">?
-                                <span class="tooltip-content">Live feedback on seed rules parsing. Warnings indicate invalid domains or unknown annotations.</span>
+                        <span style="font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--accent); font-weight: 700; letter-spacing: 1px;">SYNTAX & MANIFEST VALIDATION
+                            <span class="tooltip-wrapper" style="vertical-align: middle;">?
+                                <span class="tooltip-content">Live feedback on seed rules parsing.</span>
                             </span>
-                        </h2>
-                        <span id="studio-validation-status" style="color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: bold;">[ MANIFEST VALID ]</span>
+                        </span>
+                        <span id="studio-validation-status-footer" style="color: #00ff66; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.75rem;">[V] MANIFEST VALID</span>
                     </div>
-                    <div id="studio-validation-warnings" style="margin-top: 0.5rem; max-height: 100px; overflow-y: auto; color: var(--text-muted);">
-                        No syntax warnings detected.
+                    <div id="studio-validation-warnings" style="margin-top: 0.5rem; overflow-y: auto; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
+                        <span style="color: #00ff66;">No syntax warnings detected.</span>
                     </div>
                 </div>
             </div>
@@ -2280,8 +2384,7 @@
                     onclick="event.stopPropagation()">
                     <div
                         style="display: flex; align-items: center; justify-content: space-between; border-bottom: var(--border-heavy); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h3 style="margin: 0; color: var(--accent); font-family: monospace;">UNIVERSAL SEARCH URL
-                            AUTO-DISCOVERY</h3>
+                        <h3 style="margin: 0; color: var(--accent); font-family: monospace;">AUTO DISCOVERY</h3>
                         <button type="button" class="btn" onclick="closeAutoDiscoveryModal()"
                             style="padding: 0.2rem 0.6rem;">&times;</button>
                     </div>
@@ -2401,7 +2504,7 @@
                                 style="padding: 1rem; border: 1px solid #3a3f3c; background: rgba(0,0,0,0.2);">
                                 <h3
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-                                    NOTIFICATIONS & WEBHOOKS
+                                    ALERT WEBHOOKS
                                     <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
                                         <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Alert channels for critical events, blocked domains, or WAF triggers.</span>
                                     </span>
@@ -2475,8 +2578,8 @@
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">DOMAIN CONFIG STUDIO</h2>
-                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Live JSON Rule Editor & Hotlink / Rate-Limit Directives Manager (data/domain_config.json)</p>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">DOMAIN DIRECTIVES</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">JSON EDITOR</p>
                         </div>
                         <div style="display: flex; gap: 0.75rem;">
                             <button type="button" class="btn" onclick="loadDomainStudio()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
@@ -2528,8 +2631,8 @@
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">URL RULES STUDIO</h2>
-                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Regex Canonicalisation Patterns (data/url_normalisation_rules.json)</p>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">URL PATTERNS</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">CANONICALISATION RULES</p>
                         </div>
                         <div style="display: flex; gap: 0.75rem;">
                             <button type="button" class="btn" onclick="loadUrlRules()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
@@ -2566,8 +2669,8 @@
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SUBJECT PROFILES STUDIO</h2>
-                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Crawl Presets & Annotations (data/subject_profiles.json)</p>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SUBJECT PROFILES</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">CRAWL PRESETS</p>
                         </div>
                         <div style="display: flex; gap: 0.75rem;">
                             <button type="button" class="btn" onclick="loadSubjectProfiles()" style="background: transparent; color: var(--text-primary); border: 1px solid #3a3f3c; padding: 0.5rem 1rem;">[ REFRESH ]</button>
@@ -3113,7 +3216,7 @@
                     const domainStudioEl = document.getElementById('domain-studio-view');
                     if (domainStudioEl) domainStudioEl.style.display = '';
 
-                    document.getElementById('main-title').innerText = "DOMAIN CONFIG STUDIO";
+                    document.getElementById('main-title').innerText = "DOMAIN STUDIO";
                     document.getElementById('main-subtitle').innerText = "Per-Domain Routing, Rate Limiting & Hotlink Directives";
 
                     const navBtn = document.getElementById('nav-domain-studio');
@@ -3128,7 +3231,7 @@
                     resetGlobalStats();
                     
                     document.getElementById('url-rules-view').style.display = '';
-                    document.getElementById('main-title').innerText = "URL RULES STUDIO";
+                    document.getElementById('main-title').innerText = "RULES STUDIO";
                     document.getElementById('main-subtitle').innerText = "Regex Canonicalisation Patterns";
                     document.getElementById('nav-url-rules').classList.add('active');
                     loadUrlRules();
@@ -3157,7 +3260,7 @@
                     resetGlobalStats();
                     
                     document.getElementById('subject-profiles-view').style.display = '';
-                    document.getElementById('main-title').innerText = "SUBJECT PROFILES STUDIO";
+                    document.getElementById('main-title').innerText = "PROFILES STUDIO";
                     document.getElementById('main-subtitle').innerText = "Crawl Presets & Annotations";
                     document.getElementById('nav-subject-profiles').classList.add('active');
                     loadSubjectProfiles();
@@ -3346,11 +3449,11 @@
                         document.getElementById('studio-code-editor').value = "# Subject : New Subject\n\n# type: mixed | crawl: index→detail\n";
                         addStudioDomainCard();
                         validateStudioManifestContent(document.getElementById('studio-code-editor').value);
-                        statusEl.innerText = "[ NEW SEED DRAFT ]";
+                        statusEl.innerText = "[NEW SEED DRAFT]";
                         return;
                     }
 
-                    statusEl.innerText = `[ LOADING ${currentStudioFilename} ]`;
+                    statusEl.innerText = `[LOADING ${currentStudioFilename}]`;
                     try {
                         const res = await fetch(`/api/seeds/${encodeURIComponent(currentStudioFilename)}`);
                         if (res.ok) {
@@ -3367,11 +3470,11 @@
                             }
 
                             validateStudioManifestContent(data.content || "");
-                            statusEl.innerText = `[ LOADED ${currentStudioFilename} ]`;
+                            statusEl.innerText = `[LOADED ${currentStudioFilename}]`;
                         }
                     } catch (e) {
                         console.error("Failed reading seed details:", e);
-                        statusEl.innerText = "[ LOAD ERROR ]";
+                        statusEl.innerText = "[LOAD ERROR]";
                     }
                 }
 
@@ -3407,6 +3510,7 @@
                         builderBtn.style.borderColor = 'var(--border-heavy)';
                         
                         codePanel.style.display = 'block';
+                        setTimeout(() => autoResizeCodeEditor(), 10);
                         builderPanel.style.display = 'none';
                         document.getElementById('studio-code-editor').value = buildManifestContentFromBuilder();
                     }
@@ -3428,7 +3532,7 @@
                     const blockIndex = container.children.length + 1;
                     const card = document.createElement('div');
                     card.className = 'glass-panel studio-domain-card';
-                    card.style.padding = '1.25rem';
+                    card.style.padding = '0.75rem';
                     card.style.background = 'var(--bg-surface)';
                     card.style.border = '2px solid var(--accent)';
                     card.style.marginBottom = '1rem';
@@ -3442,49 +3546,39 @@
                     const urls = dData && dData.seed_urls ? dData.seed_urls.join('\n') : "";
 
                     card.innerHTML = `
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-heavy); padding-bottom: 0.75rem;">
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span class="block-title-text" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #00ff66; font-size: 1.1rem;"># DIRECTIVE MODULE [ ${blockIndex} ]</span>
-                                <span class="badge" style="background: rgba(0, 255, 102, 0.1); color: #00ff66; border: 1px solid #00ff66; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">${media.toUpperCase()}</span>
+                        <div class="card-header" style="padding: 6px 10px; background: rgba(0, 0, 0, 0.4); border-bottom: 1px solid #3a3f3c; margin: -0.75rem -0.75rem 0.75rem -0.75rem;">
+                            <div class="header-left" style="display: flex; align-items: center; gap: 0.75rem;">
+                                <span class="block-title-text" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #00ff66; font-size: 0.9rem; text-transform: uppercase;">TARGET DOMAIN BLOCK #${blockIndex}</span>
+                                <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8c928e; font-weight: 700;">[${media.toUpperCase()}]</span>
                             </div>
-                            <button type="button" class="btn delete" style="padding: 0.3rem 0.8rem; font-size: 0.85rem; border-color: #cc0000; color: #cc0000; background: transparent; font-family: 'JetBrains Mono', monospace;" onclick="removeStudioDomainCard(this)">[ X PURGE MODULE ]</button>
+                            <div class="header-right">
+                                <button type="button" style="height: 24px; line-height: 22px; padding: 0 8px; font-size: 0.7rem; color: #ff3333; border: 1px solid #ff3333; background: transparent; font-family: 'JetBrains Mono', monospace; font-weight: 700; cursor: pointer;" onclick="removeStudioDomainCard(this)">[ REMOVE ]</button>
+                            </div>
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">TARGET HOSTNAME
-                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">The root domain to apply these specific crawl behaviors to.</span>
-                                    </span>
-                                </label>
-                                <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
+                        <div class="card-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">TARGET HOSTNAME <span class="tooltip-wrapper">?<span class="tooltip-content">Defines the root domain name for routing rules. [Def: None]</span></span></label>
+                                <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                             </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">MEDIA TYPE</label>
-                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">MEDIA TYPE <span class="tooltip-wrapper">?<span class="tooltip-content">Extraction targets (mixed, image, or video). [Def: mixed]</span></span></label>
+                                <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="mixed" ${media === 'mixed' ? 'selected' : ''}>mixed</option>
                                     <option value="image" ${media === 'image' ? 'selected' : ''}>image</option>
                                     <option value="video" ${media === 'video' ? 'selected' : ''}>video</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">CRAWL STRATEGY
-                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">'index→detail' will find posts and follow links to scrape full-res. 'direct' extracts directly from the seed pages.</span>
-                                    </span>
-                                </label>
-                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">CRAWL STRATEGY <span class="tooltip-wrapper">?<span class="tooltip-content">Link discovery behavior (index→detail vs. direct). [Def: index→detail]</span></span></label>
+                                <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
                                     <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">ENGINE
-                                    <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Force a specific engine (e.g. Camoufox for JS-heavy stealth).</span>
-                                    </span>
-                                </label>
-                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 0.6rem; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; outline: none;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">ENGINE <span class="tooltip-wrapper">?<span class="tooltip-content">Execution driver overrides (auto, camoufox, flaresolverr, etc.). [Def: auto]</span></span></label>
+                                <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
                                     <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
                                     <option value="flaresolverr" ${engine === 'flaresolverr' ? 'selected' : ''}>flaresolverr</option>
@@ -3493,21 +3587,19 @@
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem; background: #000; padding: 0.75rem; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
-                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #00ff66;">
-                                <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged()" style="accent-color: #00ff66;"> [ WARN ] CLOUDFLARE WAF PRESENT
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                            <label class="flag-chip ${cf ? 'active-cf' : ''}" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" class="card-cf-check" ${cf} onchange="onStudioFormChanged(); this.parentElement.classList.toggle('active-cf', this.checked);" style="accent-color: #ffaa00;"> 
+                                <span>CF WAF PROTECTED</span>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #00ff66;">
-                                <input type="checkbox" class="card-ref-check" ${ref} onchange="onStudioFormChanged()" style="accent-color: #00ff66;"> [ REQ ] REFERER HEADER
+                            <label class="flag-chip ${ref ? 'active-ref' : ''}" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" class="card-ref-check" ${ref} onchange="onStudioFormChanged(); this.parentElement.classList.toggle('active-ref', this.checked);" style="accent-color: #00ff66;"> 
+                                <span>REFERER HEADER</span>
                             </label>
                         </div>
-                        <div class="form-group">
-                            <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">> INJECT SEED_URLS (ONE PER LINE)
-                                <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Absolute URLs that the crawler will start from for this specific domain block.</span>
-                                </span>
-                            </label>
-                            <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; box-sizing: border-box; height: 110px; font-family: 'JetBrains Mono', monospace; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); padding: 0.75rem; resize: vertical; outline: none; margin-top: 0.5rem;"></textarea>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem; display: block;">INJECT SEED URLS <span class="tooltip-wrapper">?<span class="tooltip-content">Starting endpoint URLs for crawler traversal. [Def: None]</span></span></label>
+                            <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; box-sizing: border-box; height: 60px; min-height: 50px; max-height: 120px; font-family: 'JetBrains Mono', monospace; background: #050706; color: #00ff66; border: 1px solid #3a3f3c; padding: 6px; resize: vertical; outline: none; line-height: 1.3; font-size: 0.72rem;"></textarea>
                         </div>
                     `;
                     container.appendChild(card);
@@ -3582,10 +3674,18 @@
                     }
                 }
 
+                function autoResizeCodeEditor() {
+                    const editor = document.getElementById('studio-code-editor');
+                    if (!editor) return;
+                    editor.style.height = 'auto';
+                    editor.style.height = Math.max(120, editor.scrollHeight) + 'px';
+                }
+
                 function onStudioCodeEditorChanged() {
                     if (currentStudioMode === 'code') {
                         const content = document.getElementById('studio-code-editor').value;
                         validateStudioManifestContent(content);
+                        autoResizeCodeEditor();
                     }
                 }
 
@@ -3598,16 +3698,14 @@
                         });
                         if (res.ok) {
                             const data = await res.json();
-                            const statusEl = document.getElementById('studio-validation-status');
+                            const statusFooterEl = document.getElementById('studio-validation-status-footer');
                             const warningsEl = document.getElementById('studio-validation-warnings');
 
                             if (data.is_valid) {
-                                statusEl.innerText = "✓ MANIFEST VALID";
-                                statusEl.style.color = "#00ff66";
+                                if (statusFooterEl) { statusFooterEl.innerText = "[V] MANIFEST VALID"; statusFooterEl.style.color = "#00ff66"; }
                                 warningsEl.innerHTML = "<span style='color: #00ff66;'>No syntax warnings detected.</span>";
                             } else {
-                                statusEl.innerText = `⚠ ${data.warnings.length} SYNTAX WARNING(S)`;
-                                statusEl.style.color = "#ffcc00";
+                                if (statusFooterEl) { statusFooterEl.innerText = `[X] ${data.warnings.length} SYNTAX WARNINGS`; statusFooterEl.style.color = "#ffcc00"; }
                                 warningsEl.innerHTML = data.warnings.map(w => {
                                     const match = w.match(/Line (\d+):/);
                                     const lineNum = match ? match[1] : 1;
@@ -5021,6 +5119,14 @@
                                 `;
                             });
                             container.innerHTML = html;
+                            
+                            // Update metrics
+                            const formatBytes = (bytes) => (bytes / (1024 * 1024)).toFixed(2);
+                            document.getElementById('telemetry-proxy-bytes').innerText = formatBytes(data.proxy_total_bytes || 0);
+                            document.getElementById('telemetry-proxy-max').innerText = data.proxy_max_bytes > 0 ? formatBytes(data.proxy_max_bytes) : "∞";
+                            
+                            document.getElementById('telemetry-capsolver-spend').innerText = (data.capsolver_run_spend || 0).toFixed(4);
+                            document.getElementById('telemetry-capsolver-bal').innerText = (data.capsolver_balance || 0).toFixed(4);
                         })
                         .catch(err => console.error("Telemetry fetch error:", err));
                 }

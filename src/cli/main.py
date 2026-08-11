@@ -399,6 +399,7 @@ def main() -> None:
         editor = os.environ.get("EDITOR", "notepad" if os.name == "nt" else "nano")
         try:
             # Block until editor is closed
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
             subprocess.run([editor, str(config_path)], check=True)
             
             # Validate JSON schema

@@ -61,6 +61,7 @@ class DomainProfiler:
         # 1. Check cooldown
         if self.state_cache and self.state_cache.is_in_profiler_cooldown(domain):
             LOGGER.debug(f"Auto-Profiler: {domain} is in cooldown, skipping.")
+            self._mark_domain_mapped(domain)
             return "SKIPPED"
             
         # 2. Check if we already have a session for it
@@ -97,6 +98,7 @@ class DomainProfiler:
             LOGGER.warning(f"Auto-Profiler: Network probe failed for {domain}: {e}")
             if self.state_cache:
                 self.state_cache.set_profiler_cooldown(domain, cooldown_hours=24)
+            self._mark_domain_mapped(domain)
             return "SKIPPED"
 
     async def _handle_auth_gate(self, domain: str) -> str:
