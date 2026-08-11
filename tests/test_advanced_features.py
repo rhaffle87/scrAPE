@@ -1,5 +1,8 @@
 import sys
+import time
 from pathlib import Path
+
+real_sleep = time.sleep
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -118,7 +121,7 @@ def test_adaptive_concurrency_throttling():
         patch("core.engine.time.monotonic", side_effect=safe_monotonic),
         patch("core.governor.time.monotonic", side_effect=safe_monotonic),
         patch("core.coordinator.time.monotonic", side_effect=safe_monotonic),
-        patch("core.coordinator.time.sleep", return_value=None),
+        patch("core.coordinator.time.sleep", side_effect=lambda x: real_sleep(0.001)),
     ):
         result = engine.run(
             keyword="test",
