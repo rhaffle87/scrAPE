@@ -69,11 +69,13 @@ def test_state_cache_7_day_ttl_pruning(tmp_path):
     assert res[stale_url] is False
 
 
-def test_load_watchdog_config():
-    cfg = load_watchdog_config("data/domain_config.json")
+def test_load_watchdog_config(tmp_path):
+    config_file = tmp_path / "domain_config.json"
+    config_file.write_text('{"watchdog": {"min_interval_s": 42, "ttl_days": 5}}')
+    cfg = load_watchdog_config(str(config_file))
     assert "min_interval_s" in cfg
     assert "ttl_days" in cfg
-    assert cfg["ttl_days"] == 7
+    assert cfg["ttl_days"] == 5
 
 
 @patch("src.cli.monitor_agent.notify_telegram")

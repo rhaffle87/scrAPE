@@ -700,7 +700,7 @@ class MediaProcessor:
 
         futures_map = {}
         
-        while self._is_running or not self.download_queue.empty():
+        while self._is_running or not self.download_queue.empty() or futures_map:
             try:
                 task = self.download_queue.get(timeout=0.5)
                 if task is None:
