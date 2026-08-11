@@ -1379,7 +1379,7 @@
             grid-column: span 2;
             border: var(--border-heavy);
             background-color: rgba(22, 25, 23, 0.6);
-            overflow: hidden;
+            overflow: visible;
             transition: border-color 0.2s ease;
         }
 
@@ -1637,7 +1637,7 @@
                 <div class="glass-panel">
                     <h2>SCRAPE PARAMETERS
                         <span class="tooltip-wrapper">?
-                            <span class="tooltip-content">Configure and run media collection. Specifying seed options
+                            <span class="tooltip-content" style="text-align: justify;">Configure and run media collection. Specifying seed options
                                 overrides default search behavior.</span>
                         </span>
                         <span class="status-badge" id="status-badge">STATUS: IDLE</span>
@@ -1697,7 +1697,7 @@
                             <div class="form-group">
                                 <label for="keyword-input">SUBJECT KEYWORD
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Primary keyword phrase used for query matching. [Def: None]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Primary keyword phrase used for query matching.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                     </span>
                                 </label>
                                 <input type="text" name="keyword" id="keyword-input" placeholder="Search keyword"
@@ -1707,7 +1707,7 @@
                             <div class="form-group">
                                 <label for="seed-selector">SEED PROFILE
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Select a pre-configured seed list from seeds/. [Def: None]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Select a pre-configured seed list from seeds/.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                     </span>
                                 </label>
                                 <select name="seed" id="seed-selector" onchange="onSeedSelected(this)">
@@ -1718,7 +1718,7 @@
                             <div class="form-group">
                                 <label for="max-results-input">MAX RESULTS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Maximum items to collect. Use 0 for unlimited. [Def: 0 | Rec: 50-200]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Maximum items to collect. Use 0 for unlimited.<br><br><span style="color: #ffaa00;">Default:</span> 0<br><span style="color: #ffaa00;">Recommend:</span> 50-200</span>
                                     </span>
                                 </label>
                                 <input type="number" name="max_results" id="max-results-input" value="100" required
@@ -1727,7 +1727,7 @@
                             <div class="form-group">
                                 <label for="crawl-depth-input">CRAWL DEPTH
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Recursive link depth. Use 0 for unlimited. [Def: 0 | Rec: 1-2]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Recursive link depth. Use 0 for unlimited.<br><br><span style="color: #ffaa00;">Default:</span> 0<br><span style="color: #ffaa00;">Recommend:</span> 1-2</span>
                                     </span>
                                 </label>
                                 <input type="number" name="crawl_depth" id="crawl-depth-input" value="2" required
@@ -1736,7 +1736,7 @@
                             <div class="form-group">
                                 <label for="page-limit-input">MAX PAGE LIMIT
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Absolute limit on the number of crawled pages. Use 0 for unlimited. [Def: 0 | Rec: 20-100]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Absolute limit on the number of crawled pages. Use 0 for unlimited.<br><br><span style="color: #ffaa00;">Default:</span> 0<br><span style="color: #ffaa00;">Recommend:</span> 20-100</span>
                                     </span>
                                 </label>
                                 <input type="number" name="page_limit" id="page-limit-input" value="100" required
@@ -1745,7 +1745,7 @@
                             <div class="form-group">
                                 <label for="workers-input">CONCURRENCY WORKERS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Parallel scraper processes. High values spike CPU/RAM. [Def: 8 | Rec: 4-8]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Parallel scraper processes. High values spike CPU/RAM.<br><br><span style="color: #ffaa00;">Default:</span> 8<br><span style="color: #ffaa00;">Recommend:</span> 4-8</span>
                                     </span>
                                 </label>
                                 <input type="number" name="workers" id="workers-input" value="8" required
@@ -1754,7 +1754,7 @@
                             <div class="form-group">
                                 <label for="dl-workers-input">CONCURRENCY DL WORKERS
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Parallel download threads. High values may cause CDN rate limits. [Def: 6 | Rec: 8-12]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Parallel download threads. High values may cause CDN rate limits.<br><br><span style="color: #ffaa00;">Default:</span> 6<br><span style="color: #ffaa00;">Recommend:</span> 8-12</span>
                                     </span>
                                 </label>
                                 <input type="number" name="dl_workers" id="dl-workers-input" value="6" required
@@ -1764,7 +1764,7 @@
                             <div class="form-group">
                                 <label for="dl-speed-input">DL BANDWIDTH LIMIT (KB/S)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Media download speed limit in KB/s. Use 0 for unlimited. [Def: 0 | Rec: 500-5000]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Media download speed limit in KB/s. Use 0 for unlimited.<br><br><span style="color: #ffaa00;">Default:</span> 0<br><span style="color: #ffaa00;">Recommend:</span> 500-5000</span>
                                     </span>
                                 </label>
                                 <input type="number" id="dl-speed-input" name="dl_speed_limit" value="0" min="0"
@@ -1773,7 +1773,7 @@
                             <div class="form-group">
                                 <label for="rate-limit-input">CRAWL RATE LIMIT (REQ/S)
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Max page request rate across all domains. Use 0.0 for unlimited. [Def: 0.0 | Rec: 0.5-5.0]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Max page request rate across all domains. Use 0.0 for unlimited.<br><br><span style="color: #ffaa00;">Default:</span> 0.0<br><span style="color: #ffaa00;">Recommend:</span> 0.5-5.0</span>
                                     </span>
                                 </label>
                                 <input type="number" id="rate-limit-input" name="rate_limit" value="0.0" min="0.0"
@@ -1783,7 +1783,7 @@
                             <div class="form-group">
                                 <label for="output-input">OUTPUT FORMAT
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">File formats for saving extracted metadata lists. [Def: Both]</span>
+                                        <span class="tooltip-content" style="text-align: justify;">File formats for saving extracted metadata lists.<br><br><span style="color: #ffaa00;">Default:</span> Both</span>
                                     </span>
                                 </label>
                                 <select name="output" id="output-input">
@@ -1805,7 +1805,7 @@
                                     <div class="form-group full-width">
                                         <label for="seed-urls-input">SEED URLS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Direct endpoints to bootstrap the crawl. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Direct endpoints to bootstrap the crawl.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="seed_urls" id="seed-urls-input"
@@ -1814,7 +1814,7 @@
                                     <div class="form-group">
                                         <label for="allow-domains-input">ALLOW DOMAINS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Restrict crawling strictly to these domains. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Restrict crawling strictly to these domains.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="allow_domains" id="allow-domains-input"
@@ -1823,7 +1823,7 @@
                                     <div class="form-group">
                                         <label for="block-domains-input">BLOCK DOMAINS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Exclude specific domains from crawl scope. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Exclude specific domains from crawl scope.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="block_domains" id="block-domains-input"
@@ -1832,7 +1832,7 @@
                                     <div class="form-group">
                                         <label for="entity-tokens-input">ENTITY TOKENS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Tokens that must be present to scrape media. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Tokens that must be present to scrape media.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="entity_tokens" id="entity-tokens-input"
@@ -1841,7 +1841,7 @@
                                     <div class="form-group">
                                         <label for="domain-delays-input">DOMAIN DELAYS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Custom request delays per domain (e.g. domain=2.0). [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Custom request delays per domain (e.g. domain=2.0).<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="domain_delays" id="domain-delays-input"
@@ -1850,7 +1850,7 @@
                                     <div class="form-group full-width">
                                         <label for="save-rejected-input">SAVE REJECTED REASONS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Log urls failing specific criteria. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Log urls failing specific criteria.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" name="save_rejected" id="save-rejected-input"
@@ -1871,7 +1871,7 @@
                                     <div class="form-group">
                                         <label for="proxy-input">PROXY CONNECTION
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Route traffic through proxy node. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Route traffic through proxy node.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" id="proxy-input" name="proxy"
@@ -1880,7 +1880,7 @@
                                     <div class="form-group">
                                         <label for="capsolver-key-input">CAPSOLVER API KEY
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">API key for automated Cloudflare and CAPTCHA bypass. [Def: None]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">API key for automated Cloudflare and CAPTCHA bypass.<br><br><span style="color: #ffaa00;">Default:</span> None</span>
                                             </span>
                                         </label>
                                         <input type="text" id="capsolver-key-input" name="capsolver_key"
@@ -1902,7 +1902,7 @@
                                         <input type="checkbox" name="download_media" id="download_media" checked>
                                         <label for="download_media">DOWNLOAD MEDIA
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Enable extraction of video/images. [Def: Checked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Enable extraction of video/images.<br><br><span style="color: #ffaa00;">Default:</span> Checked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1910,7 +1910,7 @@
                                         <input type="checkbox" name="ignore_robots" id="ignore_robots">
                                         <label for="ignore_robots">IGNORE ROBOTS.TXT
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Bypass site robots rules. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Bypass site robots rules.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1918,7 +1918,7 @@
                                         <input type="checkbox" name="skip_search" id="skip_search">
                                         <label for="skip_search">SKIP SEARCH
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Avoid query engines, use seeds directly. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Avoid query engines, use seeds directly.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1926,7 +1926,7 @@
                                         <input type="checkbox" name="strict_domain" id="strict_domain">
                                         <label for="strict_domain">STRICT DOMAIN MODE
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Lock crawler entirely to seed domains. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Lock crawler entirely to seed domains.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1934,7 +1934,7 @@
                                         <input type="checkbox" name="site_tree_only" id="site_tree_only">
                                         <label for="site_tree_only">PATH SUBTREE ONLY
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Constrain crawler to seed subdirectories. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Constrain crawler to seed subdirectories.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1942,7 +1942,7 @@
                                         <input type="checkbox" name="force_search" id="force_search">
                                         <label for="force_search">FORCE SEARCH WITH SEEDS
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Combine search engine with seed injections. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Combine search engine with seed injections.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1950,7 +1950,7 @@
                                         <input type="checkbox" name="clear_cache" id="clear_cache">
                                         <label for="clear_cache">WIPE CACHE FIRST
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Clear previous run SQLite DB before start. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Clear previous run SQLite DB before start.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1958,7 +1958,7 @@
                                         <input type="checkbox" name="use_state_cache" id="use_state_cache">
                                         <label for="use_state_cache">STATE CACHE (SQLITE)
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Resume capabilities and deduplication. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Resume capabilities and deduplication.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1966,7 +1966,7 @@
                                         <input type="checkbox" name="headless" id="headless">
                                         <label for="headless">FORCE HEADLESS MODE
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Run browser invisibly. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Run browser invisibly.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -1974,7 +1974,7 @@
                                         <input type="checkbox" name="stealth_headful" id="stealth_headful">
                                         <label for="stealth_headful">STEALTH HEADFUL MODE
                                             <span class="tooltip-wrapper">?
-                                                <span class="tooltip-content">Render UI to bypass strict bot checks. [Def: Unchecked]</span>
+                                                <span class="tooltip-content" style="text-align: justify;">Render UI to bypass strict bot checks.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -2003,27 +2003,12 @@
                             </div>
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 0;">
+                        <div>
                             <div id="stealth-tier-pills"
                                 style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding: 0.75rem 1rem !important; margin-top: 0 !important; background: #0b0d0c;">
                                 <span
                                     style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">LOADING
                                     STEALTH STATS...</span>
-                            </div>
-                            
-                            <div id="stealth-metrics-panel" style="display: flex; flex-direction: column; padding: 0.75rem 1rem; background: #111412; border-left: 1px solid var(--border-heavy); justify-content: space-around;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">PROXY BANDWIDTH</span>
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--accent); font-weight: 700;"><span id="telemetry-proxy-bytes">0.00</span> / <span id="telemetry-proxy-max">Unlimited</span> MB</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">CAPSOLVER SPEND</span>
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #ffaa00; font-weight: 700;">$<span id="telemetry-capsolver-spend">0.0000</span></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-muted); font-weight: 700;">CAPSOLVER BALANCE</span>
-                                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #00ff66; font-weight: 700;">$<span id="telemetry-capsolver-bal">0.0000</span></span>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -2189,7 +2174,7 @@
                         <div>
                             <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">WATCHDOG DAEMON
                                 <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
-                                    <span class="tooltip-content">Continuous monitoring background process. Periodically wakes up to scrape target keyword based on interval.</span>
+                                    <span class="tooltip-content" style="text-align: justify;">Continuous monitoring background process. Periodically wakes up to scrape target keyword based on interval.</span>
                                 </span>
                                 <span class="status-badge" id="watchdog-global-status" style="border-color: #ffaa00; color: #ffaa00; margin-left: 0.5rem; vertical-align: middle;">[IDLE]</span>
                             </h2>
@@ -2204,14 +2189,14 @@
                         <div>
                             <h2>COMMAND INTERFACE
                                 <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">Configure daemon monitoring targets and polling intervals.</span>
+                                    <span class="tooltip-content" style="text-align: justify;">Configure daemon monitoring targets and polling intervals.</span>
                                 </span>
                             </h2>
                             
                             <div class="form-group">
                                 <label for="watchdog-keyword-input">> SET TARGET_KEYWORD
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">The search term the Daemon will repeatedly poll for updates.</span>
+                                        <span class="tooltip-content" style="text-align: justify;">The search term the Daemon will repeatedly poll for updates.</span>
                                     </span>
                                 </label>
                                 <input type="text" id="watchdog-keyword-input" value="cyberpunk" placeholder="Target keyword...">
@@ -2219,7 +2204,7 @@
                             <div class="form-group">
                                 <label for="watchdog-interval-input">> SET SWEEP_INTERVAL_SEC
                                     <span class="tooltip-wrapper">?
-                                        <span class="tooltip-content">Time in seconds the daemon will sleep before executing the next run.</span>
+                                        <span class="tooltip-content" style="text-align: justify;">Time in seconds the daemon will sleep before executing the next run.</span>
                                     </span>
                                 </label>
                                 <input type="number" id="watchdog-interval-input" value="60" min="10" step="10">
@@ -2240,7 +2225,7 @@
                     <div class="glass-panel">
                         <h2>ACTIVE TELEMETRY
                             <span class="tooltip-wrapper">?
-                                <span class="tooltip-content">Real-time status metrics of the active watchdog daemon process.</span>
+                                <span class="tooltip-content" style="text-align: justify;">Real-time status metrics of the active watchdog daemon process.</span>
                             </span>
                         </h2>
                         
@@ -2273,7 +2258,7 @@
                 <div class="glass-panel" style="flex: 1; display: flex; flex-direction: column;">
                     <h2>RADAR LOG
                         <span class="tooltip-wrapper">?
-                            <span class="tooltip-content">Raw unbuffered stdout tailing the background daemon.</span>
+                            <span class="tooltip-content" style="text-align: justify;">Raw unbuffered stdout tailing the background daemon.</span>
                         </span>
                     </h2>
                     <div id="watchdog-log-window" style="flex: 1; min-height: 250px; background: #050505; border: 1px solid var(--border-heavy); padding: 1rem; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); display: flex; flex-direction: column; gap: 0.25rem;">
@@ -2330,7 +2315,7 @@
                         <div class="form-group" style="display: grid; grid-template-columns: 1fr; gap: 0.5rem;">
                             <label for="studio-subject-input" style="font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.1rem;">> SET TARGET_SUBJECT
                                 <span class="tooltip-wrapper">?
-                                    <span class="tooltip-content">The overarching subject name used for folder generation and matching.</span>
+                                    <span class="tooltip-content" style="text-align: justify;">The overarching subject name used for folder generation and matching.</span>
                                 </span>
                             </label>
                             <input type="text" id="studio-subject-input" placeholder="e.g. target_topic" oninput="onStudioFormChanged()" style="width: 100%; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.1rem; padding: 0.5rem; background: #000; border: 1px solid var(--border-heavy); outline: none;">
@@ -2363,7 +2348,7 @@
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--accent); font-weight: 700; letter-spacing: 1px;">SYNTAX & MANIFEST VALIDATION
                             <span class="tooltip-wrapper" style="vertical-align: middle;">?
-                                <span class="tooltip-content">Live feedback on seed rules parsing.</span>
+                                <span class="tooltip-content" style="text-align: justify;">Live feedback on seed rules parsing.</span>
                             </span>
                         </span>
                         <span id="studio-validation-status-footer" style="color: #00ff66; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 0.75rem;">[V] MANIFEST VALID</span>
@@ -2432,7 +2417,7 @@
                         <div>
                             <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">SYSTEM SETTINGS
                                 <span class="tooltip-wrapper" style="vertical-align: middle; margin-left: 0.25rem;">?
-                                    <span class="tooltip-content">Dynamic Configuration Engine for global parameters and integrations.</span>
+                                    <span class="tooltip-content" style="text-align: justify;">Dynamic Configuration Engine for global parameters and integrations.</span>
                                 </span>
                             </h2>
                             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Dynamic Configuration & Integrations Engine</p>
@@ -2449,7 +2434,7 @@
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
                                     GENERAL SETTINGS
                                     <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Global execution defaults and verbosity controls.</span>
+                                        <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Global execution defaults and verbosity controls.</span>
                                     </span>
                                 </h3>
                                 <div class="form-group">
@@ -2480,7 +2465,7 @@
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
                                     PROXY SETTINGS
                                     <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Configure how network traffic routes through proxy pools.</span>
+                                        <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Configure how network traffic routes through proxy pools.</span>
                                     </span>
                                 </h3>
                                 <div class="form-group">
@@ -2506,7 +2491,7 @@
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
                                     ALERT WEBHOOKS
                                     <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Alert channels for critical events, blocked domains, or WAF triggers.</span>
+                                        <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Alert channels for critical events, blocked domains, or WAF triggers.</span>
                                     </span>
                                 </h3>
                                 <div class="form-group">
@@ -2541,7 +2526,7 @@
                                     style="color: var(--accent); font-family: monospace; font-size: 0.95rem; margin-top: 0; border-bottom: 1px solid #3a3f3c; padding-bottom: 0.5rem; margin-bottom: 1rem;">
                                     CAPTCHA PROVIDERS
                                     <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                        <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">API keys for automated Cloudflare and CAPTCHA bypass services.</span>
+                                        <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">API keys for automated Cloudflare and CAPTCHA bypass services.</span>
                                     </span>
                                 </h3>
                                 <div class="form-group">
@@ -2611,7 +2596,7 @@
                         <div style="margin-bottom: 1rem;">
                             <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RULE MATRIX
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Edit domain-specific routing overrides, rate-limits, and hotlink protections.</span>
+                                    <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Edit domain-specific routing overrides, rate-limits, and hotlink protections.</span>
                                 </span>
                             </label>
                             <textarea id="domain-studio-raw-json" name="raw_json" rows="22" spellcheck="false"
@@ -2649,7 +2634,7 @@
                         <div style="margin-bottom: 1rem;">
                             <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">REGEX ARRAY
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Define regex patterns to normalize and canonicalize URLs, preventing duplicate processing.</span>
+                                    <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Define regex patterns to normalize and canonicalize URLs, preventing duplicate processing.</span>
                                 </span>
                             </label>
                             <textarea id="url-rules-raw-json" name="raw_json" rows="22" spellcheck="false"
@@ -2686,7 +2671,7 @@
                         <div style="margin-bottom: 1rem;">
                             <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">JSON PROFILES
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
-                                    <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Global subject-specific presets containing priorities and default max results.</span>
+                                    <span class="tooltip-content" style="text-align: justify; font-family: sans-serif; font-weight: normal; text-transform: none;">Global subject-specific presets containing priorities and default max results.</span>
                                 </span>
                             </label>
                             <textarea id="subject-profiles-raw-json" name="raw_json" rows="22" spellcheck="false"
@@ -3558,11 +3543,11 @@
                         
                         <div class="card-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">TARGET HOSTNAME <span class="tooltip-wrapper">?<span class="tooltip-content">Defines the root domain name for routing rules. [Def: None]</span></span></label>
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">TARGET HOSTNAME <span class="tooltip-wrapper">?<span class="tooltip-content" style="text-align: justify;">Defines the root domain name for routing rules.<br><br><span style="color: #ffaa00;">Default:</span> None</span></span></label>
                                 <input type="text" class="card-domain-input" value="${dom}" placeholder="domain.com" oninput="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">MEDIA TYPE <span class="tooltip-wrapper">?<span class="tooltip-content">Extraction targets (mixed, image, or video). [Def: mixed]</span></span></label>
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">MEDIA TYPE <span class="tooltip-wrapper">?<span class="tooltip-content" style="text-align: justify;">Extraction targets (mixed, image, or video).<br><br><span style="color: #ffaa00;">Default:</span> mixed</span></span></label>
                                 <select class="card-media-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="mixed" ${media === 'mixed' ? 'selected' : ''}>mixed</option>
                                     <option value="image" ${media === 'image' ? 'selected' : ''}>image</option>
@@ -3570,14 +3555,14 @@
                                 </select>
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">CRAWL STRATEGY <span class="tooltip-wrapper">?<span class="tooltip-content">Link discovery behavior (index→detail vs. direct). [Def: index→detail]</span></span></label>
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">CRAWL STRATEGY <span class="tooltip-wrapper">?<span class="tooltip-content" style="text-align: justify;">Link discovery behavior (index→detail vs. direct).<br><br><span style="color: #ffaa00;">Default:</span> index→detail</span></span></label>
                                 <select class="card-crawl-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="index→detail" ${strategy.includes('index') ? 'selected' : ''}>index→detail</option>
                                     <option value="direct" ${strategy === 'direct' ? 'selected' : ''}>direct</option>
                                 </select>
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">ENGINE <span class="tooltip-wrapper">?<span class="tooltip-content">Execution driver overrides (auto, camoufox, flaresolverr, etc.). [Def: auto]</span></span></label>
+                                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem;">ENGINE <span class="tooltip-wrapper">?<span class="tooltip-content" style="text-align: justify;">Execution driver overrides (auto, camoufox, flaresolverr, etc.).<br><br><span style="color: #ffaa00;">Default:</span> auto</span></span></label>
                                 <select class="card-engine-select" onchange="onStudioFormChanged()" style="width: 100%; padding: 4px 6px; height: 28px; background: #000; color: #00ff66; border: 1px solid var(--border-heavy); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; outline: none; box-sizing: border-box;">
                                     <option value="auto" ${engine === 'auto' ? 'selected' : ''}>auto</option>
                                     <option value="camoufox" ${engine === 'camoufox' ? 'selected' : ''}>camoufox</option>
@@ -3598,7 +3583,7 @@
                             </label>
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem; display: block;">INJECT SEED URLS <span class="tooltip-wrapper">?<span class="tooltip-content">Starting endpoint URLs for crawler traversal. [Def: None]</span></span></label>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem; display: block;">INJECT SEED URLS <span class="tooltip-wrapper">?<span class="tooltip-content" style="text-align: justify;">Starting endpoint URLs for crawler traversal.<br><br><span style="color: #ffaa00;">Default:</span> None</span></span></label>
                             <textarea class="card-urls-textarea" placeholder="https://domain.com/path" oninput="onStudioFormChanged()" style="width: 100%; box-sizing: border-box; height: 60px; min-height: 50px; max-height: 120px; font-family: 'JetBrains Mono', monospace; background: #050706; color: #00ff66; border: 1px solid #3a3f3c; padding: 6px; resize: vertical; outline: none; line-height: 1.3; font-size: 0.72rem;"></textarea>
                         </div>
                     `;
@@ -5120,13 +5105,7 @@
                             });
                             container.innerHTML = html;
                             
-                            // Update metrics
-                            const formatBytes = (bytes) => (bytes / (1024 * 1024)).toFixed(2);
-                            document.getElementById('telemetry-proxy-bytes').innerText = formatBytes(data.proxy_total_bytes || 0);
-                            document.getElementById('telemetry-proxy-max').innerText = data.proxy_max_bytes > 0 ? formatBytes(data.proxy_max_bytes) : "∞";
-                            
-                            document.getElementById('telemetry-capsolver-spend').innerText = (data.capsolver_run_spend || 0).toFixed(4);
-                            document.getElementById('telemetry-capsolver-bal').innerText = (data.capsolver_balance || 0).toFixed(4);
+
                         })
                         .catch(err => console.error("Telemetry fetch error:", err));
                 }
