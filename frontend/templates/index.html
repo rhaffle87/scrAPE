@@ -2578,7 +2578,7 @@
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">DOMAIN DIRECTIVES</h2>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">DOMAIN STUDIO</h2>
                             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">JSON EDITOR</p>
                         </div>
                         <div style="display: flex; gap: 0.75rem;">
@@ -2589,19 +2589,19 @@
                     <!-- Domain Config Stats Cards -->
                     <div id="domain-studio-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Hotlink Protected</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Hotlink Guard</div>
                             <div id="ds-stat-hotlink" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
                         </div>
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Custom Rate Limits</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Rate Limits</div>
                             <div id="ds-stat-ratelimits" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
                         </div>
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Stealth Required</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Stealth Targets</div>
                             <div id="ds-stat-stealth" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
                         </div>
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Deep Scrape Targets</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Deep Scrape</div>
                             <div id="ds-stat-deep" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
                         </div>
                     </div>
@@ -2609,7 +2609,7 @@
                     <!-- JSON Editor Form -->
                     <form id="domain-studio-form" hx-post="/api/domain-config/save" hx-target="#domain-studio-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON RULE MATRIX (data/domain_config.json)
+                            <label for="domain-studio-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RULE MATRIX
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
                                     <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Edit domain-specific routing overrides, rate-limits, and hotlink protections.</span>
                                 </span>
@@ -2631,7 +2631,7 @@
                 <div class="glass-panel" style="margin-bottom: 2rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: var(--border-heavy); padding-bottom: 0.75rem;">
                         <div>
-                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">URL PATTERNS</h2>
+                            <h2 style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">URL RULES</h2>
                             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">CANONICALISATION RULES</p>
                         </div>
                         <div style="display: flex; gap: 0.75rem;">
@@ -2641,13 +2641,13 @@
                     <!-- URL Rules Stats Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid #3a3f3c; padding: 0.75rem 1rem;">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Active Regex Rules</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Active Rules</div>
                             <div id="url-stat-count" style="font-family: 'Oswald', sans-serif; font-size: 1.5rem; color: var(--accent);">0</div>
                         </div>
                     </div>
                     <form id="url-rules-form" hx-post="/api/url-rules/save" hx-target="#url-rules-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON ARRAY
+                            <label for="url-rules-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">REGEX ARRAY
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
                                     <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Define regex patterns to normalize and canonicalize URLs, preventing duplicate processing.</span>
                                 </span>
@@ -2684,7 +2684,7 @@
                     </div>
                     <form id="subject-profiles-form" hx-post="/api/subject-profiles/save" hx-target="#subject-profiles-alert-box" hx-swap="innerHTML">
                         <div style="margin-bottom: 1rem;">
-                            <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">RAW JSON PROFILES
+                            <label for="subject-profiles-raw-json" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">JSON PROFILES
                                 <span class="tooltip-wrapper" style="margin-left: 0.5rem;">?
                                     <span class="tooltip-content" style="font-family: sans-serif; font-weight: normal; text-transform: none;">Global subject-specific presets containing priorities and default max results.</span>
                                 </span>
