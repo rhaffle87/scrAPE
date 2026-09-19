@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from monitoring.logger import get_logger
-from network.stealth_pipeline import StealthResponse, StealthStrategy
+from network.stealth import StealthResponse, StealthStrategy
 from captcha.captcha_solvers.base import CaptchaSolverProvider
 
 LOGGER = get_logger(__name__)

@@ -15,10 +15,10 @@ def _make_downloader():
     mock_http = MagicMock()
     mock_http.get_proxy = MagicMock(return_value=None)
 
-    with patch("storage.file_downloader.HttpClient", return_value=mock_http), \
+    with patch("storage.downloader.manager.HttpClient", return_value=mock_http), \
          patch("network.bandwidth_limiter.BandwidthLimiter", MagicMock()), \
          patch("ml.aesthetic_scorer.AestheticScorer", MagicMock()):
-        from storage.file_downloader import MediaDownloader
+        from storage.downloader.manager import MediaDownloader
         return MediaDownloader(http=mock_http)
 
 

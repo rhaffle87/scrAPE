@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: pip install bandit
       - name: Run Bandit
-        run: bandit -r src/ -c .bandit -f json -o bandit_report.json || true
+        run: bandit -r src/ -c .bandit --severity-level high -f json -o bandit_report.json
       - name: Archive Bandit Results
         uses: actions/upload-artifact@v4
         with:

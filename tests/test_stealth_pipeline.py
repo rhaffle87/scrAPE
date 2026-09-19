@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 
 from network.http_client import HttpClient, ScraperBypassError
-from network.stealth_pipeline import (
+from network.stealth.pipeline import (
     StealthPipeline,
     StealthResponse,
     FlareSolverrStrategy,

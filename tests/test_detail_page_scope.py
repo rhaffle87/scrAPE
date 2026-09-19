@@ -11,7 +11,7 @@ Covers the generic behavior with synthetic domains/URLs — no real subjects:
 """
 from __future__ import annotations
 
-from core.managers import DomainRulesManager
+from core.domain_rules import DomainRulesManager
 from core.filters import normalize_url
 
 

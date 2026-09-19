@@ -12,13 +12,16 @@ src/cli/monitor_agent.py            — Watchdog entry point, continuous monitor
 src/cli/cli_wizard.py               — Interactive wizard for standard & watchdog runs
 src/config/__init__.py              — Tunable constants & .env credential loader
 src/core/engine.py                  — BFS crawl loop, page scoring, domain stats
-src/core/filters.py                 — URL classification, media detection, relevance scoring
+src/core/filters.py                 — Facade for URL classification, media detection, relevance scoring
+src/core/domain_rules.py            — Aggregates domain profiles and dynamic JSON settings
+src/core/media_processor.py         — Evaluates discovered media links and prepares downloads
+src/core/orchestrator.py            — Manages BFS crawl queue and dynamic concurrency
 src/core/models.py                  — ScrapeResult, ImageItem, VideoItem dataclasses
 src/scraper/google_images.py        — Search provider + page scraper + link/media extraction
-src/storage/file_downloader.py      — Concurrent media downloader with MIME/size validation
+src/storage/downloader/             — Concurrent media downloader with MIME/size validation
 src/network/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
 src/network/browser_client.py         — Browser automation fallback mixin (BrowserClientMixin)
-src/network/stealth_pipeline.py       — 8-tier WAF fallback pipeline orchestrator
+src/network/stealth/                — 8-tier WAF fallback pipeline orchestrator
 src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
 src/notifications/telegram_bot.py           — Telegram Bot alerts & interactive command handler
 src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
@@ -57,7 +60,7 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
 ## 2. Tech Stack & Core Rules
 
 - **Core Engine**: Python 3.10+ (`src/core/`), FastAPI (`frontend/app.py`), HTMX, SQLite (WAL mode).
-- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/network/stealth_pipeline.py`), Universal Captcha Auto-Solving (`src/captcha/captcha_strategy.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
+- **Stealth & Extraction**: 8-tier WAF fallback pipeline (`src/network/stealth/`), Universal Captcha Auto-Solving (`src/captcha/captcha_strategy.py`), Crawlee Express Bridge (`crawlee_bridge/`), `yt-dlp` plugins (`src/plugins/`).
 - **WebUI Design System**: Utilitarian Brutalism — strict 90° square corners (`border-radius: 0 !important`), `Oswald` headers, `JetBrains Mono` body/forms, high-contrast dark theme (`#0b0d0c` / `#ff5500` accent), HTML5 Canvas live crawl network tree.
 
 ### Mandatory Coding Rules

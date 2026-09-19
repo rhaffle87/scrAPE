@@ -78,15 +78,15 @@ scrape-dashboard/
 
 ## 3. Core Engine Components
 
-### 3.1 ScrapingEngine & Managers (`src/core/`)
+### 3.1 ScrapingEngine & Modular Managers (`src/core/`)
 
-The core architecture is decoupled across specialized managers inside `src/core/managers.py`:
+The core architecture is decoupled across specialized modules:
 
-- **`CrawlOrchestrator`**: Manages the BFS queue, link extraction, page fetching thread pool, latency-aware dynamic concurrency adjustments, and per-domain rate limiting.
-- **`MediaProcessor`**: Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
-- **`DomainRulesManager`**: Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
+- **`CrawlOrchestrator`** (`src/core/orchestrator.py`): Manages the BFS queue, link extraction, page fetching thread pool, latency-aware dynamic concurrency adjustments, and per-domain rate limiting.
+- **`MediaProcessor`** (`src/core/media_processor.py`): Evaluates discovered media links against `filters.py`, performs origin URL upscaling predictions, and enqueues qualified assets for download.
+- **`DomainRulesManager`** (`src/core/domain_rules.py`): Aggregates domain profiles parsed from `SeedManifest` with dynamic settings from `data/domain_config.json`.
 
-### 3.2 8-Tier WAF & Challenge Escalation Pipeline
+### 3.2 8-Tier WAF & Challenge Escalation Pipeline (`src/network/stealth/`)
 
 When encountering 403, 401, or 429 responses, `HttpClient` automatically escalates through an 8-tier fallback chain governed by a **60-second execution deadline** and host memory caching.
 
@@ -127,7 +127,7 @@ The `HardwareLoadGovernor` dynamically throttles Python thread concurrency based
   - **Critical Load** (CPU ≥ 95.0%, RAM Avail ≤ 5.0%): Throttles worker multiplier to 0.25x.
 - Automatically forces garbage collection (`gc.collect()`) when approaching OOM limits.
 
-### 3.4 Download Pipeline & Range Resumption (`src/storage/file_downloader.py`)
+### 3.4 Download Pipeline & Range Resumption (`src/storage/downloader/manager.py`)
 
 Provides high-throughput, resilient asset fetching with bandwidth throttling:
 
@@ -158,5 +158,6 @@ The project employs strict structural mitigations against vulnerabilities like P
 ## 5. Docker Architecture
 
 When deploying in containerized environments:
-- Enforces `PUPPETEER_SKIP_DOWNLOAD=true` to prevent redundant Chromium downloads.
-- Symlinks Playwright's Chromium executable for the Node.js bridge to guarantee stealth features operate without conflicts.
+- Enforces `PUPPETEER_SKIP_DOWNLOAD=true` to prevent redundant Chromium downloads during build.
+- Configures `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` to bind system Chromium directly to Node.js Crawlee operations without browser version conflicts.
+- Runs under non-root `USER appuser` with permissions pre-configured for `data`, `seeds`, `logs`, and `output`.

@@ -95,7 +95,7 @@ def test_waf_solve_counts_telemetry(monkeypatch):
         return "<html>FlareSolverr Telemetry</html>", []
 
     monkeypatch.setattr(client, "_get_with_flaresolverr", mock_flaresolverr)
-    monkeypatch.setattr("network.stealth_pipeline.FlareSolverrStrategy.is_available", lambda self: True)
+    monkeypatch.setattr("network.stealth.strategies.FlareSolverrStrategy.is_available", lambda self: True)
 
     html, _ = client._execute_fallbacks(url, preferred_engine="flaresolverr")
     assert html is not None

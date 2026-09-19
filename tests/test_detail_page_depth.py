@@ -4,7 +4,7 @@ blocked. Uses the public DomainRulesManager with synthetic data."""
 from __future__ import annotations
 
 from core.filters import normalize_url
-from core.managers import DomainRulesManager
+from core.domain_rules import DomainRulesManager
 
 
 def test_off_model_link_blocked_at_depth1():

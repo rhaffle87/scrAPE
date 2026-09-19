@@ -4,7 +4,7 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 from core.filters import transform_to_highres, is_search_page_url
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 from network.http_client import HttpClient
 
 
@@ -106,7 +106,7 @@ def test_dynamic_host_semaphore_scaling():
     from unittest.mock import MagicMock, patch
     mock_http = MagicMock()
     mock_http.get_proxy = MagicMock(return_value=None)
-    with patch("storage.file_downloader.HttpClient", return_value=mock_http), \
+    with patch("storage.downloader.manager.HttpClient", return_value=mock_http), \
          patch("network.bandwidth_limiter.BandwidthLimiter", MagicMock()), \
          patch("ml.aesthetic_scorer.AestheticScorer", MagicMock()):
         dl = MediaDownloader(http=mock_http)

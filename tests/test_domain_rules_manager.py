@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import pytest
 
-from core.managers import DomainRulesManager
+from core.domain_rules import DomainRulesManager
 from core.engine import ScrapingEngine
 from bs4 import BeautifulSoup
 

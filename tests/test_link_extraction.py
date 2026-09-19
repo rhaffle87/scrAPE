@@ -46,7 +46,7 @@ def test_extract_images_from_anchors() -> None:
 
 
 def test_is_detail_page() -> None:
-    from core.managers import DomainRulesManager
+    from core.domain_rules import DomainRulesManager
     
     rules = DomainRulesManager()
 

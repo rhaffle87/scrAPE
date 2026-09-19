@@ -21,7 +21,7 @@ from core.models import (
 )
 from scraper.google_images import SearchProviderScraper
 from scraper.video_scraper import VideoScraper
-from storage.file_downloader import MediaDownloader
+from storage.downloader import MediaDownloader
 from storage.state_cache import StateCache
 from monitoring.logger import get_logger
 
@@ -112,7 +112,7 @@ class ScrapingEngine:
         self.downloader = MediaDownloader(http=self.search_provider.http, speed_limit_kbps=dl_speed_limit_kbps)
         self.state_cache = StateCache() if use_state_cache else None
 
-        from core.managers import DomainRulesManager
+        from core.domain_rules import DomainRulesManager
         self.rules_manager = DomainRulesManager()
 
     def track_domain_yield(self, domain, kept_delta, pages_delta):
@@ -211,7 +211,8 @@ class ScrapingEngine:
         start_time = time.time()
 
         # Initialize domain rules manager & media processor
-        from core.managers import MediaProcessor, CrawlOrchestrator
+        from core.media_processor import MediaProcessor
+        from core.orchestrator import CrawlOrchestrator
         rules_manager = self.rules_manager
 
         media_processor = MediaProcessor(

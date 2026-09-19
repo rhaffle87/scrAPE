@@ -366,7 +366,7 @@ def test_dimension_based_filtering():
 
 
 def test_max_results_limit_reporting():
-    from core.managers import MediaProcessor
+    from core.media_processor import MediaProcessor
     from core.models import EngineOptions, ScrapeResult, RejectedItem
     from pathlib import Path
 
@@ -514,7 +514,7 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
 
     monkeypatch.setattr(client.client, "get", mock_get)
 
-    from network.stealth_pipeline import CrawleeStrategy
+    from network.stealth.strategies import CrawleeStrategy
     from captcha.captcha_strategy import ThirdPartyCaptchaStrategy as CapSolverStrategy
 
     monkeypatch.setattr(CrawleeStrategy, "is_available", lambda self: False)
@@ -570,7 +570,7 @@ def test_http_client_cloudflare_detection():
 def test_http_client_no_retry_on_bypass_failure(monkeypatch):
     import httpx
     from network.http_client import HttpClient, ScraperBypassError
-    from network.stealth_pipeline import (
+    from network.stealth.pipeline import (
         HttpxStrategy,
         Crawl4AIStrategy,
         DrissionPageStrategy,
@@ -596,7 +596,7 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
         raise ScraperBypassError("Mocked WAF Bypass Failure")
 
     from captcha.captcha_strategy import ThirdPartyCaptchaStrategy as CapSolverStrategy
-    from network.stealth_pipeline import HeliumStrategy
+    from network.stealth.strategies import HeliumStrategy
 
     monkeypatch.setattr(Crawl4AIStrategy, "execute", mock_fail)
     monkeypatch.setattr(DrissionPageStrategy, "execute", mock_fail)
@@ -776,7 +776,7 @@ def test_cache_disposal_and_run_id_passing(tmp_path):
 
 
 def test_media_downloader_unicode_quoting(monkeypatch):
-    from storage.file_downloader import MediaDownloader
+    from storage.downloader.manager import MediaDownloader
     import httpx
     from pathlib import Path
 
@@ -1145,7 +1145,7 @@ def test_search_provider_scraper_registers_ddg_stealth():
 
 def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
     from network.http_client import HttpClient
-    from network.stealth_pipeline import (
+    from network.stealth.pipeline import (
         Crawl4AIStrategy,
         Crawl4AIStrategy,
         DrissionPageStrategy,

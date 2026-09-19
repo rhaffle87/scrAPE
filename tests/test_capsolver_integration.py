@@ -6,7 +6,8 @@ import pytest
 from unittest.mock import MagicMock
 from captcha.captcha_strategy import ThirdPartyCaptchaStrategy
 from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
-from network.stealth_pipeline import StealthPipeline, StealthResponse
+from network.stealth.pipeline import StealthPipeline
+from network.stealth.base import StealthResponse
 
 
 def test_capsolver_strategy_availability():

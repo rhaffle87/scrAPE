@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from core.managers import DomainRulesManager
+from core.domain_rules import DomainRulesManager
 
 router = APIRouter(prefix="/api/domain-config", tags=["domain_config"])
 logger = logging.getLogger(__name__)

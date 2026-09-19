@@ -36,7 +36,7 @@ def test_js_rendering_payload(e2e_mock_server):
     # and then the fallback engine renders it.
     
     # Let's mock the initial request to fail, or just use the StealthPipeline directly.
-    from src.network.stealth_pipeline import StealthPipeline
+    from src.network.stealth.pipeline import StealthPipeline
     
     pipeline = StealthPipeline()
     target_url = f"{e2e_mock_server}/js_challenge"
@@ -60,7 +60,7 @@ def test_heavy_spa_simulation(e2e_mock_server):
     and dynamic API fetches.
     """
     client = HttpClient()
-    from src.network.stealth_pipeline import StealthPipeline
+    from src.network.stealth.pipeline import StealthPipeline
     
     pipeline = StealthPipeline()
     target_url = f"{e2e_mock_server}/heavy-spa"

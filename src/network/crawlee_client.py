@@ -37,32 +37,42 @@ class CrawleeClient:
         env = os.environ.copy()
         env["CRAWLEE_PORT"] = str(self._port)
         
-        # Open log file for debugging
-        self._log_file = open("crawlee_bridge.log", "w")
+        # Open log file inside logs/ directory
+        log_dir = Path("logs")
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            self._log_file = open(log_dir / "crawlee_bridge.log", "w", encoding="utf-8")
+        except Exception as log_err:
+            logger.warning("Failed to open logs/crawlee_bridge.log: %s. Falling back to DEVNULL.", log_err)
+            self._log_file = None
+
         self._process = subprocess.Popen(  # nosec B603 B607
             ["node", str(script_path)],
-            stdout=self._log_file,
-            stderr=subprocess.STDOUT,
+            stdout=self._log_file if self._log_file else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT if self._log_file else subprocess.DEVNULL,
             env=env,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         )
 
-        
         # Wait for server to boot
         for _ in range(10):
             if self._is_server_running():
                 logger.info("Crawlee bridge server started successfully.")
                 return
             time.sleep(1)
-        
+
         logger.error("Failed to start Crawlee bridge server.")
 
     def _stop_server(self):
         if self._process:
             self._process.terminate()
             self._process = None
-            if hasattr(self, '_log_file') and self._log_file:
+        if getattr(self, '_log_file', None):
+            try:
                 self._log_file.close()
+            except Exception:
+                pass
+            self._log_file = None
 
 
 

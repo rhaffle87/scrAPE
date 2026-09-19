@@ -129,6 +129,17 @@ class StateCache:
                 CREATE INDEX IF NOT EXISTS idx_phash_subject ON phash_cache(subject)
             """)
             
+            # Persistent ETag cache for cross-run duplicate download prevention
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS etag_cache (
+                    etag TEXT PRIMARY KEY,
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_etag_ts ON etag_cache(timestamp)
+            """)
+            
             # Profiler cooldowns (e.g. 24-hour timeout for unmapped domains)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS profiler_cooldown (
@@ -162,14 +173,19 @@ class StateCache:
                     "DELETE FROM dead_urls WHERE timestamp < ?", (cutoff_time,)
                 )
                 deleted_dead = cursor.rowcount
+                cursor.execute(
+                    "DELETE FROM etag_cache WHERE timestamp < ?", (cutoff_time,)
+                )
+                deleted_etags = cursor.rowcount
                 conn.commit()
-                total_deleted = deleted_urls + deleted_phashes + deleted_dead
+                total_deleted = deleted_urls + deleted_phashes + deleted_dead + deleted_etags
                 if total_deleted > 0:
                     LOGGER.info(
-                        "StateCache cleanup: removed %d expired URLs, %d expired pHashes, and %d expired dead URLs.",
+                        "StateCache cleanup: removed %d expired URLs, %d expired pHashes, %d expired dead URLs, %d expired ETags.",
                         deleted_urls,
                         deleted_phashes,
                         deleted_dead,
+                        deleted_etags,
                     )
         except Exception as e:
             LOGGER.warning(f"StateCache cleanup failed: {e}")
@@ -387,6 +403,39 @@ class StateCache:
         except Exception as e:
             LOGGER.warning("StateCache flush_phashes failed: %s", e)
         return deleted
+
+    # ------------------------------------------------------------------
+    # ETag Persistence (cross-run identical download prevention)
+    # ------------------------------------------------------------------
+
+    def store_etag(self, etag: str) -> None:
+        """Persist an ETag so it survives across runs."""
+        if not etag:
+            return
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT OR IGNORE INTO etag_cache (etag, timestamp) VALUES (?, ?)",
+                    (etag.strip(), time.time()),
+                )
+                conn.commit()
+        except Exception as e:
+            LOGGER.warning("StateCache store_etag(%s) failed: %s", etag, e)
+
+    def is_etag_processed(self, etag: str) -> bool:
+        """Check if an ETag has already been downloaded previously."""
+        if not etag:
+            return False
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT 1 FROM etag_cache WHERE etag = ?", (etag.strip(),)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            LOGGER.warning("Error checking etag cache for %s: %s", etag, e)
+            return False
 
     def clear_domain(self, domain: str) -> int:
         """Delete all cached URL entries belonging to *domain*.

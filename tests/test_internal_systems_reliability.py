@@ -4,8 +4,8 @@ import sqlite3
 import time
 from pathlib import Path
 from src.storage.state_cache import StateCache, retry_on_db_lock
-from src.network.stealth_pipeline import StealthPipeline, _StrategyCircuitBreaker
-from src.storage.file_downloader import MediaDownloader
+from src.network.stealth.pipeline import StealthPipeline, _StrategyCircuitBreaker
+from src.storage.downloader.manager import MediaDownloader
 from src.monitoring.hardware_governor import HardwareLoadGovernor
 
 

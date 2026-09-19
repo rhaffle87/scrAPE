@@ -18,67 +18,6 @@ from urllib.parse import urlparse
 def _sleep(seconds: float):
     time.sleep(seconds)
 
-_GLOBAL_SCORER = None
-
-def _init_worker(model_path: str | Path | None = None):
-    """Initializes the AestheticScorer globally in the worker process."""
-    global _GLOBAL_SCORER
-    from ml.aesthetic_scorer import AestheticScorer
-    _GLOBAL_SCORER = AestheticScorer(model_path)
-
-
-def _process_image_cpu_bound(temp_path_str: str, target_path_str: str, min_aesthetic_score: float | None = None) -> dict:
-    """Out-of-process CPU-bound worker for hashing, scoring, and sanitizing an image."""
-    import hashlib
-    from common.image_helper import compute_dhash
-    from PIL import Image
-    import io
-    
-    from typing import Any
-    
-    result: dict[str, Any] = {
-        "success": False,
-        "reason": "",
-        "hash": None,
-        "dhash": None,
-        "score": None,
-        "error": None
-    }
-    
-    temp_path = Path(temp_path_str)
-    target_path = Path(target_path_str)
-    
-    try:
-        content = temp_path.read_bytes()
-        
-        result["hash"] = hashlib.sha256(content).hexdigest()
-        result["dhash"] = compute_dhash(content)
-        
-        global _GLOBAL_SCORER
-        if min_aesthetic_score is not None and _GLOBAL_SCORER is not None:
-            score = _GLOBAL_SCORER.score_image(content)
-            result["score"] = score
-            if score < min_aesthetic_score:
-                result["reason"] = "low_aesthetic_score"
-                return result
-                
-        img = Image.open(io.BytesIO(content))
-        out_buffer = io.BytesIO()
-        save_format = img.format if img.format else "JPEG"
-        kwargs = {}
-        if getattr(img, "is_animated", False):
-            kwargs["save_all"] = True
-        img.save(out_buffer, format=save_format, **kwargs)
-        target_path.write_bytes(out_buffer.getvalue())
-        
-        result["success"] = True
-    except Exception as e:
-        result["error"] = str(e)
-        result["reason"] = "sanitization_failed"
-    finally:
-        temp_path.unlink(missing_ok=True)
-        
-    return result
 
 import httpx
 
@@ -158,7 +97,7 @@ class MediaDownloader:
         
         self._cpu_pool = ProcessPoolExecutor(
             max_workers=max(1, multiprocessing.cpu_count() - 2),
-            initializer=_init_worker,
+            initializer=__import__('storage.downloader.cpu_worker', fromlist=['cpu_worker'])._init_worker,
             initargs=(None,)
         )
         self.save_rejected_reasons = save_rejected_reasons
@@ -416,21 +355,19 @@ class MediaDownloader:
 
             user_agent = random.choice(USER_AGENTS)
 
-        origin = (
-            f"{parsed.scheme}://{parsed.netloc}"
-            if referer is None
-            else urlparse(referer).scheme + "://" + urlparse(referer).netloc
-        )
+        if not referer:
+            referer = f"{parsed.scheme}://{parsed.netloc}/"
+            
+        origin = urlparse(referer).scheme + "://" + urlparse(referer).netloc
         headers: dict[str, str] = {
             "User-Agent": user_agent,
             "Accept": "video/webm,video/mp4,video/*,image/webp,image/*,*/*;q=0.8",
             "Accept-Encoding": "identity;q=1, *;q=0",
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive",
+            "Referer": referer,
+            "Origin": origin,
         }
-        if referer:
-            headers["Referer"] = referer
-            headers["Origin"] = origin
         for ref_host, ref_val in REFERER_OVERRIDES.items():
             if ref_host in host:
                 headers["Referer"] = ref_val
@@ -552,6 +489,30 @@ class MediaDownloader:
                     bytes_written = temp_target.stat().st_size
 
                 req_headers = self._make_download_headers(safe_url, safe_referer)
+                
+                if attempt == 1 and bytes_written == 0 and not is_rejected:
+                    try:
+                        dl_timeout = httpx.Timeout(5.0)
+                        with httpx.Client(verify=False, timeout=dl_timeout) as head_client:  # nosec B501
+                            head_resp = head_client.head(safe_url, headers=req_headers, follow_redirects=True)
+                            if head_resp.status_code == 200:
+                                cl = head_resp.headers.get("content-length")
+                                if cl and cl.isdigit():
+                                    icl = int(cl)
+                                    if media_kind == "image" and min_image_size is None and icl < MIN_IMAGE_DOWNLOAD_BYTES:
+                                        LOGGER.info("Aborting download (low content-length %s via HEAD) for %s", cl, url)
+                                        return False, {"reason": "low_resolution"}
+                                    if media_kind == "video" and icl < MIN_VIDEO_DOWNLOAD_BYTES and not self._is_manifest_url(url):
+                                        LOGGER.info("Aborting video (low content-length %s via HEAD) for %s", cl, url)
+                                        return False, {"reason": "low_resolution"}
+                                        
+                                etag_check = head_resp.headers.get("etag")
+                                if etag_check and self._state_cache and self._state_cache.is_etag_processed(etag_check):
+                                    LOGGER.info("Aborting download (ETag duplicate %s) for %s", etag_check, url)
+                                    return False, {"reason": "etag_duplicate"}
+                    except Exception as e:
+                        LOGGER.debug("HEAD request failed for %s: %s", url, e)
+
                 if bytes_written > 0:
                     req_headers["Range"] = f"bytes={bytes_written}-"
                     LOGGER.info(
@@ -567,6 +528,7 @@ class MediaDownloader:
 
                 content = b""
                 content_type = ""
+                etag_val = None
                 
                 import contextlib
                 @contextlib.contextmanager
@@ -611,6 +573,7 @@ class MediaDownloader:
                 with self._host_semaphore_for(_url_host, max_concurrent=self.workers):
                     with _do_request() as response:
                         content_type = response.headers.get("content-type", "")
+                        etag_val = response.headers.get("etag")
 
                         # Check content-length early if available (only if we did not send a Range request)
                         content_length_header = response.headers.get("content-length")
@@ -792,7 +755,7 @@ class MediaDownloader:
 
                     # Offload CPU-bound hash/score/sanitize to ProcessPoolExecutor
                     future = self._cpu_pool.submit(
-                        _process_image_cpu_bound,
+                        __import__('storage.downloader.cpu_worker', fromlist=['cpu_worker'])._process_image_cpu_bound,
                         str(temp_target),
                         str(target),
                         self.min_aesthetic_score if not is_rejected else None
@@ -848,6 +811,12 @@ class MediaDownloader:
                                 self._state_cache.store_phash(dhash_val, subject=self._keyword)
                             except Exception as exc:
                                 LOGGER.warning("Failed to persist pHash to StateCache: %s", exc)
+                                
+                            if etag_val:
+                                try:
+                                    self._state_cache.store_etag(etag_val)
+                                except Exception as exc:
+                                    LOGGER.warning("Failed to persist ETag to StateCache: %s", exc)
                 else:
                     with self._hash_lock:
                         if content_hash in self._seen_hashes:
@@ -855,6 +824,13 @@ class MediaDownloader:
                             target.unlink(missing_ok=True)
                             return False, {"reason": "duplicate"}
                         self._seen_hashes.add(content_hash)
+                        
+                    if self._state_cache is not None and etag_val:
+                        try:
+                            self._state_cache.store_etag(etag_val)
+                        except Exception as exc:
+                            LOGGER.warning("Failed to persist ETag for video to StateCache: %s", exc)
+                            
                 LOGGER.info("Downloaded %s", target)
 
                 relative_path = ""

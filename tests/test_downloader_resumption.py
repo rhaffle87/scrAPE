@@ -2,7 +2,7 @@ import pytest
 import os
 import tempfile
 from pathlib import Path
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 from core.models import ImageItem, VideoItem, ScrapeResult
 
 def test_downloader_stream_resumption(tmp_path):

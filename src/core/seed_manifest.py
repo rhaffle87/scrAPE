@@ -76,6 +76,9 @@ class DomainProfile:
     skip_link_discovery: bool = False
     """True for domains where link discovery is known to be useless/risky."""
 
+    skip_detail_relevance_check: bool = False
+    """True for domains where detail pages inherently match the subject (bypass final relevance check)."""
+
     rate_limit: float | None = None
     """Optional rate-limit override in requests per second (req/s)."""
 
@@ -314,6 +317,9 @@ _DEPTH_RE = re.compile(r"#\s*depth\s*:\s*(\d+)", re.IGNORECASE)
 _SKIP_RE = re.compile(
     r"#\s*(skip[-_]link[-_]discovery|skip link discovery)", re.IGNORECASE
 )
+_SKIP_DETAIL_RE = re.compile(
+    r"#\s*(skip[-_]detail[-_]relevance[-_]check|skip detail relevance check)", re.IGNORECASE
+)
 _RATE_LIMIT_RE = re.compile(
     r"\bRate-limit\s*:\s*(\d+(?:\.\d+)?)\s*req/s", re.IGNORECASE
 )
@@ -408,7 +414,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
 
     def reset_pending() -> None:
         nonlocal pend_media, pend_crawl, pend_cdns, pend_depth, pend_skip, pend_notes
-        nonlocal pend_rate_limit, pend_username, pend_email, pend_password
+        nonlocal pend_skip_detail, pend_rate_limit, pend_username, pend_email, pend_password
         nonlocal pend_min_size, pend_thumb_prefix, pend_engine, pend_referer
         nonlocal pend_cloudflare, pend_insecure_ssl, pend_max_pages, pend_disabled
         pend_media = "mixed"
@@ -416,6 +422,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
         pend_cdns = []
         pend_depth = None
         pend_skip = False
+        pend_skip_detail = False
         pend_rate_limit = None
         pend_username = None
         pend_email = None
@@ -438,6 +445,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             cdn_hosts=list(pend_cdns),
             crawl_depth=pend_depth,
             skip_link_discovery=pend_skip,
+            skip_detail_relevance_check=pend_skip_detail,
             rate_limit=pend_rate_limit,
             username=pend_username,
             email=pend_email,
@@ -502,6 +510,10 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
             # Flag: skip link discovery
             if _SKIP_RE.search(line):
                 pend_skip = True
+                
+            # Flag: skip detail relevance check
+            if _SKIP_DETAIL_RE.search(line):
+                pend_skip_detail = True
 
             # Annotation: Rate-limit
             m = _RATE_LIMIT_RE.search(line)
@@ -591,7 +603,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
                         seg
                         and len(seg) >= 3
                         and seg not in profile.subject_aliases
-                        and re.fullmatch(r"[a-z0-9_]+", seg)
+                        and re.fullmatch(r"[a-z0-9_-]+", seg)
                         and seg not in _NON_SUBJECT_PATH_SEGMENTS
                     ):
                         profile.subject_aliases.append(seg)

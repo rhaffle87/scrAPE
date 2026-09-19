@@ -32,8 +32,11 @@ class YtDlpExtractor(ExtractorPlugin):
                 
         if path.endswith(".m3u8") or path.endswith(".mpd"):
             return True
+        if host == "kusowanka.com":
+            if not path.startswith("/post/"):
+                return False
 
-        return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com", "iwara.tv"]
+        return host in ["youtube.com", "youtu.be", "tiktok.com", "vimeo.com", "twitter.com", "x.com", "iwara.tv", "kusowanka.com"]
 
     def extract(self, url: str, http_client: Optional['HttpClient'] = None) -> SpecializedResult:
         try:
@@ -60,7 +63,7 @@ class YtDlpExtractor(ExtractorPlugin):
         ydl_opts: dict[str, typing.Any] = {
             "quiet": True,
             "no_warnings": True,
-            "extract_flat": "in_playlist",
+            "extract_flat": False,
             "skip_download": True,
             "dumpjson": True,
             "format": format_spec,

@@ -49,6 +49,11 @@ jobs:
         run: |
           playwright install --with-deps chromium
 
+      - name: Lint with Ruff
+        run: |
+          pip install ruff
+          ruff check src/ frontend/
+
       - name: Run Test Suite
         env:
           PYTHONPATH: .

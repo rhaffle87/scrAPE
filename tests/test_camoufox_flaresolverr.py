@@ -1,4 +1,5 @@
 import pytest
+from typing import Any
 from unittest.mock import MagicMock
 from network.http_client import HttpClient
 
@@ -109,20 +110,44 @@ def test_preferred_engine_routing_and_host_memory(monkeypatch):
 
     executed_order = []
 
-    def mock_camoufox(u):
-        executed_order.append("camoufox")
-        return "<html>Camoufox Solved</html>", []
+    from network.stealth.base import StealthStrategy, StealthResponse
 
-    def mock_crawl4ai(u):
-        executed_order.append("crawl4ai")
-        return "<html>Crawl4AI Solved</html>", []
+    class MockCamoufoxStrategy(StealthStrategy):
+        name = "camoufox"
+        def is_available(self) -> bool: return True
+        def can_handle(self, url: str, host: str) -> bool: return True
+        def execute(self, url: str, client: Any) -> StealthResponse | None:
+            executed_order.append("camoufox")
+            return StealthResponse(200, "<html>Camoufox Solved</html>", {})
 
-    monkeypatch.setattr(client, "_get_with_camoufox", mock_camoufox)
-    monkeypatch.setattr(client, "_get_with_crawl4ai", mock_crawl4ai)
-    monkeypatch.setattr("network.stealth_pipeline.CamoufoxStrategy.is_available", lambda self: True)
+    class MockCrawl4AIStrategy(StealthStrategy):
+        name = "crawl4ai"
+        def is_available(self) -> bool: return True
+        def can_handle(self, url: str, host: str) -> bool: return True
+        def execute(self, url: str, client: Any) -> StealthResponse | None:
+            executed_order.append("crawl4ai")
+            return StealthResponse(200, "<html>Crawl4AI Solved</html>", {})
+            
+    class MockOtherStrategy(StealthStrategy):
+        name = "other"
+        def is_available(self) -> bool: return True
+        def can_handle(self, url: str, host: str) -> bool: return True
+        def execute(self, url: str, client: Any) -> StealthResponse | None:
+            executed_order.append("other")
+            return None # Simulate failure
+
+    # Replace pipeline strategies with our mocks
+    client.stealth_pipeline.strategies = [
+        MockOtherStrategy(),
+        MockCrawl4AIStrategy(),
+        MockCamoufoxStrategy()
+    ]
 
     # Call with preferred_engine="camoufox"
+    print("Running with strategies:", [s.name for s in client.stealth_pipeline.strategies])
     html, _ = client._execute_fallbacks(url, preferred_engine="camoufox")
+    print("Returned HTML:", html)
+    print("Executed Order:", executed_order)
     assert html is not None
     assert "Camoufox Solved" in html
     assert executed_order == ["camoufox"]

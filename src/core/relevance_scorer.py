@@ -36,8 +36,8 @@ __all__ = [
 
 
 def normalize_token(value: str) -> str:
-    """Normalize a token string by lowercasing and stripping non-alphanumeric chars."""
-    return re.sub(r"[^\w]", "", value.lower())
+    """Normalize a token string by lowercasing and stripping chars other than word chars and hyphens."""
+    return re.sub(r"[^\w-]", "", value.lower())
 
 
 def keyword_tokens(keyword: str | set | list) -> set[str]:
@@ -92,6 +92,8 @@ def contains_subject_text(
     subject_aliases: list[str] | None = None,
 ) -> bool:
     """Check if text contains the subject string or any alias."""
+    if not keyword and not entity_tokens and not subject_aliases:
+        return True
     return weighted_subject_score(text, keyword, entity_tokens, subject_aliases) > 0
 
 

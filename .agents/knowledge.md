@@ -10,7 +10,7 @@ The scrAPE codebase is a highly resilient media scraping engine that successfull
 - **Core Engine (`src/core`)**: Drives the BFS crawl loop. Logic heavily relies on `filters.py` to evaluate URL relevance and media validity.
 - **Scraping Layer (`src/scraper`)**: Features generic HTML DOM parsers (`google_images.py`, etc.). Complex targets (like YouTube, TikTok) are delegated to Specialized Extractors (e.g., using `yt-dlp`).
 - **Storage & State (`src/storage`, `output/cache`)**: Uses a SQLite-backed `StateCache` configured with Write-Ahead Logging (WAL mode) to avoid lock contention under heavy multi-threading. It tracks processed URLs to avoid redundant work across runs.
-- **Networking & Stealth (`src/network`)**: Features an 8-tier WAF fallback pipeline orchestrator (`stealth_pipeline.py`) seamlessly integrating Playwright, FlareSolverr, Crawlee, and Universal Captcha strategies to bypass modern anti-bot systems.
+- **Networking & Stealth (`src/network`)**: Features an 8-tier WAF fallback pipeline orchestrator (`src/network/stealth/`) seamlessly integrating Playwright, FlareSolverr, Crawlee, and Universal Captcha strategies to bypass modern anti-bot systems.
 
 ## 2. Frontend UI & Telemetry Standards
 

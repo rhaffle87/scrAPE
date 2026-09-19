@@ -76,6 +76,9 @@ app.post('/scrape', async (req, res) => {
                 headless: "new",
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             };
+            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+                launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            }
             if (userDataDir) {
                 launchOptions.userDataDir = userDataDir;
             }

@@ -20,7 +20,7 @@ import pytest
 # ---------------------------------------------------------------------------
 def test_drissionpage_strategy_not_duplicated():
     """stealth_pipeline module must define DrissionPageStrategy exactly once."""
-    import network.stealth_pipeline as sp_mod
+    import network.stealth.pipeline as sp_mod
 
     drission_names = [name for name in dir(sp_mod) if name == "DrissionPageStrategy"]
     assert len(drission_names) == 1, (
@@ -38,7 +38,7 @@ def test_crawlee_availability_ttl_cached():
     """CrawleeStrategy.is_available() must use TTL caching; the inner HTTP check
     must be called only once even if is_available() is invoked multiple times
     within the 30s window."""
-    import network.stealth_pipeline as sp_mod
+    import network.stealth.pipeline as sp_mod
 
     strategy = sp_mod.CrawleeStrategy()
     sp_mod.CrawleeStrategy._avail_until = 0.0
@@ -74,7 +74,7 @@ def test_crawlee_availability_ttl_cached():
 def test_flaresolverr_availability_ttl_cached():
     """FlareSolverrStrategy.is_available() must use TTL caching; the inner httpx.get
     must be called only once even if is_available() is invoked multiple times."""
-    import network.stealth_pipeline as sp_mod
+    import network.stealth.pipeline as sp_mod
 
     strategy = sp_mod.FlareSolverrStrategy()
     sp_mod.FlareSolverrStrategy._avail_until = 0.0
@@ -94,7 +94,7 @@ def test_flaresolverr_availability_ttl_cached():
 
     with patch("config.FLARESOLVERR_URL", "http://localhost:8191/v1"), \
          patch("config.ENABLE_FLARESOLVERR_FALLBACK", True), \
-         patch("network.stealth_pipeline.httpx.get", side_effect=fake_httpx_get), \
+         patch("network.stealth.pipeline.httpx.get", side_effect=fake_httpx_get), \
          patch.dict("sys.modules", {"network.flaresolverr_monitor": mock_monitor_mod}):
 
         sp_mod.FlareSolverrStrategy._avail_until = 0.0
@@ -117,7 +117,7 @@ def test_flaresolverr_availability_ttl_cached():
 def test_camoufox_available_when_importable():
     """CamoufoxStrategy.is_available() must return True when camoufox is importable,
     regardless of the OS platform (Windows included)."""
-    import network.stealth_pipeline as sp_mod
+    import network.stealth.pipeline as sp_mod
 
     strategy = sp_mod.CamoufoxStrategy()
     fake_camoufox = MagicMock()
@@ -129,7 +129,7 @@ def test_camoufox_available_when_importable():
 
 def test_camoufox_unavailable_when_not_importable():
     """CamoufoxStrategy.is_available() must return False when camoufox is not installed."""
-    import network.stealth_pipeline as sp_mod
+    import network.stealth.pipeline as sp_mod
 
     strategy = sp_mod.CamoufoxStrategy()
     # Ensure camoufox raises ImportError

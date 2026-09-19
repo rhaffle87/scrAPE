@@ -2,7 +2,7 @@ import struct
 import httpx
 import contextlib
 from pathlib import Path
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 
 
 def test_downloader_stream_early_resolution_abort(monkeypatch):

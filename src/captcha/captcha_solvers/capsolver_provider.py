@@ -140,6 +140,6 @@ class CapSolverProvider(CaptchaSolverProvider):
                     return sol.get("token") or sol.get("gRecaptchaResponse")
                 elif rdata.get("status") == "failed":
                     return None
-        except Exception:
-            pass
+        except Exception as exc:
+            LOGGER.warning("CapSolver get_task_result exception: %s", exc)
         return None

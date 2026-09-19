@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from network.stealth_pipeline import (
+from network.stealth.pipeline import (
     _StrategyCircuitBreaker,
     StealthPipeline,
     StealthResponse,

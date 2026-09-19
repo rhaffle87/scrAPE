@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 from storage.state_cache import StateCache
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 
 
 def _make_cache(max_age_days: int = 30) -> StateCache:
@@ -102,7 +102,7 @@ def test_cross_run_dedup_blocks_duplicate_via_seeded_set():
     image from passing the Hamming-distance check.
     """
     from network.http_client import HttpClient
-    from storage.file_downloader import hamming_distance
+    from storage.downloader.manager import hamming_distance
 
     cache = _make_cache()
     known_hash = 0xDEADBEEF

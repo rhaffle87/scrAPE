@@ -331,7 +331,7 @@ class CrawlCoordinator:
                                             discovered_links = [
                                                 lnk for lnk in discovered_links
                                                 if (
-                                                    self.rules_manager and self.rules_manager.is_detail_page(lnk["url"], seed_for_host, self.options.keyword, self.options.entity_tokens, anchor_text=lnk.get("anchor_text", ""))
+                                                    self.rules_manager and self.rules_manager.is_detail_page(lnk["url"], seed_for_host, self.options.keyword, self.options.entity_tokens, anchor_text=lnk.get("anchor_text", ""), profile=profile)
                                                 )
                                                 or (
                                                     # Pagination links are legal index nodes for

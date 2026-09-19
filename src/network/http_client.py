@@ -55,7 +55,7 @@ from network.rate_limiter import RateLimiter
 from network.session_pool import SessionPool
 from common.blacklist import is_blacklisted
 from network.session import SessionManager
-from network.stealth_pipeline import StealthTierHealthManager
+from network.stealth import StealthTierHealthManager
 from monitoring.logger import get_logger
 
 logger = get_logger(__name__)
@@ -377,7 +377,7 @@ class HttpClient(BrowserClientMixin):
         # Per-domain serialization locks for Crawl4AI fallback
         self._domain_fallback_locks: dict[str, threading.Lock] = {}
         self._fallback_lock = threading.Lock()
-        from network.stealth_pipeline import StealthPipeline
+        from network.stealth import StealthPipeline
         self.stealth_pipeline = StealthPipeline()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         # Thread-local storage: tracks the pure *network* latency for the most
@@ -543,7 +543,7 @@ class HttpClient(BrowserClientMixin):
     def _is_domain_cloudflare_marked(self, host: str) -> bool:
         """Return True if host is configured with cloudflare: true in domain_config.json."""
         try:
-            from core.managers import DomainRulesManager
+            from core.domain_rules import DomainRulesManager
             dm = DomainRulesManager()
             cfg = dm._get_config()
             domain_cfg = cfg.get("domain_handlers", {}).get(host, {})

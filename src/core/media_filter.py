@@ -227,8 +227,13 @@ def rejection_reason_for_image(
     if not media_type_matches_domain_expectation(item, domain_profiles):
         return "wrong_media_type_for_domain"
 
+    profile = domain_profiles.get(urlparse(item.source_page).netloc.lower()) if domain_profiles else None
+    skip_detail_check = profile and getattr(profile, "skip_detail_relevance_check", False)
+    is_detail_page = not is_archive_or_index_page(item.source_page, item.page_title)
+
     if getattr(item, "in_layout_container", False):
-        return "layout_decoration"
+        if not (skip_detail_check and is_detail_page):
+            return "layout_decoration"
 
     if item.width is not None and item.width < 300:
         return "low_resolution"
@@ -274,12 +279,17 @@ def rejection_reason_for_image(
         item.url, min_width=300, min_height=250
     ):
         return "low_resolution_hint"
-    if not contains_subject_text(
-        text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
-    ):
-        return "low_subject_relevance"
-    if score < 1:
-        return "low_score"
+    profile = domain_profiles.get(urlparse(item.source_page).netloc.lower()) if domain_profiles else None
+    skip_detail_check = profile and getattr(profile, "skip_detail_relevance_check", False)
+    is_detail_page = not is_archive_or_index_page(item.source_page, item.page_title)
+
+    if not (skip_detail_check and is_detail_page):
+        if not contains_subject_text(
+            text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+        ):
+            return "low_subject_relevance"
+        if score < 1:
+            return "low_score"
     return None
 
 
@@ -298,8 +308,13 @@ def rejection_reason_for_video(
     if not media_type_matches_domain_expectation(item, domain_profiles):
         return "wrong_media_type_for_domain"
 
+    profile = domain_profiles.get(urlparse(item.source_page).netloc.lower()) if domain_profiles else None
+    skip_detail_check = profile and getattr(profile, "skip_detail_relevance_check", False)
+    is_detail_page = not is_archive_or_index_page(item.source_page, item.page_title)
+
     if getattr(item, "in_layout_container", False):
-        return "layout_decoration"
+        if not (skip_detail_check and is_detail_page):
+            return "layout_decoration"
 
     explicitly_seeded = seed_urls and item.source_page in seed_urls
     cdn_asset = is_cdn_asset_domain(
@@ -327,12 +342,17 @@ def rejection_reason_for_video(
         return "placeholder_asset"
     if _preview_penalty(item.url.lower()) >= 6:
         return "preview_or_thumbnail"
-    if not contains_subject_text(
-        text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
-    ):
-        return "low_subject_relevance"
-    if score < 1:
-        return "low_score"
+    profile = domain_profiles.get(urlparse(item.source_page).netloc.lower()) if domain_profiles else None
+    skip_detail_check = profile and getattr(profile, "skip_detail_relevance_check", False)
+    is_detail_page = not is_archive_or_index_page(item.source_page, item.page_title)
+
+    if not (skip_detail_check and is_detail_page):
+        if not contains_subject_text(
+            text, keyword, entity_tokens, _aliases_for(item.source_page, domain_profiles)
+        ):
+            return "low_subject_relevance"
+        if score < 1:
+            return "low_score"
     return None
 
 

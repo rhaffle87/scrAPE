@@ -51,6 +51,61 @@ def _is_safe_path_component(name: str) -> bool:
     return True
 
 
+def _is_safe_target_url(url: str) -> bool:
+    """Validate target URL to prevent SSRF against loopback, link-local, or private networks."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    if os.environ.get("SCRAPE_ALLOW_LOCAL_TARGETS", "").lower() in ("true", "1"):
+        return True
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Block literal localhost / cloud metadata strings
+        if hostname.lower() in ("localhost", "metadata.google.internal", "instance-data"):
+            return False
+
+        # Check if hostname is an IP literal
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+            ):
+                return False
+        except ValueError:
+            # Hostname is a domain name; resolve DNS to inspect target IP
+            try:
+                addr_info = socket.getaddrinfo(hostname, None)
+                for item in addr_info:
+                    resolved_ip_str = item[4][0]
+                    resolved_ip = ipaddress.ip_address(resolved_ip_str)
+                    if (
+                        resolved_ip.is_private
+                        or resolved_ip.is_loopback
+                        or resolved_ip.is_link_local
+                        or resolved_ip.is_reserved
+                        or resolved_ip.is_multicast
+                    ):
+                        return False
+            except socket.gaierror:
+                pass
+
+        return True
+    except Exception:
+        return False
+
+
 class LogBroadcaster:
     """Manages active SSE client subscriber queues and broadcasts log/progress events."""
 
@@ -495,6 +550,11 @@ def run_scrape(req: ScrapeRequest):
         for url in req.seed_urls.split(","):
             url_clean = url.strip()
             if url_clean:
+                if not _is_safe_target_url(url_clean):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Target URL not permitted (SSRF protection): {url_clean}",
+                    )
                 cmd.extend(["--seed-url", url_clean])
                 
     if req.allow_domains:

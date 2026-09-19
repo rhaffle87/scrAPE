@@ -15,9 +15,10 @@ COPY pyproject.toml requirements.txt README.md ./
 COPY src/ ./src/
 COPY crawlee_bridge/ ./crawlee_bridge/
 
-# Install Python project into an isolated prefix we can copy cleanly later
+# Install Python project into an isolated prefix
 RUN pip install --no-cache-dir --prefix=/install .
 
+# Install Crawlee bridge dependencies
 RUN cd crawlee_bridge \
     && PUPPETEER_SKIP_DOWNLOAD=true npm ci --omit=dev \
     && npm cache clean --force
@@ -25,9 +26,12 @@ RUN cd crawlee_bridge \
 # ---------- Stage 2: Runtime ----------
 FROM python:3.11-slim
 
+# Install system dependencies, Node.js 20, and Chromium browser
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
+    chromium \
+    fonts-liberation \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && useradd -m -s /bin/bash appuser \
@@ -37,7 +41,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# System-wide installed packages stay root-owned (non-root can read/execute, not write)
+# Point Puppeteer to system Chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# System-wide installed Python packages
 COPY --from=builder /install /usr/local
 
 # App code: root-owned, read-only for appuser
@@ -45,16 +53,10 @@ COPY --from=builder --chown=root:root /app/crawlee_bridge ./crawlee_bridge
 COPY --chown=root:root frontend/ ./frontend/
 COPY --chown=root:root .bandit ./.bandit
 
-# Runtime-writable dirs setup & Playwright system dependencies (as root)
-RUN mkdir -p data seeds && chown appuser:appuser data seeds \
-    && pip install --no-cache-dir playwright \
-    && python -m playwright install-deps chromium \
-    && rm -rf /var/lib/apt/lists/*
+# Runtime-writable dirs setup (owned by appuser)
+RUN mkdir -p data seeds logs output && chown -R appuser:appuser data seeds logs output
 
 USER appuser
-
-# Install Chromium headless-shell binary into appuser's home cache
-RUN python -m playwright install --only-shell chromium
 
 EXPOSE 10001
 

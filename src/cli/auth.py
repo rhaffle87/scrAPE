@@ -56,8 +56,8 @@ def perform_interactive_login(domain: str) -> None:
                     logger.warning("No cookies captured via DrissionPage.")
                 try:
                     dp.quit()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("DrissionPage quit exception: %s", exc)
                 return
 
         driver.get(f"https://{domain}")
@@ -94,8 +94,8 @@ def perform_interactive_login(domain: str) -> None:
         if driver:
             try:
                 driver.quit()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("undetected_chromedriver quit exception: %s", exc)
 
 
 def import_cookies(domain: str, file_path: Path) -> None:

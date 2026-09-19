@@ -417,6 +417,9 @@ def is_allowed_path(url: str) -> bool:
             "goto/account",
             "/shop/account",
             "/store/account",
+            "/customavatars/",
+            "/avatars/",
+            "/member/",
         }
         for pattern in skip_patterns:
             if pattern in path or path.endswith(pattern):

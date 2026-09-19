@@ -40,6 +40,14 @@ class BaseStateStore(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def store_etag(self, etag: str) -> None:
+        pass
+
+    @abc.abstractmethod
+    def is_etag_processed(self, etag: str) -> bool:
+        pass
+
+    @abc.abstractmethod
     def prune_expired(self, max_age_days: int = 7) -> int:
         pass
 
@@ -71,6 +79,12 @@ class SQLiteStateStore(BaseStateStore):
 
     def load_phashes(self, subject: str = "") -> set[int]:
         return self._cache.load_phashes(subject)
+
+    def store_etag(self, etag: str) -> None:
+        self._cache.store_etag(etag)
+
+    def is_etag_processed(self, etag: str) -> bool:
+        return self._cache.is_etag_processed(etag)
 
     def prune_expired(self, max_age_days: int = 7) -> int:
         return self._cache.prune_expired(max_age_days=max_age_days)
@@ -118,6 +132,15 @@ class PostgresStateStore(BaseStateStore):
                             timestamp DOUBLE PRECISION NOT NULL
                         );
                     """)
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS etag_cache (
+                            etag VARCHAR(255) PRIMARY KEY,
+                            timestamp DOUBLE PRECISION NOT NULL
+                        );
+                    """)
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_pg_etag_ts ON etag_cache(timestamp);
+                    """)
                     conn.commit()
             self._has_pg = True
             LOGGER.info("PostgresStateStore: Connected and verified schema on PostgreSQL / Neon DB.")
@@ -131,7 +154,7 @@ class PostgresStateStore(BaseStateStore):
         self._in_memory_fallback[h] = now
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         cur.execute("""
@@ -153,7 +176,7 @@ class PostgresStateStore(BaseStateStore):
 
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         cur.executemany("""
@@ -171,7 +194,7 @@ class PostgresStateStore(BaseStateStore):
             return True
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         cur.execute("SELECT 1 FROM processed_urls WHERE url_hash = %s LIMIT 1;", (h,))
@@ -192,7 +215,7 @@ class PostgresStateStore(BaseStateStore):
 
         if missing and self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 missing_hashes = [hashes[u] for u in missing]
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
@@ -211,7 +234,7 @@ class PostgresStateStore(BaseStateStore):
         now = time.time()
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         cur.execute("""
@@ -226,7 +249,7 @@ class PostgresStateStore(BaseStateStore):
     def load_phashes(self, subject: str = "") -> set[int]:
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         if subject:
@@ -238,6 +261,36 @@ class PostgresStateStore(BaseStateStore):
                 LOGGER.debug("Postgres load_phashes error: %s", e)
         return set()
 
+    def store_etag(self, etag: str) -> None:
+        if not etag or not self._has_pg:
+            return
+        now = time.time()
+        try:
+            import psycopg  # type: ignore
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO etag_cache (etag, timestamp)
+                        VALUES (%s, %s)
+                        ON CONFLICT (etag) DO UPDATE SET timestamp = EXCLUDED.timestamp;
+                    """, (etag.strip(), now))
+                    conn.commit()
+        except Exception as e:
+            LOGGER.debug("Postgres store_etag error: %s", e)
+
+    def is_etag_processed(self, etag: str) -> bool:
+        if not etag or not self._has_pg:
+            return False
+        try:
+            import psycopg  # type: ignore
+            with psycopg.connect(self.database_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1 FROM etag_cache WHERE etag = %s LIMIT 1;", (etag.strip(),))
+                    return cur.fetchone() is not None
+        except Exception as e:
+            LOGGER.debug("Postgres is_etag_processed error: %s", e)
+        return False
+
     def prune_expired(self, max_age_days: int = 7) -> int:
         cutoff = time.time() - (max_age_days * 86400)
         expired_keys = [k for k, ts in self._in_memory_fallback.items() if ts < cutoff]
@@ -247,14 +300,16 @@ class PostgresStateStore(BaseStateStore):
 
         if self._has_pg:
             try:
-                import psycopg
+                import psycopg  # type: ignore
                 with psycopg.connect(self.database_url) as conn:
                     with conn.cursor() as cur:
                         cur.execute("DELETE FROM processed_urls WHERE timestamp < %s;", (cutoff,))
-                        pg_deleted = cur.rowcount
+                        deleted_count += cur.rowcount
                         cur.execute("DELETE FROM phash_cache WHERE timestamp < %s;", (cutoff,))
+                        deleted_count += cur.rowcount
+                        cur.execute("DELETE FROM etag_cache WHERE timestamp < %s;", (cutoff,))
+                        deleted_count += cur.rowcount
                         conn.commit()
-                        deleted_count += (pg_deleted or 0)
             except Exception as e:
                 LOGGER.debug("Postgres prune_expired error: %s", e)
         return deleted_count

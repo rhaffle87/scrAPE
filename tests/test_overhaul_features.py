@@ -4,7 +4,7 @@ import json
 import httpx
 from network.session_pool import Session, FlatCookies
 from core.filters import is_thumbnail_url
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 from core.models import ScrapeResult
 
 
@@ -84,7 +84,7 @@ def test_dead_url_tracking(tmp_path):
     
     # Test saving dead URLs to file via a mock scrape result in execute_deferred_downloads
     # We will import and call execute_deferred_downloads
-    from core.managers import MediaProcessor
+    from core.media_processor import MediaProcessor
     processor = MediaProcessor(downloader)
     
     result = ScrapeResult(

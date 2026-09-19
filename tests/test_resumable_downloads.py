@@ -2,7 +2,7 @@ import contextlib
 import httpx
 import pytest
 from pathlib import Path
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 
 
 def test_resumable_download_206_append(monkeypatch, tmp_path):

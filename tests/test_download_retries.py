@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from unittest.mock import MagicMock, patch
 import httpx
-from storage.file_downloader import MediaDownloader
+from storage.downloader.manager import MediaDownloader
 from network.http_client import HttpClient
 
 
@@ -68,8 +68,8 @@ def test_download_file_retry_on_network_error(tmp_path):
     mock_fast_rl.wait = MagicMock()
 
     with (
-        patch("storage.file_downloader._sleep") as mock_sleep,
-        patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)),
+        patch("storage.downloader.manager._sleep") as mock_sleep,
+        patch("storage.downloader.manager.get_image_dimensions", return_value=(800, 600)),
         patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl),
         patch("curl_cffi.requests.Session") as mock_curl_session,
     ):
@@ -140,8 +140,8 @@ def test_download_file_retry_on_server_error(tmp_path):
     mock_fast_rl2.wait = MagicMock()
 
     with (
-        patch("storage.file_downloader._sleep") as mock_sleep,
-        patch("storage.file_downloader.get_image_dimensions", return_value=(800, 600)),
+        patch("storage.downloader.manager._sleep") as mock_sleep,
+        patch("storage.downloader.manager.get_image_dimensions", return_value=(800, 600)),
         patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl2),
     ):
         success, reason = downloader._download_file(
