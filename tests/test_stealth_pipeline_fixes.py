@@ -94,7 +94,7 @@ def test_flaresolverr_availability_ttl_cached():
 
     with patch("config.FLARESOLVERR_URL", "http://localhost:8191/v1"), \
          patch("config.ENABLE_FLARESOLVERR_FALLBACK", True), \
-         patch("network.stealth.pipeline.httpx.get", side_effect=fake_httpx_get), \
+         patch("network.stealth.strategies.httpx.get", side_effect=fake_httpx_get), \
          patch.dict("sys.modules", {"network.flaresolverr_monitor": mock_monitor_mod}):
 
         sp_mod.FlareSolverrStrategy._avail_until = 0.0

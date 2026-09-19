@@ -398,6 +398,7 @@ def _parse(source: Path, text: str) -> SeedManifest:  # noqa: PLR0912
     pend_cdns: list[str] = []
     pend_depth: int | None = None
     pend_skip: bool = False
+    pend_skip_detail: bool = False
     pend_rate_limit: float | None = None
     pend_username: str | None = None
     pend_email: str | None = None

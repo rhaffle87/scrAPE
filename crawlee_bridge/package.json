@@ -18,9 +18,13 @@
     "puppeteer-extra-plugin-stealth": "2.10.4"
   },
   "overrides": {
-    "adm-zip": "0.6.0",
+    "adm-zip": ">=0.6.1",
+    "baseline-browser-mapping": ">=2.11.25",
     "brace-expansion": ">=5.0.9",
+    "browserslist": ">=4.29.0",
     "ip-address": ">=10.4.0",
+    "qs": ">=6.16.0",
+    "stream-json": ">=3.6.0",
     "undici": ">=7.29.0",
     "minimatch": "10.2.6",
     "rimraf": "6.0.1",
