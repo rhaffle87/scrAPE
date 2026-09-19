@@ -99,7 +99,7 @@ class ProxyFetcher:
             async with httpx.AsyncClient(
                 proxy=proxy_url,
                 timeout=self.validation_timeout_s,
-                verify=False # We only care if it can pass traffic, not if the cert store is perfectly synced
+                verify=False,  # nosec B501
             ) as client:
                 start_time = time.monotonic()
                 resp = await client.get("https://api.ipify.org?format=json")

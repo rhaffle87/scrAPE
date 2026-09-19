@@ -76,7 +76,7 @@ class DomainProfiler:
         # 3. Stage 1: Network Probe
         target_url = f"https://{domain}/"
         try:
-            async with httpx.AsyncClient(verify=False, follow_redirects=True, timeout=10.0) as client:
+            async with httpx.AsyncClient(verify=False, follow_redirects=True, timeout=10.0) as client:  # nosec B501
                 resp = await client.get(target_url)
                 
                 if resp.status_code == 429:

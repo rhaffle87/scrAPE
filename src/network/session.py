@@ -105,7 +105,7 @@ class SessionManager:
         import base64
         try:
             import win32crypt
-            from Crypto.Cipher import AES
+            from Crypto.Cipher import AES  # nosec B413
         except ImportError:
             logger.warning("pypiwin32 or pycryptodome not installed, skipping Chromium DPAPI decryption")
             return {}

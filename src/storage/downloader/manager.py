@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 """
 file_downloader.py — Concurrent media downloader with MIME/signature validation.
 """
@@ -15,17 +14,16 @@ import multiprocessing
 from pathlib import Path
 from urllib.parse import urlparse
 
-def _sleep(seconds: float):
-    time.sleep(seconds)
-
-
 import httpx
 
+from common.image_helper import get_image_dimensions, hamming_distance
 from config import (
     CONCURRENT_DOWNLOADS,
     DEFAULT_DOWNLOAD_IMAGES_SUBDIR,
     DEFAULT_DOWNLOAD_VIDEOS_SUBDIR,
+    DOWNLOAD_RATE_LIMIT_RPS,
     HLS_EXTENSIONS,
+    MAX_CONCURRENT_PER_HOST,
     MIN_IMAGE_DOWNLOAD_BYTES,
     MIN_IMAGE_HEIGHT,
     MIN_IMAGE_WIDTH,
@@ -34,17 +32,16 @@ from config import (
 )
 from core.filters import should_keep_image, should_keep_video
 from core.models import ScrapeResult
-from common.image_helper import get_image_dimensions, hamming_distance
-from network.http_client import HttpClient
 from monitoring.logger import get_logger
-from config import (
-    DOWNLOAD_RATE_LIMIT_RPS,
-    MAX_CONCURRENT_PER_HOST,
-)
+from network.http_client import HttpClient
 from network.rate_limiter import RateLimiter
 
 
 LOGGER = get_logger(__name__)
+
+
+def _sleep(seconds: float):
+    time.sleep(seconds)
 
 
 IMAGE_SIGNATURES = (
