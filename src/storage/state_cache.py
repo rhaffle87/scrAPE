@@ -1,10 +1,12 @@
 import functools
+import json
 import logging
 import random
 import sqlite3
 import threading
 import time
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 try:
@@ -200,6 +202,32 @@ class StateCache:
                     domain TEXT PRIMARY KEY,
                     cooldown_until REAL NOT NULL
                 )
+            """)
+
+            # Resumable crawl checkpoints and pending queue items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS crawl_checkpoints (
+                    run_id TEXT PRIMARY KEY,
+                    keyword TEXT NOT NULL,
+                    total_pages_scanned INTEGER NOT NULL,
+                    current_concurrency INTEGER NOT NULL,
+                    state_json TEXT NOT NULL,
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS crawl_queue_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    depth INTEGER NOT NULL,
+                    retry_count INTEGER NOT NULL,
+                    score REAL DEFAULT 0.0,
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_crawl_queue_run_id ON crawl_queue_items(run_id)
             """)
             conn.commit()
 
@@ -610,6 +638,162 @@ class StateCache:
             LOGGER.warning("StateCache get_db_stats failed: %s", e)
         return stats
 
+    @retry_on_db_lock()
+    def save_crawl_checkpoint(
+        self,
+        run_id: str,
+        keyword: str,
+        total_pages_scanned: int,
+        current_concurrency: int,
+        queue_items: list[Any],
+        state_metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        """Atomically persist crawl state checkpoint and remaining unvisited queue items."""
+        self.flush_buffer()
+        now = time.time()
+        meta_json = json.dumps(state_metadata or {})
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM crawl_checkpoints WHERE run_id = ?", (run_id,))
+                cursor.execute("DELETE FROM crawl_queue_items WHERE run_id = ?", (run_id,))
+                cursor.execute(
+                    """
+                    INSERT INTO crawl_checkpoints (run_id, keyword, total_pages_scanned, current_concurrency, state_json, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (run_id, keyword, total_pages_scanned, current_concurrency, meta_json, now),
+                )
+                rows = []
+                for item in queue_items:
+                    if isinstance(item, dict):
+                        url = str(item.get("url", ""))
+                        depth = int(item.get("depth", 0))
+                        retry_count = int(item.get("retry_count", 0))
+                        score = float(item.get("score", 0.0))
+                    elif isinstance(item, (list, tuple)):
+                        if len(item) == 5:
+                            depth, retry_count, _, _, url = item
+                            score = 0.0
+                        elif len(item) >= 6:
+                            score, depth, retry_count, _, _, url = item[:6]
+                        elif len(item) == 3:
+                            depth, retry_count, url = item
+                            score = 0.0
+                        else:
+                            url = str(item[-1])
+                            depth = int(item[0]) if len(item) > 1 else 0
+                            retry_count = 0
+                            score = 0.0
+                    else:
+                        continue
+                    if url:
+                        rows.append((run_id, url, depth, retry_count, score, now))
+
+                if rows:
+                    cursor.executemany(
+                        """
+                        INSERT INTO crawl_queue_items (run_id, url, depth, retry_count, score, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        rows,
+                    )
+                conn.commit()
+            LOGGER.info("StateCache: Saved checkpoint for run '%s' (%d queue items).", run_id, len(rows))
+            return True
+        except Exception as exc:
+            LOGGER.warning("StateCache save_crawl_checkpoint failed: %s", exc)
+            return False
+
+    @retry_on_db_lock()
+    def load_crawl_checkpoint(self, run_id: str) -> dict[str, Any] | None:
+        """Load persistent crawl checkpoint and remaining queue items for resumption."""
+        self.flush_buffer()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT run_id, keyword, total_pages_scanned, current_concurrency, state_json, timestamp FROM crawl_checkpoints WHERE run_id = ?",
+                    (run_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+
+                cursor.execute(
+                    "SELECT url, depth, retry_count, score FROM crawl_queue_items WHERE run_id = ? ORDER BY id ASC",
+                    (run_id,),
+                )
+                queue_rows = cursor.fetchall()
+                queue_items = [
+                    {"url": r[0], "depth": r[1], "retry_count": r[2], "score": r[3]}
+                    for r in queue_rows
+                ]
+
+                try:
+                    meta = json.loads(row[4])
+                except Exception:
+                    meta = {}
+
+                return {
+                    "run_id": row[0],
+                    "keyword": row[1],
+                    "total_pages_scanned": row[2],
+                    "current_concurrency": row[3],
+                    "state_metadata": meta,
+                    "timestamp": row[5],
+                    "queue_items": queue_items,
+                }
+        except Exception as exc:
+            LOGGER.warning("StateCache load_crawl_checkpoint failed: %s", exc)
+            return None
+
+    @retry_on_db_lock()
+    def clear_crawl_checkpoint(self, run_id: str) -> bool:
+        """Atomically clear checkpoint and queue items after successful completion."""
+        self.flush_buffer()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM crawl_checkpoints WHERE run_id = ?", (run_id,))
+                cursor.execute("DELETE FROM crawl_queue_items WHERE run_id = ?", (run_id,))
+                conn.commit()
+            LOGGER.info("StateCache: Cleared checkpoint for run '%s'.", run_id)
+            return True
+        except Exception as exc:
+            LOGGER.warning("StateCache clear_crawl_checkpoint failed: %s", exc)
+            return False
+
+    def list_crawl_checkpoints(self) -> list[dict[str, Any]]:
+        """List active checkpoints in state cache."""
+        self.flush_buffer()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT c.run_id, c.keyword, c.total_pages_scanned, c.current_concurrency, c.timestamp, COUNT(q.id)
+                    FROM crawl_checkpoints c
+                    LEFT JOIN crawl_queue_items q ON c.run_id = q.run_id
+                    GROUP BY c.run_id
+                    ORDER BY c.timestamp DESC
+                    """
+                )
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "run_id": r[0],
+                        "keyword": r[1],
+                        "total_pages_scanned": r[2],
+                        "current_concurrency": r[3],
+                        "timestamp": r[4],
+                        "queue_size": r[5],
+                    }
+                    for r in rows
+                ]
+        except Exception as exc:
+            LOGGER.warning("StateCache list_crawl_checkpoints failed: %s", exc)
+            return []
 
     def _hash_url(self, url: str) -> str:
         """Create a consistent key for the URL. Strips fragments, keeps query params."""

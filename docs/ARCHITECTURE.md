@@ -183,6 +183,51 @@ The engine couples host-level network health with host-level hardware resource c
 - **Write-Staging Buffer & Batch Transactions**: URL markers are staged in memory and flushed via multi-row chunked `executemany` transactions upon reaching buffer thresholds or timeouts, reducing SQLite write lock contention.
 - **Persistent SQLite WAL State Cache**: Uses `PRAGMA journal_mode=WAL;` and `PRAGMA synchronous=NORMAL;`. Auto-syncs Bloom filter state across manual purges and TTL cleanups.
 
+### 3.7 Crawl Success Rate Auditing & Real-Time Auto-Remediation (`src/core/audit_evaluator.py`, `src/core/governor.py`, `src/core/coordinator.py`)
+
+- **Holistic Audit Evaluation**: Computes HTTP success rate %, media download success rate %, yield efficiency (downloaded assets per second of crawl runtime), and assigns letter grades (`A+` through `F`).
+- **Granular Root-Cause Breakdown**: Categorizes errors across HTTP status codes (403 WAF blocks, 429 rate limits, 5xx server errors, connection timeouts, DNS failures) with auto-tuning recommendations written directly into `run_summary.json` and printed in CLI reports.
+- **Dynamic Host Health State Machine**: `CrawlGovernor` tracks a rolling window of recent host outcomes to categorize domains into states:
+  - `HEALTHY` (Success Rate $\ge 80\%$)
+  - `DEGRADED` (Success Rate $50\% - 79\%$)
+  - `CRITICAL` (Success Rate $< 50\%$)
+  - `PARKED` (Consecutive Failures $\ge 5$, 15s quiet backoff cooldown)
+- **Automated Host Remediation**: When a domain transitions to `CRITICAL` or `PARKED`, the coordinator rotates its sticky TLS impersonation profile (e.g. Chrome $\to$ Safari $\to$ Firefox) and injects a 5.0s backoff penalty to prevent repetitive ban loops.
+
+### 3.8 Resumable Crawl & State Checkpointing (`src/storage/state_cache.py`, `src/core/coordinator.py`)
+
+- **Crash-Resilient Checkpoint Storage**: SQLite tables `crawl_checkpoints` and `crawl_queue_items` persist crawl metadata, engine options, visited URLs, and outstanding priority queue entries.
+- **Transactional Snapshotting**: State is snapshotted periodically (every 30 seconds) in the background, as well as upon graceful termination or abort signal.
+- **Zero-Loss Crawl Resumption**: Scrapes can be resumed cleanly using `coordinator.resume_from_checkpoint(run_id)`, restoring visited state and priority-ordered queue items without re-crawling completed pages.
+
+### 3.9 Adaptive Priority Queue & Domain Budget Governor (`src/core/priority_queue.py`)
+
+- **Composite Best-First URL Scoring**: Replaces raw FIFO traversal with dynamic priority queue scoring:
+  - Base depth decay: deeper URLs receive negative rank adjustments ($-\text{depth} \times 10.0$).
+  - Historical domain yield density boost: $+15.0 \times \text{yield\_density}$.
+  - Token/keyword matching: $+5.0$ bonus per matched query token in path and query string.
+- **Domain Budget Governor**:
+  - Enforces per-domain budget ceilings.
+  - Soft threshold ($\ge 80\%$ of budget): applies a $-50.0$ score penalty to prioritize unbudgeted domains.
+  - Hard threshold ($100\%$ of budget): rejects new link enqueueing from that domain entirely.
+
+### 3.10 Zero-Copy Streaming Ingest & Inline Hashing (`src/storage/downloader/manager.py`)
+
+- **Single-Pass Socket-to-Disk Streaming**: Computes SHA-256 digests in-memory via `hashlib.sha256()` as raw chunks stream from the network socket to disk.
+- **Inline Magic-Byte Sniffing**: Inspects the first 1,024 bytes of the in-flight stream to verify true MIME signatures (JPEG, PNG, WebP, GIF, MP4, WebM) without re-opening files.
+- **Disk Re-Read Elimination**: Completely removes secondary disk read passes for non-image assets and verified streams. For resumed downloads (`HTTP 206`), existing bytes are hashed once upon init and chained into the stream.
+
+### 3.11 Sticky Per-Domain Hardware Stealth Fingerprinting (`src/network/stealth_fingerprint.py`, `src/network/browser_client.py`)
+
+- **Deterministic Hash-Seeded Hardware Profiles**: Maps each domain deterministically to an authentic GPU hardware profile (NVIDIA RTX 3080/4070, AMD Radeon RX 6700 XT, Intel Iris Xe, Apple M2 Pro/M1 Max).
+- **Multi-Vector Fingerprint Defense**:
+  - **WebGL / WebGL2**: Spoofs unmasked vendor and renderer strings alongside shader language version.
+  - **Canvas 2D**: Subtle, deterministic sub-perceptual RGB noise injection ($\pm 1$ LSB jitter) thwarting canvas fingerprint clustering.
+  - **AudioContext**: Micro-frequency perturbation and latency jitter on `AnalyserNode` and `AudioBuffer`.
+  - **WebRTC**: Filters private and host candidates from SDP offers to eliminate local and VPN-bypass IP leakage.
+  - **Navigator**: Synchronizes `hardwareConcurrency`, `deviceMemory`, and masks `navigator.webdriver`.
+- **Pre-Execution Browser Injection**: Injects stealth scripts via CDP `Page.addScriptToEvaluateOnNewDocument` across all fallback browser automation engines (DrissionPage, Crawl4AI, Nodriver, Camoufox, Helium, UC) before page scripts execute.
+
 
 ---
 

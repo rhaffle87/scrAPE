@@ -64,21 +64,23 @@ class MediaPipeline:
         self._thread = None
 
     def start(self):
-        self.is_running = True
-        self._thread = threading.Thread(target=self._run, name="MediaPipelineThread", daemon=True)
-        self._thread.start()
+        if not self.is_running:
+            self.is_running = True
+            self._thread = threading.Thread(target=self._run, name="MediaPipelineThread", daemon=True)
+            self._thread.start()
 
     def stop(self):
-        self.is_running = False
         self.media_queue.put(None)
         if self._thread:
-            self._thread.join(timeout=2.0)
+            self._thread.join(timeout=10.0)
+        self.is_running = False
 
     def _run(self):
-        while self.is_running:
+        while True:
             try:
-                batch = self.media_queue.get(timeout=1.0)
+                batch = self.media_queue.get(timeout=0.5)
                 if batch is None:
+                    self.media_queue.task_done()
                     break
                 
                 page, images, videos = batch
@@ -86,6 +88,8 @@ class MediaPipeline:
                 self.media_queue.task_done()
                 
             except queue.Empty:
+                if not self.is_running:
+                    break
                 continue
             except Exception as e:
                 LOGGER.exception(f"Error in MediaPipeline: {e}")

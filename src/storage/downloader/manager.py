@@ -463,6 +463,16 @@ class MediaDownloader:
                 target_path.unlink(missing_ok=True)
             return False
 
+    @staticmethod
+    def _compute_sha256(path: Path) -> str:
+        """Compute SHA-256 digest of file at *path* in 64KB streaming chunks."""
+        import hashlib
+        hasher = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
     def _download_file(
         self,
         url: str,
@@ -757,9 +767,18 @@ class MediaDownloader:
                             content = b"".join(chunks)
                             content_length = len(content)
                         else:
+                            import hashlib
                             write_mode = "ab" if bytes_written > 0 else "wb"
                             bytes_read = bytes_written
                             header_bytes = b""
+                            inline_hasher = hashlib.sha256()
+
+                            # If resuming existing partial file, seed hasher with already downloaded bytes
+                            if bytes_written > 0 and temp_target.exists():
+                                with open(temp_target, "rb") as prev_f:
+                                    for prev_chunk in iter(lambda: prev_f.read(65536), b""):
+                                        inline_hasher.update(prev_chunk)
+
                             try:
                                 with open(temp_target, write_mode) as f:
                                     last_chunk_time = time.monotonic()
@@ -768,11 +787,12 @@ class MediaDownloader:
                                         if current_time - last_chunk_time > 60.0:
                                             raise TimeoutError(f"Download stalled for over 60s for {url}")
                                         last_chunk_time = current_time
-                                        
+
                                         self.bandwidth_limiter.throttle(len(chunk))
-                                        if bytes_read < 1024:
-                                            header_bytes += chunk
+                                        if len(header_bytes) < 1024:
+                                            header_bytes += chunk[:1024 - len(header_bytes)]
                                         f.write(chunk)
+                                        inline_hasher.update(chunk)
                                         bytes_read += len(chunk)
                             except Exception as e:
                                 # Do not delete temp file on error to support resumes
@@ -815,12 +835,8 @@ class MediaDownloader:
                     content_hash = hashlib.sha256(content).hexdigest()
                 else:
                     temp_target.rename(target)
-                    # Compute hash of the fully downloaded target file
-                    hasher = hashlib.sha256()
-                    with open(target, "rb") as f:
-                        for chunk in iter(lambda: f.read(65536), b""):
-                            hasher.update(chunk)
-                    content_hash = hasher.hexdigest()
+                    # Zero-Copy streaming: hash calculated inline during socket-to-disk write pass
+                    content_hash = inline_hasher.hexdigest()
                     content_length = target.stat().st_size
 
                 if media_kind == "image":

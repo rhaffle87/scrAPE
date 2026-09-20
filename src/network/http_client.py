@@ -268,7 +268,7 @@ class HttpClient(BrowserClientMixin):
     ]
     _tls_impersonate_map: dict[str, str] = {}
     _tls_impersonate_loaded: bool = False
-    _tls_impersonate_lock = threading.Lock()
+    _tls_impersonate_lock = threading.RLock()
     _domain_tls_profiles: dict[str, str] = {}
 
     @classmethod

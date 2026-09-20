@@ -230,6 +230,13 @@ class BrowserClientMixin:
     def _hostname(self, url: str) -> str:
         return urlparse(url).netloc.lower()
 
+    def get_stealth_script(self, domain_or_url: str) -> str:
+        """Return sticky stealth hardware fingerprinting script for domain."""
+        from network.stealth_fingerprint import get_stealth_script
+
+        host = self._hostname(domain_or_url) if "://" in domain_or_url else domain_or_url.strip().lower()
+        return get_stealth_script(host)
+
 
 
 
@@ -611,6 +618,15 @@ class BrowserClientMixin:
 
         try:
             with BrowserPoolManager.get_drission_page(proxy, headless_mode) as page:
+                try:
+                    stealth_js = self.get_stealth_script(host)
+                    if hasattr(page, "run_cdp"):
+                        page.run_cdp("Page.addScriptToEvaluateOnNewDocument", source=stealth_js)
+                    elif hasattr(page, "run_js"):
+                        page.run_js(stealth_js)
+                except Exception as sf_err:
+                    logger.debug("Failed injecting stealth fingerprint in DrissionPage: %s", sf_err)
+
                 # Fetch URL and wait for redirection/challenge solving with fast-fail timeout
                 page.get(url, timeout=20.0)
 
@@ -740,6 +756,12 @@ class BrowserClientMixin:
 
         try:
             driver = helium.get_driver()
+            try:
+                stealth_js = self.get_stealth_script(url)
+                if hasattr(driver, "execute_cdp_cmd"):
+                    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": stealth_js})
+            except Exception as sf_err:
+                logger.debug("Failed injecting stealth fingerprint in Helium: %s", sf_err)
             solve_timeout = 30.0
             start_time = time.time()
             while time.time() - start_time < solve_timeout:
@@ -838,6 +860,12 @@ class BrowserClientMixin:
                 options.add_argument("--disable-dev-shm-usage")
 
                 driver = uc.Chrome(options=options, use_subprocess=True, version_main=150)
+                try:
+                    stealth_js = self.get_stealth_script(url)
+                    if hasattr(driver, "execute_cdp_cmd"):
+                        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": stealth_js})
+                except Exception as sf_err:
+                    logger.debug("Failed injecting stealth fingerprint in UC: %s", sf_err)
                 break
             except Exception as driver_err:
                 if "session not created" in str(driver_err).lower() and attempt == 0:
@@ -1033,6 +1061,12 @@ class BrowserClientMixin:
             }
             with Camoufox(**kwargs) as browser:
                 page = browser.new_page()
+                try:
+                    stealth_js = self.get_stealth_script(host)
+                    if hasattr(page, "add_init_script"):
+                        page.add_init_script(stealth_js)
+                except Exception as sf_err:
+                    logger.debug("Failed injecting stealth fingerprint in Camoufox: %s", sf_err)
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
                 if is_headless and self._is_cloudflare_challenge(page.content()):
@@ -1106,6 +1140,11 @@ class BrowserClientMixin:
             browser = await uc.start(headless=headless_mode)
             try:
                 page = await browser.get(url)
+                try:
+                    stealth_js = self.get_stealth_script(url)
+                    await page.evaluate(stealth_js)
+                except Exception as sf_err:
+                    logger.debug("Failed injecting stealth fingerprint in Nodriver: %s", sf_err)
 
                 await asyncio.sleep(4.0)
 
@@ -1331,6 +1370,8 @@ class BrowserClientMixin:
                     {"name": k, "value": v, "domain": host, "path": "/"}
                 )
 
+            stealth_js = self.get_stealth_script(host)
+
             run_config = CrawlerRunConfig(
                 word_count_threshold=0,
                 cache_mode=CacheMode.BYPASS,
@@ -1340,10 +1381,11 @@ class BrowserClientMixin:
                 delay_before_return_html=6.0,
                 page_timeout=30000,
                 session_id=f"session_{domain_slug}",
-                js_code="""
-                const scrollInterval = setInterval(() => {
+                js_code=f"""
+                {stealth_js}
+                const scrollInterval = setInterval(() => {{
                     window.scrollTo(0, document.body.scrollHeight);
-                }, 1000);
+                }}, 1000);
                 setTimeout(() => clearInterval(scrollInterval), 5000);
                 """
             )
@@ -1446,10 +1488,11 @@ class BrowserClientMixin:
                 delay_before_return_html=20.0,
                 page_timeout=30000,
                 session_id=f"session_{domain_slug}",
-                js_code="""
-                const scrollInterval = setInterval(() => {
+                js_code=f"""
+                {stealth_js}
+                const scrollInterval = setInterval(() => {{
                     window.scrollTo(0, document.body.scrollHeight);
-                }, 1000);
+                }}, 1000);
                 setTimeout(() => clearInterval(scrollInterval), 18000);
                 """
             )

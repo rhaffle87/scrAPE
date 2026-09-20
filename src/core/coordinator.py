@@ -11,6 +11,7 @@ from core.governor import CrawlGovernor
 from core.pipeline import MediaPipeline
 from core.models import ScrapeResult, PageReport
 from core.filters import normalize_url, looks_like_media, is_pagination_url
+from core.priority_queue import AdaptiveCrawlQueue, DomainBudgetGovernor
 from scraper.specialized import SpecializedExtractor
 from core.profiler import DomainProfiler
 
@@ -52,6 +53,7 @@ class CrawlCoordinator:
         self.workers = workers
         
         self.governor = CrawlGovernor(initial_concurrency=workers)
+        self.budget_governor = DomainBudgetGovernor()
         self.profiler = DomainProfiler(state_cache=self.state_cache)
         
         self.media_queue = queue.Queue(maxsize=1000)
@@ -119,22 +121,41 @@ class CrawlCoordinator:
         )
         pipeline.start()
 
-        # We don't have discovered_links_counts statically anymore
-        # Priority queue instead of deque: (depth, time_enqueued, url)
-        import heapq
-        pages_queue = []
-        for p, d in ordered_pages:
-            heapq.heappush(pages_queue, (d, 0, 0.0, time.monotonic(), p))
-            
-        visited_pages = {p for p, d in ordered_pages}
-        
+        # Checkpoint restoration if resuming
+        resume_id = getattr(self.options, "resume_run_id", None)
+        checkpoint_data = None
+        if resume_id and self.state_cache and hasattr(self.state_cache, "load_crawl_checkpoint"):
+            checkpoint_data = self.state_cache.load_crawl_checkpoint(resume_id)
+
+        pages_queue = AdaptiveCrawlQueue()
+        visited_pages = set()
+
+        if checkpoint_data:
+            LOGGER.info("Resuming crawl from checkpoint '%s' (%d saved items).", resume_id, len(checkpoint_data["queue_items"]))
+            total_pages_scanned = checkpoint_data.get("total_pages_scanned", 0)
+            current_concurrency = checkpoint_data.get("current_concurrency", self.workers)
+            pages_queue.from_checkpoint_items(checkpoint_data["queue_items"])
+            for q_item in checkpoint_data["queue_items"]:
+                visited_pages.add(q_item["url"])
+        else:
+            for p, d in ordered_pages:
+                pages_queue.push(
+                    url=p,
+                    depth=d,
+                    retry_count=0,
+                    release_at=0.0,
+                    keyword=getattr(self.options, "keyword", ""),
+                )
+                visited_pages.add(p)
+            total_pages_scanned = 0
+            current_concurrency = self.workers
+
+        last_checkpoint_time = time.monotonic()
         self.profiling_domains = set()
         self.quarantined_domains = {}
-        
+
         futures = {}
-        current_concurrency = self.workers
-        total_pages_scanned = 0
-        
+
         with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="scraper") as executor:
             def submit_next():
                 nonlocal total_pages_scanned
@@ -150,14 +171,32 @@ class CrawlCoordinator:
 
                     if self.task_state.get("abort_requested"):
                         LOGGER.warning("Hard abort requested via Telegram. Halting instantly.")
+                        if self.state_cache and hasattr(self.state_cache, "save_crawl_checkpoint"):
+                            self.state_cache.save_crawl_checkpoint(
+                                run_id=self.result.run_id,
+                                keyword=self.result.keyword,
+                                total_pages_scanned=total_pages_scanned,
+                                current_concurrency=current_concurrency,
+                                queue_items=pages_queue.to_checkpoint_items(),
+                                state_metadata={"progress": self.task_state.get("progress", 0), "aborted": True},
+                            )
                         pages_queue.clear()
                         return False
-                        
+
                     if self.task_state.get("stop_requested"):
                         LOGGER.info("Graceful stop requested via Telegram. Clearing queue and waiting for active workers to finish.")
+                        if self.state_cache and hasattr(self.state_cache, "save_crawl_checkpoint"):
+                            self.state_cache.save_crawl_checkpoint(
+                                run_id=self.result.run_id,
+                                keyword=self.result.keyword,
+                                total_pages_scanned=total_pages_scanned,
+                                current_concurrency=current_concurrency,
+                                queue_items=pages_queue.to_checkpoint_items(),
+                                state_metadata={"progress": self.task_state.get("progress", 0), "stopped": True},
+                            )
                         pages_queue.clear()
                         return False
-                        
+
                     if self.task_state.get("status") == "paused":
                         time.sleep(1.0)
                         continue
@@ -168,20 +207,20 @@ class CrawlCoordinator:
                             pages_queue.clear()
                             return False
 
-                        next_depth, next_retry, release_at, _, next_page = heapq.heappop(pages_queue)
+                        score, next_depth, next_retry, release_at, time_enqueued, next_page = pages_queue.pop()
 
                         # D: release-gate — park entries that aren't ready yet
                         if release_at > time.monotonic():
-                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                             continue
 
                         if self.state_cache and self.state_cache.is_dead(next_page):
                             continue
 
                         host = urlparse(next_page).netloc.lower()
-                        
+
                         # -- AUTO-PROFILER INTERCEPTION START --
-                        
+
                         # 1. Check if quarantined (waiting for auth)
                         if host in self.quarantined_domains:
                             q_state = self.quarantined_domains[host]
@@ -193,7 +232,7 @@ class CrawlCoordinator:
                                     self.profiler.notifier.notify_watchdog_status(f"[TIMEOUT] <b>Timeout Reached:</b> {host} has been skipped for this run.")
                                 del self.quarantined_domains[host]
                                 continue # Drop this URL
-                                
+
                             session_file = Path("data/sessions") / f"{host.replace('.', '_')}.json"
                             if session_file.exists():
                                 LOGGER.info(f"Auto-Profiler: Cookie received for {host}. Resuming crawl.")
@@ -201,7 +240,7 @@ class CrawlCoordinator:
                                 del self.quarantined_domains[host]
                             else:
                                 release_at = time.monotonic() + 10.0
-                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                                 continue
 
                         # 2. Check if unmapped
@@ -212,15 +251,15 @@ class CrawlCoordinator:
                             host in self.profiler.domain_config.get("referer_overrides", {}) or
                             (getattr(self, "options", None) and host in getattr(self.options, "domain_profiles", {}))
                         )
-                        
+
                         if not is_mapped:
                             if host in self.profiling_domains:
                                 release_at = time.monotonic() + 5.0
-                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                                 continue
-                                
+
                             self.profiling_domains.add(host)
-                            
+
                             def _run_profiler(d=host):
                                 import asyncio
                                 try:
@@ -234,19 +273,19 @@ class CrawlCoordinator:
                                     LOGGER.error(f"Profiler failed on {d}: {e}")
                                 finally:
                                     self.profiling_domains.discard(d)
-                                    
+
                             executor.submit(_run_profiler)
                             release_at = time.monotonic() + 5.0
-                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                             continue
-                            
+
                         # -- AUTO-PROFILER INTERCEPTION END --
 
                         if not self.governor.is_host_available(host):
                             with self.governor.lock:
                                 is_failed = host in self.governor.failed_hosts
                             if not is_failed:
-                                skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                             else:
                                 with self.result_lock:
                                     self.result.page_reports.append(
@@ -258,12 +297,12 @@ class CrawlCoordinator:
                                     )
                             continue
                         if not self.governor.can_acquire_worker(host):
-                            skipped.append((next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
                             continue
 
                         self.governor.increment_worker(host)
                         for item in skipped:
-                            heapq.heappush(pages_queue, item)
+                            pages_queue.push(url=item[5], depth=item[1], retry_count=item[2], release_at=item[3], score=item[0])
 
                         total_pages_scanned += 1
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
@@ -272,7 +311,7 @@ class CrawlCoordinator:
 
                     if skipped:
                         for item in skipped:
-                            heapq.heappush(pages_queue, item)
+                            pages_queue.push(url=item[5], depth=item[1], retry_count=item[2], release_at=item[3], score=item[0])
                         if not futures:
                             time.sleep(1.0)
                             continue
@@ -284,6 +323,19 @@ class CrawlCoordinator:
                     break
 
             while futures or pages_queue:
+                now_check = time.monotonic()
+                if now_check - last_checkpoint_time >= 30.0:
+                    if self.state_cache and hasattr(self.state_cache, "save_crawl_checkpoint"):
+                        self.state_cache.save_crawl_checkpoint(
+                            run_id=self.result.run_id,
+                            keyword=self.result.keyword,
+                            total_pages_scanned=total_pages_scanned,
+                            current_concurrency=current_concurrency,
+                            queue_items=pages_queue.to_checkpoint_items(),
+                            state_metadata={"progress": self.task_state.get("progress", 0)},
+                        )
+                    last_checkpoint_time = now_check
+
                 if futures:
                     done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED)
                     for future in done:
@@ -376,14 +428,36 @@ class CrawlCoordinator:
                                             if scope_reason:
                                                 self.add_rejected("page", normalized_link, page, scope_reason)
                                                 continue
-                                                
+
                                             if normalized_link not in visited_pages:
                                                 visited_pages.add(normalized_link)
                                                 if self.state_cache and self.state_cache.is_dead(normalized_link):
                                                     self.add_rejected("page", normalized_link, page, "404_negative_cache")
                                                     continue
-                                                # Enqueue at depth + 1 — release_at=0.0 means immediately eligible
-                                                heapq.heappush(pages_queue, (depth + 1, 0, 0.0, time.monotonic(), normalized_link))
+
+                                                l_host = urlparse(normalized_link).netloc.lower()
+                                                profile = (self.options.domain_profiles or {}).get(l_host)
+                                                max_p = getattr(profile, "max_pages", None)
+
+                                                if self.budget_governor.is_domain_capped(l_host, max_p):
+                                                    self.add_rejected("page", normalized_link, page, "domain_budget_capped")
+                                                    continue
+
+                                                b_penalty = self.budget_governor.get_budget_penalty(l_host, max_p)
+                                                host_stats = self.result.domain_stats.get(l_host, {})
+                                                h_scanned = host_stats.get("pages_scanned", 0)
+                                                h_kept = host_stats.get("images_kept", 0) + host_stats.get("videos_kept", 0)
+                                                h_yield_ratio = (h_kept / h_scanned) if h_scanned > 0 else 0.5
+
+                                                pages_queue.push(
+                                                    url=normalized_link,
+                                                    depth=depth + 1,
+                                                    retry_count=0,
+                                                    release_at=0.0,
+                                                    host_yield_ratio=h_yield_ratio,
+                                                    keyword=getattr(self.options, "keyword", ""),
+                                                    budget_penalty=b_penalty,
+                                                )
                                                 
                                                 try:
                                                     from monitoring.telemetry import broadcast_telemetry_event
@@ -406,6 +480,7 @@ class CrawlCoordinator:
                     
                         if is_block:
                             self.governor.report_429(host)
+                            self._auto_remediate_host(host)
                             with self.result_lock:
                                 if host not in self.result.domain_stats:
                                     self.result.domain_stats[host] = {
@@ -419,7 +494,13 @@ class CrawlCoordinator:
                                 cd = self.governor.cooldown_remaining(host)
                                 release_at = time.monotonic() + cd + 0.5
                                 LOGGER.info("Retrying %s (attempt %d/3) after block; release in %.1fs.", page, retry_count + 1, cd + 0.5)
-                                heapq.heappush(pages_queue, (depth, retry_count + 1, release_at, time.monotonic(), page))
+                                pages_queue.push(
+                                    url=page,
+                                    depth=depth,
+                                    retry_count=retry_count + 1,
+                                    release_at=release_at,
+                                    keyword=getattr(self.options, "keyword", ""),
+                                )
                                 continue
                         elif scrape_status == "fetch_error:login_wall":
                             self.governor.report_error(host, is_login_wall=True)
@@ -438,6 +519,7 @@ class CrawlCoordinator:
                                 self.state_cache.mark_dead(page)
                         elif is_worker_error:
                             self.governor.report_error(host)
+                            self._auto_remediate_host(host)
                             with self.result_lock:
                                 if host not in self.result.domain_stats:
                                     self.result.domain_stats[host] = {
@@ -449,7 +531,13 @@ class CrawlCoordinator:
                                 # D: 2s release gate on generic error retry
                                 release_at = time.monotonic() + 2.0
                                 LOGGER.info("Retrying %s (attempt %d/3) after error; release in 2.0s.", page, retry_count + 1)
-                                heapq.heappush(pages_queue, (depth, retry_count + 1, release_at, time.monotonic(), page))
+                                pages_queue.push(
+                                    url=page,
+                                    depth=depth,
+                                    retry_count=retry_count + 1,
+                                    release_at=release_at,
+                                    keyword=getattr(self.options, "keyword", ""),
+                                )
                                 continue
                         net_latency = getattr(getattr(self.search_provider, "http", None), "last_net_latency", 0.0)
                         if not isinstance(net_latency, (int, float)):
@@ -511,7 +599,12 @@ class CrawlCoordinator:
                         break
 
         pipeline.stop()
-        
+
+        # Clear checkpoint upon clean non-interrupted completion
+        if self.state_cache and hasattr(self.state_cache, "clear_crawl_checkpoint"):
+            if not (self.task_state.get("abort_requested") or self.task_state.get("stop_requested")):
+                self.state_cache.clear_crawl_checkpoint(self.result.run_id)
+
         if self.max_results > 0:
             extra_videos = self.video_scraper.search(
                 self.options.keyword, self.max_results,
@@ -519,11 +612,18 @@ class CrawlCoordinator:
             )
             if extra_videos:
                 pipeline._process_batch("extra_videos_search", [], extra_videos)
-                
+
         return self.result
+
+    def resume_from_checkpoint(self, run_id: str) -> dict | None:
+        """Load persistent crawl checkpoint details for a specific run ID."""
+        if not self.state_cache or not hasattr(self.state_cache, "load_crawl_checkpoint"):
+            return None
+        return self.state_cache.load_crawl_checkpoint(run_id)
 
     def _fetch_page(self, page: str, depth: int):
         host = urlparse(page).netloc.lower()
+        self.budget_governor.record_page(host)
         with self.result_lock:
             if host not in self.result.domain_stats:
                 self.result.domain_stats[host] = {
@@ -581,4 +681,23 @@ class CrawlCoordinator:
                     LOGGER.debug("Error extracting JSON-LD microdata from %s: %s", page, exc)
             
         return page, depth, page_images, page_videos, scrape_status, content, content_type
+
+    def _auto_remediate_host(self, host: str) -> None:
+        """Trigger dynamic multi-tier stealth remediation when host health degrades."""
+        health = self.governor.get_host_health_state(host)
+        if health in ("CRITICAL", "PARKED"):
+            http_client = getattr(self.search_provider, "http", None)
+            if http_client and hasattr(http_client, "rotate_tls_profile"):
+                try:
+                    new_prof = http_client.rotate_tls_profile(host)
+                    LOGGER.warning(
+                        "Governor auto-remediation (%s health for %s): Rotated TLS profile to %s",
+                        health,
+                        host,
+                        new_prof,
+                    )
+                except Exception as exc:
+                    LOGGER.debug("TLS profile auto-rotation error: %s", exc)
+            self.governor.report_latency(host, 3.5)
+
 

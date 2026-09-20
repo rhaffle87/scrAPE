@@ -46,6 +46,7 @@ class CrawlGovernor:
         self.host_yield: Dict[str, int] = {}
         self.host_concurrency: Dict[str, float] = {}  # host -> AIMD window
         self.host_latencies: Dict[str, list[float]] = {}  # host -> recent latencies
+        self.host_outcomes: Dict[str, list[bool]] = {}  # host -> rolling outcomes (True/False)
 
         # Hardware Governor integration
         if hardware_governor is not None:
@@ -84,6 +85,15 @@ class CrawlGovernor:
             if host in self.failed_hosts:
                 return False
 
+            if self.get_host_health_state(host) == "PARKED":
+                if host not in self.host_cooldowns:
+                    self.host_cooldowns[host] = time.monotonic() + 15.0
+                    LOGGER.warning("Governor: Host %s is PARKED (SR < 25%%). Quiet backoff 15s applied.", host)
+                if time.monotonic() < self.host_cooldowns[host]:
+                    return False
+                else:
+                    del self.host_cooldowns[host]
+
             if host in self.host_cooldowns:
                 if time.monotonic() < self.host_cooldowns[host]:
                     return False
@@ -91,6 +101,12 @@ class CrawlGovernor:
                     del self.host_cooldowns[host]
 
             return True
+
+    def _record_host_outcome(self, host: str, success: bool):
+        outcomes = self.host_outcomes.setdefault(host, [])
+        outcomes.append(success)
+        if len(outcomes) > 20:
+            outcomes.pop(0)
 
     def _record_host_latency(self, host: str, latency_s: float):
         lats = self.host_latencies.setdefault(host, [])
@@ -102,6 +118,7 @@ class CrawlGovernor:
         """Report a successful fetch for a host with AIMD additive increase."""
         with self.lock:
             self.consecutive_host_failures[host] = 0
+            self._record_host_outcome(host, True)
             current_window = self.host_concurrency.get(host, 1.0)
             if latency_s is not None:
                 self._record_host_latency(host, latency_s)
@@ -126,6 +143,7 @@ class CrawlGovernor:
     def report_429(self, host: str):
         """Report a rate limit hit for a host with AIMD multiplicative decrease."""
         with self.lock:
+            self._record_host_outcome(host, False)
             self.host_cooldowns[host] = time.monotonic() + 5.0
             current_window = self.host_concurrency.get(host, float(self.max_concurrency))
             self.host_concurrency[host] = max(
@@ -139,6 +157,7 @@ class CrawlGovernor:
     def report_error(self, host: str, is_login_wall: bool = False):
         """Report a fetch error for a host with AIMD multiplicative decrease."""
         with self.lock:
+            self._record_host_outcome(host, False)
             current_window = self.host_concurrency.get(host, float(self.max_concurrency))
             self.host_concurrency[host] = max(
                 float(self.min_concurrency),
@@ -158,6 +177,35 @@ class CrawlGovernor:
                     )
                 else:
                     self.host_cooldowns[host] = time.monotonic() + 2.0
+
+    def get_host_success_rate(self, host: str) -> float:
+        """Return rolling success rate for *host* in [0.0, 1.0]."""
+        with self.lock:
+            outcomes = self.host_outcomes.get(host)
+            if not outcomes:
+                return 1.0
+            return sum(1 for ok in outcomes if ok) / len(outcomes)
+
+    def get_host_health_state(self, host: str) -> str:
+        """
+        Evaluate real-time host health state based on rolling success rate:
+        - PARKED: success rate < 0.25 after at least 5 attempts
+        - CRITICAL: success rate < 0.70
+        - DEGRADED: 0.70 <= success rate < 0.85
+        - HEALTHY: success rate >= 0.85 (or no history yet)
+        """
+        with self.lock:
+            outcomes = self.host_outcomes.get(host)
+            if not outcomes:
+                return "HEALTHY"
+            sr = sum(1 for ok in outcomes if ok) / len(outcomes)
+            if len(outcomes) >= 5 and sr < 0.25:
+                return "PARKED"
+            if sr < 0.70:
+                return "CRITICAL"
+            if sr < 0.85:
+                return "DEGRADED"
+            return "HEALTHY"
 
     def report_latency(self, host: str, latency_s: float):
         """Record request latency for a host and adapt AIMD concurrency window."""

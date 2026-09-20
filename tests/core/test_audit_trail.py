@@ -80,7 +80,10 @@ def test_engine_in_place_audit_mapping():
     engine.downloader._download_file = mock_download
 
     # Execute engine run which will crawl the page and trigger downloads
-    with patch("network.http_client.HttpClient.get") as mock_get:
+    with (
+        patch("network.http_client.HttpClient.get") as mock_get,
+        patch("core.coordinator.CrawlCoordinator._run_preflight", side_effect=lambda urls: urls),
+    ):
         mock_response = httpx.Response(200, text="<html></html>", request=httpx.Request("GET", "https://example.com/page.html"))
         mock_get.return_value = mock_response
         result = engine.run(

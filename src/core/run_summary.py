@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
 
+from core.audit_evaluator import CrawlAuditEvaluator
 from monitoring.logger import get_logger
 
 if TYPE_CHECKING:
@@ -186,6 +187,11 @@ def generate_run_summary(
         "dead_download_urls": dead_download_urls,
         "duplicate_hash_skips_by_domain": duplicate_hash_skips_by_domain,
         "auto_remediated": auto_remediated,
+        "audit_evaluation": CrawlAuditEvaluator.evaluate_crawl(
+            result,
+            crawl_duration_s=crawl_duration_seconds,
+            download_duration_s=download_duration_seconds,
+        ),
     }
 
     # Write summary.json
@@ -291,5 +297,22 @@ def log_cli_report(summary: dict[str, Any]) -> None:
         LOGGER.info("AUTO-REMEDIATED DOMAINS:")
         for domain, rules in summary["auto_remediated"].items():
             LOGGER.info("  - %s: %s", domain, json.dumps(rules))
+
+    if summary.get("audit_evaluation"):
+        LOGGER.info(sep)
+        LOGGER.info("CRAWL QUALITY & SUCCESS RATE AUDIT:")
+        audit = summary["audit_evaluation"]
+        metrics = audit.get("overall_metrics", {})
+        LOGGER.info(
+            "Health Grade: %s | HTTP Success Rate: %.1f%% | Download Success Rate: %.1f%% | Yield Efficiency: %.2f media/page",
+            metrics.get("health_grade", "N/A"),
+            metrics.get("http_success_rate_pct", 0.0),
+            metrics.get("download_success_rate_pct", 0.0),
+            metrics.get("media_yield_efficiency", 0.0),
+        )
+        if audit.get("actionable_recommendations"):
+            LOGGER.info("Actionable Recommendations:")
+            for rec in audit["actionable_recommendations"]:
+                LOGGER.info("  * %s", rec)
 
     LOGGER.info(sep)
