@@ -292,14 +292,66 @@ class SelfHealingDOMParser:
         return []
 
     def _call_llm(self, prompt: str) -> str:
-        """Call configured LLM (Ollama or remote API)."""
+        """Call configured LLM with automatic tiered fallback (Ollama -> Gemini -> OpenAI/Compatible)."""
         import httpx
-        if self.llm_provider == "ollama":
-            url = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434") + "/api/generate"
-            res = httpx.post(url, json={"model": "llama3", "prompt": prompt, "stream": False}, timeout=10.0)
-            if res.status_code == 200:
-                return res.json().get("response", "")
-        raise RuntimeError(f"Unsupported or unreachable LLM provider: {self.llm_provider}")
+
+        # 1. Try Ollama (local, private, zero-cost)
+        if self.llm_provider in ("ollama", "auto"):
+            try:
+                url = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434") + "/api/generate"
+                res = httpx.post(url, json={"model": os.getenv("OLLAMA_MODEL", "llama3"), "prompt": prompt, "stream": False}, timeout=10.0)
+                if res.status_code == 200:
+                    return res.json().get("response", "")
+            except Exception as e:
+                LOGGER.debug("Ollama provider failed or offline: %s", e)
+                if self.llm_provider == "ollama":
+                    raise
+
+        # 2. Try Google Gemini Flash
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if gemini_key and self.llm_provider in ("gemini", "auto"):
+            try:
+                endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+                body = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200},
+                }
+                res = httpx.post(endpoint, json=body, timeout=8.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            return parts[0].get("text", "")
+            except Exception as e:
+                LOGGER.debug("Gemini provider failed: %s", e)
+                if self.llm_provider == "gemini":
+                    raise
+
+        # 3. Try OpenAI or OpenAI-compatible endpoint (LM Studio, vLLM, LocalAI)
+        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+        if (openai_key or "localhost" in base_url or "127.0.0.1" in base_url) and self.llm_provider in ("openai", "auto"):
+            try:
+                headers = {"Authorization": f"Bearer {openai_key or 'sk-no-key'}"}
+                payload = {
+                    "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 200,
+                }
+                res = httpx.post(f"{base_url}/chat/completions", json=payload, headers=headers, timeout=8.0)
+                if res.status_code == 200:
+                    choices = res.json().get("choices", [])
+                    if choices:
+                        return choices[0].get("message", {}).get("content", "")
+            except Exception as e:
+                LOGGER.debug("OpenAI/compatible provider failed: %s", e)
+                if self.llm_provider == "openai":
+                    raise
+
+        raise RuntimeError(f"All configured LLM providers failed or are unreachable (provider={self.llm_provider})")
 
     def save_repaired_selector(
         self, domain: str, selector: str, attr: str = "src", confidence: float = 1.0

@@ -172,6 +172,8 @@ class ScrapingEngine:
         s3_prefix: str = "",
         enable_self_healing: bool = False,
         worker_processes: int = 0,
+        enable_cas: bool = False,
+        export_parquet: bool = False,
     ):
         run_output_dir = Path(OUTPUT_DIR)
 
@@ -202,6 +204,8 @@ class ScrapingEngine:
             s3_prefix=s3_prefix,
             enable_self_healing=enable_self_healing,
             worker_processes=worker_processes,
+            enable_cas=enable_cas,
+            export_parquet=export_parquet,
         )
 
         result = ScrapeResult(keyword=keyword)
@@ -316,6 +320,16 @@ class ScrapingEngine:
                     )
             except Exception as err:
                 LOGGER.warning("Automated RAG export failed: %s", err)
+
+        # Automated Columnar Parquet export
+        if options.export_parquet and options.download_media:
+            try:
+                from storage.parquet_exporter import ParquetExporter
+                pq_exp = ParquetExporter(output_dir=output_root)
+                pq_exp.export(result)
+            except Exception as err:
+                LOGGER.warning("Automated Parquet export failed: %s", err)
+
 
         # Fire harvest milestone callback if provided
         if harvest_callback is not None:

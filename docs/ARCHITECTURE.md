@@ -265,6 +265,34 @@ The engine couples host-level network health with host-level hardware resource c
   - Comprehensive recursive child process discovery and termination via `psutil` process trees, ensuring zero zombie child processes.
   - Emergency `atexit` supervisor hook guaranteeing clean shutdown on unexpected process exits.
 
+### 3.16 Pre-Warmed Browser Lifecycle Pool (`src/network/prewarmed_browser_pool.py`)
+
+- **Sub-50ms Cold-Start Latency**: Pre-initializes browser sessions (DrissionPage, Camoufox, Chromium) in a background maintenance loop so crawling tasks obtain live browser contexts instantly.
+- **Resource Lifecycle**: Tracks per-instance operation counts, recycling instances after 20 operations to eliminate memory bloat, and evicts idle instances exceeding 300s TTL.
+- **Process Cleanup**: Explicitly terminates all child processes upon pool shutdown using `psutil`.
+
+### 3.17 Distributed Redis Streams Task Broker (`src/core/worker_pool.py`)
+
+- **Enterprise Queue Federation**: Implements `RedisStreamTaskBroker` utilizing Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XPENDING`, `XCLAIM`) with distributed consumer groups for multi-node scraper clusters.
+- **Orphan Task Auto-Claiming**: Detects stalled or crashed workers via pending entry idle thresholds, claiming and reassigning unacknowledged tasks.
+- **Zero-Dependency Fallback**: Degrades transparently to `InMemoryTaskBroker` when Redis is unavailable or unconfigured.
+
+### 3.18 Hardware Device Manager & Multi-Provider LLM Gateway (`src/ml/hardware.py`, `src/core/self_healing_parser.py`)
+
+- **Dynamic Device & Precision Selection**: Detects NVIDIA CUDA, DirectML (`torch_directml` / `PrivateUseOne` on Windows), Apple Silicon MPS, or multi-threaded CPU, automatically applying FP16 or FP32 precision.
+- **Multi-Provider LLM Healing**: Pluggable LLM fallback for `SelfHealingDOMParser` supporting local Ollama (`qwen2.5-coder`), Google Gemini 1.5 Flash, and OpenAI GPT-4o-mini with SQLite repair caching.
+
+### 3.19 Content-Addressable Storage (CAS) (`src/storage/cas_store.py`)
+
+- **Zero-Byte Duplicate Storage**: Hashes media files with SHA-256 and organizes content into two-character hex prefix shards (`cas/ab/cdef...`).
+- **Atomic Hardlinks**: Uses NTFS/POSIX hardlinks (`os.link`) to link files into per-run keyword directories without consuming additional disk space. Falls back to cross-volume copying when hardlinks fail.
+
+### 3.20 Columnar Apache Parquet Dataset Exporter (`src/storage/parquet_exporter.py`)
+
+- **High-Performance Analytics Schema**: Compiles crawl results into structured PyArrow tables (`images.parquet`, `videos.parquet`, `run_summary.parquet`) with Snappy compression for high-performance ML ingestion and duckdb/Pandas querying.
+- **Resilient Fallback**: Automatically emits `.jsonl` records if PyArrow is not installed.
+
+
 
 ---
 

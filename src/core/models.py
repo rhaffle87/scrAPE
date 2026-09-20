@@ -150,3 +150,5 @@ class EngineOptions:
     s3_prefix: str = ""
     enable_self_healing: bool = False
     worker_processes: int = 0
+    enable_cas: bool = False
+    export_parquet: bool = False

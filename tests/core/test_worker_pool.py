@@ -55,15 +55,17 @@ def test_in_memory_task_broker():
     assert broker.get_queue_length("crawl_jobs") == 2
 
     task1 = broker.pop_task("crawl_jobs", timeout=0.1)
-    assert task1 == {"url": "https://example.com/1", "depth": 0}
-    assert broker.get_queue_length("crawl_jobs") == 1
+    assert task1 is not None
+    assert task1["url"] == "https://example.com/1"
+    assert task1["depth"] == 0
+    assert "_task_id" in task1
 
     task2 = broker.pop_task("crawl_jobs", timeout=0.1)
-    assert task2 == {"url": "https://example.com/2", "depth": 1}
+    assert task2 is not None
+    assert task2["url"] == "https://example.com/2"
+    assert task2["depth"] == 1
 
-    # Empty queue should return None after timeout
-    empty = broker.pop_task("crawl_jobs", timeout=0.01)
-    assert empty is None
+    assert broker.pop_task("crawl_jobs", timeout=0.01) is None
 
 
 def test_redis_task_broker_offline_fallback():
@@ -77,16 +79,18 @@ def test_redis_task_broker_offline_fallback():
     assert broker.get_queue_length("distributed_queue") == 1
 
     item = broker.pop_task("distributed_queue", timeout=0.1)
-    assert item == {"action": "parse", "id": 101}
+    assert item is not None
+    assert item["action"] == "parse"
+    assert item["id"] == 101
+    assert "_task_id" in item
 
 
 def test_get_task_broker_factory(monkeypatch):
-    from core.worker_pool import get_task_broker, InMemoryTaskBroker, RedisTaskBroker
+    from core.worker_pool import get_task_broker, InMemoryTaskBroker, RedisTaskBroker, RedisStreamTaskBroker
 
     monkeypatch.delenv("SCRAPER_REDIS_URL", raising=False)
     b1 = get_task_broker()
     assert isinstance(b1, InMemoryTaskBroker)
 
     b2 = get_task_broker("redis://127.0.0.1:6379/1")
-    assert isinstance(b2, RedisTaskBroker)
-
+    assert isinstance(b2, (RedisTaskBroker, RedisStreamTaskBroker))

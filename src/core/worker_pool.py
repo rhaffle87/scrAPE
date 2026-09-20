@@ -176,6 +176,12 @@ class BaseTaskBroker(Protocol):
     def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
         ...
 
+    def ack_task(self, queue_name: str, task_id: str) -> bool:
+        ...
+
+    def autoclaim_abandoned_tasks(self, queue_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
+        ...
+
     def get_queue_length(self, queue_name: str) -> int:
         ...
 
@@ -186,6 +192,7 @@ class InMemoryTaskBroker:
     def __init__(self) -> None:
         self._queues: dict[str, queue.Queue] = {}
         self._lock = threading.Lock()
+        self._task_counter = 0
 
     def _get_queue(self, queue_name: str) -> queue.Queue:
         with self._lock:
@@ -195,7 +202,11 @@ class InMemoryTaskBroker:
 
     def push_task(self, queue_name: str, payload: dict[str, Any]) -> bool:
         q = self._get_queue(queue_name)
-        q.put(payload)
+        with self._lock:
+            self._task_counter += 1
+            copied = dict(payload)
+            copied.setdefault("_task_id", f"mem_{self._task_counter}")
+        q.put(copied)
         return True
 
     def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
@@ -204,6 +215,13 @@ class InMemoryTaskBroker:
             return q.get(timeout=timeout)
         except queue.Empty:
             return None
+
+    def ack_task(self, queue_name: str, task_id: str) -> bool:
+        # In-memory queue items are consumed upon get
+        return True
+
+    def autoclaim_abandoned_tasks(self, queue_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
+        return []
 
     def get_queue_length(self, queue_name: str) -> int:
         q = self._get_queue(queue_name)
@@ -251,6 +269,12 @@ class RedisTaskBroker:
                 LOGGER.warning("Redis blpop failed (%s). Falling back to in-memory broker.", e)
         return self._fallback.pop_task(queue_name, timeout)
 
+    def ack_task(self, queue_name: str, task_id: str) -> bool:
+        return True
+
+    def autoclaim_abandoned_tasks(self, queue_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
+        return []
+
     def get_queue_length(self, queue_name: str) -> int:
         if self._client:
             try:
@@ -260,9 +284,136 @@ class RedisTaskBroker:
         return self._fallback.get_queue_length(queue_name)
 
 
-def get_task_broker(broker_url: str | None = None) -> BaseTaskBroker:
-    """Factory creating a task broker based on URL or SCRAPER_REDIS_URL environment variable."""
+class RedisStreamTaskBroker:
+    """
+    Distributed Redis Streams task broker utilizing consumer groups (XREADGROUP),
+    explicit acknowledgments (XACK), and orphan auto-recovery (XAUTOCLAIM).
+    Falls back gracefully to InMemoryTaskBroker if Redis is offline.
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://127.0.0.1:6379/0",
+        group_name: str = "scraper_cluster",
+        consumer_name: str | None = None,
+    ) -> None:
+        import time
+        self.redis_url = redis_url
+        self.group_name = group_name
+        self.consumer_name = consumer_name or f"worker_{os.getpid()}_{int(time.time())}"
+        self._client = None
+        self._fallback = InMemoryTaskBroker()
+        self._known_groups: set[str] = set()
+        self._init_client()
+
+    def _init_client(self) -> None:
+        try:
+            import redis
+            self._client = redis.from_url(self.redis_url, socket_timeout=2.0)
+            self._client.ping()
+            LOGGER.info("RedisStreamTaskBroker: Connected to Redis Streams at %s (group: %s)", self.redis_url, self.group_name)
+        except Exception as e:
+            LOGGER.warning("RedisStreamTaskBroker: Failed connecting to Redis (%s). Using in-memory fallback.", e)
+            self._client = None
+
+    def _ensure_group(self, stream_name: str) -> None:
+        if not self._client or stream_name in self._known_groups:
+            return
+        try:
+            self._client.xgroup_create(stream_name, self.group_name, id="0", mkstream=True)
+            self._known_groups.add(stream_name)
+        except Exception as e:
+            if "BUSYGROUP" in str(e):
+                self._known_groups.add(stream_name)
+            else:
+                LOGGER.debug("xgroup_create notice for stream %s: %s", stream_name, e)
+
+    def push_task(self, stream_name: str, payload: dict[str, Any]) -> bool:
+        if self._client:
+            try:
+                self._client.xadd(stream_name, {"payload": json.dumps(payload)})
+                return True
+            except Exception as e:
+                LOGGER.warning("Redis xadd failed (%s). Spilling to in-memory broker.", e)
+        return self._fallback.push_task(stream_name, payload)
+
+    def pop_task(self, stream_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
+        if self._client:
+            try:
+                self._ensure_group(stream_name)
+                block_ms = int(max(10, timeout * 1000))
+                resp = self._client.xreadgroup(
+                    groupname=self.group_name,
+                    consumername=self.consumer_name,
+                    streams={stream_name: ">"},
+                    count=1,
+                    block=block_ms,
+                )
+                if resp:
+                    for _stream, messages in resp:
+                        for msg_id, fields in messages:
+                            raw_payload = fields.get(b"payload") or fields.get("payload")
+                            if isinstance(raw_payload, bytes):
+                                raw_payload = raw_payload.decode("utf-8")
+                            data = json.loads(raw_payload) if raw_payload else {}
+                            msg_id_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
+                            data["_task_id"] = msg_id_str
+                            return data
+            except Exception as e:
+                LOGGER.warning("Redis xreadgroup failed (%s). Falling back to in-memory.", e)
+        return self._fallback.pop_task(stream_name, timeout)
+
+    def ack_task(self, stream_name: str, task_id: str) -> bool:
+        if self._client:
+            try:
+                self._client.xack(stream_name, self.group_name, task_id)
+                return True
+            except Exception as e:
+                LOGGER.warning("Redis xack failed: %s", e)
+        return self._fallback.ack_task(stream_name, task_id)
+
+    def autoclaim_abandoned_tasks(self, stream_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
+        reclaimed: list[dict[str, Any]] = []
+        if self._client:
+            try:
+                self._ensure_group(stream_name)
+                res = self._client.xautoclaim(
+                    name=stream_name,
+                    groupname=self.group_name,
+                    consumername=self.consumer_name,
+                    min_idle_time=min_idle_ms,
+                    start_id="0-0",
+                    count=10,
+                )
+                if res and len(res) >= 2:
+                    messages = res[1]
+                    for msg_id, fields in messages:
+                        raw_payload = fields.get(b"payload") or fields.get("payload")
+                        if isinstance(raw_payload, bytes):
+                            raw_payload = raw_payload.decode("utf-8")
+                        data = json.loads(raw_payload) if raw_payload else {}
+                        msg_id_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
+                        data["_task_id"] = msg_id_str
+                        reclaimed.append(data)
+            except Exception as e:
+                LOGGER.debug("Redis xautoclaim notice: %s", e)
+        return reclaimed
+
+    def get_queue_length(self, stream_name: str) -> int:
+        if self._client:
+            try:
+                return int(self._client.xlen(stream_name))
+            except Exception:
+                pass
+        return self._fallback.get_queue_length(stream_name)
+
+
+def get_task_broker(broker_url: str | None = None, use_streams: bool = True) -> BaseTaskBroker:
+    """Factory creating an appropriate task broker based on URL or SCRAPER_REDIS_URL environment variable."""
     url = (broker_url or os.getenv("SCRAPER_REDIS_URL", "")).strip()
-    if url.startswith("redis://"):
+    if url.startswith("redis://") or url.startswith("rediss://"):
+        if use_streams:
+            return RedisStreamTaskBroker(redis_url=url)
         return RedisTaskBroker(redis_url=url)
     return InMemoryTaskBroker()
+

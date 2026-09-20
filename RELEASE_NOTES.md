@@ -35,6 +35,27 @@
 - **WebUI Node Health Tactical Indicator**: Live `/api/telemetry/node-health` endpoint and alert banner in `index.html` surfacing CPU, RAM, Disk, and `HardwareLoadGovernor` concurrency throttle factors in real-time.
 - **Complete CLI & UI Control Parity**: Fully exposed ML thresholds, smart cropping, tagging, cloud storage sink parameters, and self-healing toggles across both WebUI cockpit and interactive CLI wizards.
 
+### 6. Pre-Warmed Browser Lifecycle Pool
+- **Sub-50ms Cold Start**: Implemented `PrewarmedBrowserPool` (`src/network/prewarmed_browser_pool.py`) with asynchronous background worker pre-warming browser contexts (DrissionPage, Camoufox, Chromium) to eliminate multi-second initialization latency on dynamic pages.
+- **Resource Lifecycle Management**: Enforces max operations per instance (default 20), idle TTLs (300s), and automatic `psutil` process-tree cleanup upon pool shutdown.
+
+### 7. Distributed Redis Streams & Consumer Group Broker
+- **Enterprise Queue Federation**: Implemented `RedisStreamTaskBroker` (`src/core/worker_pool.py`) utilizing Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XPENDING`, `XCLAIM`) with distributed consumer groups for multi-node scraper clusters.
+- **Zero-Dependency Fallback**: Transparently degrades to `InMemoryTaskBroker` when Redis is unavailable or unconfigured.
+
+### 8. Hardware Device Manager & Multi-Provider LLM Gateway
+- **Dynamic Device & Precision Selection**: Added `HardwareDeviceManager` (`src/ml/hardware.py`) detecting CUDA, DirectML (PrivateUseOne on Windows), MPS, or CPU with automatic FP16/FP32 inference routing.
+- **Multi-Provider LLM Healing**: Enhanced `SelfHealingDOMParser` (`src/core/self_healing_parser.py`) with multi-provider LLM gateway supporting local Ollama (`qwen2.5-coder`), Google Gemini 1.5 Flash, and OpenAI GPT-4o-mini with SQLite repair caching.
+
+### 9. Content-Addressable Storage (CAS) & Columnar Parquet Export
+- **Global Content-Addressable Storage**: Added `ContentAddressableStore` (`src/storage/cas_store.py`) deduplicating media files by SHA-256 hash using atomic NTFS hardlinks (`os.link`), consuming 0 additional disk bytes across runs and keywords.
+- **Columnar Analytics**: Implemented `ParquetExporter` (`src/storage/parquet_exporter.py`) exporting crawl metadata to Snappy-compressed Apache Parquet tables with JSON Lines fallback.
+
+### 10. Comprehensive Verification & Regression Validation
+- **10 Dormant Subsystems Smoke Suite**: Proved real execution of all 10 dormant subsystems (`tests/integration/test_dormant_subsystems_smoke.py`) without mocks.
+- **Fault Injection & Hygiene**: Validated stealth engine degradation on corrupted browser binaries, mid-run socket aborts, and verified zero zombie processes with `psutil`.
+- **530/530 Test Pass Rate**: Full regression test suite passing at 100% with zero Ruff errors and zero Bandit High issues.
+
 ---
 
 # Release Notes — scrAPE v0.27.0

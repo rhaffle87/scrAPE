@@ -327,6 +327,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Number of dedicated worker processes for CPU/ML tasks (0 = automatic/threads).",
     )
+    parser.add_argument(
+        "--enable-cas",
+        action="store_true",
+        help="Enable global Content-Addressable Storage (CAS) with NTFS hardlinks to eliminate duplicate disk usage.",
+    )
+    parser.add_argument(
+        "--export-parquet",
+        action="store_true",
+        help="Automatically export crawl results to Snappy-compressed Apache Parquet datasets.",
+    )
     return parser
 
 
@@ -802,6 +812,8 @@ def main() -> None:
             s3_prefix=getattr(args, "s3_prefix", ""),
             enable_self_healing=getattr(args, "enable_self_healing", False),
             worker_processes=getattr(args, "worker_processes", 0),
+            enable_cas=getattr(args, "enable_cas", False),
+            export_parquet=getattr(args, "export_parquet", False),
         )
     except Exception:
         import traceback as _tb
