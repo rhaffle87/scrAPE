@@ -1,0 +1,5 @@
+# osv-scanner configuration
+
+[[IgnoredVulns]]
+id = "GHSA-528h-pc64-c93x"
+reason = "stream-json is a transitive dependency of @crawlee/core which requires ^1.8.0. Upgrading to 3.5.0+ is breaking for Crawlee CJS runtime. Path filter nesting DoS is not exploitable in our internal Crawlee usage."

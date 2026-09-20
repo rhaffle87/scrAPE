@@ -22,6 +22,7 @@ env/
 *.cache
 out/
 har/
+benchmark_extract.md
 
 # --- Build and Package Files ---
 *.egg-info/
