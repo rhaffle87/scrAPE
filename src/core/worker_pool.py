@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import atexit
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import json
 import logging
 import multiprocessing
-from typing import Any, Callable
+import os
+import queue
+import threading
+from typing import Any, Callable, Protocol, runtime_checkable
 
 LOGGER = logging.getLogger(__name__)
 
@@ -160,3 +164,105 @@ class HybridWorkerPool:
             LOGGER.debug("Error during worker process tree cleanup: %s", exc)
 
         LOGGER.info("HybridWorkerPool shutdown complete. Zero child processes remain.")
+
+
+@runtime_checkable
+class BaseTaskBroker(Protocol):
+    """Abstract interface for task message brokers."""
+
+    def push_task(self, queue_name: str, payload: dict[str, Any]) -> bool:
+        ...
+
+    def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
+        ...
+
+    def get_queue_length(self, queue_name: str) -> int:
+        ...
+
+
+class InMemoryTaskBroker:
+    """Thread-safe zero-dependency in-memory task broker for local worker queues."""
+
+    def __init__(self) -> None:
+        self._queues: dict[str, queue.Queue] = {}
+        self._lock = threading.Lock()
+
+    def _get_queue(self, queue_name: str) -> queue.Queue:
+        with self._lock:
+            if queue_name not in self._queues:
+                self._queues[queue_name] = queue.Queue()
+            return self._queues[queue_name]
+
+    def push_task(self, queue_name: str, payload: dict[str, Any]) -> bool:
+        q = self._get_queue(queue_name)
+        q.put(payload)
+        return True
+
+    def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
+        q = self._get_queue(queue_name)
+        try:
+            return q.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+    def get_queue_length(self, queue_name: str) -> int:
+        q = self._get_queue(queue_name)
+        return q.qsize()
+
+
+class RedisTaskBroker:
+    """Distributed Redis task broker with automatic fallback to InMemoryTaskBroker."""
+
+    def __init__(self, redis_url: str = "redis://127.0.0.1:6379/0") -> None:
+        self.redis_url = redis_url
+        self._client = None
+        self._fallback = InMemoryTaskBroker()
+        self._init_client()
+
+    def _init_client(self) -> None:
+        try:
+            import redis
+            self._client = redis.from_url(self.redis_url, socket_timeout=2.0)
+            self._client.ping()
+            LOGGER.info("RedisTaskBroker: Connected to Redis at %s", self.redis_url)
+        except Exception as e:
+            LOGGER.warning("RedisTaskBroker: Failed connecting to Redis (%s). Using in-memory fallback.", e)
+            self._client = None
+
+    def push_task(self, queue_name: str, payload: dict[str, Any]) -> bool:
+        if self._client:
+            try:
+                self._client.rpush(queue_name, json.dumps(payload))
+                return True
+            except Exception as e:
+                LOGGER.warning("Redis rpush failed (%s). Spilling to in-memory broker.", e)
+        return self._fallback.push_task(queue_name, payload)
+
+    def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
+        if self._client:
+            try:
+                item = self._client.blpop(queue_name, timeout=int(max(1, timeout)))
+                if item and len(item) == 2:
+                    raw_data = item[1]
+                    if isinstance(raw_data, bytes):
+                        raw_data = raw_data.decode("utf-8")
+                    return json.loads(raw_data)
+            except Exception as e:
+                LOGGER.warning("Redis blpop failed (%s). Falling back to in-memory broker.", e)
+        return self._fallback.pop_task(queue_name, timeout)
+
+    def get_queue_length(self, queue_name: str) -> int:
+        if self._client:
+            try:
+                return int(self._client.llen(queue_name))
+            except Exception:
+                pass
+        return self._fallback.get_queue_length(queue_name)
+
+
+def get_task_broker(broker_url: str | None = None) -> BaseTaskBroker:
+    """Factory creating a task broker based on URL or SCRAPER_REDIS_URL environment variable."""
+    url = (broker_url or os.getenv("SCRAPER_REDIS_URL", "")).strip()
+    if url.startswith("redis://"):
+        return RedisTaskBroker(redis_url=url)
+    return InMemoryTaskBroker()
