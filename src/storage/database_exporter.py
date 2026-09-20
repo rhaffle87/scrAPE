@@ -70,6 +70,8 @@ class DatabaseExporter:
         """Export the scrape result to the SQLite database."""
         conn = None
         try:
+            self.db_path = Path(self.db_path)
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
             conn = sqlite3.connect(self.db_path)
             self._init_db(conn)
             cursor = conn.cursor()

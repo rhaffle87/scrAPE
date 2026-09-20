@@ -21,14 +21,24 @@ src/scraper/google_images.py        — Search provider + page scraper + link/me
 src/storage/downloader/             — Concurrent media downloader with MIME/size validation
 src/network/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
 src/network/browser_client.py         — Browser automation fallback mixin (BrowserClientMixin)
+src/network/prewarmed_browser_pool.py — Pre-warmed browser pool for sub-50ms cold starts
 src/network/stealth/                — 8-tier WAF fallback pipeline orchestrator
-src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha)
+src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha, FreeAudio)
 src/notifications/telegram_bot.py           — Telegram Bot alerts & interactive command handler
 src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
+src/ml/hardware.py                   — Device detection & precision manager (CUDA, MPS, DirectML, CPU)
 src/ml/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
+src/ml/dataset_cropper.py        — Smart face/body cropping engine
+src/ml/aesthetic_scorer.py       — Visual quality evaluation and watermark culling
 src/ml/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
 src/ml/ollama_provider.py        — Local Ollama vision API captioning provider
 src/ml/rag_exporter.py           — Vector embedding payload chunker (rag_payload.jsonl)
+src/storage/cas_store.py         — Global Content-Addressable Storage (.storage/cas) with NTFS hardlinks
+src/storage/parquet_exporter.py  — Columnar Apache Parquet dataset exporter
+src/storage/storage_backend.py   — Pluggable storage sinks (LocalStorageSink, S3StorageSink)
+src/storage/hierarchical_dedup.py — 3-tier deduplication cascade (Bloom -> BK-Tree pHash -> Cosine)
+src/core/self_healing_parser.py  — Multi-tier autonomous self-healing DOM parser
+src/core/worker_pool.py          — HybridWorkerPool, RedisStreamTaskBroker & process-tree hygiene
 src/common/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
 src/network/session.py                — Persistent cookie cache (data/sessions/)
 src/network/session_pool.py           — Per-domain sticky sessions with disk persistence

@@ -102,6 +102,17 @@ python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 | `--tag-dataset` | flag | `False` | Auto-generate AI caption/tag sidecar `.txt` files for images. |
 | `--auto-crop` | flag | `False` | Generate smart cropped images for LoRA training. |
 | `--aesthetic-score`| `float`| `None` | Minimum aesthetic quality score threshold (1.0-10.0). |
+| `--enable-cas` | flag | `False` | Enable global Content-Addressable Storage (CAS) with atomic hardlinks. |
+| `--export-parquet` | flag | `False` | Export crawl datasets to Snappy-compressed Apache Parquet tables. |
+
+### Storage Sinks & Concurrency Engine
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--storage-backend`| `enum` | `local` | Storage sink backend (`local`, `s3`). |
+| `--s3-bucket` | `str` | `None` | S3 / MinIO bucket name when using S3 storage sink. |
+| `--s3-prefix` | `str` | `""` | S3 object key prefix for uploaded media assets. |
+| `--worker-processes`| `int`| `0` | Number of dedicated CPU/ML worker processes (0 = automatic). |
+| `--enable-self-healing`| flag | `False` | Enable multi-tier autonomous self-healing DOM parser. |
 
 ### Stealth, Proxy & CAPTCHA
 | Argument | Type | Default | Description |

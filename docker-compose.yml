@@ -9,14 +9,15 @@ services:
     ports:
       - "127.0.0.1:10001:10001"
     environment:
-      # Optional: Bind FlareSolverr to this scrape container
       - FLARESOLVERR_URL=http://flaresolverr:8191/v1
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./output:/app/output
       - ./data:/app/data
       - ./logs:/app/logs
     depends_on:
       - flaresolverr
+      - redis
     restart: unless-stopped
 
   flaresolverr:
@@ -29,3 +30,15 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=none
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: scrape-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

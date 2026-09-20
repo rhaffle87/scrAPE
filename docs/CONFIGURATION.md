@@ -127,6 +127,18 @@ scrAPE uses environment variables (loaded via `.env` or system environment) to c
 | `TELEGRAM_BOT_TOKEN` | API token for the Telegram notification bot. |
 | `TELEGRAM_CHAT_ID` | Target chat ID for Telegram notifications. |
 | `CAPSOLVER_API_KEY` | API key for CapSolver universal captcha resolution. |
+| `TWO_CAPTCHA_KEY` | API key for 2Captcha service. |
+| `ANTI_CAPTCHA_KEY` | API key for AntiCaptcha service. |
+| `CAPTCHA_PRIMARY_PROVIDER` | Preferred CAPTCHA solver (`free_audio`, `capsolver`, `2captcha`, `anticaptcha`). |
+| `REDIS_URL` | Connection URL for distributed Redis Streams task broker (e.g., `redis://localhost:6379/0`). |
+| `S3_ENDPOINT_URL` | Custom endpoint for MinIO / S3-compatible cloud storage. |
+| `AWS_ACCESS_KEY_ID` | AWS/S3 access key for cloud media storage sink. |
+| `AWS_SECRET_ACCESS_KEY` | AWS/S3 secret key for cloud media storage sink. |
+| `AWS_REGION` | AWS region name for S3 storage sink (default: `us-east-1`). |
+| `OLLAMA_API_BASE` | Base URL for local Ollama LLM provider (default: `http://localhost:11434`). |
+| `GEMINI_API_KEY` | Google Gemini API key for self-healing DOM parsing. |
+| `OPENAI_API_KEY` | OpenAI API key for self-healing DOM parsing. |
+| `SCRAPE_DEVICE` | Hardware device override for ML vision inference (`auto`, `cuda`, `mps`, `directml`, `cpu`). |
 | `PUPPETEER_SKIP_DOWNLOAD` | If `true`, prevents `npm install` from downloading Chromium. **Mandatory in Docker** to ensure the Node.js bridge hooks into the Playwright Chromium binary. |
 
 ---

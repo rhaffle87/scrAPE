@@ -7,9 +7,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.28.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.29.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
+  <img src="https://img.shields.io/badge/TESTS-530%20PASSED-success?style=for-the-badge" alt="530 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -25,7 +26,12 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 
 ## Key Features
 
-- **Dynamic Tactical WebUI**: Decoupled FastAPI + HTMX dashboard featuring an interactive HTML5 Canvas crawl network tree, live OS telemetry (CPU, RAM, Disk), process controls, and dual speed limiters.
+- **Pre-Warmed Anti-Bot Browser Pool**: Eliminates 3–5s cold starts by pre-warming browser sessions (DrissionPage, Camoufox, Chromium) asynchronously in a background pool ($<50\text{ms}$ lease time).
+- **Distributed Cluster Task Broker (Redis Streams)**: Supports enterprise scraper clusters via Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XCLAIM`) with transparent fallback to local memory.
+- **Hardware Device Manager & Multi-Provider LLM Gateway**: Automatic CUDA, DirectML, MPS, and CPU routing with FP16/FP32 precision. Multi-provider LLM self-healing DOM parser (Ollama `qwen2.5-coder`, Google Gemini 1.5 Flash, OpenAI `gpt-4o-mini`) with SQLite rule caching.
+- **Global Content-Addressable Storage (CAS)**: SHA-256 content deduplication with atomic NTFS/POSIX hardlinks (`os.link`), consuming 0 additional disk bytes for identical media across runs and queries.
+- **Columnar Apache Parquet Dataset Exporter**: Snappy-compressed Apache Parquet tables (`images.parquet`, `videos.parquet`, `run_summary.parquet`) for high-performance ML analytics with JSONL fallback.
+- **Dynamic Tactical WebUI**: Decoupled FastAPI + HTMX dashboard featuring an interactive HTML5 Canvas crawl network tree, live Node Health telemetry (CPU, RAM, Disk, concurrency throttle indicator), process controls, and dual speed limiters.
 - **8-Tier WAF Escalation & Stealth**: Defeats Cloudflare Turnstile, reCAPTCHA v2/v3, and auth walls using an 8-tier fallback pipeline (Local Cookies → Crawl4AI → Crawlee Cheerio → DrissionPage → Crawlee Puppeteer → Helium → undetected-chromedriver → Camoufox → FlareSolverr).
 - **Universal CAPTCHA Strategy**: Commercial API auto-solving (`CapSolver`, `2Captcha`, `AntiCaptcha`) with automatic fallback to `FreeAudioCaptchaProvider` (local Whisper speech-to-text solver).
 - **Asynchronous Inline ML Pipeline**: Decoupled background worker (`AsyncMLPipelineWorker`) running non-blocking aesthetic scoring/culling, smart face/body cropping, and WD14 dataset tagging.
