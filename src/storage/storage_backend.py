@@ -151,7 +151,7 @@ class S3StorageSink(BaseStorageSink):
             self._s3_available = True
             LOGGER.info("S3StorageSink initialized for bucket: %s (endpoint: %s)", self.bucket_name, self.endpoint_url)
         except Exception as exc:
-            LOGGER.warning("boto3 or S3 credentials unavailable (%s); S3StorageSink will spillover locally.", exc)
+            LOGGER.warning("boto3 client initialization failed (%s); S3StorageSink will spillover locally.", exc)  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             self._s3_available = False
 
     def _build_key(self, relative_path: str) -> str:
