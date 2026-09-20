@@ -272,7 +272,7 @@ def mode_specified_scraping():
         str(Path(__file__).parent / "main.py"),
         "--keyword",
         keyword,
-        "--seed",
+        "--seed-file",
         seed_file,
         "--max-results",
         max_results,
@@ -364,7 +364,7 @@ def mode_rag_ingest():
     cmd = [
         sys.executable,
         "-m",
-        "src.storage.rag_exporter",
+        "src.ml.rag_exporter",
         "--input-dir",
         str(target_dir),
     ]

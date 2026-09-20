@@ -106,3 +106,46 @@ class RagExporter:
             LOGGER.error("Failed to append entries to rag_payload.jsonl: %s", exc)
 
         return entries
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Export RAG text chunks to rag_payload.jsonl.")
+    parser.add_argument("--input-dir", required=True, type=str, help="Directory containing files or results to ingest.")
+    parser.add_argument("--output-dir", required=False, type=str, default=None, help="Destination directory for rag_payload.jsonl.")
+    parser.add_argument("--chunk-size", type=int, default=500, help="Target chunk size in characters.")
+    parser.add_argument("--chunk-overlap", type=int, default=50, help="Overlap between chunks in characters.")
+    args = parser.parse_args()
+
+    in_dir = Path(args.input_dir)
+    out_dir = Path(args.output_dir) if args.output_dir else in_dir
+    exporter = RagExporter(output_dir=out_dir, chunk_size=args.chunk_size, chunk_overlap=args.chunk_overlap)
+
+    processed = 0
+    results_json = in_dir / "results.json"
+    if results_json.exists():
+        try:
+            with open(results_json, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            pages = data.get("scanned_pages", [])
+            for p in pages:
+                url = p if isinstance(p, str) else p.get("url", "")
+                exporter.export_page(page_url=url, page_title=in_dir.name, text_content=f"Scraped page from {url} for {in_dir.name}")
+                processed += 1
+        except Exception as err:
+            LOGGER.warning("Could not parse %s: %s", results_json, err)
+
+    for txt_file in in_dir.glob("**/*.txt"):
+        if txt_file.name == "rag_payload.jsonl":
+            continue
+        try:
+            content = txt_file.read_text(encoding="utf-8", errors="ignore")
+            if content.strip():
+                exporter.export_page(page_url=str(txt_file), page_title=txt_file.stem, text_content=content)
+                processed += 1
+        except Exception:
+            pass
+
+    LOGGER.info("RAG Ingestion complete: %d items processed into %s", processed, exporter.jsonl_path)
+    print(f"RAG Ingestion complete: {processed} items processed into {exporter.jsonl_path}")
+

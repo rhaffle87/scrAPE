@@ -68,53 +68,61 @@ class DatabaseExporter:
 
     def export(self, result: ScrapeResult):
         """Export the scrape result to the SQLite database."""
+        conn = None
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                self._init_db(conn)
-                cursor = conn.cursor()
+            conn = sqlite3.connect(self.db_path)
+            self._init_db(conn)
+            cursor = conn.cursor()
 
-                # Export Images
-                image_records = []
-                for img in result.images:
-                    image_records.append((
-                        img.url, img.source_page, img.original_url, img.alt_text,
-                        img.score, img.page_title, img.mime_type, img.width, img.height,
-                        img.file_size_bytes, img.in_layout_container, img.parent_anchor_text,
-                        img.parent_anchor_href, img.status, img.file_path, img.failure_reason,
-                        img.hash, img.source_domain
-                    ))
-                
-                if image_records:
-                    cursor.executemany("""
-                        INSERT INTO images (
-                            url, source_page, original_url, alt_text, score, page_title,
-                            mime_type, width, height, file_size_bytes, in_layout_container,
-                            parent_anchor_text, parent_anchor_href, status, file_path,
-                            failure_reason, hash, source_domain
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, image_records)
+            # Export Images
+            image_records = []
+            for img in result.images:
+                image_records.append((
+                    img.url, img.source_page, img.original_url, img.alt_text,
+                    img.score, img.page_title, img.mime_type, img.width, img.height,
+                    img.file_size_bytes, img.in_layout_container, img.parent_anchor_text,
+                    img.parent_anchor_href, img.status, img.file_path, img.failure_reason,
+                    img.hash, img.source_domain
+                ))
+            
+            if image_records:
+                cursor.executemany("""
+                    INSERT INTO images (
+                        url, source_page, original_url, alt_text, score, page_title,
+                        mime_type, width, height, file_size_bytes, in_layout_container,
+                        parent_anchor_text, parent_anchor_href, status, file_path,
+                        failure_reason, hash, source_domain
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, image_records)
 
-                # Export Videos
-                video_records = []
-                for vid in result.videos:
-                    video_records.append((
-                        vid.url, vid.source_page, vid.type, vid.score, vid.page_title,
-                        vid.mime_type, vid.file_size_bytes, vid.duration_seconds,
-                        vid.in_layout_container, vid.parent_anchor_text, vid.parent_anchor_href,
-                        vid.status, vid.file_path, vid.failure_reason, vid.hash, vid.source_domain
-                    ))
-                
-                if video_records:
-                    cursor.executemany("""
-                        INSERT INTO videos (
-                            url, source_page, type, score, page_title, mime_type,
-                            file_size_bytes, duration_seconds, in_layout_container,
-                            parent_anchor_text, parent_anchor_href, status, file_path,
-                            failure_reason, hash, source_domain
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, video_records)
-                
-                conn.commit()
-                LOGGER.info("Successfully exported data to SQLite database at %s", self.db_path)
+            # Export Videos
+            video_records = []
+            for vid in result.videos:
+                video_records.append((
+                    vid.url, vid.source_page, vid.type, vid.score, vid.page_title,
+                    vid.mime_type, vid.file_size_bytes, vid.duration_seconds,
+                    vid.in_layout_container, vid.parent_anchor_text, vid.parent_anchor_href,
+                    vid.status, vid.file_path, vid.failure_reason, vid.hash, vid.source_domain
+                ))
+            
+            if video_records:
+                cursor.executemany("""
+                    INSERT INTO videos (
+                        url, source_page, type, score, page_title, mime_type,
+                        file_size_bytes, duration_seconds, in_layout_container,
+                        parent_anchor_text, parent_anchor_href, status, file_path,
+                        failure_reason, hash, source_domain
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, video_records)
+            
+            conn.commit()
+            LOGGER.info("Successfully exported data to SQLite database at %s", self.db_path)
         except Exception as e:
             LOGGER.error("Failed to export results to SQLite: %s", e)
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
