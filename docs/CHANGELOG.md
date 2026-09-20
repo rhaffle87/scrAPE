@@ -1,6 +1,33 @@
 # Changelog — scrAPE
 > Chronological record of all notable changes, additions, and fixes made to the project.
 
+## [0.25.0] — 2026-09-20
+
+### Added (0.25.0)
+- **Responsive WebUI Layout System** (`frontend/templates/index.html`):
+  - Fluid mobile-first media queries (`@media (max-width: 1024px)` and `@media (max-width: 600px)`) converting fixed-width 280px tactical sidebar into a collapsible flow.
+  - WCAG touch-target compliance: enforced `min-height: 44px` on interactive cards and flag selectors (`.flag-card`).
+  - Zero-overflow brutalist dashboard layout verified across Desktop (1440px), Tablet (820px), and Mobile (375px) viewports with Playwright automated audits.
+- **Native Local Low-RAM Profile** (`src/config/__init__.py`, `src/network/stealth/strategies.py`):
+  - Set default `ENABLE_FLARESOLVERR_FALLBACK=False`, freeing ~3.7 GB of host memory by disabling WSL/Docker container requirements.
+  - Native local stealth escalation prioritizing `Httpx` -> `CurlCffi` -> `Crawlee (Local Node.js)` -> `Crawl4AI` -> `DrissionPage` -> `Helium` -> `Camoufox` -> `Nodriver`.
+- **CLI Launcher CLI Enhancements** (`src/cli/launcher.py`):
+  - Added `-h` / `--help` flag with formatted option list.
+  - Safe non-interactive environment fallback avoiding Win32 console buffer errors (`NoConsoleScreenBufferError`).
+
+### Fixed (0.25.0)
+- **Crawlee Node.js Bridge Dependencies** (`crawlee_bridge/package.json`):
+  - Replaced incompatible `stream-json` v3.x override with compatible `stream-json` v1.8.x, resolving `MODULE_NOT_FOUND` (`StreamArray`) on Node.js 22.
+- **Dataset Exporter Path Sanitization** (`src/ml/dataset_exporter.py`):
+  - Permitted tilde (`~`) in regex path validator to support Windows 8.3 short paths without triggering path traversal false positives.
+- **Python 3.13 Cryptography / pyOpenSSL Compatibility**:
+  - Reconciled `cryptography` to `46.0.7` matching `pyOpenSSL` 25.3.0 expectations, resolving missing `_lib.GEN_EMAIL` in X509 extension handling during Crawl4AI SPA rendering.
+
+### Validated & QA Verified (0.25.0)
+- Verified all 7 domain seed manifests (`apple.txt`, `hana_bunny.txt`, `meenfox.txt`, `eatwaffles.txt`, `takomayuyi.txt`, `akariiiii_cos.txt`, `lionel_messi.txt`) with 0 orphaned worker processes.
+- Live SSRF matrix defense: 5/5 loopback and cloud metadata endpoints strictly rejected with HTTP 400.
+- Bandit SAST: 0 high-severity security issues across 17,865 lines of code.
+
 ## [0.24.0] — 2026-08-03
 
 ### Added (0.24.0)

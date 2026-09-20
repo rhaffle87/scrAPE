@@ -223,11 +223,23 @@ def clear_screen():
 
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(f"scrAPE Launcher v{VERSION}")
+        print("Usage: python -m src.cli.launcher [OPTIONS]")
+        print("\nOptions:")
+        print("  --tray     Launch directly into system tray mode")
+        print("  -h, --help Show this help message and exit")
+        return
+
     # If running silently via pythonw, skip the menu and go straight to tray.
     # We can detect this by checking if sys.stdout is devnull or an invalid handle,
     # but since we overrode it above, we can check if it's pointing to devnull.
     if hasattr(sys.stdout, "name") and sys.stdout.name == os.devnull:
         run_tray()
+        return
+
+    if not sys.stdin.isatty():
+        print(f"scrAPE Launcher v{VERSION} - Non-interactive mode detected. Use --help or pass CLI arguments.")
         return
 
     check_and_install_dependencies()

@@ -67,8 +67,8 @@ class KohyaDatasetExporter:
             return b""
             
         # CodeQL py/path-injection mitigation:
-        # Use regex capture group to drop taint
-        safe_match = re.match(r"^([a-zA-Z0-9\-\.\_\/\:\\ ]+)$", dir_str)
+        # Use regex capture group to drop taint (supports Windows 8.3 short paths with ~)
+        safe_match = re.match(r"^([a-zA-Z0-9\-\.\_\/\:\\ ~]+)$", dir_str)
         if not safe_match:
             LOGGER.error("Path traversal attempt or invalid chars in path: %s", dir_str)
             return b""

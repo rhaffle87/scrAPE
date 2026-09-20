@@ -46,8 +46,8 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 - **Live Active Pulse (`.stat-card.running`)**: Pulsing orange border animation (`animation: pulse-border 1.5s infinite;`).
 
 ### 4.2 Tactical Sidebar & Navigation
-- **Sidebar Container**: Fixed 280px left column (`width: 280px; height: 100vh; position: fixed; border-right: var(--border-heavy);`).
-- **Sidebar Header**: Centered column layout featuring a glowing 72×72px vector SVG logo, `scrAPE` text (`1.6rem`), and `v0.24.0` version badge.
+- **Sidebar Container**: 280px left column on desktop (`width: 280px; height: 100vh; position: fixed; border-right: var(--border-heavy);`), converting to collapsible static column on tablet and mobile viewports (`@media (max-width: 1024px)`).
+- **Sidebar Header**: Centered column layout featuring a glowing 72×72px vector SVG logo, `scrAPE` text (`1.6rem`), and `v0.25.0` version badge.
 - **Command Center Nav Button (`.nav-item`)**:
   - `border: 1px solid var(--border-color); background-color: var(--bg-surface); gap: 0.65rem;`
   - SVG Grid Icon: 4-square cockpit dashboard vector icon on the left.

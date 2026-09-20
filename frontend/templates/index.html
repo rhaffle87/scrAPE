@@ -1451,6 +1451,7 @@
             background-color: var(--bg-base);
             border: 1px solid #3a3f3c;
             padding: 0.65rem 0.85rem;
+            min-height: 44px;
             cursor: pointer;
             transition: all 0.15s ease;
             user-select: none;
@@ -1492,6 +1493,135 @@
                 border-color: var(--border-heavy);
                 background-color: var(--bg-base);
                 box-shadow: none;
+            }
+        }
+
+        /* Responsive Breakpoints (Tablet & Mobile) */
+        @media (max-width: 1024px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: var(--border-heavy);
+            }
+
+            .sidebar-header {
+                padding: 1rem;
+                flex-direction: row;
+                justify-content: space-between;
+            }
+
+            .sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 0.5rem 1rem;
+                gap: 0.5rem;
+            }
+
+            .sidebar-subjects {
+                max-height: 180px;
+                overflow-y: auto;
+            }
+
+            .main-container {
+                margin-left: 0;
+                width: 100%;
+                max-width: 100vw;
+                padding: 1.25rem;
+                overflow-x: hidden;
+            }
+
+            .app-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .telemetry-bar {
+                width: 100%;
+                max-width: 100%;
+                flex-wrap: wrap;
+                box-sizing: border-box;
+            }
+
+            .telemetry-metrics {
+                flex-wrap: wrap;
+                max-width: 100%;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-container {
+                padding: 0.75rem;
+                gap: 1.25rem;
+            }
+
+            .title-area h1 {
+                font-size: 2rem;
+            }
+
+            .telemetry-bar {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 0.5rem;
+            }
+
+            .telemetry-badge {
+                border-right: none;
+                border-bottom: 1px solid var(--border-heavy);
+                padding-bottom: 0.5rem;
+            }
+
+            .telemetry-metrics {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                width: 100%;
+            }
+
+            .telemetry-card {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-card .value {
+                font-size: 2.2rem;
+            }
+
+            /* Touch targets */
+            input[type="checkbox"],
+            input[type="radio"] {
+                min-width: 22px;
+                min-height: 22px;
+                cursor: pointer;
+            }
+
+            .flag-chip,
+            .btn,
+            .card-header-btn,
+            .nav-item {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
         }
     </style>

@@ -40,8 +40,8 @@ ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True
 ENABLE_HELIUM_FALLBACK = True
 ENABLE_CAMOUFOX_FALLBACK = True
-ENABLE_FLARESOLVERR_FALLBACK = True
-FLARESOLVERR_URL = "http://127.0.0.1:8191/v1"
+ENABLE_FLARESOLVERR_FALLBACK = os.getenv("ENABLE_FLARESOLVERR_FALLBACK", "False").lower() in ("true", "1")
+FLARESOLVERR_URL = os.getenv("FLARESOLVERR_URL", "http://127.0.0.1:8191/v1")
 SEARXNG_HOSTS: list[str] = ["https://searx.be", "https://searx.space"]
 DEFAULT_VIDEO_QUALITY = "best"
 FORCE_HEADLESS: bool = False
@@ -68,13 +68,7 @@ RATE_LIMIT_JITTER_SECONDS = 1.5  # High jitter to simulate human variance
 # Note: Custom rate limits are dynamically loaded from seed manifest headers or --domain-delay.
 DOMAIN_REQUESTS_PER_SECOND: dict[str, float] = {}
 
-ENABLE_COOKIE_HARVESTING = True
-ENABLE_DRISSIONPAGE_FALLBACK = True
-ENABLE_HELIUM_FALLBACK = True
-ENABLE_CAMOUFOX_FALLBACK = True
-ENABLE_FLARESOLVERR_FALLBACK = True
 ENABLE_CURL_CFFI_FALLBACK = True
-FLARESOLVERR_URL = "http://127.0.0.1:8191/v1"
 
 # 429 circuit-breaker: how many consecutive 429 responses before cooldown triggers.
 DOMAIN_COOLDOWN_THRESHOLD = 3
