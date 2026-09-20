@@ -162,6 +162,16 @@ class ScrapingEngine:
         ignore_robots: bool = False,
         harvest_callback: "Callable[[int], None] | None" = None,
         task_state: dict | None = None,
+        aesthetic_score: float | None = None,
+        auto_crop: bool = False,
+        tag_dataset: bool = False,
+        export_rag: bool = False,
+        auto_export_db: bool = False,
+        storage_backend: str = "local",
+        s3_bucket: str = "",
+        s3_prefix: str = "",
+        enable_self_healing: bool = False,
+        worker_processes: int = 0,
     ):
         run_output_dir = Path(OUTPUT_DIR)
 
@@ -182,6 +192,16 @@ class ScrapingEngine:
             seed_manifest=seed_manifest,
             domain_profiles=domain_profiles or {},
             ignore_robots=ignore_robots,
+            aesthetic_score=aesthetic_score,
+            auto_crop=auto_crop,
+            tag_dataset=tag_dataset,
+            export_rag=export_rag,
+            auto_export_db=auto_export_db,
+            storage_backend=storage_backend,
+            s3_bucket=s3_bucket,
+            s3_prefix=s3_prefix,
+            enable_self_healing=enable_self_healing,
+            worker_processes=worker_processes,
         )
 
         result = ScrapeResult(keyword=keyword)
@@ -254,6 +274,48 @@ class ScrapingEngine:
 
         result.images = media_processor.finalize_images(result, options)
         result.videos = media_processor.finalize_videos(result, options)
+
+        # Execute asynchronous ML pipeline worker if aesthetic scoring, cropping, or tagging requested
+        if options.aesthetic_score is not None or options.auto_crop or options.tag_dataset:
+            try:
+                from core.ml_worker import AsyncMLPipelineWorker
+                ml_worker = AsyncMLPipelineWorker(
+                    min_aesthetic_score=options.aesthetic_score,
+                    auto_crop=options.auto_crop,
+                    auto_tag=options.tag_dataset,
+                )
+                ml_worker.start()
+                for img in result.images:
+                    if img.file_path and Path(img.file_path).exists():
+                        ml_worker.enqueue(img, img.file_path)
+                ml_worker.join_and_finish(timeout=30.0)
+                # Cull low aesthetic images from result.images
+                result.images = [img for img in result.images if img.status != "rejected"]
+            except Exception as err:
+                LOGGER.warning("ML pipeline processing encountered error: %s", err)
+
+        # Automated SQLite results database export
+        if options.auto_export_db and options.download_media:
+            try:
+                from storage.database_exporter import DatabaseExporter
+                db_exp = DatabaseExporter(db_path=output_root / "results.db")
+                db_exp.export(result)
+            except Exception as err:
+                LOGGER.warning("Automated database export failed: %s", err)
+
+        # Automated RAG document chunks export
+        if options.export_rag and options.download_media:
+            try:
+                from ml.rag_exporter import RagExporter
+                rag_exp = RagExporter(output_dir=output_root)
+                for p_url in result.scanned_pages:
+                    rag_exp.export_page(
+                        page_url=p_url,
+                        page_title=result.keyword,
+                        text_content=f"Scraped page content from {p_url} for query {result.keyword}",
+                    )
+            except Exception as err:
+                LOGGER.warning("Automated RAG export failed: %s", err)
 
         # Fire harvest milestone callback if provided
         if harvest_callback is not None:

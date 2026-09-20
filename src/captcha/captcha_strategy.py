@@ -51,11 +51,29 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
         from captcha.captcha_solvers.capsolver_provider import CapSolverProvider
         from captcha.captcha_solvers.twocaptcha_provider import TwoCaptchaProvider
         from captcha.captcha_solvers.anticaptcha_provider import AntiCaptchaProvider
+        from captcha.captcha_solvers.free_audio_provider import FreeAudioCaptchaProvider
 
+        preferred = (settings.get("CAPTCHA_PRIMARY_PROVIDER") or "").lower().strip()
         capsolver_key = settings.get("CAPSOLVER_API_KEY")
         twocaptcha_key = settings.get("TWOCAPTCHA_API_KEY")
         anticaptcha_key = settings.get("ANTICAPTCHA_API_KEY")
 
+        if preferred == "free_audio":
+            provider = FreeAudioCaptchaProvider()
+            if provider.is_available():
+                self.provider = provider
+                return
+        elif preferred == "2captcha" and twocaptcha_key:
+            self.provider = TwoCaptchaProvider(api_key=twocaptcha_key)
+            return
+        elif preferred == "anticaptcha" and anticaptcha_key:
+            self.provider = AntiCaptchaProvider(api_key=anticaptcha_key)
+            return
+        elif preferred == "capsolver" and capsolver_key:
+            self.provider = CapSolverProvider(api_key=capsolver_key)
+            return
+
+        # Default waterfall
         if capsolver_key:
             self.provider = CapSolverProvider(api_key=capsolver_key)
         elif twocaptcha_key:
@@ -64,12 +82,10 @@ class ThirdPartyCaptchaStrategy(StealthStrategy):
             self.provider = AntiCaptchaProvider(api_key=anticaptcha_key)
         else:
             try:
-                from captcha.captcha_solvers.free_audio_provider import FreeAudioCaptchaProvider
-                self.provider = FreeAudioCaptchaProvider()
-                if not self.provider.is_available():
-                    self.provider = None
-            except ImportError:
-                pass
+                provider = FreeAudioCaptchaProvider()
+                self.provider = provider if provider.is_available() else None
+            except Exception:
+                self.provider = None
 
     def is_available(self) -> bool:
         return bool(self.provider and self.provider.is_available())

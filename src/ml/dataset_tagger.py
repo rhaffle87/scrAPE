@@ -129,6 +129,15 @@ class DatasetTagger:
         sidecar_path.write_text(content, encoding="utf-8")
         return sidecar_path
 
+    def tag_image(
+        self, image_path: Path, metadata: dict[str, Any] | None = None
+    ) -> list[str]:
+        """Convenience method to generate tags and automatically create sidecar file."""
+        tags = self.generate_tags_for_image(image_path, metadata)
+        if tags:
+            self.create_sidecar_file(image_path, tags)
+        return tags
+
     def tag_directory(
         self,
         directory: Path,

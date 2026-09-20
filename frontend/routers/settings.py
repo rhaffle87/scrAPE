@@ -39,18 +39,51 @@ def update_env(key: str, value: str):
 def api_update_solver(
     provider: str = Form("capsolver"),
     api_key: str = Form(""),
+    primary_provider: str = Form(""),
 ):
     """Update captcha solver settings in .env"""
-    if provider == "capsolver":
+    prov = provider.lower().strip()
+    if prov == "capsolver":
         update_env("CAPSOLVER_API_KEY", api_key)
-    elif provider == "2captcha":
+    elif prov in ("2captcha", "twocaptcha"):
         update_env("TWOCAPTCHA_API_KEY", api_key)
-    elif provider == "anticaptcha":
+    elif prov == "anticaptcha":
         update_env("ANTICAPTCHA_API_KEY", api_key)
+    elif prov == "free_audio":
+        pass  # Zero-cost local solver requires no external API key
     else:
         raise HTTPException(status_code=400, detail="Invalid provider")
 
+    if primary_provider:
+        update_env("CAPTCHA_PRIMARY_PROVIDER", primary_provider.lower().strip())
+    elif prov:
+        update_env("CAPTCHA_PRIMARY_PROVIDER", prov)
+
     return {"status": "ok", "message": f"{provider} configuration saved."}
+
+
+@router.post("/storage")
+def api_update_storage(
+    backend: str = Form("local"),
+    s3_bucket: str = Form(""),
+    s3_prefix: str = Form(""),
+    s3_endpoint_url: str = Form(""),
+):
+    """Update storage sink backend settings in .env"""
+    backend_clean = backend.lower().strip()
+    if backend_clean not in ("local", "s3"):
+        raise HTTPException(status_code=400, detail="Storage backend must be 'local' or 's3'")
+
+    update_env("STORAGE_BACKEND", backend_clean)
+    if s3_bucket:
+        update_env("S3_BUCKET", s3_bucket.strip())
+    if s3_prefix:
+        update_env("S3_PREFIX", s3_prefix.strip())
+    if s3_endpoint_url:
+        update_env("S3_ENDPOINT_URL", s3_endpoint_url.strip())
+
+    return {"status": "ok", "message": f"Storage backend set to {backend_clean}."}
+
 
 
 @router.get("")

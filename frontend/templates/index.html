@@ -1744,6 +1744,11 @@
             <div id="sys-stats" hx-get="/htmx/stats" hx-trigger="load, every 2s"></div>
         </header>
 
+        <!-- Dynamic Governor Throttle Warning Banner -->
+        <div id="node-health-banner" style="display:none; background: rgba(255, 51, 51, 0.15); border: 1px solid #ff3333; color: #ff3333; padding: 0.8rem 1rem; border-radius: 4px; margin: 0 1.5rem 1rem 1.5rem; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; font-weight: 700;">
+            [ALERT] HARDWARE LOAD GOVERNOR: High load detected. Concurrency dynamically throttled.
+        </div>
+
         <!-- Stats Container (Historical totals or live run metrics) -->
         <div class="stats-container" id="active-stats-container" hx-get="/htmx/active-stats"
             hx-trigger="load, every 2s">
@@ -2095,6 +2100,117 @@
                                         <label for="stealth_headful">STEALTH HEADFUL MODE
                                             <span class="tooltip-wrapper">?
                                                 <span class="tooltip-content" style="text-align: justify;">Render UI to bypass strict bot checks.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- SECTION 5: ML & DATASET INLINE PIPELINE -->
+                        <details class="section-accordion">
+                            <summary class="accordion-summary">
+                                <span>ML & DATASET INLINE PIPELINE</span>
+                                <span class="accordion-icon">▶</span>
+                            </summary>
+                            <div class="accordion-content">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="aesthetic-score-input">MIN AESTHETIC SCORE
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Images scoring below this threshold are automatically culled. Use 0.0 to disable.<br><br><span style="color: #ffaa00;">Default:</span> 0.0<br><span style="color: #ffaa00;">Recommend:</span> 5.0 - 6.5</span>
+                                            </span>
+                                        </label>
+                                        <input type="number" id="aesthetic-score-input" name="aesthetic_score" value="0.0" min="0.0" max="10.0" step="0.5">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="worker-processes-input">WORKER PROCESS POOL
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Isolated CPU/GPU worker process count for ML and DOM parsing. 0 uses CPU core auto-detection.<br><br><span style="color: #ffaa00;">Default:</span> 0</span>
+                                            </span>
+                                        </label>
+                                        <input type="number" id="worker-processes-input" name="worker_processes" value="0" min="0" max="32" step="1">
+                                    </div>
+                                </div>
+                                <div class="flag-card-grid" style="margin-top: 1rem;">
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="auto_crop" id="auto_crop">
+                                        <label for="auto_crop">SMART FACE/OBJECT CROP
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Intelligently center and square-crop subjects for AI training.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="tag_dataset" id="tag_dataset">
+                                        <label for="tag_dataset">WD14 DATASET TAGGING
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Generate sidecar .txt tags using WD14 tagger.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="export_rag" id="export_rag">
+                                        <label for="export_rag">EXPORT RAG KNOWLEDGE
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Extract and vectorize page text into RAG knowledge chunks.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="auto_export_db" id="auto_export_db">
+                                        <label for="auto_export_db">AUTO-EXPORT DB & CSV
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Automatically generate CSV and database exports post-crawl.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- SECTION 6: STORAGE SINKS & SELF-HEALING DOM -->
+                        <details class="section-accordion">
+                            <summary class="accordion-summary">
+                                <span>STORAGE SINKS & SELF-HEALING DOM</span>
+                                <span class="accordion-icon">▶</span>
+                            </summary>
+                            <div class="accordion-content">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="storage-backend-select">STORAGE SINK BACKEND
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Choose between atomic local storage or direct S3/MinIO cloud streaming.<br><br><span style="color: #ffaa00;">Default:</span> Local</span>
+                                            </span>
+                                        </label>
+                                        <select name="storage_backend" id="storage-backend-select">
+                                            <option value="local">Local Storage (Atomic + Safe Traversal)</option>
+                                            <option value="s3">Amazon S3 / MinIO Object Storage</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="s3-bucket-input">S3 BUCKET NAME
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Target S3/MinIO bucket (only used if S3 backend selected).<br><br><span style="color: #ffaa00;">Default:</span> None</span>
+                                            </span>
+                                        </label>
+                                        <input type="text" id="s3-bucket-input" name="s3_bucket" placeholder="e.g. my-media-bucket">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="s3-prefix-input">S3 KEY PREFIX
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Key prefix inside S3 bucket.<br><br><span style="color: #ffaa00;">Default:</span> runs/</span>
+                                            </span>
+                                        </label>
+                                        <input type="text" id="s3-prefix-input" name="s3_prefix" placeholder="e.g. crawls/raw/">
+                                    </div>
+                                </div>
+                                <div class="flag-card-grid" style="margin-top: 1rem;">
+                                    <div class="flag-card">
+                                        <input type="checkbox" name="enable_self_healing" id="enable_self_healing">
+                                        <label for="enable_self_healing">AUTONOMOUS SELF-HEALING DOM
+                                            <span class="tooltip-wrapper">?
+                                                <span class="tooltip-content" style="text-align: justify;">Automatically repair broken selectors using microdata, structural heuristics, and LLM synthesis.<br><br><span style="color: #ffaa00;">Default:</span> Unchecked</span>
                                             </span>
                                         </label>
                                     </div>
@@ -5537,6 +5653,24 @@
                         terminalBody.scrollTop = terminalBody.scrollHeight;
                     }
                 }
+
+                function checkNodeHealth() {
+                    fetch('/api/telemetry/node-health')
+                        .then(r => r.json())
+                        .then(data => {
+                            const banner = document.getElementById('node-health-banner');
+                            if (banner) {
+                                if (data.is_throttled) {
+                                    banner.style.display = 'block';
+                                    banner.innerText = `[ALERT] ${data.alert || 'Hardware Load Governor active: Concurrency throttled.'}`;
+                                } else {
+                                    banner.style.display = 'none';
+                                }
+                            }
+                        }).catch(() => {});
+                }
+                setInterval(checkNodeHealth, 3000);
+                setTimeout(checkNodeHealth, 1000);
 
                 setInterval(refreshStealthTelemetry, 4000);
                 setTimeout(refreshStealthTelemetry, 1000);

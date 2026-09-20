@@ -33,6 +33,9 @@ class ImageItem:
     fallback_urls: list[str] = field(default_factory=list)
     extraction_source: str = ""
     candidates: list[dict[str, Any]] = field(default_factory=list)
+    aesthetic_score: float | None = None
+    tags: list[str] = field(default_factory=list)
+    crop_box: dict[str, int] | None = None
 
 
 @dataclass(slots=True)
@@ -137,3 +140,13 @@ class EngineOptions:
     seed_manifest: SeedManifest | None = field(default=None)
     # Flattened {hostname: DomainProfile} lookup — built from seed_manifest
     domain_profiles: dict[str, DomainProfile] = field(default_factory=dict)
+    aesthetic_score: float | None = None
+    auto_crop: bool = False
+    tag_dataset: bool = False
+    export_rag: bool = False
+    auto_export_db: bool = False
+    storage_backend: str = "local"
+    s3_bucket: str = ""
+    s3_prefix: str = ""
+    enable_self_healing: bool = False
+    worker_processes: int = 0

@@ -1,3 +1,42 @@
+# Release Notes — scrAPE v0.28.0
+**Release Date**: September 20, 2026  
+**Focus**: Next-Gen Core Systems Architecture — Asynchronous ML Pipeline Stage, Multi-Tier Storage Sinks & Hierarchical Deduplication, Autonomous Self-Healing DOM Parser, Hybrid Process-Tree Concurrency Pool, Universal CAPTCHA & WebUI Parity.
+
+---
+
+## Key Highlights (v0.28.0)
+
+### 1. Asynchronous Inline ML Pipeline Stage
+- **Decoupled Architecture**: Decoupled heavy ML inference (`AestheticScorer`, `DatasetCropper`, `DatasetTagger`, `RagExporter`, `DatabaseExporter`) from the core network crawl loop into a dedicated background worker (`AsyncMLPipelineWorker`).
+- **Zero Network I/O Blocking**: Crawl tasks enqueue downloaded media items instantly into a thread-safe queue; ML tasks execute in worker threads/processes without degrading network throughput.
+- **Aesthetic Culling**: Configurable minimum aesthetic score filter (`--aesthetic-score`, `EngineOptions.aesthetic_score`) culls low-quality or watermarked media before disk/cloud persistence.
+- **Auto-Cropping & WD14 Booru Tagging**: Automated face/body-centered smart cropping (`--auto-crop`) and AI vision tag generation (`--tag-dataset`) with sidecar `.txt` files for AI/LoRA training pipelines.
+
+### 2. Multi-Tier Storage Sinks & Hierarchical Deduplication Cascade
+- **Pluggable Storage Sinks**: Introduced `BaseStorageSink` abstraction with `LocalStorageSink` (atomic temporary staging, directory traversal protection, POSIX sanitization) and `S3StorageSink` (direct multipart cloud streaming via `boto3` with automatic local fallback on network/credential failure).
+- **3-Tier Deduplication Cascade**:
+  - **Tier 1 (L1)**: In-memory SHA-256 Bloom filter for instantaneous $O(1)$ exact byte-match rejection.
+  - **Tier 2 (L2)**: Perceptual pHash (64-bit DCT) indexed in a BK-Tree metric tree for fast sub-linear Hamming distance similarity searches ($\le 4$ bits).
+  - **Tier 3 (L3)**: Pluggable vector cosine similarity index ($\ge 0.96$) for semantic visual embeddings.
+
+### 3. Autonomous Self-Healing DOM Parser
+- **Multi-Tier Cascade**:
+  - **Tier 1**: SQLite selector rule cache (`repaired_selectors` table) for sub-millisecond retrieval of previously repaired selectors.
+  - **Tier 2**: Structural heuristic recovery tree evaluating semantic tag signatures, schema.org / JSON-LD microdata, OpenGraph properties, and image/video element signatures.
+  - **Tier 3**: Pluggable LLM selector synthesis with SQLite caching for high-entropy site redesigns.
+- **Semantic Selector Integration**: Integrated directly into `SemanticSelectorParser` as the automatic fallback handler when primary CSS/XPath selectors yield 0 items.
+
+### 4. Hybrid Concurrency Worker Pool & Process Lifecycle
+- **Dual-Model Pool**: `HybridWorkerPool` offering high-throughput CPU/GPU isolation via `ProcessPoolExecutor` (`spawn` context) and lightweight thread fallback for non-multiprocessing environments.
+- **Process-Tree Hygiene**: Recursive child process discovery and termination via `psutil` process trees, guaranteeing zero lingering browser or worker zombie processes. Registered emergency `atexit` supervisor.
+
+### 5. Universal CAPTCHA Strategy & WebUI Parity
+- **Flexible Provider Selection**: Supported commercial APIs (`2captcha`, `anticaptcha`, `capsolver`) with seamless fallback to `FreeAudioCaptchaProvider` (local Whisper speech-to-text audio reCAPTCHA solver).
+- **WebUI Node Health Tactical Indicator**: Live `/api/telemetry/node-health` endpoint and alert banner in `index.html` surfacing CPU, RAM, Disk, and `HardwareLoadGovernor` concurrency throttle factors in real-time.
+- **Complete CLI & UI Control Parity**: Fully exposed ML thresholds, smart cropping, tagging, cloud storage sink parameters, and self-healing toggles across both WebUI cockpit and interactive CLI wizards.
+
+---
+
 # Release Notes — scrAPE v0.27.0
 **Release Date**: September 20, 2026  
 **Focus**: Holistic System Audit, End-to-End Live Integration, Dormant Subsystem Repairs, Deep Core Hardening, and Production Release Gating.

@@ -7,7 +7,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.25.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.28.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
@@ -27,11 +27,15 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 
 - **Dynamic Tactical WebUI**: Decoupled FastAPI + HTMX dashboard featuring an interactive HTML5 Canvas crawl network tree, live OS telemetry (CPU, RAM, Disk), process controls, and dual speed limiters.
 - **8-Tier WAF Escalation & Stealth**: Defeats Cloudflare Turnstile, reCAPTCHA v2/v3, and auth walls using an 8-tier fallback pipeline (Local Cookies → Crawl4AI → Crawlee Cheerio → DrissionPage → Crawlee Puppeteer → Helium → undetected-chromedriver → Camoufox → FlareSolverr).
-- **Universal Captcha Auto-Solving**: Automated token injection via CapSolver, 2Captcha, or AntiCaptcha.
+- **Universal CAPTCHA Strategy**: Commercial API auto-solving (`CapSolver`, `2Captcha`, `AntiCaptcha`) with automatic fallback to `FreeAudioCaptchaProvider` (local Whisper speech-to-text solver).
+- **Asynchronous Inline ML Pipeline**: Decoupled background worker (`AsyncMLPipelineWorker`) running non-blocking aesthetic scoring/culling, smart face/body cropping, and WD14 dataset tagging.
+- **Pluggable Multi-Tier Storage Sinks**: Atomic `LocalStorageSink` (traversal-safe) and direct multipart `S3StorageSink` (Amazon S3 / MinIO) with automatic offline spillover.
+- **3-Tier Hierarchical Deduplication**: $O(1)$ SHA-256 Bloom filter $\to$ 64-bit DCT pHash indexed in a BK-Tree metric tree $\to$ vector cosine similarity index.
+- **Autonomous Self-Healing DOM Parser**: SQLite rule cache $\to$ structural tree heuristics / JSON-LD microdata $\to$ pluggable LLM selector synthesis.
+- **Hybrid Worker Concurrency Pool**: CPU/GPU process isolation via `ProcessPoolExecutor` (`spawn` context) and `psutil` process-tree tracking guaranteeing zero zombie child processes.
 - **HardwareLoadGovernor**: Dynamic system RAM & CPU monitoring that overrides the pipeline's concurrency factor (scales 1x to 3x) and forces garbage collection under load.
 - **Dual Speed Limiters**: Token-bucket rate-limiting on outgoing page requests (`RPS`) and network bandwidth throttling on media asset downloads (`KBPS`).
 - **Resumable HTTP Range Downloads**: Persistent SQLite queue paired with HTTP 206 Partial Content byte resumption and Pillow image sanitization.
-- **AI Dataset Auto-Tagging & Quality Export**: Hybrid vision model auto-tagger (Ollama) with WD14 Booru classification, Kohya dataset exporter, and 64-bit perceptual `dHash` near-duplicate filtering.
 - **Pluggable Notification Architecture**: Multi-channel webhook notifier supporting Telegram Bot alerts, Discord rich embeds, Slack, and generic webhooks.
 
 ## Tech Stack

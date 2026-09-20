@@ -168,6 +168,16 @@ def extract_semantic_fallback_images(
                 except Exception:
                     pass
 
+    if not extracted:
+        try:
+            from core.self_healing_parser import SelfHealingDOMParser
+            sh_parser = SelfHealingDOMParser()
+            healed = sh_parser.extract(soup, page_url, page_title)
+            if healed:
+                return healed
+        except Exception as e:
+            LOGGER.debug("Self-healing parser fallback encountered error: %s", e)
+
     return extracted
 
 

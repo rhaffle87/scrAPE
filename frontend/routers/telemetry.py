@@ -247,6 +247,10 @@ def get_stats():
     ram_color = get_color(ram)
     disk_color = get_color(disk)
 
+    throttle_badge = ""
+    if scale < 0.99:
+        throttle_badge = f"""<span style="font-size: 0.7rem; background: rgba(255,51,51,0.2); border: 1px solid #ff3333; color: #ff3333; padding: 1px 4px; margin-left: 4px; font-weight: 700;">THROTTLED: {scale:.2f}x</span>"""
+
     return HTMLResponse(f"""
         <div class="telemetry-bar">
             <div class="telemetry-badge">
@@ -254,6 +258,7 @@ def get_stats():
                 <span class="telemetry-title">SYS TELEMETRY</span>
                 <span style="font-size: 0.7rem; background: rgba(0,255,102,0.1); border: 1px solid #00ff66; color: #00ff66; padding: 1px 4px; margin-left: 4px; font-weight: 700;">DB: {db_name}</span>
                 <span style="font-size: 0.7rem; background: rgba(255,85,0,0.1); border: 1px solid var(--accent); color: var(--accent); padding: 1px 4px; margin-left: 4px; font-weight: 700;">GOV: {scale:.2f}x</span>
+                {throttle_badge}
             </div>
             <div class="telemetry-metrics">
                 <div class="telemetry-card">
@@ -282,6 +287,33 @@ def get_stats():
             </div>
         </div>
     """)
+
+
+@router.get("/api/telemetry/node-health")
+def get_node_health():
+    """Return structured node health metrics: CPU, RAM, Disk, concurrency scale factor, and throttle alerts."""
+    from monitoring.hardware_governor import HardwareLoadGovernor
+
+    gov = HardwareLoadGovernor()
+    metrics = gov.get_metrics()
+    scale = gov.get_concurrency_scale_factor()
+    is_throttled = scale < 0.99
+
+    cpu = psutil.cpu_percent()
+    ram = psutil.virtual_memory().percent
+    disk = psutil.disk_usage(str(OUTPUT_DIR)).percent if OUTPUT_DIR.exists() else 0.0
+
+    return {
+        "status": "throttled" if is_throttled else "healthy",
+        "cpu_percent": cpu,
+        "ram_percent": ram,
+        "disk_percent": disk,
+        "concurrency_scale_factor": scale,
+        "is_throttled": is_throttled,
+        "alert": f"Hardware Load Governor active: Concurrency throttled to {scale:.2f}x" if is_throttled else None,
+        "metrics": metrics,
+    }
+
 
 
 @router.get("/api/engine/metrics")

@@ -53,6 +53,8 @@ __all__ = [
     "select_completed_run",
     "sanitize_filename",
     "val_float",
+    "prompt_core_systems_options",
+    "mode_core_systems_setup",
 ]
 
 
@@ -230,6 +232,9 @@ def mode_general_scraping():
     if enable_gov:
         cmd.append("--enable-governor")
 
+    core_flags = prompt_core_systems_options()
+    cmd.extend(core_flags)
+
     run_command(cmd)
 
     print(f"\n{CLR_GREEN}Scraping complete.{CLR_END}")
@@ -282,6 +287,9 @@ def mode_specified_scraping():
         "--output",
         "both",
     ]
+
+    core_flags = prompt_core_systems_options()
+    cmd.extend(core_flags)
 
     run_command(cmd)
 
@@ -470,4 +478,68 @@ def mode_export_database():
         fmt
     ]
     run_command(cmd)
+
+
+def prompt_core_systems_options() -> list[str]:
+    """Interactive prompt sequence for ML pipelines, storage sinks, self-healing DOM, and worker processes."""
+    flags: list[str] = []
+    print(f"\n{CLR_CYAN}--- NEXT-GEN CORE SYSTEMS ARCHITECTURE CONFIGURATION ---{CLR_END}")
+    enable_core = get_bool_input("Configure ML, Cloud Storage, or Self-Healing options?", default=False)
+    if not enable_core:
+        return flags
+
+    # ML Pipeline
+    enable_ml = get_bool_input("Enable Inline ML Pipeline (Aesthetic scoring, tagging, cropping)?", default=False)
+    if enable_ml:
+        min_score = get_input("Min Aesthetic Score threshold (0.0 to disable, e.g. 5.5)", default="0.0", val_fn=val_float)
+        if float(min_score) > 0:
+            flags.extend(["--aesthetic-score", min_score])
+        if get_bool_input("Enable smart face/object crop?", default=False):
+            flags.append("--auto-crop")
+        if get_bool_input("Enable WD14 vision dataset tagging?", default=False):
+            flags.append("--tag-dataset")
+        if get_bool_input("Export RAG knowledge base?", default=False):
+            flags.append("--export-rag")
+        if get_bool_input("Auto-export database to CSV?", default=False):
+            flags.append("--auto-export-db")
+
+    # Storage Backend
+    enable_s3 = get_bool_input("Use Cloud Storage Sink (S3/MinIO) instead of Local?", default=False)
+    if enable_s3:
+        flags.extend(["--storage-backend", "s3"])
+        bucket = get_input("Enter S3 bucket name", default="scrape-media")
+        flags.extend(["--s3-bucket", bucket])
+        prefix = get_input("Enter S3 key prefix", default="runs/")
+        flags.extend(["--s3-prefix", prefix])
+
+    # Autonomous Self-Healing DOM Parser
+    if get_bool_input("Enable Autonomous Self-Healing DOM Parser fallback?", default=False):
+        flags.append("--enable-self-healing")
+
+    # Worker Processes Pool
+    w_proc = get_input("Isolated Worker Processes (0 for CPU core auto-detection)", default="0", val_fn=validate_number)
+    if int(w_proc) > 0:
+        flags.extend(["--worker-processes", w_proc])
+
+    return flags
+
+
+def mode_core_systems_setup():
+    """Configure default CAPTCHA solver provider and storage credentials."""
+    print(f"\n{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ MODE: CORE SYSTEMS & CAPTCHA CONFIGURATION {CLR_END}\n")
+    print("Select primary CAPTCHA solver provider:")
+    print("  1) FreeAudioProvider (Zero-Cost Local Whisper / SpeechRecognition)")
+    print("  2) CapSolver (Commercial API)")
+    print("  3) 2Captcha (Commercial API)")
+    print("  4) AntiCaptcha (Commercial API)")
+    choice = get_input("Select provider (1-4)", default="1")
+    prov_map = {"1": "free_audio", "2": "capsolver", "3": "2captcha", "4": "anticaptcha"}
+    provider = prov_map.get(choice, "free_audio")
+
+    env_path = Path(".env")
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    new_lines = [line for line in lines if not line.startswith("CAPTCHA_PRIMARY_PROVIDER=")]
+    new_lines.append(f"CAPTCHA_PRIMARY_PROVIDER={provider}")
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    print(f"\n{CLR_GREEN}Primary CAPTCHA provider set to: {provider} in .env{CLR_END}")
 

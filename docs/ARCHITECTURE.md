@@ -228,6 +228,43 @@ The engine couples host-level network health with host-level hardware resource c
   - **Navigator**: Synchronizes `hardwareConcurrency`, `deviceMemory`, and masks `navigator.webdriver`.
 - **Pre-Execution Browser Injection**: Injects stealth scripts via CDP `Page.addScriptToEvaluateOnNewDocument` across all fallback browser automation engines (DrissionPage, Crawl4AI, Nodriver, Camoufox, Helium, UC) before page scripts execute.
 
+### 3.12 Asynchronous Inline ML Pipeline Stage (`src/core/ml_worker.py`)
+
+- **Decoupled Architecture**: Removes heavy CPU/GPU machine learning tasks from the live crawl network thread. Crawl workers enqueue downloaded items into a thread-safe `queue.Queue`.
+- **Inline Background Processing**: `AsyncMLPipelineWorker` processes items asynchronously in background threads:
+  - **Aesthetic Quality Scoring**: Evaluates visual quality and rejects low-score/watermarked images below `--aesthetic-score` threshold.
+  - **Smart Cropping**: Executes face- and body-centered smart cropping (`DatasetCropper`) when `--auto-crop` is passed.
+  - **WD14 Dataset Tagging**: Generates Booru tags and caption sidecar `.txt` files (`DatasetTagger`) when `--tag-dataset` is passed.
+- **Post-Crawl Exporters**: Automatically invokes `RagExporter` (chunked RAG vector payloads) and `DatabaseExporter` (SQLite relational export) at crawl completion.
+
+### 3.13 Multi-Tier Storage Sinks & Hierarchical Deduplication (`src/storage/`)
+
+- **Pluggable Storage Sinks (`src/storage/storage_backend.py`)**:
+  - `BaseStorageSink` protocol defining `store()`, `exists()`, `get_uri()`, and `delete()`.
+  - `LocalStorageSink`: Implements atomic `.tmp_xxx` staging, strict directory traversal prevention, and POSIX path sanitization.
+  - `S3StorageSink`: Streams media directly to Amazon S3 or MinIO via `boto3` multipart uploads with automatic local spillover fallback when offline or unauthenticated.
+- **3-Tier Deduplication Cascade (`src/storage/hierarchical_dedup.py`)**:
+  - **Tier 1 (L1) SHA-256 Bloom Filter**: Memory-efficient byte deduplication rejecting exact binary matches in $O(1)$.
+  - **Tier 2 (L2) BK-Tree pHash Index**: 64-bit DCT perceptual hash stored in a Discrete Metric Tree (BK-Tree) querying near-duplicates within Hamming distance $\le 4$.
+  - **Tier 3 (L3) Vector Cosine Similarity Index**: Cosine similarity ($\ge 0.96$) for semantic visual embeddings.
+
+### 3.14 Autonomous Self-Healing DOM Parser (`src/core/self_healing_parser.py`)
+
+- **Multi-Tier Cascade**:
+  - **Tier 1 (SQLite Rule Cache)**: Stores and retrieves verified selector repairs from `repaired_selectors` table in `results.db`.
+  - **Tier 2 (Structural Tree Heuristics & Microdata)**: Evaluates semantic HTML tags (`figure`, `article`, `main`), JSON-LD schema metadata (`ImageObject`, `VideoObject`), OpenGraph tags (`og:image`, `og:video`), and microdata attributes.
+  - **Tier 3 (Pluggable LLM Synthesizer)**: LLM selector synthesis with SQLite caching for high-entropy dynamic websites.
+- **Semantic Selector Integration (`src/core/semantic_selectors.py`)**:
+  - Hooked directly into `SemanticSelectorParser.extract()`. Automatically executes self-healing cascade when primary selectors return 0 results.
+
+### 3.15 Hybrid Concurrency Worker Pool & Process Lifecycle (`src/core/worker_pool.py`)
+
+- **Dual Concurrency Pool**:
+  - `HybridWorkerPool` providing CPU/GPU process isolation via `ProcessPoolExecutor` with Python `spawn` context and automatic thread fallback for lightweight systems.
+  - Active worker tracking, memory consumption checks, and automatic task cancellation.
+  - Comprehensive recursive child process discovery and termination via `psutil` process trees, ensuring zero zombie child processes.
+  - Emergency `atexit` supervisor hook guaranteeing clean shutdown on unexpected process exits.
+
 
 ---
 

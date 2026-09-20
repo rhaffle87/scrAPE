@@ -76,7 +76,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--export-db",
+        "--auto-export-db",
         action="store_true",
+        dest="auto_export_db",
         help="Export scraped results to a SQLite database (results.db).",
     )
     parser.add_argument(
@@ -293,6 +295,37 @@ def build_parser() -> argparse.ArgumentParser:
         "--auto-crop",
         action="store_true",
         help="Automatically generate smart face/body-centered cropped images for LoRA training.",
+    )
+    parser.add_argument(
+        "--storage-backend",
+        type=str,
+        choices=["local", "s3"],
+        default="local",
+        help="Storage sink backend for scraped media assets (default: local).",
+    )
+    parser.add_argument(
+        "--s3-bucket",
+        type=str,
+        default="",
+        help="S3 bucket name when --storage-backend s3 is selected.",
+    )
+    parser.add_argument(
+        "--s3-prefix",
+        type=str,
+        default="",
+        help="S3 key prefix for uploaded media assets.",
+    )
+    parser.add_argument(
+        "--enable-self-healing",
+        action="store_true",
+        help="Enable multi-tier autonomous self-healing DOM parser when selectors fail.",
+    )
+    parser.add_argument(
+        "--worker-processes",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Number of dedicated worker processes for CPU/ML tasks (0 = automatic/threads).",
     )
     return parser
 
@@ -756,8 +789,19 @@ def main() -> None:
             seed_manifest=manifest,
             domain_profiles=domain_profiles,
             run_id=run_id,
+            ignore_robots=getattr(args, "ignore_robots", False),
             harvest_callback=_harvest_cb,
             task_state=task_state,
+            aesthetic_score=getattr(args, "aesthetic_score", None),
+            auto_crop=getattr(args, "auto_crop", False),
+            tag_dataset=getattr(args, "tag_dataset", False),
+            export_rag=getattr(args, "export_rag", False),
+            auto_export_db=getattr(args, "auto_export_db", False),
+            storage_backend=getattr(args, "storage_backend", "local"),
+            s3_bucket=getattr(args, "s3_bucket", ""),
+            s3_prefix=getattr(args, "s3_prefix", ""),
+            enable_self_healing=getattr(args, "enable_self_healing", False),
+            worker_processes=getattr(args, "worker_processes", 0),
         )
     except Exception:
         import traceback as _tb
@@ -810,7 +854,7 @@ def main() -> None:
     if args.output in {"csv", "both"}:
         write_csv(result, output_root)
 
-    if getattr(args, "export_db", False):
+    if getattr(args, "auto_export_db", False) or getattr(args, "export_db", False):
         from storage.database_exporter import DatabaseExporter
         db_path = output_root / "results.db"
         logger.info("Exporting results to SQLite database...")

@@ -228,6 +228,11 @@ def test_ux_flow_transitions(mock_media_folder, page_session):
 
 def test_ux_e2e_scraping_and_terminal(mock_popen, page_session):
     """Test start crawl form submission, terminal log streaming, and stats updates."""
+    from frontend.state import task_state, set_current_process
+    task_state["status"] = "idle"
+    task_state["pid"] = None
+    set_current_process(None)
+
     # Reset page session to ensure fresh SSE event stream and clean DOM state
     page_session.reload(wait_until="commit")
     page_session.wait_for_selector("#command-center-view", state="visible")
@@ -237,6 +242,7 @@ def test_ux_e2e_scraping_and_terminal(mock_popen, page_session):
     
     # 2. Enter scrape parameter and run
     keyword_input = page_session.locator("#keyword-input")
+    page_session.wait_for_function("() => !document.getElementById('keyword-input').disabled", timeout=5000)
     keyword_input.fill("test_keyword")
     
     run_btn = page_session.locator("#btn-run")

@@ -61,6 +61,16 @@ class ScrapeRequest(BaseModel):
     dl_speed_limit: Optional[int] = 0
     save_rejected: Optional[str] = ""
     rate_limit: Optional[float] = 0.0
+    aesthetic_score: Optional[float] = 0.0
+    auto_crop: Optional[bool] = False
+    tag_dataset: Optional[bool] = False
+    export_rag: Optional[bool] = False
+    auto_export_db: Optional[bool] = False
+    storage_backend: Optional[str] = "local"
+    s3_bucket: Optional[str] = ""
+    s3_prefix: Optional[str] = ""
+    enable_self_healing: Optional[bool] = False
+    worker_processes: Optional[int] = 0
 
 
 def read_subprocess_logs(proc: Popen):
@@ -261,6 +271,27 @@ def run_scrape(req: ScrapeRequest):
     if req.stealth_headful:
         cmd.append("--stealth-headful")
 
+    if req.aesthetic_score and req.aesthetic_score > 0.0:
+        cmd.extend(["--aesthetic-score", str(req.aesthetic_score)])
+    if req.auto_crop:
+        cmd.append("--auto-crop")
+    if req.tag_dataset:
+        cmd.append("--tag-dataset")
+    if req.export_rag:
+        cmd.append("--export-rag")
+    if req.auto_export_db:
+        cmd.append("--auto-export-db")
+    if req.storage_backend and req.storage_backend != "local":
+        cmd.extend(["--storage-backend", req.storage_backend])
+    if req.s3_bucket:
+        cmd.extend(["--s3-bucket", req.s3_bucket])
+    if req.s3_prefix:
+        cmd.extend(["--s3-prefix", req.s3_prefix])
+    if req.enable_self_healing:
+        cmd.append("--enable-self-healing")
+    if req.worker_processes and req.worker_processes > 0:
+        cmd.extend(["--worker-processes", str(req.worker_processes)])
+
     log_buffer.clear()
 
     popen_cls = getattr(sys.modules.get("frontend.app"), "Popen", Popen)
@@ -356,6 +387,36 @@ async def htmx_run(request: Request):
         req.headless = True
     if form.get("stealth_headful") == "on":
         req.stealth_headful = True
+    if form.get("auto_crop") == "on":
+        req.auto_crop = True
+    if form.get("tag_dataset") == "on":
+        req.tag_dataset = True
+    if form.get("export_rag") == "on":
+        req.export_rag = True
+    if form.get("auto_export_db") == "on":
+        req.auto_export_db = True
+    if form.get("enable_self_healing") == "on":
+        req.enable_self_healing = True
+
+    aesthetic_str = _get_form_str(form, "aesthetic_score")
+    if aesthetic_str:
+        try:
+            req.aesthetic_score = float(aesthetic_str)
+        except ValueError:
+            pass
+
+    storage_val = _get_form_str(form, "storage_backend")
+    if storage_val:
+        req.storage_backend = storage_val
+    s3_b = _get_form_str(form, "s3_bucket")
+    if s3_b:
+        req.s3_bucket = s3_b
+    s3_p = _get_form_str(form, "s3_prefix")
+    if s3_p:
+        req.s3_prefix = s3_p
+    w_proc = _get_form_int(form, "worker_processes", 0)
+    if w_proc > 0:
+        req.worker_processes = w_proc
 
     try:
         run_scrape(req)

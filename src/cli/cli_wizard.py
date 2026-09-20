@@ -89,11 +89,12 @@ def run_cli_wizard():
         print(f"{CLR_DIM}┃{CLR_END} [ 07 ] {CLR_BLUE}Proxy Settings{CLR_END}              {CLR_DIM}(Save to .env){CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 08 ] {CLR_HEADER}Scraper Authentication{CLR_END}      {CLR_DIM}(Instagram/Twitter cookies){CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 09 ] {CLR_WARNING}Export Local Database{CLR_END}       {CLR_DIM}(SQLite to CSV/JSON){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 10 ] {CLR_GREEN}Core Systems & CAPTCHA{CLR_END}      {CLR_DIM}(Provider preference & S3){CLR_END}")
         print(f"{CLR_DIM}┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫{CLR_END}")
-        print(f"{CLR_DIM}┃{CLR_END} [ 10 ] {CLR_FAIL}Exit System{CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 11 ] {CLR_FAIL}Exit System{CLR_END}")
         print(f"{CLR_DIM}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛{CLR_END}\n")
 
-        choice = get_input("Select mode (1-10)", default="1")
+        choice = get_input("Select mode (1-11)", default="1")
 
         if choice == "1":
             mode_general_scraping()
@@ -116,6 +117,9 @@ def run_cli_wizard():
             from cli.cli_wizard_standard import mode_export_database
             mode_export_database()
         elif choice == "10":
+            from cli.cli_wizard_standard import mode_core_systems_setup
+            mode_core_systems_setup()
+        elif choice == "11":
             print(f"\n{CLR_FAIL}[SYSTEM] Exiting scrAPE Wizard. Goodbye!{CLR_END}")
             sys.exit(0)
 
