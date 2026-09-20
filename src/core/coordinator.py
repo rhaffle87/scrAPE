@@ -320,6 +320,16 @@ class CrawlCoordinator:
                                             allow_domains=self.options.allow_domains,
                                             block_domains=self.options.block_domains
                                         )
+                                        # Smart pagination detection
+                                        try:
+                                            from core.microdata import detect_smart_pagination
+                                            smart_pages = detect_smart_pagination(content, page)
+                                            for sp in smart_pages:
+                                                if not any(lnk.get("url") == sp for lnk in discovered_links):
+                                                    discovered_links.append({"url": sp, "anchor_text": "pagination_next"})
+                                        except Exception as exc:
+                                            LOGGER.debug("Smart pagination detection error on %s: %s", page, exc)
+
                                         # index→detail filtering — applied at every
                                         # depth, not just depth 0, so off-model/utility
                                         # links discovered on POST pages are filtered too
@@ -441,20 +451,24 @@ class CrawlCoordinator:
                                 LOGGER.info("Retrying %s (attempt %d/3) after error; release in 2.0s.", page, retry_count + 1)
                                 heapq.heappush(pages_queue, (depth, retry_count + 1, release_at, time.monotonic(), page))
                                 continue
-                        elif scrape_status == "ok":
-                            self.governor.report_success(host)
-                        
-                        net_latency = self.search_provider.http.last_net_latency
+                        net_latency = getattr(getattr(self.search_provider, "http", None), "last_net_latency", 0.0)
                         if not isinstance(net_latency, (int, float)):
                             net_latency = 0.0
                         effective_latency = net_latency if net_latency > 0.0 else latency
+
+                        if scrape_status == "ok":
+                            self.governor.report_success(host, latency_s=effective_latency)
                     
                         if not is_block:
+                            global_cap = self.governor.get_global_concurrency_limit()
                             if effective_latency > 2.0:
                                 current_concurrency = max(1, current_concurrency - 1)
                             else:
-                                if current_concurrency < self.workers:
+                                if current_concurrency < min(self.workers, global_cap):
                                     current_concurrency += 1
+                                elif current_concurrency > global_cap:
+                                    current_concurrency = max(1, global_cap)
+
 
                         with self.result_lock:
                             if host not in self.result.domain_stats:
@@ -547,5 +561,24 @@ class CrawlCoordinator:
             page_images, page_videos, scrape_status, content, content_type = self.search_provider.scrape_page(
                 page, allow_domains=self.options.allow_domains, block_domains=self.options.block_domains
             )
+            if scrape_status == "ok" and content:
+                try:
+                    from core.microdata import extract_jsonld_media
+                    j_images, j_videos = extract_jsonld_media(content, page)
+                    if j_images:
+                        existing_img_urls = {img.url for img in page_images}
+                        for ji in j_images:
+                            if ji.url not in existing_img_urls:
+                                page_images.append(ji)
+                                existing_img_urls.add(ji.url)
+                    if j_videos:
+                        existing_vid_urls = {vid.url for vid in page_videos}
+                        for jv in j_videos:
+                            if jv.url not in existing_vid_urls:
+                                page_videos.append(jv)
+                                existing_vid_urls.add(jv.url)
+                except Exception as exc:
+                    LOGGER.debug("Error extracting JSON-LD microdata from %s: %s", page, exc)
             
         return page, depth, page_images, page_videos, scrape_status, content, content_type
+

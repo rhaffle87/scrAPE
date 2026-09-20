@@ -32,43 +32,88 @@ class ProxyInfo:
         self.consecutive_failures: int = 0
         self.total_latency_ms: float = 0.0
         self.avg_latency_ms: float = 0.0
+        self.ema_latency_ms: float = 0.0
+        self.health_score: float = 1.0
+        self.quarantine_tier: int = 0
+        self.is_probing: bool = False
         self.cooldown_until: float = 0.0
         self.bytes_transferred: int = 0
+
+    def compute_health_score(self) -> float:
+        """Compute composite proxy health score in range [0.0, 1.0]."""
+        # Laplace smoothed success ratio
+        ratio = (self.successes + 1.0) / (self.successes + self.failures + 2.0)
+        # Consecutive failure penalty
+        fail_penalty = max(0.0, 1.0 - (self.consecutive_failures * 0.25))
+        # Latency factor (penalise latency exceeding 300ms)
+        lat = self.ema_latency_ms or self.avg_latency_ms or 150.0
+        if lat <= 300.0:
+            lat_factor = 1.0
+        else:
+            lat_factor = max(0.1, 1.0 - (lat - 300.0) / 2500.0)
+        return round(max(0.0, min(1.0, ratio * fail_penalty * lat_factor)), 3)
 
     def record_success(self, latency_ms: float) -> None:
         self.successes += 1
         self.consecutive_failures = 0
+        self.quarantine_tier = 0
+        self.is_probing = False
         self.total_latency_ms += latency_ms
         self.avg_latency_ms = round(self.total_latency_ms / max(1, self.successes), 1)
+
+        # Exponential moving average (alpha = 0.2)
+        alpha = 0.2
+        if self.ema_latency_ms <= 0.0:
+            self.ema_latency_ms = float(latency_ms)
+        else:
+            self.ema_latency_ms = round(alpha * latency_ms + (1.0 - alpha) * self.ema_latency_ms, 2)
+
         if latency_ms > 3000.0:
             self.cooldown_until = time.monotonic() + 300.0
+            self.quarantine_tier = max(1, self.quarantine_tier)
             LOGGER.warning(
                 "Proxy '%s' entered 5-minute cooldown (high latency %.1f ms > 3000ms).",
                 self.url,
                 latency_ms,
             )
+        self.health_score = self.compute_health_score()
 
     def record_failure(self) -> None:
         self.failures += 1
         self.consecutive_failures += 1
         if self.consecutive_failures >= 3:
-            # 5-minute auto-eviction cooldown
-            self.cooldown_until = time.monotonic() + 300.0
+            # Tiered exponential backoff:
+            # Tier 1 (3 fails): 300s, Tier 2 (4 fails): 600s, Tier 3 (5 fails): 1200s, Tier 4+ (6+ fails): 1800s
+            tier = self.consecutive_failures - 2
+            self.quarantine_tier = tier
+            backoff = min(1800.0, 300.0 * (2 ** min(4, self.consecutive_failures - 3)))
+            self.cooldown_until = time.monotonic() + backoff
             LOGGER.warning(
-                "Proxy '%s' entered 5-minute cooldown (3 consecutive failures).",
+                "Proxy '%s' entered Tier %d quarantine for %.0fs (%d consecutive failures).",
                 self.url,
+                tier,
+                backoff,
+                self.consecutive_failures,
             )
+        self.health_score = self.compute_health_score()
 
     def record_bytes(self, num_bytes: int) -> None:
         if num_bytes > 0:
             self.bytes_transferred += num_bytes
 
     def is_healthy(self) -> bool:
-        return time.monotonic() >= self.cooldown_until
+        now = time.monotonic()
+        if now >= self.cooldown_until:
+            if self.quarantine_tier > 0 and not self.is_probing:
+                self.is_probing = True
+            return True
+        return False
 
     def quarantine(self, duration_s: float = 300.0) -> None:
         """Immediately put proxy in cooldown for a specified duration."""
         self.cooldown_until = time.monotonic() + duration_s
+        self.quarantine_tier = max(1, self.quarantine_tier + 1)
+        self.health_score = self.compute_health_score()
         LOGGER.warning(
             "Proxy '%s' manually quarantined for %s seconds.",
             self.url,
@@ -244,7 +289,20 @@ class ProxyPoolManager:
             healthy = [p for p in self._proxies.values() if p.is_healthy()]
             if not healthy:
                 return None
-            healthy.sort(key=lambda p: (p.consecutive_failures, p.avg_latency_ms))
+            healthy.sort(key=lambda p: (p.consecutive_failures, -p.health_score, p.avg_latency_ms))
+            return healthy[0].url
+
+    def get_healthy_proxy(self) -> str | None:
+        """Return the highest health-scored healthy proxy using EMA latency and reputation weighting."""
+        with self._pool_lock:
+            if self.get_total_bytes_transferred() >= self.max_bandwidth_bytes:
+                LOGGER.warning("Proxy pool bandwidth quota exhausted. Halting proxy routing.")
+                return None
+
+            healthy = [p for p in self._proxies.values() if p.is_healthy()]
+            if not healthy:
+                return None
+            healthy.sort(key=lambda p: (p.consecutive_failures, -p.health_score, p.ema_latency_ms or p.avg_latency_ms))
             return healthy[0].url
 
     def get_proxy_for_domain(self, domain: str) -> str | None:
@@ -259,7 +317,7 @@ class ProxyPoolManager:
             if bound_url and bound_url in self._proxies and self._proxies[bound_url].is_healthy():
                 return bound_url
 
-            best_proxy = self.get_best_proxy()
+            best_proxy = self.get_healthy_proxy() or self.get_best_proxy()
             if best_proxy:
                 self._domain_bindings[domain_clean] = best_proxy
             return best_proxy
@@ -296,10 +354,14 @@ class ProxyPoolManager:
                 {
                     "url": p.url,
                     "healthy": p.is_healthy(),
+                    "health_score": p.health_score,
                     "successes": p.successes,
                     "failures": p.failures,
                     "consecutive_failures": p.consecutive_failures,
                     "avg_latency_ms": p.avg_latency_ms,
+                    "ema_latency_ms": p.ema_latency_ms,
+                    "quarantine_tier": p.quarantine_tier,
+                    "is_probing": p.is_probing,
                     "bytes_transferred": p.bytes_transferred,
                 }
                 for p in self._proxies.values()

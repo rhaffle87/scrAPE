@@ -2,9 +2,15 @@ import functools
 import logging
 import random
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from urllib.parse import urlparse
+
+try:
+    from storage.bloom_filter import BloomFilter
+except ImportError:
+    from src.storage.bloom_filter import BloomFilter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -40,20 +46,68 @@ class StateCache:
         self,
         db_path: str | Path = "output/cache/state_cache.db",
         max_age_days: int = 30,
+        batch_size: int = 50,
+        batch_timeout: float = 2.0,
+        bloom_capacity: int = 1_000_000,
+        bloom_error_rate: float = 0.01,
     ):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.max_age_seconds = max_age_days * 86400
+        self.batch_size = batch_size
+        self.batch_timeout = batch_timeout
+        self._write_buffer: dict[str, tuple[str, float]] = {}
+        self._buffer_lock = threading.Lock()
+        self._last_flush_time = time.time()
+        self.bloom_filter = BloomFilter(capacity=bloom_capacity, error_rate=bloom_error_rate)
+
         self._init_db()
         self._cleanup_old_entries()
+        self._populate_bloom_filter()
         self.vacuum_db()
+
+    def _populate_bloom_filter(self):
+        """Populate the in-memory Bloom filter from persistent database records."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT url_hash FROM processed_urls")
+                for (h,) in cursor.fetchall():
+                    self.bloom_filter.add(h)
+        except Exception as e:
+            LOGGER.warning(f"Error populating Bloom filter from state cache: {e}")
+
+    def flush_buffer(self) -> int:
+        """Flush staged write buffer into SQLite in a single transaction."""
+        with self._buffer_lock:
+            if not self._write_buffer:
+                return 0
+            to_write = list(self._write_buffer.items())
+            self._write_buffer.clear()
+            self._last_flush_time = time.time()
+
+        items = [(h, url, ts) for h, (url, ts) in to_write]
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(
+                    "INSERT OR REPLACE INTO processed_urls (url_hash, url, timestamp) VALUES (?, ?, ?)",
+                    items,
+                )
+                conn.commit()
+            return len(items)
+        except Exception as e:
+            LOGGER.warning(f"Error flushing StateCache write buffer: {e}")
+            return 0
 
     def wal_checkpoint(self) -> bool:
         """Executes explicit PRAGMA wal_checkpoint(TRUNCATE) to optimize database WAL size."""
+        self.flush_buffer()
         try:
             with self._get_connection() as conn:
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
             return True
+
         except Exception as exc:
             LOGGER.warning("SQLite WAL checkpoint failed: %s", exc)
             return False
@@ -156,6 +210,7 @@ class StateCache:
 
     def prune_expired(self, max_age_days: int = 30) -> int:
         """Delete entries older than max_age_days to prevent database bloat. Returns number of deleted rows."""
+        self.flush_buffer()
         cutoff_time = time.time() - (max_age_days * 86400)
         total_deleted = 0
         try:
@@ -187,14 +242,26 @@ class StateCache:
                         deleted_dead,
                         deleted_etags,
                     )
+            self.bloom_filter.clear()
+            self._populate_bloom_filter()
         except Exception as e:
             LOGGER.warning(f"StateCache cleanup failed: {e}")
         return total_deleted
 
+
     def is_processed(self, url: str) -> bool:
         """Check if a URL has already been processed and successfully downloaded/scraped."""
-        # Using a normalized basic hash (just the URL string for now, could be SHA256)
         url_hash = self._hash_url(url)
+        # L1 Gatekeeper: Fast Bloom filter check
+        if not self.bloom_filter.contains(url_hash):
+            return False
+
+        # Check pending staged write buffer in RAM
+        with self._buffer_lock:
+            if url_hash in self._write_buffer:
+                return True
+
+        # L2 Verification: Check persistent SQLite database
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -207,20 +274,33 @@ class StateCache:
             LOGGER.warning(f"Error checking state cache for {url}: {e}")
             return False
 
-    def mark_processed(self, url: str):
+    def mark_processed(self, url: str, immediate: bool = False):
         """Mark a URL as processed."""
         url_hash = self._hash_url(url)
         now = time.time()
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT OR REPLACE INTO processed_urls (url_hash, url, timestamp) VALUES (?, ?, ?)",
-                    (url_hash, url, now),
-                )
-                conn.commit()
-        except Exception as e:
-            LOGGER.warning(f"Error marking {url} as processed in state cache: {e}")
+        self.bloom_filter.add(url_hash)
+
+        if immediate:
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO processed_urls (url_hash, url, timestamp) VALUES (?, ?, ?)",
+                        (url_hash, url, now),
+                    )
+                    conn.commit()
+            except Exception as e:
+                LOGGER.warning(f"Error marking {url} as processed in state cache: {e}")
+            return
+
+        should_flush = False
+        with self._buffer_lock:
+            self._write_buffer[url_hash] = (url, now)
+            if len(self._write_buffer) >= self.batch_size or (now - self._last_flush_time) >= self.batch_timeout:
+                should_flush = True
+
+        if should_flush:
+            self.flush_buffer()
 
     def is_dead(self, url: str) -> bool:
         """Check if a URL is known to be dead (404/410)."""
@@ -285,8 +365,13 @@ class StateCache:
             return
 
         now = time.time()
-        items = [(self._hash_url(u), u, now) for u in urls]
+        for u in urls:
+            self.bloom_filter.add(self._hash_url(u))
 
+        # First flush any pending buffered writes
+        self.flush_buffer()
+
+        items = [(self._hash_url(u), u, now) for u in urls]
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -306,9 +391,26 @@ class StateCache:
             return {}
 
         results: dict[str, bool] = {u: False for u in urls}
-        hash_to_url = {self._hash_url(u): u for u in urls}
-        hashes = list(hash_to_url.keys())
+        hash_to_url: dict[str, str] = {}
+        for u in urls:
+            h = self._hash_url(u)
+            if self.bloom_filter.contains(h):
+                hash_to_url[h] = u
 
+        if not hash_to_url:
+            return results
+
+        # Check pending staged writes
+        with self._buffer_lock:
+            for h in list(hash_to_url.keys()):
+                if h in self._write_buffer:
+                    results[hash_to_url[h]] = True
+                    del hash_to_url[h]
+
+        if not hash_to_url:
+            return results
+
+        hashes = list(hash_to_url.keys())
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -330,6 +432,8 @@ class StateCache:
 
     def flush(self):
         """Manually clear all cached state."""
+        self.flush_buffer()
+        self.bloom_filter.clear()
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -339,6 +443,16 @@ class StateCache:
                 LOGGER.info("StateCache flushed successfully.")
         except Exception as e:
             LOGGER.warning(f"Error flushing StateCache: {e}")
+
+    def close(self):
+        """Flush pending write buffer on close."""
+        self.flush_buffer()
+
+    def __del__(self):
+        try:
+            self.flush_buffer()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Perceptual Hash Persistence (cross-run image deduplication)
@@ -445,6 +559,7 @@ class StateCache:
 
         Returns the number of rows deleted.
         """
+        self.flush_buffer()
         pattern = f"%{domain.strip().lower()}%"
         deleted = 0
         try:
@@ -455,6 +570,9 @@ class StateCache:
                 )
                 deleted = cursor.rowcount
                 conn.commit()
+            if deleted > 0:
+                self.bloom_filter.clear()
+                self._populate_bloom_filter()
             LOGGER.info(
                 "StateCache: cleared %d cached entries for domain '%s'.",
                 deleted,
@@ -466,6 +584,7 @@ class StateCache:
 
     def get_db_stats(self) -> dict[str, int | str]:
         """Return database telemetry metrics: record count, file size, WAL mode."""
+        self.flush_buffer()
         stats: dict[str, int | str] = {
             "total_urls": 0,
             "total_dead_urls": 0,
@@ -490,6 +609,7 @@ class StateCache:
         except Exception as e:
             LOGGER.warning("StateCache get_db_stats failed: %s", e)
         return stats
+
 
     def _hash_url(self, url: str) -> str:
         """Create a consistent key for the URL. Strips fragments, keeps query params."""

@@ -396,6 +396,73 @@ class MediaDownloader:
 
         return headers
 
+    def _download_parallel_chunks(
+        self,
+        url: str,
+        target_path: Path,
+        total_size: int,
+        headers: dict[str, str],
+        num_chunks: int = 4,
+    ) -> bool:
+        """Download a large media asset in parallel byte ranges and concatenate into target_path."""
+        chunk_size = total_size // num_chunks
+        ranges: list[tuple[int, int, int]] = []
+        for i in range(num_chunks):
+            start = i * chunk_size
+            end = total_size - 1 if i == num_chunks - 1 else (i + 1) * chunk_size - 1
+            ranges.append((i, start, end))
+
+        chunk_files: dict[int, Path] = {}
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def _fetch_range(args: tuple[int, int, int]) -> bool:
+            chunk_idx, start_b, end_b = args
+            chunk_file = target_path.with_name(f"{target_path.name}.part{chunk_idx}")
+            chunk_files[chunk_idx] = chunk_file
+            chunk_headers = headers.copy()
+            chunk_headers["Range"] = f"bytes={start_b}-{end_b}"
+            chunk_headers["Connection"] = "close"
+            dl_timeout = httpx.Timeout(30.0, read=60.0, connect=15.0)
+            try:
+                with httpx.Client(verify=False, timeout=dl_timeout) as client:  # nosec B501
+                    with client.stream("GET", url, headers=chunk_headers) as resp:
+                        if resp.status_code in (206, 200):
+                            with open(chunk_file, "wb") as f:
+                                for b in resp.iter_bytes(chunk_size=16384):
+                                    f.write(b)
+                            return True
+            except Exception as e:
+                LOGGER.debug("Chunk %d (%d-%d) download error: %s", chunk_idx, start_b, end_b, e)
+            return False
+
+        with ThreadPoolExecutor(max_workers=min(num_chunks, 4)) as pool:
+            results = list(pool.map(_fetch_range, ranges))
+
+        if not all(results):
+            for p in chunk_files.values():
+                if p.exists():
+                    p.unlink(missing_ok=True)
+            return False
+
+        try:
+            with open(target_path, "wb") as outfile:
+                for i in range(num_chunks):
+                    cf = chunk_files.get(i)
+                    if cf and cf.exists():
+                        with open(cf, "rb") as infile:
+                            while chunk := infile.read(65536):
+                                outfile.write(chunk)
+                        cf.unlink(missing_ok=True)
+            return True
+        except Exception as e:
+            LOGGER.warning("Failed concatenating parallel chunks for %s: %s", url, e)
+            for p in chunk_files.values():
+                if p.exists():
+                    p.unlink(missing_ok=True)
+            if target_path.exists():
+                target_path.unlink(missing_ok=True)
+            return False
+
     def _download_file(
         self,
         url: str,
@@ -406,6 +473,7 @@ class MediaDownloader:
         min_image_size: tuple[int, int] | None = None,
         thumbnail_prefix_pattern: str | None = None,
         cdn_hosts: list[str] | None = None,
+        fallback_urls: list[str] | None = None,
     ) -> tuple[bool, dict]:
         """Fetch a single media binary and persist it to *directory*.
 
@@ -507,6 +575,28 @@ class MediaDownloader:
                                 if etag_check and self._state_cache and self._state_cache.is_etag_processed(etag_check):
                                     LOGGER.info("Aborting download (ETag duplicate %s) for %s", etag_check, url)
                                     return False, {"reason": "etag_duplicate"}
+
+                                # Parallel chunk range download for large media (>= 20 MB with Accept-Ranges)
+                                accept_ranges = head_resp.headers.get("accept-ranges", "").lower()
+                                if cl and cl.isdigit() and int(cl) >= 20 * 1024 * 1024 and "bytes" in accept_ranges:
+                                    LOGGER.info("Downloading large asset (%s bytes) in parallel chunk ranges: %s", cl, url)
+                                    if self._download_parallel_chunks(safe_url, temp_target, int(cl), req_headers):
+                                        content_type = head_resp.headers.get("content-type", "")
+                                        suffix = self._determine_suffix(url, content_type)
+                                        target = directory / f"{prefix}{suffix}"
+                                        if temp_target.exists():
+                                            temp_target.rename(target)
+                                            file_hash = self._compute_sha256(target)
+                                            if self._state_cache:
+                                                self._state_cache.record_processed(url, file_hash, etag_val=etag_check)
+                                            return True, {
+                                                "file_path": str(target),
+                                                "hash": file_hash,
+                                                "file_size_bytes": target.stat().st_size,
+                                                "mime_type": content_type,
+                                                "width": None,
+                                                "height": None,
+                                            }
                     except Exception as e:
                         LOGGER.debug("HEAD request failed for %s: %s", url, e)
 
@@ -918,6 +1008,22 @@ class MediaDownloader:
                             self._dead_urls.add(url)
                     else:
                         LOGGER.warning("HTTP %d downloading %s: %s", status, url, exc)
+                    if fallback_urls:
+                        for idx, fb in enumerate(fallback_urls):
+                            LOGGER.info("HTTP %s failed for %s. Attempting fallback candidate #%d: %s", status, url, idx + 1, fb)
+                            fb_ok, fb_res = self._download_file(
+                                fb,
+                                directory,
+                                prefix,
+                                media_kind,
+                                referer=referer,
+                                min_image_size=min_image_size,
+                                thumbnail_prefix_pattern=thumbnail_prefix_pattern,
+                                cdn_hosts=cdn_hosts,
+                                fallback_urls=None,
+                            )
+                            if fb_ok:
+                                return fb_ok, fb_res
                     return False, {"reason": f"http_error:{status}"}
                 
                 # Network or unexpected error
@@ -942,7 +1048,40 @@ class MediaDownloader:
                     continue
                     
                 LOGGER.warning("Failed to download %s: %s", url, exc)
+                if fallback_urls:
+                    for idx, fb in enumerate(fallback_urls):
+                        LOGGER.info("Primary URL failed for %s. Attempting fallback candidate #%d: %s", url, idx + 1, fb)
+                        fb_ok, fb_res = self._download_file(
+                            fb,
+                            directory,
+                            prefix,
+                            media_kind,
+                            referer=referer,
+                            min_image_size=min_image_size,
+                            thumbnail_prefix_pattern=thumbnail_prefix_pattern,
+                            cdn_hosts=cdn_hosts,
+                            fallback_urls=None,
+                        )
+                        if fb_ok:
+                            return fb_ok, fb_res
                 return False, {"reason": f"download_error:{type(exc).__name__}"}
+
+        if fallback_urls:
+            for idx, fb in enumerate(fallback_urls):
+                LOGGER.info("Exhausted retries for %s. Attempting fallback candidate #%d: %s", url, idx + 1, fb)
+                fb_ok, fb_res = self._download_file(
+                    fb,
+                    directory,
+                    prefix,
+                    media_kind,
+                    referer=referer,
+                    min_image_size=min_image_size,
+                    thumbnail_prefix_pattern=thumbnail_prefix_pattern,
+                    cdn_hosts=cdn_hosts,
+                    fallback_urls=None,
+                )
+                if fb_ok:
+                    return fb_ok, fb_res
 
         # All retry attempts exhausted without a definitive return (should not happen in practice)
         return False, {"reason": "max_retries_exceeded"}
@@ -1166,6 +1305,9 @@ class MediaDownloader:
             return b"ftyp" in content[:32]
         if lowered_suffix in {".webm", ".mkv"}:
             return content.startswith(b"\x1a\x45\xdf\xa3")
-        if lowered_suffix == ".ogv":
-            return content.startswith(b"OggS")
         return any(content.startswith(sig) for sig in VIDEO_SIGNATURES)
+
+
+FileDownloader = MediaDownloader
+
+__all__ = ["MediaDownloader", "FileDownloader"]

@@ -30,6 +30,9 @@ class ImageItem:
     failure_reason: str = ""
     hash: str = ""
     source_domain: str = ""
+    fallback_urls: list[str] = field(default_factory=list)
+    extraction_source: str = ""
+    candidates: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -50,6 +53,9 @@ class VideoItem:
     failure_reason: str = ""
     hash: str = ""
     source_domain: str = ""
+    fallback_urls: list[str] = field(default_factory=list)
+    extraction_source: str = ""
+    candidates: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)

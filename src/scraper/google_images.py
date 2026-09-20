@@ -596,6 +596,19 @@ class SearchProviderScraper(BaseSearchScraper):
                     parent_anchor.get_text() or _get_attr_str(parent_anchor, "title")
                 )
 
+            from core.media_processor import parse_image_candidates, rank_media_candidates
+            candidates = parse_image_candidates(image, page_url)
+            fallback_urls: list[str] = []
+            if candidates:
+                best_cand_url, c_fallbacks = rank_media_candidates(candidates)
+                if best_cand_url and is_allowed_domain(best_cand_url, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                    if best_cand_url != absolute_url:
+                        fallback_urls.append(absolute_url)
+                    absolute_url = best_cand_url
+                for fb in c_fallbacks:
+                    if fb not in fallback_urls and is_allowed_domain(fb, allow_domains, [*block_domains, *ALWAYS_BLOCK_DOMAINS]):
+                        fallback_urls.append(fb)
+
             images.append(
                 ImageItem(
                     url=absolute_url,
@@ -607,6 +620,8 @@ class SearchProviderScraper(BaseSearchScraper):
                     in_layout_container=in_layout,
                     parent_anchor_text=parent_anchor_text,
                     parent_anchor_href=parent_anchor_href,
+                    fallback_urls=fallback_urls,
+                    candidates=candidates,
                 )
             )
 

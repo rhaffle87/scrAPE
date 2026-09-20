@@ -112,7 +112,7 @@ class ScraperBypassError(Exception):
 
 
 class _DomainCooldownState:
-    """Tracks 429 hits and cooldown schedule for a single hostname."""
+    """Tracks 429 hits, domain reputation, and cooldown schedule for a single hostname."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -124,6 +124,7 @@ class _DomainCooldownState:
         self.cooldown_until: float = 0.0  # monotonic timestamp
         self.is_blacklisted: bool = False
         self.total_429s: int = 0  # cumulative 429s for adaptive jitter scaling
+        self.reputation_score: float = 1.0  # domain reputation in [0.1, 1.0]
 
     def adaptive_jitter(self) -> float:
         """Return a scaled jitter ceiling based on cumulative 429 pressure.
@@ -133,13 +134,24 @@ class _DomainCooldownState:
         - Grows +0.1 s per 429 hit.
         - Hard-capped at 2.0 s to prevent crawl stalls.
         """
-        return min(RATE_LIMIT_JITTER_SECONDS + self.total_429s * 0.1, 2.0)
+        with self._lock:
+            return min(RATE_LIMIT_JITTER_SECONDS + (self.total_429s * 0.1), 2.0)
+
+
+    def adaptive_delay(self, base_delay: float) -> float:
+        """Scale base delay dynamically when domain reputation drops."""
+        with self._lock:
+            if self.reputation_score >= 0.8:
+                return base_delay
+            multiplier = 1.0 + (0.8 - self.reputation_score) * 2.5
+            return round(base_delay * multiplier, 3)
 
     def record_429(self) -> float | None:
-        """Increment the 429 counter.  Returns cooldown duration if threshold crossed, else None."""
+        """Increment the 429 counter. Returns cooldown duration if threshold crossed, else None."""
         with self._lock:
             self.total_429s += 1
             self.consecutive_429s += 1
+            self.reputation_score = max(0.1, round(self.reputation_score - 0.25, 3))
             if self.consecutive_429s >= DOMAIN_COOLDOWN_THRESHOLD:
                 if self.cooldown_count >= 3:
                     self.is_blacklisted = True
@@ -159,6 +171,7 @@ class _DomainCooldownState:
         """Increment the failure counter. Returns cooldown duration if threshold crossed, else None."""
         with self._lock:
             self.consecutive_failures += 1
+            self.reputation_score = max(0.1, round(self.reputation_score - 0.15, 3))
             if (
                 self.consecutive_failures >= 3
             ):  # Cooldown after 3 consecutive timeouts/connect errors
@@ -177,10 +190,11 @@ class _DomainCooldownState:
         return None
 
     def record_success(self) -> None:
-        """Reset consecutive counters on a clean response."""
+        """Reset consecutive counters on a clean response and improve domain reputation."""
         with self._lock:
             self.consecutive_429s = 0
             self.consecutive_failures = 0
+            self.reputation_score = min(1.0, round(self.reputation_score + 0.05, 3))
 
     def is_cooling_down(self) -> bool:
         with self._lock:
@@ -243,15 +257,26 @@ class HttpClient(BrowserClientMixin):
     }
     _waf_solve_lock = threading.Lock()
 
+    SUPPORTED_TLS_PROFILES: ClassVar[list[str]] = [
+        "chrome120",
+        "chrome124",
+        "chrome131",
+        "safari17_0",
+        "safari18_0",
+        "firefox133",
+        "edge124",
+    ]
     _tls_impersonate_map: dict[str, str] = {}
     _tls_impersonate_loaded: bool = False
     _tls_impersonate_lock = threading.Lock()
+    _domain_tls_profiles: dict[str, str] = {}
 
     @classmethod
     def get_tls_impersonate(cls, domain: str) -> str:
         """Return the configured curl_cffi TLS impersonate browser profile for *domain*.
 
-        Defaults to 'chrome120' if no explicit profile is configured in data/domain_config.json.
+        Defaults to sticky assigned profile or 'chrome120' if no explicit profile
+        is configured in data/domain_config.json.
         """
         import json
 
@@ -273,7 +298,34 @@ class HttpClient(BrowserClientMixin):
         for d_key, profile in cls._tls_impersonate_map.items():
             if d_key in domain_clean:
                 return profile
+
+        with cls._tls_impersonate_lock:
+            if domain_clean in cls._domain_tls_profiles:
+                return cls._domain_tls_profiles[domain_clean]
+
         return "chrome120"
+
+    @classmethod
+    def rotate_tls_profile(cls, domain: str) -> str:
+        """Rotate and persist sticky TLS fingerprint profile for *domain* through modern browser profiles."""
+        domain_clean = domain.lower().strip()
+        with cls._tls_impersonate_lock:
+            current = cls._domain_tls_profiles.get(domain_clean) or cls.get_tls_impersonate(domain_clean)
+            try:
+                idx = cls.SUPPORTED_TLS_PROFILES.index(current)
+                next_profile = cls.SUPPORTED_TLS_PROFILES[(idx + 1) % len(cls.SUPPORTED_TLS_PROFILES)]
+            except ValueError:
+                next_profile = cls.SUPPORTED_TLS_PROFILES[0]
+            cls._domain_tls_profiles[domain_clean] = next_profile
+            logger.info("Rotated sticky TLS impersonate profile for '%s' to '%s'", domain_clean, next_profile)
+            return next_profile
+
+    @classmethod
+    def set_domain_tls_profile(cls, domain: str, profile: str) -> None:
+        """Explicitly set sticky TLS profile for *domain*."""
+        domain_clean = domain.lower().strip()
+        with cls._tls_impersonate_lock:
+            cls._domain_tls_profiles[domain_clean] = profile
 
 
     @classmethod
@@ -452,12 +504,23 @@ class HttpClient(BrowserClientMixin):
                 self._rate_limiters[host] = RateLimiter(
                     rps, jitter=RATE_LIMIT_JITTER_SECONDS
                 )
-            # Update live jitter from adaptive 429-pressure scaling
+            # Update live jitter from adaptive 429-pressure scaling and domain reputation
             with self._cd_lock:
                 cd_state = self._cooldown_states.get(host)
             if cd_state is not None:
                 self._rate_limiters[host].jitter = cd_state.adaptive_jitter()
             return self._rate_limiters[host]
+
+    def get_domain_delay(self, domain: str) -> float:
+        """Return the effective delay (in seconds) for a domain, incorporating adaptive reputation scaling."""
+        host = domain.lower().strip()
+        base_rps = self._domain_rps_overrides.get(host, DEFAULT_REQUESTS_PER_SECOND)
+        base_delay = 1.0 / base_rps if base_rps > 0 else 0.0
+        with self._cd_lock:
+            cd_state = self._cooldown_states.get(host)
+        if cd_state is not None:
+            return cd_state.adaptive_delay(base_delay)
+        return base_delay
 
     def _cooldown_state_for(self, url: str) -> _DomainCooldownState:
         """Return (or lazily create) the cooldown state for *url*'s hostname."""

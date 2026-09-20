@@ -79,7 +79,7 @@ scrape-dashboard/
 │   ├── notifications/           — Pluggable notification pipeline
 │   └── storage/                 — SQLite WAL state caching, chunked downloading
 │
-├── tests/                       — Domain-Structured Automated Test Suite (433 Tests)
+├── tests/                       — Domain-Structured Automated Test Suite (458 Tests)
 │   ├── conftest.py              — Global pytest fixtures, project_root resolution, network isolation
 │   ├── mock_target_server.py    — Local ephemeral HTTP mock server for offline integration tests
 │   ├── cli/                     — CLI launcher, wizards, preflight, release automation
@@ -145,31 +145,44 @@ To prevent infinite hanging on dead/blocked domains:
 - **Auth Wall Redirect Cutoff**: Redirects to authentication paths (`/login`, `/signin`) trigger immediate domain cutoff.
 - **Cloudflare Fast-Fail Pre-Registration**: Domains annotated with `# cloudflare: true` skip browser fallback loops instantly on 403/429.
 
-### 3.3 Hardware Load Governor (`src/monitoring/hardware_governor.py`)
+- **Auth Wall Redirect Cutoff**: Redirects to authentication paths (`/login`, `/signin`) trigger immediate domain cutoff.
+- **Cloudflare Fast-Fail Pre-Registration**: Domains annotated with `# cloudflare: true` skip browser fallback loops instantly on 403/429.
 
-The `HardwareLoadGovernor` dynamically throttles Python thread concurrency based on real-time system metrics:
-- **Metrics Tracked**: CPU % utilization and available RAM %.
-- **Thresholds**: 
-  - **High Load** (CPU ≥ 85.0%, RAM Avail ≤ 15.0%): Throttles worker multiplier to 0.50x.
-  - **Critical Load** (CPU ≥ 95.0%, RAM Avail ≤ 5.0%): Throttles worker multiplier to 0.25x.
-- Automatically forces garbage collection (`gc.collect()`) when approaching OOM limits.
+### 3.3 Dual Governor: AIMD & Hardware Load Coordination (`src/core/governor.py`, `src/monitoring/hardware_governor.py`)
 
-### 3.4 Download Pipeline & Range Resumption (`src/storage/downloader/manager.py`)
+The engine couples host-level network health with host-level hardware resource constraints:
+- **AIMD Dynamic Concurrency Auto-Tuning**:
+  - **Additive Increase**: Increases host concurrency window additively ($+1.0$) upon successful requests with healthy latency ($\le 1.5$s), scaling up to `--workers`.
+  - **Multiplicative Decrease**: Throttles host window multiplicatively ($\times 0.5$) upon 429 rate limits, network errors, or severe latency spikes ($> 3.0$s), down to `min_concurrency=1`.
+- **Hardware Load Governor Modulation**:
+  - Real-time CPU % and available RAM % polling via `psutil`.
+  - **High Load** (CPU $\ge 85.0\%$, RAM Avail $\le 15.0\%$): Throttles worker multiplier to 0.50x.
+  - **Critical Load** (CPU $\ge 95.0\%$, RAM Avail $\le 5.0\%$): Throttles worker multiplier to 0.25x and triggers proactive `gc.collect()`.
+- **Effective Concurrency**: Computed as `max(1, int(aimd_window * hw_scale_factor))`.
 
-Provides high-throughput, resilient asset fetching with bandwidth throttling:
+### 3.4 Ultra-Resilient Network & Stealth Core (`src/network/proxy_manager.py`, `src/network/http_client.py`)
 
-- **Independent Downloader Pool**: Separate thread pool (`--dl-workers`) decoupled from crawler thread limits.
-- **Token-Bucket Limiters**: Page requests (`RPS`) and asset downloads (`KBPS`) are throttled by strict token-bucket algorithms.
-- **Per-Host Concurrency Caps**: Wraps active HTTP streaming requests via semaphores.
-- **HTTP Range Resumption**: 
-  - Checks for existing `.tmp` files. Requests remaining bytes using `Range: bytes=N-`.
-  - HTTP 206 appends bytes; HTTP 200 truncates/restarts; HTTP 416 unlinks and retries.
-- **Pillow Image Sanitization**: Intercepts image byte streams in memory, verifies integrity, drops EXIF metadata, and re-encodes safe files.
+- **Sticky TLS Impersonation Profiles**: Retains domain-consistent TLS fingerprints (`chrome120`, `chrome124`, `chrome131`, `safari17_0`, `safari18_0`, `firefox133`, `edge124`) using `curl_cffi` to bypass JA3/JA4 anomaly detection, rotating dynamically on challenge escalation.
+- **Dynamic Proxy Health Scoring & Tiered Quarantine Ring**:
+  - Exponential Moving Average (EMA) latency tracking ($\alpha = 0.2$).
+  - Dynamic health scores $S \in [0.0, 1.0]$ factoring latency, success rate, and consecutive errors.
+  - Tiered quarantine backoff with exponential penalty ($300 \times 2^{\min(4, \text{failures}-3)}$ seconds) and single-probe recovery states before reinstatement.
+- **Domain Reputation Tracking**: Dynamically computes reputation $R \in [0.1, 1.0]$ to scale base request delays and rate limiter jitter.
 
-### 3.5 Storage Architecture
+### 3.5 Next-Gen Media Extraction Pipeline (`src/core/media_processor.py`, `src/core/microdata.py`, `src/storage/downloader/manager.py`)
 
-- **Persistent SQLite WAL State Cache (`src/storage/state_cache.py`)**: Uses `PRAGMA journal_mode=WAL;` to allow concurrent multi-threaded writes without disk lock contention.
-- **Post-Download Hashing**: Calculates SHA-256 checksums directly from completed disk files.
+- **Multi-Source Candidate Extraction**: Parses primary images alongside alternative resolutions from `srcset`, zoom attributes (`data-zoom-image`, `data-highres`, `data-original`), and parent link hrefs.
+- **Schema.org JSON-LD Microdata**: Extracts structured media objects (`ImageObject`, `VideoObject`, `Product`, `Article`, `Recipe`, `@graph`) and auto-populates fallback candidate sets.
+- **Automated Fallback Candidate Traversal**: When a primary candidate yields HTTP 404, 403, 410, or network failure, the downloader automatically walks candidate fallbacks without dropping the scrape record.
+- **Parallel Multi-Chunk Range Downloader**: Assets exceeding 20 MB with `Accept-Ranges: bytes` support are split into concurrent byte-range worker streams and reassembled in-place.
+- **Smart Pagination Detection**: Detects `<link rel="next">`, `<a rel="next">`, structured pagination elements, and query/path stepping patterns (`?page=N`, `/page/N/`).
+
+### 3.6 High-Throughput State & Storage Core (`src/storage/bloom_filter.py`, `src/storage/state_cache.py`)
+
+- **Zero-Dependency Bitmask Bloom Filter**: Pure Python bitmask implementation using 64-bit integer bitwise operations and Murmur-inspired multi-hash mixing for $O(1)$ in-memory L1 cache rejection before hitting SQLite disk queries.
+- **Write-Staging Buffer & Batch Transactions**: URL markers are staged in memory and flushed via multi-row chunked `executemany` transactions upon reaching buffer thresholds or timeouts, reducing SQLite write lock contention.
+- **Persistent SQLite WAL State Cache**: Uses `PRAGMA journal_mode=WAL;` and `PRAGMA synchronous=NORMAL;`. Auto-syncs Bloom filter state across manual purges and TTL cleanups.
+
 
 ---
 
