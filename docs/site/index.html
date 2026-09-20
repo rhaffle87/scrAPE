@@ -17,7 +17,7 @@
     <div class="brand-container">
       <button id="hamburger-btn" class="hamburger-btn" aria-label="Toggle Navigation">[=]</button>
       <a href="#" class="brand-logo">scrAPE // DOCS</a>
-      <span class="brand-badge">v0.24.0</span>
+      <span class="brand-badge">v0.29.0</span>
     </div>
     <div class="header-right">
       <div class="search-box-container">
@@ -49,6 +49,7 @@
           <li class="nav-sub-item active"><a href="#sec-overview-arch">[1.1] Architecture and Objectives</a></li>
           <li class="nav-sub-item"><a href="#sec-overview-formats">[1.2] Supported Formats and Limits</a></li>
           <li class="nav-sub-item"><a href="#sec-overview-layout">[1.3] Project Directory Layout</a></li>
+          <li class="nav-sub-item"><a href="#sec-overview-pillars">[1.4] Next-Gen Core Pillars <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -91,6 +92,10 @@
           <li class="nav-sub-item"><a href="#sec-engine-captcha">[4.3] Universal Captcha Strategy</a></li>
           <li class="nav-sub-item"><a href="#sec-engine-scoring">[4.4] Quality Scoring and Rejection</a></li>
           <li class="nav-sub-item"><a href="#sec-engine-normalize">[4.5] URL Normalization</a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-pool">[4.6] Pre-Warmed Browser Pool <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-broker">[4.7] Redis Streams Task Broker <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-ml">[4.8] Vision Hardware & ML Pipeline <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-engine-healing">[4.9] Self-Healing DOM Parser <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -121,6 +126,7 @@
           <li class="nav-sub-item"><a href="#sec-webui-views">[6.2] Command Center and Media Vault</a></li>
           <li class="nav-sub-item"><a href="#sec-webui-telemetry">[6.3] Live Telemetry and SSE</a></li>
           <li class="nav-sub-item"><a href="#sec-webui-design">[6.4] Design Tokens</a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-health">[6.5] Node Health Tactical Monitor <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -151,6 +157,8 @@
           <li class="nav-sub-item"><a href="#sec-output-domain">[8.3] domain_report.json Schema</a></li>
           <li class="nav-sub-item"><a href="#sec-output-kohya">[8.4] Kohya LoRA Dataset Export</a></li>
           <li class="nav-sub-item"><a href="#sec-output-rag">[8.5] RAG Ingestion Formats</a></li>
+          <li class="nav-sub-item"><a href="#sec-output-cas">[8.6] Content-Addressable Storage (CAS) <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-output-parquet">[8.7] Apache Parquet Dataset Export <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -407,6 +415,66 @@ seeds/                              -- Per-subject seed manifests (.txt)
 output/&lt;subject&gt;/runs/&lt;run_id&gt;/     -- Run output directory
 tests/                              -- Automated test suite
 .env / .env.example                 -- Environment credentials</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1.4 Core Architecture (v0.28.0) -->
+      <section id="sec-overview-v28" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [01] // ARCHITECTURAL UPDATE</div>
+          <h1>Core Architecture (v0.28.0)</h1>
+          <p class="section-desc">Production-grade decoupled ML pipeline, 3-tier hierarchical deduplication, self-healing DOM parser, and supervised hybrid concurrency.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">1.4 Architectural Breakthroughs in v0.28.0</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            scrAPE v0.28.0 modernizes the scraping engine into a zero-bottleneck, decoupled processing matrix designed for maximum extraction throughput, automated schema repair, and strict hardware governance.
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Subsystem</th>
+                  <th>Mechanism</th>
+                  <th>Key Benefits</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Asynchronous ML Stage</strong></td>
+                  <td><code>AsyncMLPipelineWorker</code> runs background threads consuming an unbounded ingest queue. Integrates <code>AestheticScorer</code>, <code>DatasetCropper</code>, <code>DatasetTagger</code> (WD14), and database/RAG exporters.</td>
+                  <td>Zero crawl I/O blocking. High-latency neural network inferences (CLIP, ViT) execute concurrently without stalling crawler network requests.</td>
+                </tr>
+                <tr>
+                  <td><strong>Multi-Tier Storage Sinks</strong></td>
+                  <td>Pluggable <code>BaseStorageSink</code> with atomic <code>LocalStorageSink</code> (directory traversal protection) and streaming <code>S3StorageSink</code> with local failover.</td>
+                  <td>Supports S3, MinIO, Cloudflare R2, or local NVMe storage with zero data loss on network partition.</td>
+                </tr>
+                <tr>
+                  <td><strong>3-Tier Deduplication Cascade</strong></td>
+                  <td>Hierarchical cascade:<br>• <strong>L1:</strong> SHA-256 Bloom filter (exact duplicates)<br>• <strong>L2:</strong> BK-Tree perceptual hash (Hamming dist &le; 4)<br>• <strong>L3:</strong> CLIP visual embeddings (cosine similarity &ge; 0.96)</td>
+                  <td>Sub-millisecond duplicate pruning, near-duplicate perceptual clustering, and semantic content matching at scale.</td>
+                </tr>
+                <tr>
+                  <td><strong>Self-Healing DOM Parser</strong></td>
+                  <td>Multi-tier fallback cascade:<br>• <strong>Tier 1:</strong> SQLite selector rule cache (fast path)<br>• <strong>Tier 2:</strong> Structural tree heuristics & JSON-LD microdata<br>• <strong>Tier 3:</strong> Pluggable LLM selector synthesis</td>
+                  <td>Survives sudden website redesigns and obfuscated CSS classes without human intervention or crawler crashes.</td>
+                </tr>
+                <tr>
+                  <td><strong>Supervised Worker Pool</strong></td>
+                  <td><code>HybridWorkerPool</code> managing multi-core <code>ProcessPoolExecutor</code> with thread fallback and recursive <code>psutil</code> process-tree termination.</td>
+                  <td>Zero zombie processes, guaranteed graceful shutdown across POSIX and Windows via emergency <code>atexit</code> hooks.</td>
+                </tr>
+                <tr>
+                  <td><strong>Hardware Load Governor</strong></td>
+                  <td><code>HardwareLoadGovernor</code> monitoring host CPU, RAM, and Disk pressure with dynamic concurrency throttle scaling and WebUI telemetry.</td>
+                  <td>Autonomous rate regulation preventing host OOM crashes and resource starvation during massive crawls.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -931,18 +999,46 @@ python src/cli/cli_wizard.py</pre>
               <input type="text" id="cli-save-rejected" class="builder-input"
                 value="low_subject_relevance,preview_or_thumbnail">
             </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-aesthetic-score">Min Aesthetic Score (0.0-10.0)</label>
+              <input type="number" id="cli-aesthetic-score" class="builder-input" value="0.0" step="0.5" min="0" max="10">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-worker-processes">Worker Processes (Pool)</label>
+              <input type="number" id="cli-worker-processes" class="builder-input" value="1" min="1" max="64">
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-storage-backend">Storage Backend</label>
+              <select id="cli-storage-backend" class="builder-input">
+                <option value="local" selected>Local File System</option>
+                <option value="s3">Amazon S3 / MinIO</option>
+              </select>
+            </div>
+
+            <div class="builder-field">
+              <label class="builder-label" for="cli-s3-bucket">S3 Bucket Name (Optional)</label>
+              <input type="text" id="cli-s3-bucket" class="builder-input" placeholder="e.g. my-scrape-bucket">
+            </div>
           </div>
 
           <div class="builder-label">Execution Flags</div>
           <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" id="cli-download-media" checked> Download Media
-              Files</label>
-            <label class="checkbox-label"><input type="checkbox" id="cli-use-state-cache" checked> Use State Cache
-              DB</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-download-media" checked> Download Media Files</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-use-state-cache" checked> Use State Cache DB</label>
             <label class="checkbox-label"><input type="checkbox" id="cli-strict-domain"> Strict Domain Mode</label>
             <label class="checkbox-label"><input type="checkbox" id="cli-ignore-robots"> Ignore robots.txt</label>
             <label class="checkbox-label"><input type="checkbox" id="cli-skip-search"> Skip Search Engine</label>
             <label class="checkbox-label"><input type="checkbox" id="cli-clear-cache"> Clear Cache Before Run</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-enable-self-healing"> Self-Healing DOM</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-enable-cas"> Content-Addressable (CAS)</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-export-parquet"> Parquet Columnar Export</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-tag-dataset"> WD14 Auto-Tagging</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-auto-crop"> Smart Dataset Crop</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-export-rag"> Export RAG Chunks</label>
+            <label class="checkbox-label"><input type="checkbox" id="cli-auto-export-db"> Auto Export SQLite DB</label>
           </div>
 
           <div style="margin-top: 24px;">

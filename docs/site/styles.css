@@ -31,6 +31,27 @@
   border-radius: 0 !important;
 }
 
+/* Accessibility Focus Ring */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Cyber Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
@@ -39,6 +60,7 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
@@ -175,10 +197,17 @@ body {
   border: 1px solid var(--border-strong);
   color: var(--text-primary);
   font-size: 18px;
-  padding: 3px 8px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
   font-family: var(--font-mono);
   line-height: 1;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .hamburger-btn:hover {
@@ -259,11 +288,13 @@ body {
 }
 
 .nav-module-group.active .nav-sub-list {
-  max-height: 600px;
+  max-height: 800px;
 }
 
 .nav-sub-item a {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
   padding: 7px 20px 7px 36px;
   color: var(--text-muted);
   text-decoration: none;
@@ -516,9 +547,10 @@ pre {
   font-size: 12px;
   color: var(--success);
   line-height: 1.5;
-  white-space: pre-wrap !important;
-  word-break: break-all !important;
-  overflow-x: visible !important;
+  white-space: pre;
+  overflow-x: auto;
+  word-break: normal;
+  max-width: 100%;
 }
 
 code {
@@ -852,6 +884,62 @@ mark.search-highlight {
   display: flex;
 }
 
+/* ── New Feature Badges & Tactical Cards ───────────────────────────────── */
+.badge-new {
+  background-color: var(--accent);
+  color: #000000;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.tactical-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tactical-metric-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  padding: 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.tactical-metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tactical-metric-title {
+  font-family: var(--font-header);
+  font-size: 13px;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tactical-metric-tag {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tactical-metric-body {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 /* ── Sidebar Overlay (mobile) ──────────────────────────────────────────── */
 .sidebar-overlay {
   display: none;
@@ -860,7 +948,9 @@ mark.search-highlight {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 850;
 }
 
@@ -869,15 +959,22 @@ mark.search-highlight {
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 30px 32px 90px 32px;
+  }
+}
+
 @media (max-width: 960px) {
   .hamburger-btn {
-    display: inline-block !important;
+    display: inline-flex !important;
   }
 
   .sidebar {
     transform: translateX(-100%);
     z-index: 950;
-    width: 300px;
+    width: 320px;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.8);
   }
 
   .sidebar.open {
@@ -891,11 +988,11 @@ mark.search-highlight {
   }
 
   .builder-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .search-box-container {
-    width: 160px;
+    width: 200px;
   }
 
   .search-hint {
@@ -903,7 +1000,9 @@ mark.search-highlight {
   }
 
   .scroll-top-btn {
-    left: 20px;
+    left: auto;
+    right: 20px;
+    bottom: 20px;
   }
 
   .brand-badge {
@@ -912,8 +1011,22 @@ mark.search-highlight {
 }
 
 @media (max-width: 600px) {
+  .top-header {
+    padding: 0 12px;
+    height: 56px;
+  }
+
+  .brand-container {
+    gap: 10px;
+  }
+
+  .brand-logo {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
   .search-box-container {
-    width: 130px;
+    width: 140px;
   }
 
   .header-nav-link {
@@ -921,6 +1034,59 @@ mark.search-highlight {
   }
 
   .section-header h1 {
-    font-size: 24px;
+    font-size: 22px;
+  }
+
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .builder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-input, .builder-select {
+    font-size: 16px !important; /* Prevents auto-zoom in iOS Safari */
+    min-height: 44px;
+  }
+
+  .checkbox-label {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .nav-sub-item a {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .step-list li {
+    min-height: 48px;
+    padding-left: 44px;
+  }
+
+  .scroll-top-btn {
+    width: 44px;
+    height: 44px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 400px) {
+  .search-box-container {
+    width: 110px;
+  }
+
+  .brand-logo {
+    font-size: 14px;
   }
 }

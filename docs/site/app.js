@@ -154,12 +154,15 @@ function initSearch() {
 function initCliBuilder() {
   const inputs = [
     'cli-keyword', 'cli-seed', 'cli-max-results', 'cli-workers',
-    'cli-dl-workers', 'cli-page-limit', 'cli-crawl-depth', 'cli-save-rejected'
+    'cli-dl-workers', 'cli-page-limit', 'cli-crawl-depth', 'cli-save-rejected',
+    'cli-aesthetic-score', 'cli-worker-processes', 'cli-storage-backend', 'cli-s3-bucket'
   ];
 
   const checkboxes = [
     'cli-download-media', 'cli-use-state-cache', 'cli-strict-domain',
-    'cli-ignore-robots', 'cli-skip-search', 'cli-clear-cache'
+    'cli-ignore-robots', 'cli-skip-search', 'cli-clear-cache',
+    'cli-enable-cas', 'cli-export-parquet', 'cli-enable-self-healing',
+    'cli-tag-dataset', 'cli-auto-crop', 'cli-export-rag', 'cli-auto-export-db'
   ];
 
   function updateCommand() {
@@ -173,6 +176,10 @@ function initCliBuilder() {
     const pageLimit = document.getElementById('cli-page-limit')?.value.trim();
     const crawlDepth = document.getElementById('cli-crawl-depth')?.value.trim();
     const saveRejected = document.getElementById('cli-save-rejected')?.value.trim();
+    const aestheticScore = document.getElementById('cli-aesthetic-score')?.value.trim();
+    const workerProcesses = document.getElementById('cli-worker-processes')?.value.trim();
+    const storageBackend = document.getElementById('cli-storage-backend')?.value.trim();
+    const s3Bucket = document.getElementById('cli-s3-bucket')?.value.trim();
 
     if (keyword) cmd += ` --keyword "${keyword}"`;
     if (seed) cmd += ` --seed "${seed}"`;
@@ -182,6 +189,10 @@ function initCliBuilder() {
     if (pageLimit && pageLimit !== '100') cmd += ` --page-limit ${pageLimit}`;
     if (crawlDepth && crawlDepth !== '2') cmd += ` --crawl-depth ${crawlDepth}`;
     if (saveRejected) cmd += ` --save-rejected "${saveRejected}"`;
+    if (aestheticScore && aestheticScore !== '0.0' && aestheticScore !== '0') cmd += ` --aesthetic-score ${aestheticScore}`;
+    if (workerProcesses && workerProcesses !== '1') cmd += ` --worker-processes ${workerProcesses}`;
+    if (storageBackend && storageBackend !== 'local') cmd += ` --storage-backend ${storageBackend}`;
+    if (s3Bucket) cmd += ` --s3-bucket "${s3Bucket}"`;
 
     checkboxes.forEach(id => {
       const cb = document.getElementById(id);
@@ -275,6 +286,12 @@ function initHamburgerMenu() {
       closeMobileSidebar();
     });
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMobileSidebar();
+    }
+  });
 }
 
 function closeMobileSidebar() {
