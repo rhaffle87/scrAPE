@@ -1,12 +1,24 @@
 import os
+import sys
+from pathlib import Path
+
 os.environ["DISABLE_PROXY_BACKGROUND_REFRESH"] = "1"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+if str(PROJECT_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 import json
 import pytest
-from pathlib import Path
+
+@pytest.fixture(scope="session")
+def project_root() -> Path:
+    """Return the absolute Path to the project repository root."""
+    return PROJECT_ROOT
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_config_files_exist():
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = PROJECT_ROOT
     
     # 1. ensure data/domain_config.json exists
     data_dir = project_root / "data"

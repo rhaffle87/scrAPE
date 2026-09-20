@@ -75,10 +75,13 @@ def mock_popen():
         yield mock
 
 
+from src.config import PROJECT_ROOT
+
+
 @pytest.fixture(scope="module")
 def mock_media_folder():
     """Create a temporary mock subject with images and videos to verify gallery load."""
-    workspace_dir = Path(__file__).resolve().parent.parent
+    workspace_dir = PROJECT_ROOT
     output_dir = workspace_dir / "output"
     mock_subject_dir = output_dir / "mock_subject"
     run_dir = mock_subject_dir / "runs" / "20260721T123456Z"

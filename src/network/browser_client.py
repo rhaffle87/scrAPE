@@ -30,6 +30,7 @@ import config
 from config import (
     FLARESOLVERR_URL,
     BROWSER_PROFILE_MAX_AGE_DAYS,
+    PROFILES_DIR,
 )
 
 import threading
@@ -447,13 +448,13 @@ class BrowserClientMixin:
     def _get_browser_profile_path(self, host: str) -> str:
         """Return the absolute path to the persistent browser profile for *host*."""
         domain_slug = re.sub(r"[^\w\-]", "_", host)
-        profile_path = Path("data/profiles") / domain_slug
+        profile_path = PROFILES_DIR / domain_slug
         profile_path.mkdir(parents=True, exist_ok=True)
         return str(profile_path.resolve())
 
     def _cleanup_stale_profiles(self) -> None:
         """Deletes physical browser profiles in data/profiles/ that exceed retention threshold."""
-        profiles_dir = Path("data/profiles")
+        profiles_dir = PROFILES_DIR
         if not profiles_dir.exists():
             return
             

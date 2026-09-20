@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import ContextManager, TYPE_CHECKING
 import contextlib
 
+from config import DRISSION_PROFILES_DIR
+
 if TYPE_CHECKING:
     from DrissionPage import ChromiumPage
 
@@ -105,7 +107,6 @@ class BrowserPoolManager:
     def _create_new_browser(cls, proxy: str | None, headless: bool) -> PooledBrowser:
         from DrissionPage import ChromiumOptions, ChromiumPage
         import uuid
-        from pathlib import Path
 
         co = ChromiumOptions()
         co.set_argument("--no-sandbox")
@@ -119,7 +120,7 @@ class BrowserPoolManager:
         
         co.headless(headless)
         
-        profile_path = Path("data/drission_profiles") / f"pool_{uuid.uuid4().hex[:8]}"
+        profile_path = DRISSION_PROFILES_DIR / f"pool_{uuid.uuid4().hex[:8]}"
         profile_path.mkdir(parents=True, exist_ok=True)
         co.set_user_data_path(str(profile_path.resolve()))
         

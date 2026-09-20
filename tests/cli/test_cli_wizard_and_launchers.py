@@ -34,8 +34,10 @@ def test_cli_wizard_validation_functions():
     assert seed_ok is True
 
 
+from src.config import PROJECT_ROOT
+
 def test_master_launcher_script_existence_and_options():
-    root = Path(__file__).resolve().parent.parent
+    root = PROJECT_ROOT
 
     run_bat = root / "run.bat"
     assert run_bat.exists()

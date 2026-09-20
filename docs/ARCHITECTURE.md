@@ -48,13 +48,27 @@ scrape-dashboard/
 │   └── package.json             — got-scraping & puppeteer-extra-plugin-stealth
 │
 ├── frontend/                    — Decoupled FastAPI + HTMX WebUI
-│   ├── app.py                   — FastAPI backend, OWASP security middleware, static mounts
+│   ├── app.py                   — Lightweight FastAPI bootstrap, security headers, router mounting
+│   ├── state.py                 — Shared state (task_state, log_buffer, process lock, broadcaster)
 │   ├── static/                  — SVG logo, favicon, and CSS assets
 │   ├── templates/               — HTMX dashboard templates (index.html, gallery.html)
-│   └── routers/                 — Decoupled APIRouter sub-modules (dashboard, dataset, seeds, watchdog, notifications)
+│   └── routers/                 — Modular APIRouter packages:
+│       ├── auth.py              — Basic auth & version verification
+│       ├── dataset.py           — Dataset tagging, aesthetic scoring, cropping, LoRA/RAG export
+│       ├── domain_config.py     — Domain configuration matrix CRUD
+│       ├── gallery.py           — Media gallery browsing, pagination, deletion
+│       ├── jobs.py              — Scraping execution, subprocess streaming & process controls
+│       ├── notifications.py     — Notification channels and test ping endpoints
+│       ├── seeds.py             — Seed Studio CRUD, validation, discovery, and linting
+│       ├── settings.py          — System settings management and secret masking
+│       ├── subject_profiles.py  — Subject profiles CRUD
+│       ├── telemetry.py         — SSE streaming, system telemetry, engine metrics
+│       ├── url_rules.py         — URL normalization rules CRUD
+│       └── watchdog.py          — Continuous monitoring agent status & controls
 │
 ├── src/                         — Python Source Core
 │   ├── cli/                     — Primary CLI, interactive wizards, watchdog loop, seed studio
+│   ├── config/                  — Canonical path anchoring (PROJECT_ROOT, DATA_DIR, PROFILES_DIR)
 │   ├── core/                    — ScrapingEngine main orchestration, BFS crawling, parsing
 │   ├── scraper/                 — Base Scraper classes, fallback logic
 │   ├── plugins/                 — Platform-specific extractors (Booru, Civitai, Reddit, yt-dlp)
@@ -64,6 +78,19 @@ scrape-dashboard/
 │   ├── network/                 — Tiered HTTP client, stealth pipeline, rate limiting
 │   ├── notifications/           — Pluggable notification pipeline
 │   └── storage/                 — SQLite WAL state caching, chunked downloading
+│
+├── tests/                       — Domain-Structured Automated Test Suite (433 Tests)
+│   ├── conftest.py              — Global pytest fixtures, project_root resolution, network isolation
+│   ├── mock_target_server.py    — Local ephemeral HTTP mock server for offline integration tests
+│   ├── cli/                     — CLI launcher, wizards, preflight, release automation
+│   ├── core/                    — Engine BFS, models, filters, budgets, jitter, circuit breakers
+│   ├── frontend/                — WebUI endpoints, HTMX controls, SSE logs, telemetry streaming
+│   ├── integration/             — E2E stealth pipelines, Seed Studio manifests, mock server flows
+│   ├── ml/                      — Ollama vision, WD14 tagger, aesthetic scorer, smart cropper, RAG
+│   ├── network/                 — HTTP client, TLS impersonation, proxies, CAPTCHA, browser pools
+│   ├── notifications/           — Telegram bot, Discord, Slack, SMTP, Webhooks
+│   ├── plugins/                 — Specialized extractors (Civitai, Booru, Instagram, Twitter, yt-dlp)
+│   └── storage/                 — Downloader, chunked resumption, speed limiter, database backends
 │
 ├── data/                        — JSON Configurations & Registries
 │   ├── domain_config.json       — Rate limits, referer overrides, stealth_required, etc.

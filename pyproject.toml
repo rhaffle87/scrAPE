@@ -64,6 +64,6 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/core/filters.py" = ["F403", "F405"]
-"frontend/app.py" = ["E402"]
+"frontend/app.py" = ["E402", "F401"]
 "frontend/routers/*" = ["E402"]
-"tests/*" = ["E402", "F401", "F841", "F811", "E401"]
+"tests/**" = ["E402", "F401", "F841", "F811", "E401"]

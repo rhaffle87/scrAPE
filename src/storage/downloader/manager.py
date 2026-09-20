@@ -976,11 +976,11 @@ class MediaDownloader:
         import re
         import mimetypes
         from DrissionPage import ChromiumOptions, ChromiumPage
-        from config import MIN_IMAGE_DOWNLOAD_BYTES, MIN_VIDEO_DOWNLOAD_BYTES, MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, OUTPUT_DIR
+        from config import MIN_IMAGE_DOWNLOAD_BYTES, MIN_VIDEO_DOWNLOAD_BYTES, MIN_IMAGE_WIDTH, MIN_IMAGE_HEIGHT, OUTPUT_DIR, DRISSION_PROFILES_DIR
 
         host = urlparse(url).netloc
         domain_slug = re.sub(r"[^\w\-]", "_", host)
-        profile_path = Path("data/drission_profiles") / domain_slug
+        profile_path = DRISSION_PROFILES_DIR / domain_slug
 
         co = ChromiumOptions()
         co.set_argument("--no-sandbox")

@@ -61,9 +61,12 @@ def test_save_domain_config_endpoint_invalid_json(tmp_path, monkeypatch):
     assert "Invalid JSON" in res.text
 
 
+from src.config import PROJECT_ROOT
+
+
 def test_domain_studio_elements_in_index_html():
     """Verify index.html contains Domain Config Studio UI elements and JS handlers."""
-    template_path = Path(__file__).parent.parent / "frontend" / "templates" / "index.html"
+    template_path = PROJECT_ROOT / "frontend" / "templates" / "index.html"
     content = template_path.read_text(encoding="utf-8")
     assert 'id="config-matrix-view"' in content
     assert 'id="nav-config-matrix"' in content

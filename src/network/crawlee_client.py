@@ -27,18 +27,24 @@ class CrawleeClient:
         if self._is_server_running():
             return
             
-        script_path = Path(__file__).parent.parent.parent / "crawlee_bridge" / "index.mjs"
+        project_root = Path(__file__).resolve().parent.parent.parent
+        script_path = project_root / "crawlee_bridge" / "index.mjs"
         if not script_path.exists():
             logger.error("Crawlee bridge script not found at %s", script_path)
             return
+
+        bridge_dir = script_path.parent
+        storage_dir = bridge_dir / "storage"
+        storage_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info("Starting Crawlee Node.js bridge server on port %d...", self._port)
         
         env = os.environ.copy()
         env["CRAWLEE_PORT"] = str(self._port)
+        env["CRAWLEE_STORAGE_DIR"] = str(storage_dir)
         
         # Open log file inside logs/ directory
-        log_dir = Path("logs")
+        log_dir = project_root / "logs"
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
             self._log_file = open(log_dir / "crawlee_bridge.log", "w", encoding="utf-8")
@@ -48,6 +54,7 @@ class CrawleeClient:
 
         self._process = subprocess.Popen(  # nosec B603 B607
             ["node", str(script_path)],
+            cwd=str(bridge_dir),
             stdout=self._log_file if self._log_file else subprocess.DEVNULL,
             stderr=subprocess.STDOUT if self._log_file else subprocess.DEVNULL,
             env=env,

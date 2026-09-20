@@ -37,3 +37,13 @@ def test_telegram_notification(token: str = Form(""), chat_id: str = Form("")):
     notifier = TelegramBotNotifier(tok, cid)
     success = notifier.send_message("<b>scrAPE Telegram Bot Connected!</b>\nTest alert message received successfully.")
     return {"status": "ok" if success else "failed", "sent": success}
+
+
+@router.post("/notifications/test")
+def test_notification_channels():
+    """Trigger a test ping across all registered notification providers (Telegram, Discord, Slack, etc.)."""
+    from notifications.notification_manager import NotificationPipeline
+
+    pipeline = NotificationPipeline()
+    results = pipeline.notify_watchdog_status("scrAPE Test Ping: Notification pipeline is operational!", "INFO")
+    return {"status": "ok", "delivered_providers": results}

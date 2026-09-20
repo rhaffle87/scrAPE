@@ -81,8 +81,11 @@ CONCURRENT_PAGES_PER_BATCH = 6  # Low batch size to prevent IP blocks on deep cr
 # Max simultaneous media file downloads.
 CONCURRENT_DOWNLOADS = 16  # CDNs can handle more, but keeping it safe for local bandwidth
 
-OUTPUT_DIR = Path("output")
-CACHE_DIR = Path(".cache")
+OUTPUT_DIR = PROJECT_ROOT / "output"
+CACHE_DIR = PROJECT_ROOT / ".cache"
+DATA_DIR = PROJECT_ROOT / "data"
+PROFILES_DIR = DATA_DIR / "profiles"
+DRISSION_PROFILES_DIR = DATA_DIR / "drission_profiles"
 DEFAULT_RUNS_SUBDIR = "runs"
 DEFAULT_DOWNLOAD_IMAGES_SUBDIR = "images"
 DEFAULT_DOWNLOAD_VIDEOS_SUBDIR = "videos"
