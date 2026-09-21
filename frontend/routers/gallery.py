@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from frontend.state import OUTPUT_DIR
+from common.security import validate_safe_path
 
 logger = logging.getLogger(__name__)
 
@@ -200,9 +201,10 @@ async def open_folder(request: Request):
 
     try:
         base_dir = os.path.abspath(str(OUTPUT_DIR))
-        target_path = os.path.abspath(os.path.join(base_dir, clean_name))
+        safe_path = validate_safe_path(base_dir, Path(base_dir) / clean_name)
+        target_path = os.path.abspath(os.path.normpath(str(safe_path)))
 
-        if not target_path.startswith(base_dir + os.sep) and target_path != base_dir:
+        if not target_path.startswith(base_dir):
             return HTMLResponse("Invalid path")
 
         if os.path.exists(target_path):

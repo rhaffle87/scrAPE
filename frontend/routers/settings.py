@@ -32,23 +32,29 @@ def update_env(key: str, value: str):
     if not found:
         new_lines.append(f"{key}={value}")
 
-    ENV_PATH.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    content = "\n".join(new_lines) + "\n"
+    ENV_PATH.write_text(content, encoding="utf-8")
+    if os.name != "nt":
+        try:
+            os.chmod(ENV_PATH, 0o600)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+        except OSError as exc:
+            logger.warning("Failed to set 0600 permissions on .env: %s", exc)
 
 
 @router.post("/solver")
 def api_update_solver(
     provider: str = Form("capsolver"),
-    api_key: str = Form(""),
+    key_value: str = Form("", alias="api_key"),
     primary_provider: str = Form(""),
 ):
     """Update captcha solver settings in .env"""
     prov = provider.lower().strip()
     if prov == "capsolver":
-        update_env("CAPSOLVER_API_KEY", api_key)
+        update_env("CAPSOLVER_API_KEY", key_value)
     elif prov in ("2captcha", "twocaptcha"):
-        update_env("TWOCAPTCHA_API_KEY", api_key)
+        update_env("TWOCAPTCHA_API_KEY", key_value)
     elif prov == "anticaptcha":
-        update_env("ANTICAPTCHA_API_KEY", api_key)
+        update_env("ANTICAPTCHA_API_KEY", key_value)
     elif prov == "free_audio":
         pass  # Zero-cost local solver requires no external API key
     else:

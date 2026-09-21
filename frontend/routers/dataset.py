@@ -16,6 +16,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from frontend.state import ROOT_DIR, OUTPUT_DIR, _is_safe_path_component
+from common.security import validate_safe_path
 
 logger = logging.getLogger(__name__)
 
@@ -204,13 +205,17 @@ def api_export_database(subject: str, req: DatabaseExportRequest):
         raise HTTPException(status_code=400, detail="Invalid subject name")
 
     base_dir = os.path.abspath(str(OUTPUT_DIR))
-    subject_path = Path(base_dir) / safe_subject
-    if not subject_path.exists():
+    subject_path = validate_safe_path(base_dir, Path(base_dir) / safe_subject)
+    norm_subject = os.path.abspath(os.path.normpath(str(subject_path)))
+    if not norm_subject.startswith(base_dir + os.sep) and norm_subject != base_dir:
+        raise HTTPException(status_code=400, detail="Path traversal detected")
+
+    if not Path(norm_subject).exists():
         raise HTTPException(status_code=404, detail="Subject directory not found")
 
     try:
         from storage.analytics_exporter import export_analytics
-        export_analytics(subject_path, req.format)
+        export_analytics(Path(norm_subject), req.format)
         return {"status": "ok", "message": f"Successfully exported database to {req.format.upper()} format."}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

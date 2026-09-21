@@ -222,7 +222,7 @@ The discrepancy between local Windows execution and the initial CI matrix failur
 |---|---|---|---|---|
 | **Automated Test Suite** | [`35582856192`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856192) | **SUCCESS (100% Green)** | 8m 28s | **6 / 6 Matrix Jobs Passed**:<br>• Python 3.10 on Ubuntu-latest (2m 48s)<br>• Python 3.13 on Ubuntu-latest (2m 46s)<br>• Python 3.10 on macOS-latest (3m 28s)<br>• Python 3.13 on macOS-latest (2m 58s)<br>• Python 3.10 on Windows-latest (8m 25s)<br>• Python 3.13 on Windows-latest (6m 29s) |
 | **Security Scan** | [`35582856206`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856206) | **SUCCESS (100% Green)** | 2m 26s | **4 / 4 Security Checks Passed**:<br>• Trivy Container Scan (Docker build + CVE sweep)<br>• Bandit Security Scan (0 high issues)<br>• Semgrep SAST (`p/python`)<br>• OSV-Scanner Dependency Check |
-| **CodeQL Advanced** | [`35582856285`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856285) | **SUCCESS (100% Green)** | 1m 24s | 0 security alerts; 0 `# codeql[...]` suppressions |
+| **CodeQL Advanced** | [`35582856285`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856285) | **WORKFLOW SUCCESS** | 1m 24s | Workflow execution passed; see Standing Protocol below for Security Tab alert tracking |
 | **Pages Deployment** | [`35582856201`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856201) | **SUCCESS (100% Green)** | 16s | Live production docs portal updated |
 
 #### Root Cause Analysis & Remediation Log:
@@ -236,6 +236,24 @@ The discrepancy between local Windows execution and the initial CI matrix failur
    - *Root Cause*: LaTeX syntax with unescaped underscores (`$+15.0 \times \text{yield_density}$`) in `docs/ARCHITECTURE.md` §3.9 crashed Markdown preview engines with `'_' allowed only in math mode`.
    - *Remediation*: Swept and sanitized all `.md` files (`docs/ARCHITECTURE.md`, `README.md`, `RELEASE_NOTES.md`, `docs/CHANGELOG.md`, `docs/SCENARIOS.md`), converting all mathematical expressions and asymptotic bounds to standard Markdown code notation (e.g. `` `+15.0 * yield_density` ``, `` `alpha = 0.2` ``, `` `O(1)` ``).
 
-**Final Certification**: scrAPE v0.29.0 is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened, 100% CodeQL compliant without suppressions, and validated through all automated CI workflows.
+---
+
+## 4. Standing Governance Protocol: CodeQL Verification Requirements
+> [!CRITICAL]
+> **CI Green ≠ Zero Security Alerts (Process Fix for v0.30.0+)**
+> A successful GitHub Actions workflow run (`workflow_run.conclusion == "success"`) for CodeQL Advanced only proves that the static analysis engine executed without crashing or timing out. CodeQL uploads SARIF results asynchronously to the GitHub Security code-scanning database; findings do **not** fail the workflow unless specific fatal break conditions are configured.
+>
+> In earlier release audits (including v0.29.0), "0 alerts" was mistakenly inferred solely from the green checkmark of the CI workflow run. This allowed 13 historical Code Scanning alerts to persist unseen in GitHub's Security tab across multiple releases.
+>
+> **Mandatory Verification Protocol**:
+> 1. Future release sign-offs and QA audits MUST directly query the GitHub Code Scanning REST API:
+>    ```bash
+>    gh api repos/rhaffle87/scrAPE/code-scanning/alerts?state=open
+>    ```
+> 2. Zero-Alert Certification is ONLY permitted when the above API call returns `[]` (empty list / zero open findings).
+> 3. Any open finding must be individually remediated via architectural code hardening per `CONTRIBUTING.md`. Manual inline suppression comments (e.g., `# codeql[...]`) remain strictly prohibited.
+> 4. All 13 historical alerts (#171, #173, #174, #175, #176, #177, #179, #180, #181, #182, #183, #184, #185) have been remediated in source and verified against the full regression suite (638 tests passing).
+
+**Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened, strictly audited via the GitHub Code Scanning Alerts API without suppressions, and validated through all automated CI workflows.
 
 

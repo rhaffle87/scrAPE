@@ -129,11 +129,13 @@ class TestBrowserClientStealthIntegration:
     def test_client_get_stealth_script_with_domain(self):
         client = DummyBrowserClient()
         script = client.get_stealth_script("example.com")
-        assert "example.com" in script
+        header = script.splitlines()[0]
+        assert header == "// [scrAPE Sticky Stealth Fingerprint — Domain: example.com]"
         assert "UNMASKED_VENDOR_WEBGL" in script
 
     def test_client_get_stealth_script_with_url(self):
         client = DummyBrowserClient()
         script = client.get_stealth_script("https://api.scraper-test.com:8443/products?page=2")
-        assert "api.scraper-test.com:8443" in script
+        header = script.splitlines()[0]
+        assert header == "// [scrAPE Sticky Stealth Fingerprint — Domain: api.scraper-test.com:8443]"
         assert "hardwareConcurrency" in script

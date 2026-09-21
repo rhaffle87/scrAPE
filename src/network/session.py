@@ -1,9 +1,11 @@
 import os
+import re
 import json
 import threading
 import sys
 from pathlib import Path
 from monitoring.logger import get_logger
+from common.security import validate_safe_path
 logger = get_logger(__name__)
 
 SESSION_DIR = "data/sessions"
@@ -21,8 +23,19 @@ class SessionManager:
             except OSError as exc:
                 logger.warning("Failed to set permissions on session directory: %s", exc)
 
-    def get_session_file(self, domain):
-        return os.path.join(SESSION_DIR, f"{domain.replace('.', '_')}.json")
+    def get_session_file(self, domain: str) -> str:
+        safe_domain = re.sub(r"[^\w\-]", "_", str(domain).strip().lower())
+        if not safe_domain:
+            safe_domain = "unknown_session"
+
+        base_dir = os.path.abspath(SESSION_DIR)
+        target_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, f"{safe_domain}.json")))
+
+        if not target_file.startswith(base_dir + os.sep):
+            raise ValueError(f"Path traversal detected: {domain} resolves outside session directory")
+
+        validate_safe_path(base_dir, target_file)
+        return target_file
 
     def save_session(self, domain, cookies):
         file_path = self.get_session_file(domain)
