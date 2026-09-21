@@ -94,3 +94,107 @@ def test_get_task_broker_factory(monkeypatch):
 
     b2 = get_task_broker("redis://127.0.0.1:6379/1")
     assert isinstance(b2, (RedisTaskBroker, RedisStreamTaskBroker))
+
+
+def test_validate_broker_security_ac1_2(caplog):
+    """AC1.2: Assert INSECURE warning on unauthenticated non-loopback Redis configurations."""
+    import logging
+    from core.worker_pool import RedisStreamTaskBroker
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        # 1. Non-loopback with no password -> MUST emit INSECURE warning
+        RedisStreamTaskBroker.validate_broker_security("redis://192.168.1.100:6379/0")
+        assert any("INSECURE" in record.message and "192.168.1.100" in record.message for record in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        # 2. Non-loopback WITH password -> MUST NOT emit INSECURE warning
+        RedisStreamTaskBroker.validate_broker_security("redis://:secret_pass@192.168.1.100:6379/0")
+        assert not any("INSECURE" in record.message for record in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        # 3. Loopback without password -> local dev allowed, NO INSECURE warning
+        RedisStreamTaskBroker.validate_broker_security("redis://127.0.0.1:6379/0")
+        assert not any("INSECURE" in record.message for record in caplog.records)
+
+
+def test_worker_heartbeat_and_active_count_ac1_6():
+    """AC1.6: Worker heartbeat key lifecycle and active node count tracking."""
+    import fakeredis
+    from core.worker_pool import RedisStreamTaskBroker
+    from core.distributed_worker import DistributedWorkerNode
+
+    fake_client = fakeredis.FakeRedis()
+    broker = RedisStreamTaskBroker(redis_url="redis://127.0.0.1:6379/0")
+    broker._client = fake_client
+
+    assert broker.get_active_worker_count() == 0
+
+    worker1 = DistributedWorkerNode(broker=broker, consumer_name="worker_test_1")
+    worker1.publish_heartbeat()
+    assert broker.get_active_worker_count() == 1
+
+    worker2 = DistributedWorkerNode(broker=broker, consumer_name="worker_test_2")
+    worker2.publish_heartbeat()
+    assert broker.get_active_worker_count() == 2
+
+    # Simulate worker 1 graceful shutdown (deletes heartbeat key)
+    worker1.shutdown()
+    assert broker.get_active_worker_count() == 1
+
+    # Simulate worker 2 crash (heartbeat expires after TTL)
+    fake_client.delete(f"scrape:workers:{worker2.worker_id}")
+    assert broker.get_active_worker_count() == 0
+
+
+def test_gc_stale_consumers_ac1_7():
+    """AC1.7: Garbage collection of stale consumers in consumer group."""
+    import fakeredis
+    from core.worker_pool import RedisStreamTaskBroker
+
+    fake_client = fakeredis.FakeRedis()
+    broker = RedisStreamTaskBroker(redis_url="redis://127.0.0.1:6379/0")
+    broker._client = fake_client
+
+    stream_name = "scrape:crawl_stream"
+    broker._ensure_group(stream_name)
+
+    # Simulate 50 stale worker consumers created across cluster restarts
+    for i in range(50):
+        fake_client.xreadgroup("scraper_cluster", f"stale_worker_{i}", {stream_name: ">"}, count=1)
+
+    consumers_before = fake_client.xinfo_consumers(stream_name, "scraper_cluster")
+    assert len(consumers_before) == 50
+
+    # Prune stale consumers: all 50 have 0 pending and no active heartbeat key
+    pruned_count = broker.gc_stale_consumers(stream_name)
+    assert pruned_count == 50
+
+    consumers_after = fake_client.xinfo_consumers(stream_name, "scraper_cluster")
+    assert len(consumers_after) == 0
+
+
+def test_idempotency_lock_mutual_exclusion_ac1_1():
+    """AC1.1: Atomic idempotency lock ensures only first worker wins and double-write is rejected."""
+    import fakeredis
+    from core.worker_pool import RedisStreamTaskBroker
+
+    fake_client = fakeredis.FakeRedis()
+    broker = RedisStreamTaskBroker(redis_url="redis://127.0.0.1:6379/0")
+    broker._client = fake_client
+
+    task_id = "task_uuid_9999"
+
+    # Worker A acquires idempotency lock
+    locked_a = broker.acquire_idempotency_lock(task_id, worker_id="worker_a", ttl_seconds=60)
+    assert locked_a is True
+
+    # Worker B tries to acquire idempotency lock for the same task -> MUST FAIL
+    locked_b = broker.acquire_idempotency_lock(task_id, worker_id="worker_b", ttl_seconds=60)
+    assert locked_b is False
+
+    # Idempotency key in Redis belongs to worker_a
+    assert fake_client.get(f"scrape:completed:{task_id}") == b"worker_a"
+

@@ -185,6 +185,15 @@ class BaseTaskBroker(Protocol):
     def get_queue_length(self, queue_name: str) -> int:
         ...
 
+    def acquire_idempotency_lock(self, task_id: str, worker_id: str, ttl_seconds: int = 120) -> bool:
+        ...
+
+    def release_idempotency_lock(self, task_id: str) -> bool:
+        ...
+
+    def route_dead_letter(self, stream_name: str, message_id: str, payload: dict[str, Any], error_trace: str) -> bool:
+        ...
+
 
 class InMemoryTaskBroker:
     """Thread-safe zero-dependency in-memory task broker for local worker queues."""
@@ -193,6 +202,8 @@ class InMemoryTaskBroker:
         self._queues: dict[str, queue.Queue] = {}
         self._lock = threading.Lock()
         self._task_counter = 0
+        self._completed_locks: dict[str, tuple[str, float]] = {}
+        self._dead_letters: list[dict[str, Any]] = []
 
     def _get_queue(self, queue_name: str) -> queue.Queue:
         with self._lock:
@@ -217,7 +228,6 @@ class InMemoryTaskBroker:
             return None
 
     def ack_task(self, queue_name: str, task_id: str) -> bool:
-        # In-memory queue items are consumed upon get
         return True
 
     def autoclaim_abandoned_tasks(self, queue_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
@@ -226,6 +236,39 @@ class InMemoryTaskBroker:
     def get_queue_length(self, queue_name: str) -> int:
         q = self._get_queue(queue_name)
         return q.qsize()
+
+    def acquire_idempotency_lock(self, task_id: str, worker_id: str, ttl_seconds: int = 120) -> bool:
+        import time
+        now = time.time()
+        with self._lock:
+            if task_id in self._completed_locks:
+                owner, expires = self._completed_locks[task_id]
+                if now < expires:
+                    return False
+            self._completed_locks[task_id] = (worker_id, now + ttl_seconds)
+            return True
+
+    def release_idempotency_lock(self, task_id: str) -> bool:
+        with self._lock:
+            if task_id in self._completed_locks:
+                del self._completed_locks[task_id]
+                return True
+            return False
+
+    def route_dead_letter(self, stream_name: str, message_id: str, payload: dict[str, Any], error_trace: str) -> bool:
+        import time
+        entry = {
+            "task_id": payload.get("task_id", ""),
+            "original_stream": stream_name,
+            "message_id": message_id,
+            "payload": payload,
+            "error_trace": error_trace,
+            "routed_at": time.time(),
+            "delivery_count": payload.get("delivery_count", 0),
+        }
+        with self._lock:
+            self._dead_letters.append(entry)
+        return True
 
 
 class RedisTaskBroker:
@@ -284,11 +327,31 @@ class RedisTaskBroker:
                 pass
         return self._fallback.get_queue_length(queue_name)
 
+    def acquire_idempotency_lock(self, task_id: str, worker_id: str, ttl_seconds: int = 120) -> bool:
+        if self._client:
+            try:
+                return bool(self._client.set(f"scrape:completed:{task_id}", worker_id, nx=True, ex=ttl_seconds))
+            except Exception:
+                pass
+        return self._fallback.acquire_idempotency_lock(task_id, worker_id, ttl_seconds)
+
+    def release_idempotency_lock(self, task_id: str) -> bool:
+        if self._client:
+            try:
+                return bool(self._client.delete(f"scrape:completed:{task_id}"))
+            except Exception:
+                pass
+        return self._fallback.release_idempotency_lock(task_id)
+
+    def route_dead_letter(self, stream_name: str, message_id: str, payload: dict[str, Any], error_trace: str) -> bool:
+        return self._fallback.route_dead_letter(stream_name, message_id, payload, error_trace)
+
 
 class RedisStreamTaskBroker:
     """
     Distributed Redis Streams task broker utilizing consumer groups (XREADGROUP),
-    explicit acknowledgments (XACK), and orphan auto-recovery (XAUTOCLAIM).
+    explicit acknowledgments (XACK), orphan auto-recovery (XAUTOCLAIM),
+    atomic idempotency locks (SET NX), and dead-letter routing.
     Falls back gracefully to InMemoryTaskBroker if Redis is offline.
     """
 
@@ -307,7 +370,31 @@ class RedisStreamTaskBroker:
         self._known_groups: set[str] = set()
         self._init_client()
 
+    @staticmethod
+    def validate_broker_security(redis_url: str) -> None:
+        """
+        Check for insecure broker configurations (AC1.2).
+        Emits a warning containing 'INSECURE' if connecting to a non-loopback host without authentication.
+        """
+        from urllib.parse import urlparse
+        from common.security import sanitize_url_credentials
+        try:
+            parsed = urlparse(redis_url)
+            hostname = (parsed.hostname or "").lower()
+            has_password = bool(parsed.password)
+            is_loopback = hostname in ("127.0.0.1", "localhost", "::1", "")
+            if not is_loopback and not has_password:
+                LOGGER.warning(
+                    "INSECURE REDIS CONFIGURATION: Worker connecting to non-loopback Redis host '%s' with NO PASSWORD configured at %s",
+                    hostname,
+                    sanitize_url_credentials(redis_url),
+                )
+        except Exception as err:
+            LOGGER.debug("Error in validate_broker_security: %s", err)
+
     def _init_client(self) -> None:
+        # Check security posture first
+        self.validate_broker_security(self.redis_url)
         try:
             import redis
             from common.security import sanitize_url_credentials
@@ -330,6 +417,15 @@ class RedisStreamTaskBroker:
             else:
                 LOGGER.debug("xgroup_create notice for stream %s: %s", stream_name, e)
 
+    def _decode_message_fields(self, msg_id: Any, fields: dict) -> dict[str, Any]:
+        raw_payload = fields.get(b"payload") or fields.get("payload")
+        if isinstance(raw_payload, bytes):
+            raw_payload = raw_payload.decode("utf-8")
+        data = json.loads(raw_payload) if raw_payload else {}
+        msg_id_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
+        data["_task_id"] = msg_id_str
+        return data
+
     def push_task(self, stream_name: str, payload: dict[str, Any]) -> bool:
         if self._client:
             try:
@@ -343,6 +439,19 @@ class RedisStreamTaskBroker:
         if self._client:
             try:
                 self._ensure_group(stream_name)
+                # 1. Drain consumer's own unacknowledged pending messages first
+                pending_resp = self._client.xreadgroup(
+                    groupname=self.group_name,
+                    consumername=self.consumer_name,
+                    streams={stream_name: "0"},
+                    count=1,
+                )
+                if pending_resp:
+                    for _stream, messages in pending_resp:
+                        for msg_id, fields in messages:
+                            return self._decode_message_fields(msg_id, fields)
+
+                # 2. Pop new messages from stream
                 block_ms = int(max(10, timeout * 1000))
                 resp = self._client.xreadgroup(
                     groupname=self.group_name,
@@ -354,13 +463,7 @@ class RedisStreamTaskBroker:
                 if resp:
                     for _stream, messages in resp:
                         for msg_id, fields in messages:
-                            raw_payload = fields.get(b"payload") or fields.get("payload")
-                            if isinstance(raw_payload, bytes):
-                                raw_payload = raw_payload.decode("utf-8")
-                            data = json.loads(raw_payload) if raw_payload else {}
-                            msg_id_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
-                            data["_task_id"] = msg_id_str
-                            return data
+                            return self._decode_message_fields(msg_id, fields)
             except Exception as e:
                 LOGGER.warning("Redis xreadgroup failed (%s). Falling back to in-memory.", e)
         return self._fallback.pop_task(stream_name, timeout)
@@ -374,32 +477,173 @@ class RedisStreamTaskBroker:
                 LOGGER.warning("Redis xack failed: %s", e)
         return self._fallback.ack_task(stream_name, task_id)
 
-    def autoclaim_abandoned_tasks(self, stream_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
-        reclaimed: list[dict[str, Any]] = []
+    def acquire_idempotency_lock(self, task_id: str, worker_id: str, ttl_seconds: int = 120) -> bool:
+        """
+        Atomic idempotency lock (AC1.1).
+        Enforces SET scrape:completed:{task_id} {worker_id} NX EX {ttl_seconds}.
+        Only the first worker to complete the task acquires the lock.
+        """
+        ttl = max(1, int(ttl_seconds))
         if self._client:
             try:
-                self._ensure_group(stream_name)
-                res = self._client.xautoclaim(
-                    name=stream_name,
-                    groupname=self.group_name,
-                    consumername=self.consumer_name,
-                    min_idle_time=min_idle_ms,
-                    start_id="0-0",
-                    count=10,
-                )
-                if res and len(res) >= 2:
-                    messages = res[1]
-                    for msg_id, fields in messages:
-                        raw_payload = fields.get(b"payload") or fields.get("payload")
-                        if isinstance(raw_payload, bytes):
-                            raw_payload = raw_payload.decode("utf-8")
-                        data = json.loads(raw_payload) if raw_payload else {}
-                        msg_id_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
-                        data["_task_id"] = msg_id_str
-                        reclaimed.append(data)
+                key = f"scrape:completed:{task_id}"
+                res = self._client.set(key, worker_id, nx=True, ex=ttl)
+                return bool(res)
             except Exception as e:
-                LOGGER.debug("Redis xautoclaim notice: %s", e)
+                LOGGER.warning("Redis acquire_idempotency_lock error (%s). Falling back to in-memory.", e)
+        return self._fallback.acquire_idempotency_lock(task_id, worker_id, ttl)
+
+    def release_idempotency_lock(self, task_id: str) -> bool:
+        if self._client:
+            try:
+                key = f"scrape:completed:{task_id}"
+                return bool(self._client.delete(key))
+            except Exception as e:
+                LOGGER.warning("Redis release_idempotency_lock error: %s", e)
+        return self._fallback.release_idempotency_lock(task_id)
+
+    def route_dead_letter(self, stream_name: str, message_id: str, payload: dict[str, Any], error_trace: str) -> bool:
+        """
+        Route poison-pill tasks to scrape:dead_letter_stream and XACK off working stream (AC1.4).
+        """
+        import time
+        dead_letter_stream = "scrape:dead_letter_stream"
+        entry = {
+            "task_id": str(payload.get("task_id", "")),
+            "original_stream": stream_name,
+            "message_id": str(message_id),
+            "payload": json.dumps(payload),
+            "error_trace": error_trace[:4096],
+            "routed_at": str(time.time()),
+            "delivery_count": str(payload.get("delivery_count", 0)),
+        }
+        if self._client:
+            try:
+                self._client.xadd(dead_letter_stream, entry)
+                self._client.xack(stream_name, self.group_name, message_id)
+                LOGGER.warning(
+                    "Task %s moved to dead-letter stream %s after failed execution (delivery_count: %s).",
+                    payload.get("task_id", message_id),
+                    dead_letter_stream,
+                    payload.get("delivery_count", 0),
+                )
+                return True
+            except Exception as e:
+                LOGGER.error("Failed routing task to dead letter stream: %s", e)
+        return self._fallback.route_dead_letter(stream_name, message_id, payload, error_trace)
+
+    def autoclaim_abandoned_tasks(self, stream_name: str, min_idle_ms: int = 5000, count: int = 10) -> list[dict[str, Any]]:
+        """
+        Reclaim abandoned or stalled tasks (AC1.1).
+        Uses XAUTOCLAIM with fallback to XPENDING_RANGE + XCLAIM.
+        """
+        reclaimed: list[dict[str, Any]] = []
+        if not self._client:
+            return self._fallback.autoclaim_abandoned_tasks(stream_name, min_idle_ms)
+
+        self._ensure_group(stream_name)
+        try:
+            res = self._client.xautoclaim(
+                name=stream_name,
+                groupname=self.group_name,
+                consumername=self.consumer_name,
+                min_idle_time=min_idle_ms,
+                start_id="0-0",
+                count=count,
+            )
+            if res and len(res) >= 2:
+                messages = res[1]
+                for msg_id, fields in messages:
+                    data = self._decode_message_fields(msg_id, fields)
+                    if data:
+                        reclaimed.append(data)
+                return reclaimed
+        except Exception as e:
+            LOGGER.debug("xautoclaim fallback triggered: %s", e)
+
+        # Fallback to XPENDING_RANGE + XCLAIM
+        try:
+            pending = self._client.xpending_range(
+                name=stream_name,
+                groupname=self.group_name,
+                min="-",
+                max="+",
+                count=count,
+            )
+            for p in pending:
+                idle = p.get("idle", 0)
+                msg_id = p.get("message_id")
+                consumer = p.get("consumer")
+                if idle >= min_idle_ms and consumer != self.consumer_name:
+                    claimed = self._client.xclaim(
+                        name=stream_name,
+                        groupname=self.group_name,
+                        consumername=self.consumer_name,
+                        min_idle_time=min_idle_ms,
+                        message_ids=[msg_id],
+                    )
+                    for c_id, fields in claimed:
+                        data = self._decode_message_fields(c_id, fields)
+                        if data:
+                            reclaimed.append(data)
+        except Exception as err:
+            LOGGER.debug("xpending/xclaim error: %s", err)
+
         return reclaimed
+
+    def get_delivery_count(self, stream_name: str, message_id: str) -> int:
+        """Query Redis XPENDING to get delivery count for a pending message."""
+        if not self._client:
+            return 1
+        try:
+            pending_list = self._client.xpending_range(
+                name=stream_name,
+                groupname=self.group_name,
+                min=message_id,
+                max=message_id,
+                count=1,
+            )
+            if pending_list:
+                return int(pending_list[0].get("times_delivered", 1))
+        except Exception as e:
+            LOGGER.debug("Error querying message delivery count: %s", e)
+        return 1
+
+    def gc_stale_consumers(self, stream_name: str) -> int:
+        """
+        Garbage collect consumers in consumer group that have 0 pending messages
+        and no active heartbeat key in scrape:workers:* (AC1.7).
+        """
+        pruned = 0
+        if not self._client:
+            return pruned
+        try:
+            self._ensure_group(stream_name)
+            consumers = self._client.xinfo_consumers(stream_name, self.group_name)
+            for c in consumers:
+                c_name = c.get("name")
+                if isinstance(c_name, bytes):
+                    c_name = c_name.decode("utf-8")
+                pending = c.get("pending", 0)
+                if pending == 0:
+                    heartbeat_key = f"scrape:workers:{c_name}"
+                    if not self._client.exists(heartbeat_key):
+                        self._client.xgroup_delconsumer(stream_name, self.group_name, c_name)
+                        pruned += 1
+                        LOGGER.info("Pruned stale consumer %s from stream %s", c_name, stream_name)
+        except Exception as e:
+            LOGGER.debug("gc_stale_consumers notice for stream %s: %s", stream_name, e)
+        return pruned
+
+    def get_active_worker_count(self) -> int:
+        """Count active worker nodes based on unexpired heartbeat keys (AC1.6)."""
+        if self._client:
+            try:
+                keys = list(self._client.scan_iter("scrape:workers:*", count=100))
+                return len(keys)
+            except Exception as e:
+                LOGGER.debug("Error scanning worker heartbeats: %s", e)
+        return 0
 
     def get_queue_length(self, stream_name: str) -> int:
         if self._client:
