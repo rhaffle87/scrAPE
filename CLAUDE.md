@@ -7,7 +7,7 @@ Dependencies are managed in `pyproject.toml` and `requirements.txt`.
 ## File-Scoped Commands
 | Task | Command |
 |------|---------|
-| Test | `pytest tests/ -v` (541 automated tests) |
+| Test | `pytest tests/ -v` (546 automated tests) |
 | Lint | `ruff check path/to/file.py` |
 
 ## References

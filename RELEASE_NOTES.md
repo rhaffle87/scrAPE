@@ -44,7 +44,7 @@
 - **Self-Healing Observability**: `run_summary.json` and post-run console summaries now expose `"self_healing"` metrics tracking items recovered per run, strategy breakdown, and historical SQLite cache hits.
 
 ### 8. QA Validation & Test Suite
-- **Regression Suite**: 541 passed, 0 failed.
+- **Regression Suite**: 546 passed, 0 failed.
 - **Static Security**: Bandit SAST scanned 21,594 LoC with 0 High-severity issues.
 - **SSRF Protection Matrix**: 5/5 targets blocked with HTTP 400.
 

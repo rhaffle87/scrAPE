@@ -79,7 +79,7 @@ scrape-dashboard/
 │   ├── notifications/           — Pluggable notification pipeline
 │   └── storage/                 — SQLite WAL state caching, chunked downloading
 │
-├── tests/                       — Domain-Structured Automated Test Suite (541 Tests)
+├── tests/                       — Domain-Structured Automated Test Suite (546 Tests)
 │   ├── conftest.py              — Global pytest fixtures, project_root resolution, network isolation
 │   ├── mock_target_server.py    — Local ephemeral HTTP mock server for offline integration tests
 │   ├── cli/                     — CLI launcher, wizards, preflight, release automation

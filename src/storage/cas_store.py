@@ -47,13 +47,9 @@ class ContentAddressableStore:
         prefix = clean_hash[:2]
         suffix = clean_hash[2:]
         bucket_dir = self.root_dir / prefix
-        target = Path(os.path.abspath(os.path.normpath(bucket_dir / f"{suffix}.{clean_ext}")))
-
-        root_str = str(Path(os.path.abspath(os.path.normpath(self.root_dir))))
-        target_str = str(target)
-        if not (target_str == root_str or target_str.startswith(root_str + os.sep)):
-            raise ValueError(f"Path traversal detected: {target_str} outside {root_str}")
-        return target
+        target = bucket_dir / f"{suffix}.{clean_ext}"
+        from common.security import validate_safe_path
+        return validate_safe_path(self.root_dir, target)
 
     def exists(self, sha256_hash: str, extension: str = "jpg") -> bool:
         return self.get_cas_path(sha256_hash, extension).is_file()

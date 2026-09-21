@@ -136,21 +136,38 @@ def validate_safe_path(base_dir: str | Path, target_path: str | Path) -> Path:
     Enforce strict 3-step path resolution:
       1. Untainted base root
       2. os.path.abspath(os.path.normpath(...))
-      3. Prefix boundary verification against base root
+      3. Prefix boundary verification against base root (dual relative_to + commonpath)
     """
     base = Path(os.path.abspath(os.path.normpath(base_dir)))
     target = Path(os.path.abspath(os.path.normpath(target_path)))
 
     try:
         target.relative_to(base)
-    except ValueError:
-        raise ValueError(f"Path traversal detected: {target} is outside {base}")
+    except ValueError as exc:
+        raise ValueError(f"Path traversal detected: {target} is outside {base}") from exc
+
+    try:
+        common = os.path.commonpath([str(base), str(target)])
+        if os.path.normcase(common) != os.path.normcase(str(base)):
+            raise ValueError(f"Path traversal detected: {target} is outside {base}")
+    except Exception as exc:
+        raise ValueError(f"Path traversal detected: {target} is outside {base}") from exc
+
     return target
+
+
+def is_safe_subpath(base_dir: str | Path, target_path: str | Path) -> bool:
+    """Return True if target_path is cleanly contained inside base_dir without traversal."""
+    try:
+        validate_safe_path(base_dir, target_path)
+        return True
+    except (ValueError, Exception):
+        return False
 
 
 def sanitize_filename(name: str) -> str:
     """Sanitize a filename to strip directory traversal sequences and unsafe characters."""
-    safe = re.sub(r"[^a-zA-Z0-9_.\- ]", "_", name)
+    safe = re.sub(r"[^a-zA-Z0-9_.\-]", "_", name)
     safe = safe.replace("..", "_").strip(" ._")
     safe = re.sub(r"_+", "_", safe)
     return safe or "unnamed"

@@ -1,7 +1,7 @@
 # Governance, Security & Performance Report — scrAPE v0.29.0
 > **Date**: September 21, 2026  
 > **Status**: APPROVED & VERIFIED  
-> **Canonical Test Suite**: 541 Tests Passing (100%)  
+> **Canonical Test Suite**: 546 Tests Passing (100%)  
 > **Security Posture**: 0 CodeQL Suppressions, Anti-SSRF Redirect Chain Validation, Strict 3-Step Mathematical Path Traversal Defense  
 
 ---
@@ -11,7 +11,7 @@
 This Governance Report consolidates all findings, security remediations, cross-documentation synchronizations, and core crawling performance enhancements implemented during the comprehensive repository audit for **scrAPE v0.29.0**.
 
 Every requirement defined in the validation audit has been fulfilled and verified:
-1. **Documentation Re-Audit**: All 12 documentation artifacts across the repository were comprehensively scanned and synchronized against the canonical v0.29.0 baseline (541 automated tests, Oswald 700 typography specifications, and CLI flags).
+1. **Documentation Re-Audit**: All 12 documentation artifacts across the repository were comprehensively scanned and synchronized against the canonical v0.29.0 baseline (546 automated tests, Oswald 700 typography specifications, and CLI flags).
 2. **Static Analysis & Compliance**: Zero `# codeql[...]` suppressions exist across `src/` and `frontend/`. Strict 3-step path resolution (`untainted root` $\to$ `abspath/normpath` $\to$ `prefix boundary check`) was mathematically proven and implemented across CAS, Parquet, and dataset export pipelines.
 3. **Crawl Pipeline Throughput & Latency Optimization**: Profiled crawl bottlenecks and implemented **Domain Tier Memory Caching** (`_domain_tier_memory`). Protected domains bypass redundant T1 HTTPX 403 loops, slashing subsequent request latency by **88.2% (8.47× speedup)** with an overall **3.42× batch throughput gain**.
 4. **Success Rate & Self-Healing DOM Observability**: Self-Healing DOM Parser recoveries are now systematically aggregated in `run_summary.py` and exposed in `run_summary.json` and post-run console telemetry.
@@ -25,10 +25,10 @@ Across the 12 non-docs-site documentation artifacts, all references were audited
 
 | Document File | Audited Section | Initial Stale State | Resolved Canonical State (v0.29.0) |
 |---|---|---|---|
-| `docs/ARCHITECTURE.md` | §1 Core Layout Tree (L82) | Listed `458 Tests` | Updated to `541 Tests` (Domain-Structured Suite) |
+| `docs/ARCHITECTURE.md` | §1 Core Layout Tree (L82) | Listed `458 Tests` | Updated to `546 Tests` (Domain-Structured Suite) |
 | `docs/ARCHITECTURE.md` | §3 Modern Modules | Missing Section 3.21 | Added Section 3.21 documenting Domain Tier Memory and Anti-SSRF Defense |
 | `.agents/KNOWLEDGE.md` | §1 Architectural Overview | Listed outdated module mappings and omitted CAS/Parquet | Added CAS deduplication, Parquet exporter, Self-Healing DOM, and Redis Streams |
-| `.agents/KNOWLEDGE.md` | §4 Benchmarks & Notes | Referenced `pre-v0.24.0` bugs and omitted 8-Tier WAF | Documented 8-Tier WAF, Domain Tier Memory speedups, and 541 automated tests |
+| `.agents/KNOWLEDGE.md` | §4 Benchmarks & Notes | Referenced `pre-v0.24.0` bugs and omitted 8-Tier WAF | Documented 8-Tier WAF, Domain Tier Memory speedups, and 546 automated tests |
 | `SECURITY.md` | §5 Secret Safety | Missing SQLite WAL/SHM file exclusion specifics | Explicitly documented `*.db-wal` and `*.db-shm` exclusion in `.gitignore` |
 | `SECURITY.md` | §6 Supported Versions | Missing explicit supported versions table | Added Supported Versions table (`0.29.x` Supported, `<0.29` EOL) |
 | `SECURITY.md` | §5 Network Security | Missing SSRF redirect chain and credential scrubbing policies | Added comprehensive network security and SSRF policies |
@@ -37,10 +37,10 @@ Across the 12 non-docs-site documentation artifacts, all references were audited
 | `docs/OPERATING_MANUAL.md` | §3 WebUI Rules (L97-98) | Incomplete typography specs | Synchronized Oswald 700 and JetBrains Mono 700 specs with `DESIGN.md` |
 | `docs/OPERATING_MANUAL.md` | §4 Operator Loop | Missing modern CLI flags in example commands | Added `--enable-cas`, `--export-parquet`, `--enable-self-healing` |
 | `docs/OPERATING_MANUAL.md` | §4 Analyze Outputs | Omitted Parquet, CAS, and `run_summary.json` | Documented `images.parquet`, `videos.parquet`, `cas/`, and self-healing telemetry |
-| `README.md` | Header Badges (L13) | Listed `533 TESTS PASSED` | Updated badge to `541 TESTS PASSED` |
-| `README.md` | Directory Tree & Testing | Listed 458/533 test counts | Updated to 541 automated tests and current directory architecture |
-| `CONTRIBUTING.md` | Pull Request Checklist | Generic testing checklist | Enforced 0 `# codeql` suppressions, 3-step path validation, SSRF checks, and 541 tests |
-| `CLAUDE.md` | References & Commands | Missing `SECURITY.md` and test count | Added canonical test count (541 tests) and security policy references |
+| `README.md` | Header Badges (L13) | Listed `533 TESTS PASSED` | Updated badge to `546 TESTS PASSED` |
+| `README.md` | Directory Tree & Testing | Listed 458/533 test counts | Updated to 546 automated tests and current directory architecture |
+| `CONTRIBUTING.md` | Pull Request Checklist | Generic testing checklist | Enforced 0 `# codeql` suppressions, 3-step path validation, SSRF checks, and 546 tests |
+| `CLAUDE.md` | References & Commands | Missing `SECURITY.md` and test count | Added canonical test count (546 tests) and security policy references |
 | `docs/USAGE.md` | §3 CLI Arguments | Omitted `--redis-url` and `--llm-provider` | Added `--redis-url` and `--llm-provider` definitions |
 | `RELEASE_NOTES.md` | v0.29.0 Highlights | Omitted Domain Tier Memory and SSRF hardening | Fully documented Domain Tier Memory benchmarks (-88.2% latency, 8.47x speedup) and SSRF defense |
 
@@ -196,10 +196,10 @@ platform win32 -- Python 3.13.15, pytest-9.0.3, pluggy-1.6.0
 rootdir: E:\Projects\scraper
 configfile: pyproject.toml
 plugins: anyio-4.14.2, mock-3.15.1, socket-0.8.0, timeout-2.4.0
-collected 541 items
+collected 546 items
 
-541 passed, 6 warnings in 172.34s (0:02:52)
-======================== 541 passed, 0 failed [100%] =========================
+546 passed, 6 warnings in 141.34s (0:02:21)
+======================== 546 passed, 0 failed [100%] =========================
 ```
 
 #### Domain Breakdown:
@@ -212,6 +212,7 @@ collected 541 items
 - **Plugins & Specialized Extractors**: 21 tests passed
 - **Storage, CAS & Parquet**: 38 tests passed
 - **SSRF, DNS Rebinding & Tier Memory**: 5 tests passed
+- **Path Traversal & Boundary Security**: 5 tests passed (`tests/test_path_traversal_hardened.py`)
 - **General Integration & Security Suites**: 257 tests passed
 
 ### 7.2 GitHub Actions CI Matrix Audit & Discrepancy Reconciliation

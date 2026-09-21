@@ -136,7 +136,7 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 
 Before submitting your pull request:
 
-- [ ] All unit and integration tests pass cleanly (`pytest tests/ -v`, 541 tests).
+- [ ] All unit and integration tests pass cleanly (`pytest tests/ -v`, 546 tests).
 - [ ] Code is formatted cleanly and adheres to Python 3.10+ conventions.
 - [ ] Zero `# codeql[...]` suppressions in `src/` or `frontend/` (structural 3-step path resolution mathematically proven).
 - [ ] All filesystem paths derived from user input use strict boundary validation (`validate_safe_path`).

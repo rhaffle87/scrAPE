@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/RELEASE-V0.29.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
-  <img src="https://img.shields.io/badge/TESTS-541%20PASSED-success?style=for-the-badge" alt="541 Tests Passing">
+  <img src="https://img.shields.io/badge/TESTS-546%20PASSED-success?style=for-the-badge" alt="546 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -215,12 +215,12 @@ scrape-dashboard/
 
 ## Testing
 
-scrAPE uses `pytest` for unit and integration testing. Over **541 automated tests** validate network fallback simulation, database transaction integrity, UI state verification, Content-Addressable Storage (CAS), Parquet exports, Domain Tier Memory, and anti-SSRF protections.
+scrAPE uses `pytest` for unit and integration testing. Over **546 automated tests** validate network fallback simulation, database transaction integrity, UI state verification, Content-Addressable Storage (CAS), Parquet exports, Domain Tier Memory, and anti-SSRF protections.
 
 ### Running Tests
 
 ```bash
-# Run the complete test suite (541 tests)
+# Run the complete test suite (546 tests)
 pytest tests/ -v
 
 # Run specific functional areas

@@ -69,10 +69,8 @@ class ParquetExporter:
     def export(self, result: Any) -> Path:
         """Export scrape result to Snappy Parquet file or fallback JSON Lines."""
         records = self._prepare_records(result)
-        parquet_path = Path(os.path.abspath(os.path.normpath(self.output_dir / f"{self.dataset_name}.parquet")))
-        root_str = str(self.output_dir)
-        if not (str(parquet_path) == root_str or str(parquet_path).startswith(root_str + os.sep)):
-            raise ValueError(f"Path traversal detected: {parquet_path} outside {root_str}")
+        from common.security import validate_safe_path
+        parquet_path = validate_safe_path(self.output_dir, self.output_dir / f"{self.dataset_name}.parquet")
 
         if not records:
             parquet_path.touch(exist_ok=True)
@@ -96,9 +94,8 @@ class ParquetExporter:
             )
             return parquet_path
         except ImportError:
-            fallback_path = Path(os.path.abspath(os.path.normpath(self.output_dir / f"{self.dataset_name}.jsonl")))
-            if not (str(fallback_path) == root_str or str(fallback_path).startswith(root_str + os.sep)):
-                raise ValueError(f"Path traversal detected: {fallback_path} outside {root_str}")
+            from common.security import validate_safe_path
+            fallback_path = validate_safe_path(self.output_dir, self.output_dir / f"{self.dataset_name}.jsonl")
             LOGGER.warning(
                 "pyarrow is not installed; falling back to JSON Lines dataset at %s",
                 fallback_path,
