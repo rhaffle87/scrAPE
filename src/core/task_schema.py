@@ -42,6 +42,62 @@ class BaseTaskPayload(BaseModel):
         return v
 
 
+def _validate_safe_task_filesystem_path(field_name: str, v: str) -> str:
+    if not v or not isinstance(v, str):
+        raise ValueError(f"{field_name} must be a non-empty string.")
+    if "\x00" in v:
+        raise ValueError(f"{field_name} contains null byte.")
+
+    v_lower = v.lower()
+    if ".." in v or "%2e%2e" in v_lower or "%2f" in v_lower or "%5c" in v_lower or "..;" in v:
+        raise ValueError(f"Path traversal sequence detected in {field_name}: {v!r}")
+
+    # Explicitly check for UNC shares (e.g., \\attacker\share) on all platforms
+    if v.startswith(r"\\") or v.startswith("//"):
+        raise ValueError(f"UNC network share paths not allowed in {field_name}: {v!r}")
+
+    # Absolute Windows paths on POSIX systems:
+    # On POSIX, Path("C:\Windows") treats "C:\Windows" as a relative path inside current directory.
+    # Explicitly reject Windows drive letters and leading backslashes on non-Windows platforms.
+    import os
+    if os.name != "nt":
+        if re.match(r"^[a-zA-Z]:", v):
+            raise ValueError(f"Windows drive-letter paths not allowed on POSIX systems in {field_name}: {v!r}")
+        if v.startswith("\\"):
+            raise ValueError(f"Leading backslash paths not allowed on POSIX systems in {field_name}: {v!r}")
+        if "\\" in v:
+            normalized_posix = v.replace("\\", "/")
+            if normalized_posix.startswith("/"):
+                raise ValueError(f"Absolute path escape in {field_name}: {v!r}")
+
+    import tempfile
+    candidate = Path(v).resolve()
+
+    allowed_roots = [
+        Path(".").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+    ]
+    try:
+        import config
+        if hasattr(config, "OUTPUT_DIR"):
+            allowed_roots.append(Path(config.OUTPUT_DIR).resolve())
+    except Exception:
+        pass
+
+    safe = False
+    for root in allowed_roots:
+        try:
+            validate_safe_path(root, candidate)
+            safe = True
+            break
+        except Exception:
+            continue
+
+    if not safe:
+        raise ValueError(f"{field_name} escapes workspace boundaries: {v!r}")
+    return v
+
+
 class CrawlTaskPayload(BaseTaskPayload):
     """Payload definition for distributed domain crawling tasks."""
     task_type: Literal["crawl"] = "crawl"
@@ -65,39 +121,7 @@ class CrawlTaskPayload(BaseTaskPayload):
     @field_validator("output_dir")
     @classmethod
     def validate_output_directory(cls, v: str) -> str:
-        if not v or not isinstance(v, str):
-            raise ValueError("output_dir must be a non-empty string.")
-        if "\x00" in v:
-            raise ValueError("output_dir contains null byte.")
-        if ".." in v:
-            raise ValueError(f"Path traversal sequence detected in output_dir: {v!r}")
-
-        import tempfile
-        candidate = Path(v).resolve()
-
-        allowed_roots = [
-            Path(".").resolve(),
-            Path(tempfile.gettempdir()).resolve(),
-        ]
-        try:
-            import config
-            if hasattr(config, "OUTPUT_DIR"):
-                allowed_roots.append(Path(config.OUTPUT_DIR).resolve())
-        except Exception:
-            pass
-
-        safe = False
-        for root in allowed_roots:
-            try:
-                validate_safe_path(root, candidate)
-                safe = True
-                break
-            except Exception:
-                continue
-
-        if not safe:
-            raise ValueError(f"output_dir escapes workspace boundaries: {v!r}")
-        return v
+        return _validate_safe_task_filesystem_path("output_dir", v)
 
     @field_validator("domain_whitelist")
     @classmethod
@@ -132,39 +156,7 @@ class DownloadTaskPayload(BaseTaskPayload):
     @field_validator("destination_path")
     @classmethod
     def validate_dest_path(cls, v: str) -> str:
-        if not v or not isinstance(v, str):
-            raise ValueError("destination_path must be a non-empty string.")
-        if "\x00" in v:
-            raise ValueError("destination_path contains null byte.")
-        if ".." in v:
-            raise ValueError(f"Path traversal sequence detected in destination_path: {v!r}")
-
-        import tempfile
-        candidate = Path(v).resolve()
-
-        allowed_roots = [
-            Path(".").resolve(),
-            Path(tempfile.gettempdir()).resolve(),
-        ]
-        try:
-            import config
-            if hasattr(config, "OUTPUT_DIR"):
-                allowed_roots.append(Path(config.OUTPUT_DIR).resolve())
-        except Exception:
-            pass
-
-        safe = False
-        for root in allowed_roots:
-            try:
-                validate_safe_path(root, candidate)
-                safe = True
-                break
-            except Exception:
-                continue
-
-        if not safe:
-            raise ValueError(f"destination_path escapes workspace boundaries: {v!r}")
-        return v
+        return _validate_safe_task_filesystem_path("destination_path", v)
 
     @field_validator("sha256_hint")
     @classmethod
