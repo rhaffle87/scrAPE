@@ -201,15 +201,15 @@
       <!-- Module 10 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[10] SECURITY & THREAT MODEL <span class="badge-new">NEW</span></span>
+          <span>[10] THREAT MODEL <span class="badge-tag" style="background:#ff3333;color:#000;font-weight:700;font-size:10px;padding:1px 6px;margin-left:6px;">PLANNED v0.30.0</span></span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
-          <li class="nav-sub-item"><a href="#sec-threat-overview">[10.1] Security Architecture & Scope</a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-leasing">[10.2] Distributed Task Leasing Matrix</a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-cas">[10.3] Cloud CAS Synchronization Matrix</a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-vlm">[10.4] Vision-Language DOM Healing Matrix</a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-ac">[10.5] Verification & Acceptance Protocol</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-overview">[10.1] Pre-Implementation Scope</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-leasing">[10.2] Task Leasing Matrix (Roadmap)</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-cas">[10.3] Cloud CAS Matrix (Roadmap)</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-vlm">[10.4] VLM Healing Matrix (Roadmap)</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-ac">[10.5] Acceptance Criteria Contract</a></li>
         </ul>
       </div>
 
@@ -3037,9 +3037,14 @@ Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</p
       <!-- 10.1 Security Architecture & Scope -->
       <section id="sec-threat-overview" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // SECURITY &amp; THREAT MODEL</div>
-          <h1>Security Architecture &amp; v0.30.0 Scope</h1>
-          <p class="section-desc">Authoritative pre-implementation threat model, STRIDE architectural contract, and trust boundaries for v0.30.0 distributed scaling.</p>
+          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
+          <h1>Security Architecture &amp; v0.30.0 Scope (Planned)</h1>
+          <p class="section-desc">Authoritative pre-implementation threat model, STRIDE architectural contract, and trust boundaries for future v0.30.0 distributed scaling.</p>
+        </div>
+
+        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--danger);">PLANNED — NOT YET IMPLEMENTED // v0.30.0 DESIGN SPECIFICATION</div>
+          This entire module represents a <strong>pre-implementation design specification and threat model</strong> for the upcoming v0.30.0 release. The components, daemons, cloud backends, and VLM parsers described here <strong>do not exist in the current v0.29.0 release</strong> and are not available in production code. This page defines the strict architectural and testing contract that must be satisfied during active v0.30.0 development.
         </div>
 
         <div class="alert important">
@@ -3161,9 +3166,14 @@ Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</p
       <!-- 10.2 Distributed Task Leasing Threat Matrix -->
       <section id="sec-threat-leasing" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // COMPONENT 1: TASK LEASING</div>
-          <h1>Distributed Task Leasing Threat Matrix</h1>
-          <p class="section-desc">STRIDE vulnerability analysis, attack scenarios, and atomic mitigation mechanisms for Redis Stream worker daemons.</p>
+          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
+          <h1>Distributed Task Leasing Threat Matrix (Planned)</h1>
+          <p class="section-desc">STRIDE vulnerability analysis, attack scenarios, and atomic mitigation mechanisms for planned Redis Stream worker daemons.</p>
+        </div>
+
+        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--danger);">PLANNED — NOT YET IMPLEMENTED // COMPONENT 1 SPECIFICATION</div>
+          <code>RedisStreamTaskBroker</code> and <code>DistributedWorkerNode</code> are <strong>not yet implemented</strong>. This matrix outlines the pre-implementation threat scenarios and mitigations that will govern the upcoming Component 1 implementation phase.
         </div>
 
         <div class="card">
@@ -3277,9 +3287,14 @@ if not lock_acquired:
       <!-- 10.3 Cloud CAS Synchronization Threat Matrix -->
       <section id="sec-threat-cas" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // COMPONENT 2: CLOUD CAS</div>
-          <h1>Cloud CAS Synchronization Threat Matrix</h1>
-          <p class="section-desc">Defense-in-depth specifications, cryptographic verification, and SSRF prevention for S3 / Cloudflare R2 / MinIO storage backends.</p>
+          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
+          <h1>Cloud CAS Synchronization Threat Matrix (Planned)</h1>
+          <p class="section-desc">Defense-in-depth specifications, cryptographic verification, and SSRF prevention for planned S3 / Cloudflare R2 / MinIO storage backends.</p>
+        </div>
+
+        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--danger);">PLANNED — NOT YET IMPLEMENTED // COMPONENT 2 SPECIFICATION</div>
+          <code>CASCloudSyncer</code> and S3/R2 cloud storage backends are <strong>not yet implemented</strong>. The current v0.29.0 release operates exclusively on local CAS storage. This matrix establishes the security requirements for Component 2.
         </div>
 
         <div class="card">
@@ -3389,9 +3404,14 @@ def build_cas_object_key(sha256_hash: str) -> str:
       <!-- 10.4 Vision-Language DOM Healing Threat Matrix -->
       <section id="sec-threat-vlm" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // COMPONENT 3: VLM HEALING</div>
-          <h1>Vision-Language DOM Healing Threat Matrix</h1>
-          <p class="section-desc">Multimodal AI security controls, adversarial visual prompt injection defenses, and DOM interaction sandboxing.</p>
+          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
+          <h1>Vision-Language DOM Healing Threat Matrix (Planned)</h1>
+          <p class="section-desc">Multimodal AI security controls, adversarial visual prompt injection defenses, and DOM interaction sandboxing for Tier 4 healing.</p>
+        </div>
+
+        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--danger);">PLANNED — NOT YET IMPLEMENTED // COMPONENT 3 SPECIFICATION</div>
+          <code>VisionDOMHealer</code> (Tier 4 multimodal DOM healing) is <strong>not yet implemented</strong>. Current self-healing in v0.29.0 operates across Tiers 1–3 (Cache, Heuristics, Text LLM). This matrix governs future multimodal visual model integration.
         </div>
 
         <div class="card">
@@ -3500,9 +3520,14 @@ Return ONLY a valid JSON object matching this schema:
       <!-- 10.5 Verification & Acceptance Protocol -->
       <section id="sec-threat-ac" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // ACCEPTANCE PROTOCOL</div>
-          <h1>Verification Protocol &amp; Acceptance Criteria</h1>
-          <p class="section-desc">Formal 1:1 testable criteria checklist, automated test specifications, and failure mode verification matrix for v0.30.0 sign-off.</p>
+          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
+          <h1>Pre-Implementation Acceptance Protocol (v0.30.0 Roadmap)</h1>
+          <p class="section-desc">Target test specifications, verification methodologies, and acceptance checklists governing future v0.30.0 engineering.</p>
+        </div>
+
+        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--danger);">ROADMAP VERIFICATION TARGETS — IMPLEMENTATION PENDING</div>
+          The 20 criteria below (AC1.1 through AC3.6) represent the <strong>pre-release testing contract</strong> for v0.30.0. These tests do not currently exist in the test suite and will be written alongside each component during active implementation.
         </div>
 
         <div class="alert note">
