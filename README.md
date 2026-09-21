@@ -19,7 +19,8 @@
   <a href="#key-features">Key Features</a> •
   <a href="#request-lifecycle-waf-pipeline">WAF Pipeline</a> •
   <a href="#architecture">Architecture</a> •
-  <a href="docs/">Documentation</a>
+  <a href="docs/">Documentation</a> •
+  <a href="docs/THREAT_MODEL.md">Threat Model (v0.30.0)</a>
 </p>
 
 scrAPE is an autonomous media extraction & stealth crawl engine that runs locally on your machine. Built for domain crawling, high-throughput asset discovery, WAF bypass, and AI dataset curation, it handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.

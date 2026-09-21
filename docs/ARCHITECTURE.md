@@ -299,12 +299,13 @@ The engine couples host-level network health with host-level hardware resource c
 
 ---
 
-## 4. Security & Static Analysis (CodeQL & Semgrep)
+## 4. Security, Static Analysis & v0.30.0 Threat Modeling
 
-The project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`), avoiding manual `# codeql` suppressions:
-1. **Untainted Root Generation**: Dynamically rebuilds the base drive (`os.path.splitdrive`).
+The project employs strict structural mitigations against vulnerabilities like Path Injection (`py/path-injection`) and SSRF, avoiding manual `# codeql` suppressions:
+1. **Untainted Root Generation**: Dynamically resolves untainted base root directory.
 2. **Absolute Normalization**: Forces input paths through `os.path.abspath(os.path.normpath())`.
-3. **Prefix Boundary Enforcement**: Checks bounds via `.startswith(safe_root)`.
+3. **Dual Boundary Enforcement**: Strict containment check via `target.relative_to(base)` plus `os.path.commonpath([str(base), str(target)]) == str(base)` with `os.path.normcase` in [`src/common/security.py`](file:///e:/Projects/scraper/src/common/security.py).
+4. **v0.30.0 Threat-Modeled Architecture Specification**: Formally documented in [`docs/THREAT_MODEL.md`](file:///e:/Projects/scraper/docs/THREAT_MODEL.md), establishing 20 threat scenarios, mitigations, and testable acceptance criteria (AC1.1–AC3.6) across Distributed Task Leasing, Cloud CAS Sync, and Vision-Language Multi-Modal DOM Healing.
 
 ---
 

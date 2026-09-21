@@ -14,5 +14,6 @@ Dependencies are managed in `pyproject.toml` and `requirements.txt`.
 - **Diagnostics & Loop**: `docs/OPERATING_MANUAL.md`
 - **Architecture & Benchmarks**: `.agents/KNOWLEDGE.md` & `docs/ARCHITECTURE.md`
 - **Security & Path Injection**: `SECURITY.md`
+- **v0.30.0 Threat Model**: `docs/THREAT_MODEL.md`
 - **Visual UI Design System**: `DESIGN.md`
 - **Configuration & Seeds**: `docs/CONFIGURATION.md`

@@ -1516,3 +1516,543 @@ mark.search-highlight {
     font-size: 14px;
   }
 }
+
+/* ── High-Resolution, Ultrawide & Zoom-Out Viewport Scaling ─────────────── */
+
+/* Tier 2: 2K, Ultrawide & 75% zoom (1921px - 2800px) */
+@media (min-width: 1921px) {
+  :root {
+    --sidebar-width: 380px;
+    --header-height: 64px;
+  }
+
+  body {
+    font-size: 16px;
+  }
+
+  .top-header {
+    padding: 0 36px;
+  }
+
+  .brand-logo {
+    font-size: 26px;
+  }
+
+  .brand-badge {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .search-box-container {
+    width: 360px;
+    height: 38px;
+  }
+
+  .search-input {
+    height: 38px;
+    font-size: 13px;
+    padding: 0 60px 0 38px;
+  }
+
+  .search-icon-prefix {
+    font-size: 13px;
+  }
+
+  .header-nav-link {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+
+  .nav-module-title {
+    font-size: 16px;
+    padding: 14px 24px;
+  }
+
+  .nav-sub-item a {
+    font-size: 14px;
+    min-height: 44px;
+    padding: 9px 24px 9px 42px;
+  }
+
+  .main-content {
+    max-width: 2400px;
+    padding: 44px 64px 120px 64px;
+  }
+
+  .section-header h1 {
+    font-size: 40px;
+  }
+
+  .card-title {
+    font-size: 22px;
+  }
+
+  .doc-section p,
+  .doc-section ul,
+  .doc-section ol,
+  .section-desc {
+    max-width: 1400px;
+    font-size: 16px;
+  }
+
+  .card {
+    padding: 30px;
+    margin-bottom: 30px;
+  }
+
+  .table-container table {
+    font-size: 14px;
+  }
+
+  .table-container th,
+  .table-container td {
+    padding: 14px 18px;
+  }
+
+  pre {
+    font-size: 14px;
+    padding: 18px;
+  }
+
+  code {
+    font-size: 14px;
+  }
+
+  .code-header {
+    font-size: 13px;
+    padding: 10px 18px;
+  }
+
+  .copy-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+
+  .footer-logo {
+    font-size: 18px;
+  }
+
+  .footer-tagline {
+    font-size: 15px;
+    max-width: 550px;
+  }
+
+  .footer-heading {
+    font-size: 16px;
+  }
+
+  .footer-link-list a {
+    font-size: 15px;
+  }
+
+  .footer-bottom-bar {
+    font-size: 13px;
+  }
+}
+
+/* Tier 3: 4K UHD, 3K & 50% zoom (2801px - 4800px) */
+@media (min-width: 2801px) {
+  :root {
+    --sidebar-width: 480px;
+    --header-height: 80px;
+  }
+
+  body {
+    font-size: 20px;
+    line-height: 1.7;
+  }
+
+  .top-header {
+    padding: 0 48px;
+  }
+
+  .brand-logo {
+    font-size: 34px;
+    letter-spacing: 2px;
+  }
+
+  .brand-badge {
+    font-size: 14px;
+    padding: 4px 12px;
+  }
+
+  .search-box-container {
+    width: 460px;
+    height: 48px;
+  }
+
+  .search-input {
+    height: 48px;
+    font-size: 17px;
+    padding: 0 70px 0 44px;
+  }
+
+  .search-icon-prefix {
+    font-size: 16px;
+    left: 14px;
+  }
+
+  .search-hint {
+    font-size: 13px;
+    padding: 2px 6px;
+  }
+
+  .header-nav-link {
+    font-size: 16px;
+    padding: 10px 22px;
+  }
+
+  .nav-module-title {
+    font-size: 20px;
+    padding: 18px 30px;
+  }
+
+  .nav-sub-item a {
+    font-size: 17px;
+    min-height: 52px;
+    padding: 12px 30px 12px 52px;
+  }
+
+  .main-content {
+    max-width: 3800px;
+    padding: 60px 96px 160px 96px;
+  }
+
+  .section-header h1 {
+    font-size: 52px;
+  }
+
+  .section-tag {
+    font-size: 14px;
+  }
+
+  .section-desc {
+    font-size: 20px;
+    max-width: 2200px;
+  }
+
+  .card-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+
+  .doc-section p,
+  .doc-section ul,
+  .doc-section ol {
+    max-width: 2200px;
+    font-size: 20px;
+  }
+
+  .card {
+    padding: 40px;
+    margin-bottom: 40px;
+    border-width: 2px;
+  }
+
+  .table-container table {
+    font-size: 17px;
+  }
+
+  .table-container th,
+  .table-container td {
+    padding: 18px 22px;
+  }
+
+  pre {
+    font-size: 17px;
+    padding: 22px;
+    line-height: 1.6;
+  }
+
+  code {
+    font-size: 17px;
+  }
+
+  .code-header {
+    font-size: 15px;
+    padding: 12px 22px;
+  }
+
+  .copy-btn {
+    font-size: 14px;
+    padding: 6px 16px;
+  }
+
+  .flow-card {
+    padding: 18px 14px;
+  }
+
+  .flow-badge {
+    font-size: 16px;
+  }
+
+  .flow-name {
+    font-size: 16px;
+  }
+
+  .flow-metric {
+    font-size: 14px;
+  }
+
+  .builder-grid {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 28px;
+  }
+
+  .builder-input,
+  .builder-select {
+    height: 50px;
+    font-size: 18px;
+    padding: 0 16px;
+  }
+
+  .checkbox-label {
+    font-size: 18px;
+    min-height: 52px;
+    padding: 14px 18px;
+  }
+
+  .footer-grid {
+    gap: 56px;
+  }
+
+  .footer-logo {
+    font-size: 22px;
+  }
+
+  .footer-tagline {
+    font-size: 18px;
+    max-width: 700px;
+  }
+
+  .footer-heading {
+    font-size: 20px;
+  }
+
+  .footer-link-list a {
+    font-size: 18px;
+  }
+
+  .footer-bottom-bar {
+    font-size: 16px;
+    padding-top: 28px;
+  }
+
+  .badge-tag {
+    font-size: 14px;
+    padding: 4px 12px;
+  }
+}
+
+/* Tier 4: 8K, 5K & Extreme 25% Zoom (min-width: 4801px) */
+@media (min-width: 4801px) {
+  :root {
+    --sidebar-width: 680px;
+    --header-height: 110px;
+  }
+
+  body {
+    font-size: 28px;
+    line-height: 1.8;
+  }
+
+  .top-header {
+    padding: 0 64px;
+  }
+
+  .brand-logo {
+    font-size: 46px;
+    letter-spacing: 3px;
+  }
+
+  .brand-badge {
+    font-size: 20px;
+    padding: 6px 16px;
+  }
+
+  .search-box-container {
+    width: 640px;
+    height: 64px;
+  }
+
+  .search-input {
+    height: 64px;
+    font-size: 24px;
+    padding: 0 90px 0 60px;
+  }
+
+  .search-icon-prefix {
+    font-size: 22px;
+    left: 20px;
+  }
+
+  .search-hint {
+    font-size: 18px;
+    padding: 4px 10px;
+    right: 16px;
+  }
+
+  .header-nav-link {
+    font-size: 22px;
+    padding: 14px 30px;
+  }
+
+  .nav-module-title {
+    font-size: 28px;
+    padding: 26px 40px;
+  }
+
+  .nav-sub-item a {
+    font-size: 24px;
+    min-height: 72px;
+    padding: 18px 40px 18px 72px;
+  }
+
+  .main-content {
+    max-width: 6400px;
+    padding: 80px 120px 220px 120px;
+  }
+
+  .section-header {
+    padding-bottom: 24px;
+    margin-bottom: 44px;
+  }
+
+  .section-tag {
+    font-size: 20px;
+    letter-spacing: 2.5px;
+  }
+
+  .section-header h1 {
+    font-size: 72px;
+  }
+
+  .section-desc {
+    font-size: 28px;
+    max-width: 3800px;
+    margin-top: 12px;
+  }
+
+  .card-title {
+    font-size: 40px;
+    margin-bottom: 28px;
+  }
+
+  .doc-section p,
+  .doc-section ul,
+  .doc-section ol {
+    max-width: 3800px;
+    font-size: 28px;
+  }
+
+  .card {
+    padding: 56px;
+    margin-bottom: 56px;
+    border-width: 2px;
+  }
+
+  .table-container table {
+    font-size: 24px;
+  }
+
+  .table-container th,
+  .table-container td {
+    padding: 24px 30px;
+  }
+
+  pre {
+    font-size: 24px;
+    padding: 30px;
+    line-height: 1.6;
+    border-width: 2px;
+  }
+
+  code {
+    font-size: 24px;
+    padding: 2px 8px;
+  }
+
+  .code-header {
+    font-size: 20px;
+    padding: 16px 28px;
+  }
+
+  .copy-btn {
+    font-size: 18px;
+    padding: 8px 22px;
+  }
+
+  .flow-card {
+    padding: 24px 18px;
+    border-width: 2px;
+  }
+
+  .flow-badge {
+    font-size: 22px;
+  }
+
+  .flow-name {
+    font-size: 22px;
+  }
+
+  .flow-metric {
+    font-size: 18px;
+  }
+
+  .builder-grid {
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 36px;
+  }
+
+  .builder-input,
+  .builder-select {
+    height: 68px;
+    font-size: 24px;
+    padding: 0 22px;
+  }
+
+  .checkbox-label {
+    font-size: 24px;
+    min-height: 68px;
+    padding: 18px 24px;
+  }
+
+  .footer-grid {
+    gap: 72px;
+  }
+
+  .footer-logo {
+    font-size: 30px;
+  }
+
+  .footer-tagline {
+    font-size: 24px;
+    max-width: 1000px;
+  }
+
+  .footer-heading {
+    font-size: 28px;
+  }
+
+  .footer-link-list a {
+    font-size: 24px;
+  }
+
+  .footer-bottom-bar {
+    font-size: 22px;
+    padding-top: 36px;
+  }
+
+  .badge-tag {
+    font-size: 18px;
+    padding: 6px 18px;
+  }
+
+  .scroll-top-btn {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+    right: 36px;
+    bottom: 36px;
+  }
+}
