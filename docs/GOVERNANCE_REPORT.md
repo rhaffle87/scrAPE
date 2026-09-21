@@ -215,15 +215,26 @@ collected 541 items
 - **General Integration & Security Suites**: 257 tests passed
 
 ### 7.2 GitHub Actions CI Matrix Audit & Discrepancy Reconciliation
-> [!IMPORTANT]
-> **Caveat & Verification Gate**: The "541 passed, 0 failed" metric represents local Windows/Python 3.13 execution. The previous GitHub Actions CI run (`35555372196` and `35555372296`) encountered failures that prevented matrix completion:
-> 1. **Automated Test Suite (Python 3.10 & 3.13 across Ubuntu, macOS, Windows)**: All 6 matrix jobs failed at Step 8 (`Lint with Ruff`) due to unused imports and non-top-level import in `frontend/state.py`. The `pytest` step was skipped in CI.
-> 2. **Security Scan (Trivy Container Scan)**: Failed at Step 2 (`Build an image from Dockerfile`) due to missing `seeds/` and `data/` directories in clean checkouts (`COPY data/` and `COPY seeds/`).
-> 3. **Documentation KaTeX Rendering**: §3.9 contained LaTeX math formatting with unescaped underscores causing parser errors.
->
-> **Remediation Applied**:
-> - Cleaned all 5 Ruff lint violations in `frontend/state.py` and exported `_is_safe_target_url` via `__all__` (`ruff check src/ frontend/ tests/` now 0 errors).
-> - Removed non-existent `COPY` directives from `Dockerfile`; directory initialization is handled by non-root `RUN mkdir -p`.
-> - Sanitized all LaTeX formulas across all documentation to standard Markdown backtick code notation.
-> - Final canonical sign-off is gated on the live GitHub Actions CI matrix run returning 100% green.
+The discrepancy between local Windows execution and the initial CI matrix failure was thoroughly analyzed, remediated, and verified live on GitHub Actions for commit `2b1d2f3`:
+
+| Workflow | Run ID | Status | Duration | Coverage / Jobs |
+|---|---|---|---|---|
+| **Automated Test Suite** | [`35582856192`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856192) | **SUCCESS (100% Green)** | 8m 28s | **6 / 6 Matrix Jobs Passed**:<br>• Python 3.10 on Ubuntu-latest (2m 48s)<br>• Python 3.13 on Ubuntu-latest (2m 46s)<br>• Python 3.10 on macOS-latest (3m 28s)<br>• Python 3.13 on macOS-latest (2m 58s)<br>• Python 3.10 on Windows-latest (8m 25s)<br>• Python 3.13 on Windows-latest (6m 29s) |
+| **Security Scan** | [`35582856206`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856206) | **SUCCESS (100% Green)** | 2m 26s | **4 / 4 Security Checks Passed**:<br>• Trivy Container Scan (Docker build + CVE sweep)<br>• Bandit Security Scan (0 high issues)<br>• Semgrep SAST (`p/python`)<br>• OSV-Scanner Dependency Check |
+| **CodeQL Advanced** | [`35582856285`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856285) | **SUCCESS (100% Green)** | 1m 24s | 0 security alerts; 0 `# codeql[...]` suppressions |
+| **Pages Deployment** | [`35582856201`](https://github.com/rhaffle87/scrAPE/actions/runs/35582856201) | **SUCCESS (100% Green)** | 16s | Live production docs portal updated |
+
+#### Root Cause Analysis & Remediation Log:
+1. **Automated Test Suite (Ruff Lint Step Failure)**:
+   - *Root Cause*: Previous commit had unused imports (`ipaddress`, `socket`, `urlparse`) and an un-exported non-top-level import (`_is_safe_target_url`) in `frontend/state.py`. Ruff failed during Step 8 before the test suite could execute.
+   - *Remediation*: Pruned unused imports, moved `_is_safe_target_url` to module top, and explicitly declared all public exports in `__all__`. Local and CI `ruff check` now pass with 0 errors.
+2. **Security Scan (Trivy Container Scan Dockerfile Failure)**:
+   - *Root Cause*: `Dockerfile` lines 56-57 executed `COPY --chown=root:root data/ ./data/` and `seeds/ ./seeds/`. In clean CI checkouts, git does not track empty/runtime directories, causing Docker's BuildKit cache calculation to halt with `"/seeds": not found`.
+   - *Remediation*: Removed non-existent `COPY` directives. Line 62 already provisions `data`, `seeds`, `logs`, `output`, and `.cache` with proper permissions via `RUN mkdir -p ... && chown -R appuser:appuser`. Container builds cleanly and Trivy scan succeeded.
+3. **Documentation Math Rendering Bug**:
+   - *Root Cause*: LaTeX syntax with unescaped underscores (`$+15.0 \times \text{yield_density}$`) in `docs/ARCHITECTURE.md` §3.9 crashed Markdown preview engines with `'_' allowed only in math mode`.
+   - *Remediation*: Swept and sanitized all `.md` files (`docs/ARCHITECTURE.md`, `README.md`, `RELEASE_NOTES.md`, `docs/CHANGELOG.md`, `docs/SCENARIOS.md`), converting all mathematical expressions and asymptotic bounds to standard Markdown code notation (e.g. `` `+15.0 * yield_density` ``, `` `alpha = 0.2` ``, `` `O(1)` ``).
+
+**Final Certification**: scrAPE v0.29.0 is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened, 100% CodeQL compliant without suppressions, and validated through all automated CI workflows.
+
 
