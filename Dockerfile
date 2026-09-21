@@ -53,8 +53,6 @@ COPY --from=builder /install /usr/local
 COPY --from=builder --chown=root:root /app/crawlee_bridge ./crawlee_bridge
 COPY --chown=root:root frontend/ ./frontend/
 COPY --chown=root:root src/ ./src/
-COPY --chown=root:root data/ ./data/
-COPY --chown=root:root seeds/ ./seeds/
 COPY --chown=root:root pyproject.toml ./pyproject.toml
 COPY --chown=root:root .bandit ./.bandit
 

@@ -25,7 +25,7 @@ python src/cli/main.py --keyword apple --seed seeds/apple.txt \
 ```
 
 > [!TIP]
-> Keep `--workers` $\le 16$ and `--dl-workers` $\le 24$ to avoid hardware bottlenecks.
+> Keep `--workers` <= 16 and `--dl-workers` <= 24 to avoid hardware bottlenecks.
 
 ## Scenario 3: Stealth & Low-Impact Crawl
 

@@ -141,10 +141,10 @@ def validate_safe_path(base_dir: str | Path, target_path: str | Path) -> Path:
     base = Path(os.path.abspath(os.path.normpath(base_dir)))
     target = Path(os.path.abspath(os.path.normpath(target_path)))
 
-    base_str = str(base)
-    target_str = str(target)
-    if not (target_str == base_str or target_str.startswith(base_str + os.sep)):
-        raise ValueError(f"Path traversal detected: {target_str} is outside {base_str}")
+    try:
+        target.relative_to(base)
+    except ValueError:
+        raise ValueError(f"Path traversal detected: {target} is outside {base}")
     return target
 
 

@@ -8,7 +8,7 @@
   - `RedisStreamTaskBroker` utilizing Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XPENDING`, `XCLAIM`) with distributed consumer groups and orphan task auto-claiming.
   - Transparent fallback to `InMemoryTaskBroker` for single-node deployments.
 - **Pre-Warmed Anti-Bot Browser Lifecycle Pool** (`src/network/prewarmed_browser_pool.py`):
-  - Pre-initializes warm browser instances (DrissionPage, Camoufox, Chromium) asynchronously, cutting cold-start latency to $<50\text{ms}$.
+  - Pre-initializes warm browser instances (DrissionPage, Camoufox, Chromium) asynchronously, cutting cold-start latency to <50ms.
   - Enforces 20-operation recycling limit per instance, 300s idle TTL, and `psutil` process-tree cleanup.
 - **Hardware Device Manager & Multi-Provider LLM Gateway** (`src/ml/hardware.py`, `src/core/self_healing_parser.py`):
   - Automatic detection of CUDA, DirectML (`torch_directml`), MPS, and CPU with dynamic FP16/FP32 precision routing.
@@ -26,7 +26,7 @@
 - Full 533/533 pytest test suite passing at 100% (155.50s).
 - Pre-warmed browser pool calibrated operational latency: 96.39ms warm vs 1,491.26ms cold (15.47× operational DOM round-trip speedup; ~180,000× instance checkout).
 - Autonomous self-healing DOM parser verified on live target (`books.toscrape.com`): 20 items in 7.75ms with 4.77ms cached recovery.
-- Multi-surface design harmonization: 0px horizontal scroll overflow across Desktop (1440px), Tablet (820px), Mobile (375px), touch-targets $\ge 44\text{px}$, and dynamic WebUI version badge synchronization.
+- Multi-surface design harmonization: 0px horizontal scroll overflow across Desktop (1440px), Tablet (820px), Mobile (375px), touch-targets >= 44px, and dynamic WebUI version badge synchronization.
 - Zero Ruff lint errors and zero Bandit High issues across 21,594 LOC.
 - Verified 0 zombie child processes via `psutil` during shutdown and crawl aborts.
 - Container runtime boot, non-root user (`appuser`), system Chromium path (`PUPPETEER_EXECUTABLE_PATH`), and in-container execution verified live.
@@ -294,7 +294,7 @@
   - `ArtStationExtractor`: ArtStation portfolio projects API extraction for full-res artwork assets.
   - `YtDlpExtractor`: Added `DEFAULT_VIDEO_QUALITY = "best"` format selection and auto-escalation for `.m3u8` master playlists and `.mpd` manifests.
 - **Resumable Crawl & Download Checkpointing** (`src/storage/checkpoint_db.py`, `src/storage/file_downloader.py`): Thread-safe SQLite database (`output/.crawl_state.sqlite`) storing `visited_urls`, `frontier_queue`, and `download_checkpoints`. HTTP `Range: bytes={existing_size}-` byte download resumption on HTTP 206 Partial Content.
-- **AI Dataset Curation & Perceptual Hashing** (`src/common/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation ($\le 4$) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
+- **AI Dataset Curation & Perceptual Hashing** (`src/common/image_helper.py`, `src/storage/dataset_exporter.py`): 64-bit difference hashing (`dHash`) and Hamming distance calculation (`<= 4`) for catching visually identical or resized duplicates. Exports `output/dataset.jsonl` manifests + individual `<image>.txt` caption sidecar files for direct LoRA/SD training compatibility.
 - **WebUI WAF Telemetry & Badges** (`frontend/app.py`): Added `_waf_solve_counts` telemetry counters to `HttpClient`. Rendered live WAF engine badges (`CAMOUFOX`, `FLARESOLVERR`, `CRAWL4AI`) inside the WebUI Command Center telemetry bar (`/htmx/stats`).
 - **Comprehensive Test Suite Expansion**: Added `scratch/test_system_optimizations.py`, `scratch/test_camoufox_flaresolverr.py`, `scratch/test_flaresolverr_advanced.py`, `scratch/test_stream_ytdlp_escalation.py`, `scratch/test_multi_platform_extractors.py`, `scratch/test_checkpoint_and_range_resume.py`, and `scratch/test_phash_and_dataset_exporter.py` (totaling **124 test cases** passing cleanly).
 

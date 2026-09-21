@@ -152,22 +152,22 @@ To prevent infinite hanging on dead/blocked domains:
 
 The engine couples host-level network health with host-level hardware resource constraints:
 - **AIMD Dynamic Concurrency Auto-Tuning**:
-  - **Additive Increase**: Increases host concurrency window additively ($+1.0$) upon successful requests with healthy latency ($\le 1.5$s), scaling up to `--workers`.
-  - **Multiplicative Decrease**: Throttles host window multiplicatively ($\times 0.5$) upon 429 rate limits, network errors, or severe latency spikes ($> 3.0$s), down to `min_concurrency=1`.
+  - **Additive Increase**: Increases host concurrency window additively (+1.0) upon successful requests with healthy latency (<= 1.5s), scaling up to `--workers`.
+  - **Multiplicative Decrease**: Throttles host window multiplicatively (x 0.5) upon 429 rate limits, network errors, or severe latency spikes (> 3.0s), down to `min_concurrency=1`.
 - **Hardware Load Governor Modulation**:
   - Real-time CPU % and available RAM % polling via `psutil`.
-  - **High Load** (CPU $\ge 85.0\%$, RAM Avail $\le 15.0\%$): Throttles worker multiplier to 0.50x.
-  - **Critical Load** (CPU $\ge 95.0\%$, RAM Avail $\le 5.0\%$): Throttles worker multiplier to 0.25x and triggers proactive `gc.collect()`.
+  - **High Load** (CPU >= 85.0%, RAM Avail <= 15.0%): Throttles worker multiplier to 0.50x.
+  - **Critical Load** (CPU >= 95.0%, RAM Avail <= 5.0%): Throttles worker multiplier to 0.25x and triggers proactive `gc.collect()`.
 - **Effective Concurrency**: Computed as `max(1, int(aimd_window * hw_scale_factor))`.
 
 ### 3.4 Ultra-Resilient Network & Stealth Core (`src/network/proxy_manager.py`, `src/network/http_client.py`)
 
 - **Sticky TLS Impersonation Profiles**: Retains domain-consistent TLS fingerprints (`chrome120`, `chrome124`, `chrome131`, `safari17_0`, `safari18_0`, `firefox133`, `edge124`) using `curl_cffi` to bypass JA3/JA4 anomaly detection, rotating dynamically on challenge escalation.
 - **Dynamic Proxy Health Scoring & Tiered Quarantine Ring**:
-  - Exponential Moving Average (EMA) latency tracking ($\alpha = 0.2$).
-  - Dynamic health scores $S \in [0.0, 1.0]$ factoring latency, success rate, and consecutive errors.
-  - Tiered quarantine backoff with exponential penalty ($300 \times 2^{\min(4, \text{failures}-3)}$ seconds) and single-probe recovery states before reinstatement.
-- **Domain Reputation Tracking**: Dynamically computes reputation $R \in [0.1, 1.0]$ to scale base request delays and rate limiter jitter.
+  - Exponential Moving Average (EMA) latency tracking (`alpha = 0.2`).
+  - Dynamic health scores `S in [0.0, 1.0]` factoring latency, success rate, and consecutive errors.
+  - Tiered quarantine backoff with exponential penalty (`300 * 2^min(4, failures - 3)` seconds) and single-probe recovery states before reinstatement.
+- **Domain Reputation Tracking**: Dynamically computes reputation `R in [0.1, 1.0]` to scale base request delays and rate limiter jitter.
 
 ### 3.5 Next-Gen Media Extraction Pipeline (`src/core/media_processor.py`, `src/core/microdata.py`, `src/storage/downloader/manager.py`)
 
@@ -179,7 +179,7 @@ The engine couples host-level network health with host-level hardware resource c
 
 ### 3.6 High-Throughput State & Storage Core (`src/storage/bloom_filter.py`, `src/storage/state_cache.py`)
 
-- **Zero-Dependency Bitmask Bloom Filter**: Pure Python bitmask implementation using 64-bit integer bitwise operations and Murmur-inspired multi-hash mixing for $O(1)$ in-memory L1 cache rejection before hitting SQLite disk queries.
+- **Zero-Dependency Bitmask Bloom Filter**: Pure Python bitmask implementation using 64-bit integer bitwise operations and Murmur-inspired multi-hash mixing for O(1) in-memory L1 cache rejection before hitting SQLite disk queries.
 - **Write-Staging Buffer & Batch Transactions**: URL markers are staged in memory and flushed via multi-row chunked `executemany` transactions upon reaching buffer thresholds or timeouts, reducing SQLite write lock contention.
 - **Persistent SQLite WAL State Cache**: Uses `PRAGMA journal_mode=WAL;` and `PRAGMA synchronous=NORMAL;`. Auto-syncs Bloom filter state across manual purges and TTL cleanups.
 
@@ -188,11 +188,11 @@ The engine couples host-level network health with host-level hardware resource c
 - **Holistic Audit Evaluation**: Computes HTTP success rate %, media download success rate %, yield efficiency (downloaded assets per second of crawl runtime), and assigns letter grades (`A+` through `F`).
 - **Granular Root-Cause Breakdown**: Categorizes errors across HTTP status codes (403 WAF blocks, 429 rate limits, 5xx server errors, connection timeouts, DNS failures) with auto-tuning recommendations written directly into `run_summary.json` and printed in CLI reports.
 - **Dynamic Host Health State Machine**: `CrawlGovernor` tracks a rolling window of recent host outcomes to categorize domains into states:
-  - `HEALTHY` (Success Rate $\ge 80\%$)
-  - `DEGRADED` (Success Rate $50\% - 79\%$)
-  - `CRITICAL` (Success Rate $< 50\%$)
-  - `PARKED` (Consecutive Failures $\ge 5$, 15s quiet backoff cooldown)
-- **Automated Host Remediation**: When a domain transitions to `CRITICAL` or `PARKED`, the coordinator rotates its sticky TLS impersonation profile (e.g. Chrome $\to$ Safari $\to$ Firefox) and injects a 5.0s backoff penalty to prevent repetitive ban loops.
+  - `HEALTHY` (Success Rate >= 80%)
+  - `DEGRADED` (Success Rate 50% - 79%)
+  - `CRITICAL` (Success Rate < 50%)
+  - `PARKED` (Consecutive Failures >= 5, 15s quiet backoff cooldown)
+- **Automated Host Remediation**: When a domain transitions to `CRITICAL` or `PARKED`, the coordinator rotates its sticky TLS impersonation profile (e.g. Chrome -> Safari -> Firefox) and injects a 5.0s backoff penalty to prevent repetitive ban loops.
 
 ### 3.8 Resumable Crawl & State Checkpointing (`src/storage/state_cache.py`, `src/core/coordinator.py`)
 
@@ -203,13 +203,13 @@ The engine couples host-level network health with host-level hardware resource c
 ### 3.9 Adaptive Priority Queue & Domain Budget Governor (`src/core/priority_queue.py`)
 
 - **Composite Best-First URL Scoring**: Replaces raw FIFO traversal with dynamic priority queue scoring:
-  - Base depth decay: deeper URLs receive negative rank adjustments ($-\text{depth} \times 10.0$).
-  - Historical domain yield density boost: $+15.0 \times \text{yield\_density}$.
-  - Token/keyword matching: $+5.0$ bonus per matched query token in path and query string.
+  - Base depth decay: deeper URLs receive negative rank adjustments (`-depth * 10.0`).
+  - Historical domain yield density boost: `+15.0 * yield_density`.
+  - Token/keyword matching: `+5.0` bonus per matched query token in path and query string.
 - **Domain Budget Governor**:
   - Enforces per-domain budget ceilings.
-  - Soft threshold ($\ge 80\%$ of budget): applies a $-50.0$ score penalty to prioritize unbudgeted domains.
-  - Hard threshold ($100\%$ of budget): rejects new link enqueueing from that domain entirely.
+  - Soft threshold (`>= 80%` of budget): applies a `-50.0` score penalty to prioritize unbudgeted domains.
+  - Hard threshold (`100%` of budget): rejects new link enqueueing from that domain entirely.
 
 ### 3.10 Zero-Copy Streaming Ingest & Inline Hashing (`src/storage/downloader/manager.py`)
 
@@ -222,7 +222,7 @@ The engine couples host-level network health with host-level hardware resource c
 - **Deterministic Hash-Seeded Hardware Profiles**: Maps each domain deterministically to an authentic GPU hardware profile (NVIDIA RTX 3080/4070, AMD Radeon RX 6700 XT, Intel Iris Xe, Apple M2 Pro/M1 Max).
 - **Multi-Vector Fingerprint Defense**:
   - **WebGL / WebGL2**: Spoofs unmasked vendor and renderer strings alongside shader language version.
-  - **Canvas 2D**: Subtle, deterministic sub-perceptual RGB noise injection ($\pm 1$ LSB jitter) thwarting canvas fingerprint clustering.
+  - **Canvas 2D**: Subtle, deterministic sub-perceptual RGB noise injection (`+/- 1` LSB jitter) thwarting canvas fingerprint clustering.
   - **AudioContext**: Micro-frequency perturbation and latency jitter on `AnalyserNode` and `AudioBuffer`.
   - **WebRTC**: Filters private and host candidates from SDP offers to eliminate local and VPN-bypass IP leakage.
   - **Navigator**: Synchronizes `hardwareConcurrency`, `deviceMemory`, and masks `navigator.webdriver`.
@@ -244,9 +244,9 @@ The engine couples host-level network health with host-level hardware resource c
   - `LocalStorageSink`: Implements atomic `.tmp_xxx` staging, strict directory traversal prevention, and POSIX path sanitization.
   - `S3StorageSink`: Streams media directly to Amazon S3 or MinIO via `boto3` multipart uploads with automatic local spillover fallback when offline or unauthenticated.
 - **3-Tier Deduplication Cascade (`src/storage/hierarchical_dedup.py`)**:
-  - **Tier 1 (L1) SHA-256 Bloom Filter**: Memory-efficient byte deduplication rejecting exact binary matches in $O(1)$.
-  - **Tier 2 (L2) BK-Tree pHash Index**: 64-bit DCT perceptual hash stored in a Discrete Metric Tree (BK-Tree) querying near-duplicates within Hamming distance $\le 4$.
-  - **Tier 3 (L3) Vector Cosine Similarity Index**: Cosine similarity ($\ge 0.96$) for semantic visual embeddings.
+  - **Tier 1 (L1) SHA-256 Bloom Filter**: Memory-efficient byte deduplication rejecting exact binary matches in `O(1)`.
+  - **Tier 2 (L2) BK-Tree pHash Index**: 64-bit DCT perceptual hash stored in a Discrete Metric Tree (BK-Tree) querying near-duplicates within Hamming distance `<= 4`.
+  - **Tier 3 (L3) Vector Cosine Similarity Index**: Cosine similarity (`>= 0.96`) for semantic visual embeddings.
 
 ### 3.14 Autonomous Self-Healing DOM Parser (`src/core/self_healing_parser.py`)
 

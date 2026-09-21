@@ -26,7 +26,7 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 
 ## Key Features
 
-- **Pre-Warmed Anti-Bot Browser Pool**: Eliminates 3–5s cold starts by pre-warming browser sessions (DrissionPage, Camoufox, Chromium) asynchronously in a background pool ($<50\text{ms}$ lease time).
+- **Pre-Warmed Anti-Bot Browser Pool**: Eliminates 3–5s cold starts by pre-warming browser sessions (DrissionPage, Camoufox, Chromium) asynchronously in a background pool (<50ms lease time).
 - **Distributed Cluster Task Broker (Redis Streams)**: Supports enterprise scraper clusters via Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XCLAIM`) with transparent fallback to local memory.
 - **Hardware Device Manager & Multi-Provider LLM Gateway**: Automatic CUDA, DirectML, MPS, and CPU routing with FP16/FP32 precision. Multi-provider LLM self-healing DOM parser (Ollama `qwen2.5-coder`, Google Gemini 1.5 Flash, OpenAI `gpt-4o-mini`) with SQLite rule caching.
 - **Global Content-Addressable Storage (CAS)**: SHA-256 content deduplication with atomic NTFS/POSIX hardlinks (`os.link`), consuming 0 additional disk bytes for identical media across runs and queries.

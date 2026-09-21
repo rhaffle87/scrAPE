@@ -38,9 +38,9 @@
 - **Strict 3-Step Path Resolution**: Enforced across CAS store, Parquet exporter, and dataset exports with zero `# codeql` suppression comments.
 
 ### 7. Multi-Surface Design Harmonization & Observability
-- **Web Dashboard**: 0px horizontal scroll overflow verified across Desktop, Tablet, and Mobile viewports; WCAG 2.1 touch-target heights $\ge 44\text{px}$; Oswald 700 accordion headers; JetBrains Mono 700 button selectors.
+- **Web Dashboard**: 0px horizontal scroll overflow verified across Desktop, Tablet, and Mobile viewports; WCAG 2.1 touch-target heights >= 44px; Oswald 700 accordion headers; JetBrains Mono 700 button selectors.
 - **Documentation Site**: 0 broken anchor links (out of 49 total), mobile table scrolling containers, and verified architectural freshness.
-- **Terminal UI**: Dynamic `v0.29.0` ASCII banner, Acquisition Orange (`CLR_ORANGE`) brand alignment, and strict $\le 80$-column line widths.
+- **Terminal UI**: Dynamic `v0.29.0` ASCII banner, Acquisition Orange (`CLR_ORANGE`) brand alignment, and strict <= 80-column line widths.
 - **Self-Healing Observability**: `run_summary.json` and post-run console summaries now expose `"self_healing"` metrics tracking items recovered per run, strategy breakdown, and historical SQLite cache hits.
 
 ### 8. QA Validation & Test Suite
@@ -67,9 +67,9 @@
 ### 2. Multi-Tier Storage Sinks & Hierarchical Deduplication Cascade
 - **Pluggable Storage Sinks**: Introduced `BaseStorageSink` abstraction with `LocalStorageSink` (atomic temporary staging, directory traversal protection, POSIX sanitization) and `S3StorageSink` (direct multipart cloud streaming via `boto3` with automatic local fallback on network/credential failure).
 - **3-Tier Deduplication Cascade**:
-  - **Tier 1 (L1)**: In-memory SHA-256 Bloom filter for instantaneous $O(1)$ exact byte-match rejection.
-  - **Tier 2 (L2)**: Perceptual pHash (64-bit DCT) indexed in a BK-Tree metric tree for fast sub-linear Hamming distance similarity searches ($\le 4$ bits).
-  - **Tier 3 (L3)**: Pluggable vector cosine similarity index ($\ge 0.96$) for semantic visual embeddings.
+  - **Tier 1 (L1)**: In-memory SHA-256 Bloom filter for instantaneous O(1) exact byte-match rejection.
+  - **Tier 2 (L2)**: Perceptual pHash (64-bit DCT) indexed in a BK-Tree metric tree for fast sub-linear Hamming distance similarity searches (<= 4 bits).
+  - **Tier 3 (L3)**: Pluggable vector cosine similarity index (>= 0.96) for semantic visual embeddings.
 
 ### 3. Autonomous Self-Healing DOM Parser
 - **Multi-Tier Cascade**:
@@ -149,7 +149,7 @@
 
 | Phase | Description | Result | Details |
 | :--- | :--- | :--- | :--- |
-| **Phase 1** | Responsive Layout Audit | **PASS** | Desktop (1440px), Tablet (820px), Mobile (375px): 0px overflow, $\ge 44\text{px}$ touch targets, HTMX partial swaps verified. |
+| **Phase 1** | Responsive Layout Audit | **PASS** | Desktop (1440px), Tablet (820px), Mobile (375px): 0px overflow, >= 44px touch targets, HTMX partial swaps verified. |
 | **Phase 2** | Functional & Dormant Subsystems | **PASS** | WebUI CRUD & API verified; CLI wizard modes tested; 10/10 dormant ML/storage/captcha modules operational. |
 | **Phase 3** | Domain-Mapped Batch Run | **PASS** | 7/7 seeds completed with exit code 0; stealth escalation, referer spoofing, dHash dedup, and rate limiting verified. |
 | **Phase 4** | Container & Process Hygiene | **PASS** | Multi-stage Dockerfile and non-root `appuser` verified; lingering Helium renderer PID 17372 tracked and killed; 0 zombie processes. |
