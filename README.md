@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/RELEASE-V0.29.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
-  <img src="https://img.shields.io/badge/TESTS-530%20PASSED-success?style=for-the-badge" alt="530 Tests Passing">
+  <img src="https://img.shields.io/badge/TESTS-533%20PASSED-success?style=for-the-badge" alt="533 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -159,7 +159,7 @@ scrape-dashboard/
 │   └── templates/       # HTMX Brutalist templates
 ├── src/                 # Python Source Core
 │   ├── cli/             # Entry points, interactive launcher, wizard
-│   ├── core/            # BFS Engine, Managers, Filtering, Pipeline orchestration
+│   ├── core/            # Orchestrator, Domain Rules, Filtering, Media Processor, Pipeline
 │   ├── scraper/         # Base and Specialized extractors (google_images, video_scraper)
 │   ├── plugins/         # Extractor plugins (yt-dlp, Reddit, Civitai, Booru)
 │   ├── network/         # 8-tier WAF Pipeline, HttpClient, Proxy Manager
@@ -173,7 +173,7 @@ scrape-dashboard/
 
 ### Request Lifecycle (WAF Pipeline)
 
-1. URL is discovered and enqueued by the BFS Crawler (`src/core/managers.py`).
+1. URL is discovered and enqueued by the BFS Crawler (`src/core/orchestrator.py`, coordinated with `src/core/domain_rules.py` and `src/core/media_processor.py`).
 2. `HttpClient` (`src/network/http_client.py`) attempts to fetch the URL using standard TLS parameters and local harvested cookies.
 3. If an auth wall (302 redirect), HTTP 403, or HTTP 429 is encountered, the request hits the **Stealth Pipeline**.
 4. The pipeline iterates through configured engines (Crawl4AI → Crawlee → DrissionPage → Camoufox → FlareSolverr) based on the domain's historical success memory.

@@ -198,7 +198,7 @@ def export_dataset_post(subject: str, req: DatasetExportRequest):
 @router.post("/dataset/export-db/{subject}")
 @router.post("/export-db/{subject}")
 def api_export_database(subject: str, req: DatabaseExportRequest):
-    """Export the local database to CSV or JSON format."""
+    """Export the local database to CSV, JSON, or Parquet format."""
     safe_subject = os.path.basename(subject)
     if not safe_subject or not re.match(r"^[\w\-. ]+$", safe_subject):
         raise HTTPException(status_code=400, detail="Invalid subject name")

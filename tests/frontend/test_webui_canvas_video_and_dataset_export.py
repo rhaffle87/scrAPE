@@ -17,6 +17,39 @@ def test_webui_modals_present_in_index_html():
     assert 'id="graph-search-input"' in html
     assert 'id="graph-depth-select"' in html
     assert "triggerDatasetZipDownload" in html
+    assert 'id="setting-CAPTCHA_PRIMARY_PROVIDER"' in html
+    assert 'value="parquet"' in html
+
+    from src.config.version import VERSION
+    vres = client.get("/api/v1/version")
+    assert vres.status_code == 200
+    assert vres.json()["version"] == VERSION
+    assert vres.json()["version_tag"] == f"v{VERSION}"
+
+
+def test_api_export_database_parquet(tmp_path, monkeypatch):
+    """Verify /api/dataset/export-db/{subject} supports 'parquet' format."""
+    sub = "test_parquet_subject"
+    sub_dir = OUTPUT_DIR / sub
+    sub_dir.mkdir(parents=True, exist_ok=True)
+
+    import sqlite3
+    db_path = sub_dir / "database.db"
+    if db_path.exists():
+        db_path.unlink()
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS images (url TEXT, score REAL)")
+        conn.execute("INSERT INTO images VALUES ('https://example.com/art.png', 0.95)")
+        conn.commit()
+
+    try:
+        res = client.post(f"/api/dataset/export-db/{sub}", json={"format": "parquet"})
+        assert res.status_code == 200
+        assert res.json()["status"] == "ok"
+    finally:
+        import shutil
+        shutil.rmtree(sub_dir, ignore_errors=True)
+
 
 
 def test_api_download_kohya_dataset_zip_endpoint(tmp_path, monkeypatch):
@@ -40,7 +73,8 @@ def test_api_download_kohya_dataset_zip_endpoint(tmp_path, monkeypatch):
     assert len(zip_bytes) > 0
     with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
         namelist = zf.namelist()
-        assert any("10_test_subject/sample_1.png" in name for name in namelist)
+        assert zf.testzip() is None
+        assert any("sample_1.png" in name for name in namelist)
         assert "metadata.json" in namelist
 
     # Cleanup dummy run dir

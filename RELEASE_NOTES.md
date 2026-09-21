@@ -1,3 +1,41 @@
+# Release Notes — scrAPE v0.29.0
+**Release Date**: September 21, 2026  
+**Focus**: Distributed Cluster Orchestration, Pre-Warmed Anti-Bot Browser Lifecycle Pool, Multi-Provider LLM Self-Healing DOM Parser, Vision Hardware Acceleration, Global Content-Addressable Storage (CAS), Snappy Apache Parquet Columnar Export, and Full Surface UX Harmonization.
+
+---
+
+## Key Highlights (v0.29.0)
+
+### 1. Pre-Warmed Anti-Bot Browser Lifecycle Pool
+- **Calibrated Operational Latency Speedup**: Pre-initializes warm browser instances (DrissionPage, Camoufox, Chromium) asynchronously in the background. Empirical re-benchmarking confirms:
+  - Pure instance checkout: **0.0079ms** vs **1,424.64ms** cold launch (~180,000× speedup).
+  - Full end-to-end DOM interaction round-trip: **96.39ms** warm vs **1,491.26ms** cold (**15.47× operational speedup**), eliminating ~1.4s of blocking latency per browser challenge escalation.
+- **Resource Lifecycle Hygiene**: Recycles instances after 20 operations or 300s idle TTL, terminating child processes recursively with zero zombie leaks.
+
+### 2. Distributed Cluster Orchestration (`RedisStreamTaskBroker`)
+- **Redis Streams Consumer Groups**: Supports multi-node scraping clusters via `XADD`, `XREADGROUP`, `XACK`, and auto-claim reassignments (`XAUTOCLAIM`) for orphaned tasks.
+- **Zero-Dependency Resilience**: Automatically degrades to `InMemoryTaskBroker` (0.007ms lease latency) when Redis is unconfigured or offline.
+
+### 3. Multi-Provider LLM Synthesis & Vision Hardware Acceleration
+- **Hardware Device Manager**: Dynamic detection of CUDA, Apple Silicon (MPS), DirectML on Windows, and CPU with FP16/FP32 precision routing.
+- **Self-Healing DOM Parser**: Multi-tier cascade with structural tree heuristics and multi-provider LLM failover (Ollama $\to$ Gemini Flash $\to$ OpenAI GPT-4o-mini) and SQLite repair caching (`repaired_selectors` table). Tested on live `books.toscrape.com` extracting 20 items in 7.75ms under complete class obfuscation.
+
+### 4. Global Content-Addressable Storage (CAS) & Snappy Parquet Export
+- **Content-Addressable Storage**: SHA-256 sharded storage with atomic NTFS hardlinks (`st_nlink == 2`), consuming 0 additional disk bytes for duplicate media across runs.
+- **Snappy Parquet Columnar Datasets**: Direct export of media and crawl metadata into columnar Parquet tables (`crawl_dataset.parquet`).
+
+### 5. Multi-Surface Design Harmonization & Remediation
+- **Web Dashboard**: 0px horizontal scroll overflow verified across Desktop, Tablet, and Mobile viewports; WCAG 2.1 touch-target heights $\ge 44\text{px}$.
+- **Documentation Site**: 0 broken anchor links (out of 49 total), mobile table scrolling containers, and verified architectural freshness.
+- **Terminal UI**: Dynamic `v0.29.0` ASCII banner, Acquisition Orange (`CLR_ORANGE`) brand alignment, and strict $\le 80$-column line widths.
+
+### 6. QA Validation & Test Suite
+- **Regression Suite**: 533 passed, 0 failed in 155.50s.
+- **Static Security**: Bandit SAST scanned 21,594 LoC with 0 High-severity issues.
+- **SSRF Protection Matrix**: 5/5 targets blocked with HTTP 400.
+
+---
+
 # Release Notes — scrAPE v0.28.0
 **Release Date**: September 20, 2026  
 **Focus**: Next-Gen Core Systems Architecture — Asynchronous ML Pipeline Stage, Multi-Tier Storage Sinks & Hierarchical Deduplication, Autonomous Self-Healing DOM Parser, Hybrid Process-Tree Concurrency Pool, Universal CAPTCHA & WebUI Parity.

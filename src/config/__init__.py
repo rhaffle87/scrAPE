@@ -8,7 +8,18 @@ import logging
 
 from .version import VERSION as VERSION, VERSION_TAG as VERSION_TAG
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+def _detect_project_root() -> Path:
+    if env_root := os.getenv("SCRAPE_PROJECT_ROOT"):
+        return Path(env_root).resolve()
+    cwd = Path.cwd().resolve()
+    if (cwd / "pyproject.toml").exists() or (cwd / "seeds").exists():
+        return cwd
+    default_root = Path(__file__).resolve().parent.parent.parent
+    if (default_root / "pyproject.toml").exists():
+        return default_root
+    return cwd
+
+PROJECT_ROOT = _detect_project_root()
 
 # Attempt to load .env file if available
 try:

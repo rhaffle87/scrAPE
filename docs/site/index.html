@@ -241,7 +241,7 @@
                 </tr>
                 <tr>
                   <td>Stealth Pipeline</td>
-                  <td><code>src/network/stealth_pipeline.py</code></td>
+                  <td><code>src/network/stealth/pipeline.py</code></td>
                   <td>8-tier WAF escalation with per-strategy circuit breaker isolation.</td>
                 </tr>
                 <tr>
@@ -251,7 +251,7 @@
                 </tr>
                 <tr>
                   <td>Media Downloader</td>
-                  <td><code>src/storage/file_downloader.py</code></td>
+                  <td><code>src/storage/downloader/manager.py</code></td>
                   <td>Concurrent stream downloader with MIME/size validation and rejected item retention.</td>
                 </tr>
                 <tr>
@@ -394,9 +394,9 @@ src/core/engine.py                  -- BFS crawl loop and page scoring
 src/core/filters.py                 -- URL classification and relevance scoring
 src/core/models.py                  -- ScrapeResult, ImageItem, VideoItem dataclasses
 src/scraper/google_images.py        -- Search provider and link extraction
-src/storage/file_downloader.py      -- Concurrent media downloader
+src/storage/downloader/manager.py      -- Concurrent media downloader
 src/network/http_client.py          -- Rate limiting and session pooling
-src/network/stealth_pipeline.py     -- 8-tier WAF fallback pipeline
+src/network/stealth/pipeline.py     -- 8-tier WAF fallback pipeline
 src/network/proxy_manager.py        -- Proxy pool with latency quarantine
 src/network/session_pool.py         -- Per-domain sticky sessions
 src/captcha/captcha_strategy.py     -- Universal captcha provider strategy
@@ -410,7 +410,7 @@ frontend/templates/index.html       -- WebUI dashboard template
 data/domain_config.json             -- Dynamic domain overrides
 data/url_normalisation_rules.json   -- URL canonicalization rules
 data/blacklist.json                 -- Domain blacklist
-src/config/subject_profiles.json    -- Subject profile presets
+data/subject_profiles.json    -- Subject profile presets
 seeds/                              -- Per-subject seed manifests (.txt)
 output/&lt;subject&gt;/runs/&lt;run_id&gt;/     -- Run output directory
 tests/                              -- Automated test suite
@@ -419,7 +419,71 @@ tests/                              -- Automated test suite
         </div>
       </section>
 
-      <!-- 1.4 Core Architecture (v0.28.0) -->
+      <!-- 1.4 Next-Gen Core Pillars (v0.29.0) -->
+      <section id="sec-overview-pillars" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [01] // ARCHITECTURAL UPDATE</div>
+          <h1>Next-Gen Core Pillars (v0.29.0)</h1>
+          <p class="section-desc">Enterprise multi-node orchestration, sub-50ms browser pre-warming, multi-provider LLM self-healing, and zero-duplicate content-addressable storage.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">1.4 Core Architecture Pillars</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            scrAPE v0.29.0 introduces four fundamental architectural pillars designed for massive scale, resilient anti-bot bypassing, automated DOM recovery, and zero-redundancy columnar data delivery:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Core Pillar</th>
+                  <th>Key Technologies</th>
+                  <th>Production Capability</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Pillar 1: Distributed Cluster Orchestration</strong></td>
+                  <td><code>RedisStreamTaskBroker</code>, Redis Consumer Groups, <code>XAUTOCLAIM</code></td>
+                  <td>Enables multi-node scraping clusters with automatic work-stealing, task heartbeats, and zero-downtime node crash recovery. Fallback to <code>InMemoryTaskBroker</code> when Redis is unavailable.</td>
+                </tr>
+                <tr>
+                  <td><strong>Pillar 2: Pre-Warmed Browser Pool</strong></td>
+                  <td><code>PrewarmedBrowserPool</code>, Camoufox, DrissionPage, HTTP/3 (QUIC)</td>
+                  <td>Maintains pre-warmed anti-bot browser instances in the background, slashing browser cold-start latency from 3-5 seconds to &lt;50ms. Features memory recycling and process-tree hygiene.</td>
+                </tr>
+                <tr>
+                  <td><strong>Pillar 3: Multi-Provider LLM & Vision ML</strong></td>
+                  <td><code>HardwareDeviceManager</code>, <code>SelfHealingDOMParser</code></td>
+                  <td>Hardware acceleration across CUDA, DirectML, MPS, and CPU. Three-tier fallback (Ollama &rarr; Gemini Flash &rarr; OpenAI) with SQLite repair caching for instant selector recovery.</td>
+                </tr>
+                <tr>
+                  <td><strong>Pillar 4: Content-Addressable Storage & Parquet</strong></td>
+                  <td><code>ContentAddressableStore</code>, <code>ParquetExporter</code>, NTFS hardlinks</td>
+                  <td>Zero duplicate storage footprint via SHA-256 CAS repository (<code>.storage/cas/</code>) with atomic OS hardlinks, alongside high-performance Snappy columnar Parquet exports.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Primary v0.29.0 Execution Flags</h3>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>BASH // CORE PILLAR CLI ACTIVATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Run crawl with global CAS deduplication, Parquet dataset export, and LLM self-healing
+python -m src.cli.main --query "anime wallpaper" \
+  --enable-cas \
+  --export-parquet \
+  --enable-self-healing \
+  --worker-processes 4</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1.5 Core Architecture (v0.28.0) -->
       <section id="sec-overview-v28" class="doc-section">
         <div class="section-header">
           <div class="section-tag">MODULE [01] // ARCHITECTURAL UPDATE</div>
@@ -1076,22 +1140,22 @@ python src/cli/cli_wizard.py</pre>
               <tbody>
                 <tr>
                   <td><strong>High-Throughput Sweep</strong></td>
-                  <td><code>--workers 16 --dl-workers 24 --page-limit 500 --crawl-depth 3</code></td>
+                  <td><code>--workers 16</code> <code>--dl-workers 24</code> <code>--page-limit 500</code> <code>--crawl-depth 3</code></td>
                   <td>Massive dataset collection from fast CDNs and unthrottled sites.</td>
                 </tr>
                 <tr>
                   <td><strong>Polite Stealth</strong></td>
-                  <td><code>--workers 2 --dl-workers 2 --rate-limit 0.2 --domain-delay example.com=3.0</code></td>
+                  <td><code>--workers 2</code> <code>--dl-workers 2</code> <code>--rate-limit 0.2</code> <code>--domain-delay example.com=3.0</code></td>
                   <td>Avoid rate limits and anti-bot bans on heavily protected domains.</td>
                 </tr>
                 <tr>
                   <td><strong>Strict Manifest Crawl</strong></td>
-                  <td><code>--strict-domain --skip-search --seed-file seeds/target.txt</code></td>
+                  <td><code>--strict-domain</code> <code>--skip-search</code> <code>--seed-file seeds/target.txt</code></td>
                   <td>Scrape curated seed manifests without straying to third-party links.</td>
                 </tr>
                 <tr>
                   <td><strong>Validation & Audit</strong></td>
-                  <td><code>--max-results 10 --page-limit 20 --crawl-depth 1</code></td>
+                  <td><code>--max-results 10</code> <code>--page-limit 20</code> <code>--crawl-depth 1</code></td>
                   <td>Dry-run seed verification and selector testing without downloading large media.</td>
                 </tr>
               </tbody>
@@ -1130,7 +1194,7 @@ python src/cli/cli_wizard.py</pre>
             <li><strong>Scope & Relevance Validation</strong>: Check link depth, domain constraints, blacklists, and
               subject relevance scoring in <code>src/core/filters.py</code>.</li>
             <li><strong>Media Download Enqueue</strong>: High-scoring candidate media URLs pass to
-              <code>src/storage/file_downloader.py</code> worker thread pool.</li>
+              <code>src/storage/downloader/manager.py</code> worker thread pool.</li>
             <li><strong>Recursive Queue Append</strong>: Discovered page links matching crawl rules append to BFS queue
               for depth <i>N+1</i> processing.</li>
           </ol>
@@ -1408,6 +1472,205 @@ python src/cli/cli_wizard.py</pre>
 
           <p>Rules are loaded dynamically from <code>data/url_normalisation_rules.json</code> at startup. See Module 05
             for JSON rule configuration.</p>
+        </div>
+      </section>
+<!-- 4.6 Pre-Warmed Anti-Bot Browser Pool -->
+      <section id="sec-engine-pool" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Pre-Warmed Browser Pool</h1>
+          <p class="section-desc">Dual-engine pre-warmed stealth pool slashing browser challenge start latency to &lt;50ms.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.6 Pre-Warmed Browser Lifecycle</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Implemented in <code>src/network/prewarmed_browser_pool.py</code>, the <code>PrewarmedBrowserPool</code> maintains warm headless browser instances in background threads, eliminating the 3&ndash;5 second initialization cost of fresh browser engines.
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // PREWARMED BROWSER POOL LEASING</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.network.prewarmed_browser_pool import get_prewarmed_browser_pool
+
+pool = get_prewarmed_browser_pool()
+
+# 1. Acquire warm Camoufox instance (Turnstile / Cloudflare bypass)
+camoufox_browser = pool.acquire_camoufox()
+if camoufox_browser:
+    page = camoufox_browser.new_page()
+    page.goto("https://target.com")
+
+# 2. Acquire warm DrissionPage instance (dynamic SPAs / CDP automation)
+drission_page = pool.acquire_drission()
+if drission_page:
+    drission_page.get("https://target.com")
+
+# Instances automatically recycle after max_uses=25 or memory > 500MB
+# On shutdown, psutil cleans all child browser trees to prevent zombies</pre>
+          </div>
+          <p>The pool manages automatic recycling when <code>_camoufox_uses &gt;= max_uses</code> (default: 25) or when memory exceeds <code>max_memory_mb</code> (default: 500MB). On process termination, an <code>atexit</code> hook executes <code>shutdown()</code>, querying <code>psutil</code> to terminate all child browser processes cleanly.</p>
+        </div>
+      </section>
+
+      <!-- 4.7 Redis Streams Task Broker -->
+      <section id="sec-engine-broker" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Redis Streams Task Broker</h1>
+          <p class="section-desc">Distributed task distribution and worker leasing for multi-node cluster crawling.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.7 Distributed Cluster Coordination</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Implemented in <code>src/core/worker_pool.py</code>, the <code>RedisStreamTaskBroker</code> implements the <code>BaseTaskBroker</code> protocol, coordinating crawl queues across multiple nodes via Redis Streams consumer groups, with automatic fallback to <code>InMemoryTaskBroker</code> when Redis is offline.
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // TASK BROKER INTERACTION PATTERN</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.core.worker_pool import RedisStreamTaskBroker
+
+broker = RedisStreamTaskBroker(
+    redis_url="redis://127.0.0.1:6379/0",
+    group_name="scraper_cluster"
+)
+
+# 1. Producer: Enqueue task into Redis stream via XADD
+broker.push_task("crawl_jobs", {"url": "https://example.com/gallery", "depth": 1})
+
+# 2. Consumer: Atomically lease task via XREADGROUP
+task = broker.pop_task("crawl_jobs", timeout=1.0)
+if task:
+    task_id = task["_task_id"]
+    try:
+        process_crawl(task)
+        # 3. Acknowledge task completion via XACK
+        broker.ack_task("crawl_jobs", task_id)
+    except Exception:
+        pass  # Unacked task left in PEL for orphan recovery
+
+# 4. Crash Recovery: Claim orphaned tasks (>60s idle) via XAUTOCLAIM
+orphans = broker.autoclaim_abandoned_tasks("crawl_jobs", min_idle_ms=60000)</pre>
+          </div>
+          <div class="table-container" style="margin-top: 1.25rem;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Stream Command</th>
+                  <th>Internal Action</th>
+                  <th>Fault Tolerance Function</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>XADD</code></td>
+                  <td>Enqueues crawl seed and media download tasks</td>
+                  <td>Persistent disk-backed FIFO queue across cluster restarts.</td>
+                </tr>
+                <tr>
+                  <td><code>XREADGROUP</code></td>
+                  <td>Workers atomically claim task batches</td>
+                  <td>Guarantees exclusive at-least-once delivery per consumer node.</td>
+                </tr>
+                <tr>
+                  <td><code>XAUTOCLAIM</code></td>
+                  <td>Scans for stalled workers (>60s unacked)</td>
+                  <td>Reclaims and reassigns orphaned tasks from crashed nodes.</td>
+                </tr>
+                <tr>
+                  <td><code>XACK</code></td>
+                  <td>Marks task completed upon successful disk sync</td>
+                  <td>Prunes acknowledged tasks from the pending entries list (PEL).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4.8 Vision Hardware & ML Pipeline -->
+      <section id="sec-engine-ml" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Vision Hardware & ML Pipeline</h1>
+          <p class="section-desc">Autonomous hardware detection (CUDA, DirectML, MPS, CPU) and decoupled visual tagging.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.8 Hardware Acceleration Matrix</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The <code>HardwareDeviceManager</code> in <code>src/ml/hardware.py</code> queries host capabilities at initialization to select the optimal compute device and numerical precision:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // HARDWARE DISCOVERY & PRECISION NEGOTIATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.ml.hardware import get_hardware_manager
+
+hw = get_hardware_manager()
+print(f"Device: {hw.device}")       # e.g., 'cuda', 'mps', 'privateuseone' (DirectML), or 'cpu'
+print(f"Precision: {hw.dtype}")     # 'float16' for GPU/accelerators, 'float32' for CPU
+print(f"Host: {hw.device_name}")    # e.g., 'NVIDIA GeForce RTX 4090' or 'DirectML GPU'
+
+# Telemetry inspection for dashboard HUD
+info = hw.get_device_info()
+# -> {"device": "cuda", "dtype": "float16", "is_gpu": True, "total_vram_mb": 24576.0, ...}</pre>
+          </div>
+          <p style="margin-top: 1rem;">Integrated seamlessly into <code>AestheticScorer</code> (LAION aesthetic model) and <code>DatasetTagger</code> (WD14 Vision Transformer), running asynchronously in worker threads or dedicated child processes (<code>--worker-processes N</code>).</p>
+        </div>
+      </section>
+
+      <!-- 4.9 Self-Healing DOM Parser -->
+      <section id="sec-engine-healing" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
+          <h1>Self-Healing DOM Parser</h1>
+          <p class="section-desc">Multi-tier autonomous extraction parser and multi-provider LLM gateway for CSS/XPath recovery.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">4.9 Autonomous Selector Repair</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            When anti-bot obfuscation or layout changes break standard selectors, <code>SelfHealingDOMParser</code> (<code>src/core/self_healing_parser.py</code>) executes a 3-tier cascade to restore asset extraction without human intervention:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // SELF-HEALING EXTRACTION CASCADE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.core.self_healing_parser import SelfHealingDOMParser
+
+# Initialize parser with persistent SQLite selector cache and LLM gateway
+parser = SelfHealingDOMParser(
+    db_path="output/cache/repaired_selectors.db",
+    enable_llm=True,
+    llm_provider="auto"  # Ollama -> Gemini Flash -> OpenAI
+)
+
+# Extracts ImageItem assets across 3 autonomous tiers:
+# Tier 1: Cached SQLite repaired selectors (<1ms hit)
+# Tier 2: Schema.org JSON-LD, OpenGraph/Twitter meta, semantic container heuristics
+# Tier 3: Multi-provider LLM synthesis with live validation & cache persistence
+items = parser.extract(soup, page_url="https://example.com/gallery", page_title="Gallery")
+
+# Manually register or override domain selector rules
+parser.save_repaired_selector("example.com", "article.photo-card img", attr="src", confidence=0.95)</pre>
+          </div>
+          <div class="code-block-container" style="margin-top: 1rem;">
+            <div class="code-header">
+              <span>TEXT // MULTI-PROVIDER LLM SYNTHESIS CASCADE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>Tier 1: Local Ollama (OLLAMA_HOST, model: llama3 / qwen2.5-coder) -- Zero-cost, 100% offline
+Tier 2: Google Gemini Flash (GEMINI_API_KEY, gemini-2.5-flash)     -- Low-latency cloud fallback
+Tier 3: OpenAI / Compatible (OPENAI_API_KEY, gpt-4o-mini)          -- High-accuracy fallback</pre>
+          </div>
+          <p style="margin-top: 1rem;">Repaired selectors are automatically committed to SQLite (<code>repaired_selectors</code> table), tracking domain, selector, attribute, confidence, and hit count for instant reuse across subsequent crawls.</p>
         </div>
       </section>
 
@@ -1731,7 +1994,7 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
           <h1>Subject Profiles</h1>
-          <p class="section-desc">Pre-configured subject profile presets in src/config/subject_profiles.json.</p>
+          <p class="section-desc">Pre-configured subject profile presets in data/subject_profiles.json.</p>
         </div>
 
         <div class="card">
@@ -1935,6 +2198,73 @@ https://example.com/videos/example_subject</pre>
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+<!-- 6.5 Node Health Tactical Monitor -->
+      <section id="sec-webui-health" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Node Health Tactical Monitor</h1>
+          <p class="section-desc">Real-time telemetry HUD displaying cluster resources, active stealth tiers, and rate-limit governors.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.5 Tactical Telemetry & Governance</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The Web Cockpit features an active tactical telemetry bar fed by high-frequency REST and Server-Sent Events (SSE) endpoints exposed in <code>frontend/routers/telemetry.py</code>:
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Telemetry Metric</th>
+                  <th>Source / Endpoint</th>
+                  <th>Visual Indicator & Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>CPU, RAM & Disk Load</strong></td>
+                  <td><code>GET /api/telemetry/node-health</code></td>
+                  <td>Progress bar with auto-throttle warning when load exceeds 85%.</td>
+                </tr>
+                <tr>
+                  <td><strong>HTMX Gauge Meters</strong></td>
+                  <td><code>GET /api/telemetry/stats</code></td>
+                  <td>Real-time DOM swap of CPU/RAM/DSK telemetry meters.</td>
+                </tr>
+                <tr>
+                  <td><strong>Live Log Stream</strong></td>
+                  <td><code>GET /api/logs/stream</code> (SSE)</td>
+                  <td>Infinite scroll terminal streaming log lines with auto-scroll lock.</td>
+                </tr>
+                <tr>
+                  <td><strong>Stealth Tier & Active Session</strong></td>
+                  <td><code>GET /api/telemetry/stealth</code></td>
+                  <td>Active bypass tier badge (Tier 0 &rarr; Tier 1 &rarr; Tier 7) and proxy RTT.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Node Health JSON Schema (/api/telemetry/node-health)</h3>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSON // NODE HEALTH TELEMETRY PAYLOAD</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{
+  "status": "healthy",
+  "cpu_percent": 34.2,
+  "ram_percent": 58.1,
+  "disk_percent": 42.0,
+  "concurrency_scale_factor": 1.0,
+  "is_throttled": false,
+  "alert": null,
+  "metrics": { ... }
+}</pre>
+          </div>
+          <p style="margin-top: 1rem;">Managed by <code>HardwareLoadGovernor</code> (<code>src/monitoring/hardware_governor.py</code>). If CPU or RAM load crosses 85%, <code>concurrency_scale_factor</code> throttles worker pools to <code>0.5x</code> or <code>0.25x</code> until host temperature and memory stabilize.</p>
         </div>
       </section>
 
@@ -2233,6 +2563,103 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
             <li><strong>JSONL Embeddings Format</strong>: Line-delimited JSON objects formatted for vector store
               splitters.</li>
           </ul>
+        </div>
+      </section>
+<!-- 8.6 Content-Addressable Storage (CAS) -->
+      <section id="sec-output-cas" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>Content-Addressable Storage (CAS)</h1>
+          <p class="section-desc">Global deduplication repository eliminating duplicate file storage across repeated crawls.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.6 Content-Addressable Store Architecture</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            When invoked with <code>--enable-cas</code>, scrAPE routes all downloaded media assets through <code>ContentAddressableStore</code> (<code>src/storage/cas_store.py</code>):
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // CAS DEDUPLICATION & RUN LINKING</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from pathlib import Path
+from src.storage.cas_store import ContentAddressableStore
+
+cas = ContentAddressableStore(root_dir=".storage/cas")
+
+# 1. Compute SHA-256 and store physical bytes (if not already cached)
+sha, cas_path = cas.store(image_bytes, extension="jpg")
+# Physical path: .storage/cas/{sha[:2]}/{sha[2:]}.jpg
+
+# 2. Expose asset in crawl run folder via atomic NTFS/POSIX hardlink
+run_file = Path("output/scrapes/run_01/images/example_domain/001.jpg")
+linked = cas.link_to_run(sha, destination_path=run_file, extension="jpg")
+
+# Consumes 0 additional disk bytes across runs, keywords, and seed manifests</pre>
+          </div>
+          <div class="code-block-container" style="margin-top: 1rem;">
+            <div class="code-header">
+              <span>TEXT // CAS STORAGE LIFECYCLE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>1. Asset downloaded to memory/temp buffer
+2. SHA-256 hash calculated from file content
+3. Master asset stored at: .storage/cas/{sha256[:2]}/{sha256[2:]}.{ext}
+4. Crawl run directory receives an atomic NTFS/POSIX hardlink (os.link)
+5. Physical disk space consumed: Exactly 1x, regardless of repetition across runs</pre>
+          </div>
+          <p style="margin-top: 1rem;">Cross-volume copy fallback: if target runs are created on a separate filesystem partition, <code>cas.link_to_run()</code> detects <code>EXDEV</code>/<code>OSError</code> and gracefully falls back to copyfile.</p>
+        </div>
+      </section>
+
+      <!-- 8.7 Apache Parquet Dataset Export -->
+      <section id="sec-output-parquet" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
+          <h1>Apache Parquet Dataset Export</h1>
+          <p class="section-desc">Columnar Snappy-compressed datasets optimized for Polars, DuckDB, Pandas, and Big Data OLAP pipelines.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">8.7 Columnar Data Export Pipeline</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Enabled via <code>--export-parquet</code> or the WebUI Database Export panel, <code>ParquetExporter</code> (<code>src/storage/parquet_exporter.py</code>) compiles crawl records into high-compression Parquet tables:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // PARQUET DATASET GENERATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.storage.parquet_exporter import ParquetExporter
+
+exporter = ParquetExporter(
+    output_dir="output/datasets",
+    dataset_name="crawl_dataset"
+)
+
+# Compiles ScrapeResult images & videos into Snappy Parquet (or JSONL fallback)
+dataset_path = exporter.export(scrape_result)
+print(f"Exported dataset: {dataset_path}")  # output/datasets/crawl_dataset.parquet</pre>
+          </div>
+          <div class="table-container" style="margin-top: 1.25rem;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Parquet Table</th>
+                  <th>Schema Columns</th>
+                  <th>Compression & Fallback</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>crawl_dataset.parquet</code></td>
+                  <td><code>url</code>, <code>source_page</code>, <code>page_title</code>, <code>domain</code>, <code>media_type</code>, <code>score</code>, <code>aesthetic_score</code>, <code>tags</code>, <code>file_path</code>, <code>timestamp</code></td>
+                  <td>Snappy compression via <code>pyarrow</code>; graceful fallback to JSON Lines (<code>.jsonl</code>) if <code>pyarrow</code> is unavailable.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

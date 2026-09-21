@@ -57,3 +57,50 @@ def test_parquet_exporter_lifecycle(tmp_path):
     assert out_file.stat().st_size > 0
     # Extension should be either .parquet or .jsonl (fallback)
     assert out_file.suffix in (".parquet", ".jsonl")
+
+
+def test_analytics_exporter_parquet(tmp_path):
+    import sqlite3
+    from storage.analytics_exporter import export_analytics
+
+    db_path = tmp_path / "database.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE images (url TEXT, score REAL, width INT, height INT)")
+        conn.execute("INSERT INTO images VALUES ('https://example.com/1.jpg', 0.9, 1024, 768)")
+        conn.execute("CREATE TABLE videos (url TEXT, title TEXT)")
+        conn.execute("INSERT INTO videos VALUES ('https://example.com/1.mp4', 'Test Video')")
+        conn.commit()
+
+    export_analytics(tmp_path, "parquet")
+    # Should create images.parquet (or images_analytics.csv/analytics.json fallback)
+    files = [f.name for f in tmp_path.iterdir()]
+    assert any("parquet" in f or "json" in f for f in files)
+
+
+def test_cas_run_directory_ingestion(tmp_path):
+    from storage.cas_store import ContentAddressableStore
+
+    cas = ContentAddressableStore(root_dir=tmp_path / "cas_root")
+    output_root = tmp_path / "run_1"
+    img_dir = output_root / "images" / "example.com"
+    img_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = img_dir / "test.jpg"
+    test_file.write_bytes(b"sample-image-data-for-cas-ingestion")
+
+    # Perform CAS ingestion logic as in engine.py
+    for media_dir in [output_root / "images", output_root / "videos"]:
+        if media_dir.exists():
+            for orig_file in media_dir.rglob("*.*"):
+                if orig_file.is_file() and orig_file.suffix != ".tmp":
+                    data = orig_file.read_bytes()
+                    ext = orig_file.suffix.lstrip(".") or "bin"
+                    sha, _ = cas.store(data, extension=ext)
+                    orig_file.unlink(missing_ok=True)
+                    cas.link_to_run(sha, orig_file, extension=ext)
+
+    assert test_file.is_file()
+    assert test_file.read_bytes() == b"sample-image-data-for-cas-ingestion"
+    assert cas.exists(cas.compute_hash(b"sample-image-data-for-cas-ingestion"), extension="jpg")
+
+

@@ -33,6 +33,7 @@ dist/
 node_modules/
 crawlee_bridge/node_modules/
 /storage/
+.storage/
 crawlee_bridge/storage/
 
 # --- Application Outputs & Runtime Data ---

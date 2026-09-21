@@ -279,6 +279,30 @@ class ScrapingEngine:
         result.images = media_processor.finalize_images(result, options)
         result.videos = media_processor.finalize_videos(result, options)
 
+        # Ingest into Content-Addressable Storage (CAS) with atomic hardlinking if enabled
+        if options.enable_cas and options.download_media and output_root.exists():
+            try:
+                from storage.cas_store import ContentAddressableStore
+                cas = ContentAddressableStore()
+                cas_count = 0
+                for media_dir in [output_root / "images", output_root / "videos"]:
+                    if media_dir.exists():
+                        for orig_file in media_dir.rglob("*.*"):
+                            if orig_file.is_file() and orig_file.suffix != ".tmp":
+                                data = orig_file.read_bytes()
+                                ext = orig_file.suffix.lstrip(".") or "bin"
+                                sha, _ = cas.store(data, extension=ext)
+                                try:
+                                    orig_file.unlink(missing_ok=True)
+                                    cas.link_to_run(sha, orig_file, extension=ext)
+                                    cas_count += 1
+                                except Exception as link_err:
+                                    LOGGER.debug("CAS link fallback: %s", link_err)
+                LOGGER.info("ScrapingEngine: Ingested and hardlinked %d media items into CAS.", cas_count)
+            except Exception as err:
+                LOGGER.warning("ScrapingEngine: CAS storage processing error: %s", err)
+
+
         # Execute asynchronous ML pipeline worker if aesthetic scoring, cropping, or tagging requested
         if options.aesthetic_score is not None or options.auto_crop or options.tag_dataset:
             try:

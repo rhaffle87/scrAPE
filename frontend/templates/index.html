@@ -1523,6 +1523,25 @@
                 gap: 0.5rem;
             }
 
+            .nav-item {
+                min-height: 44px;
+                padding: 0.5rem 1rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .profile-slot-btn {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .btn, .action-btn, .card-header-btn {
+                min-height: 44px;
+            }
+
             .sidebar-subjects {
                 max-height: 180px;
                 overflow-y: auto;
@@ -1666,7 +1685,7 @@
                 <rect x="168" y="168" width="6" height="6" fill="#ff5500" />
             </svg>
             <span class="logo-text">scrAPE</span>
-            <span class="logo-version">v0.24.0</span>
+            <span class="logo-version">v0.29.0</span>
         </div>
         <nav class="sidebar-nav">
             <button type="button" class="nav-item active" id="nav-cmd-center" onclick="showCommandCenter()">
@@ -2736,6 +2755,15 @@
                                         <div class="accordion-content">
                                             <div class="form-grid">
                                                 <div class="form-group full-width">
+                                                    <label for="setting-CAPTCHA_PRIMARY_PROVIDER">PRIMARY CAPTCHA SOLVER</label>
+                                                    <select id="setting-CAPTCHA_PRIMARY_PROVIDER">
+                                                        <option value="capsolver" selected>CapSolver (Cloud API - Cloudflare Turnstile / reCAPTCHA)</option>
+                                                        <option value="2captcha">2Captcha (Cloud API)</option>
+                                                        <option value="anticaptcha">AntiCaptcha (Cloud API)</option>
+                                                        <option value="free_audio">Free Audio Solver (Local Whisper Speech-to-Text - Zero Cost)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group full-width">
                                                     <label for="setting-CAPSOLVER_API_KEY">CAPSOLVER API KEY</label>
                                                     <input type="password" id="setting-CAPSOLVER_API_KEY" placeholder="CAI-...">
                                                 </div>
@@ -2862,6 +2890,7 @@
                                                 <select id="export-db-format">
                                                     <option value="csv">CSV (Tables as CSV files)</option>
                                                     <option value="json">JSON (Full JSON dump)</option>
+                                                    <option value="parquet">Apache Parquet (Snappy Columnar Dataset)</option>
                                                 </select>
                                             </div>
                                             <div class="button-bar full-width" style="margin-top: 1rem;">
@@ -6107,6 +6136,23 @@
                 
                 // Poll every 3 seconds
                 setInterval(pollHardwareTelemetry, 3000);
+
+                // Dynamically hydrate version badge from backend
+                async function initVersionBadge() {
+                    try {
+                        const res = await fetch('/api/v1/version');
+                        if (res.ok) {
+                            const data = await res.json();
+                            const badge = document.querySelector('.logo-version');
+                            if (badge && data.version_tag) {
+                                badge.textContent = data.version_tag;
+                            }
+                        }
+                    } catch (e) {
+                        // Keep static fallback
+                    }
+                }
+                initVersionBadge();
             </script>
 </body>
 

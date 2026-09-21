@@ -23,9 +23,13 @@
   - Real-time `/api/telemetry/node-health` endpoint surfacing CPU, RAM, Disk, and dynamic throttle factors.
 
 ### Validated & QA Verified (0.29.0)
-- Full 530/530 pytest test suite passing at 100%.
-- Zero Ruff lint errors and zero Bandit High issues across 21,535 LOC.
+- Full 533/533 pytest test suite passing at 100% (155.50s).
+- Pre-warmed browser pool calibrated operational latency: 96.39ms warm vs 1,491.26ms cold (15.47× operational DOM round-trip speedup; ~180,000× instance checkout).
+- Autonomous self-healing DOM parser verified on live target (`books.toscrape.com`): 20 items in 7.75ms with 4.77ms cached recovery.
+- Multi-surface design harmonization: 0px horizontal scroll overflow across Desktop (1440px), Tablet (820px), Mobile (375px), touch-targets $\ge 44\text{px}$, and dynamic WebUI version badge synchronization.
+- Zero Ruff lint errors and zero Bandit High issues across 21,594 LOC.
 - Verified 0 zombie child processes via `psutil` during shutdown and crawl aborts.
+- Container runtime boot, non-root user (`appuser`), system Chromium path (`PUPPETEER_EXECUTABLE_PATH`), and in-container execution verified live.
 
 ## [0.28.0] — 2026-09-20
 

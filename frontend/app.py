@@ -12,8 +12,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from config import WEBUI_HOST, WEBUI_PORT
-from monitoring.telemetry import register_telemetry_listener
+try:
+    from config import WEBUI_HOST, WEBUI_PORT
+except ImportError:
+    from src.config import WEBUI_HOST, WEBUI_PORT
+
+try:
+    from monitoring.telemetry import register_telemetry_listener
+except ImportError:
+    from src.monitoring.telemetry import register_telemetry_listener
+
 from src.config.version import VERSION
 
 # Shared frontend state, broadcasters, and sanitizers
@@ -115,6 +123,11 @@ def serve_gallery():
     if template_path.exists():
         return FileResponse(template_path)
     return {"error": "gallery.html not found"}
+
+
+@app.get("/api/v1/version")
+def get_version_info():
+    return {"version": VERSION, "version_tag": f"v{VERSION}"}
 
 
 @app.get("/")

@@ -320,10 +320,18 @@ body {
   margin-left: var(--sidebar-width);
   flex: 1;
   padding: 36px 48px 100px 48px;
-  max-width: 1200px;
+  max-width: 1800px;
   width: calc(100% - var(--sidebar-width));
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+/* Constrain prose text for comfortable typographic reading measure on ultrawide monitors */
+.doc-section p,
+.doc-section ul,
+.doc-section ol,
+.section-desc {
+  max-width: 1050px;
 }
 
 /* ── Typography & Content Cards ────────────────────────────────────────── */
@@ -566,6 +574,9 @@ code {
 /* ── Data Tables ───────────────────────────────────────────────────────── */
 .table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  width: 100%;
   margin-bottom: 20px;
   border: 1px solid var(--border-strong);
   position: relative;
@@ -576,6 +587,7 @@ table {
   border-collapse: collapse;
   text-align: left;
   font-size: 12px;
+  table-layout: auto;
 }
 
 th {
@@ -586,16 +598,109 @@ th {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   border-bottom: 2px solid var(--border-strong);
   white-space: nowrap;
 }
 
 td {
-  padding: 10px 14px;
+  padding: 11px 16px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   vertical-align: top;
+  line-height: 1.6;
+}
+
+/* Prevent identifiers, flags, variables, and parameters from breaking awkwardly across lines */
+td code {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 1px 0;
+}
+
+/* Specific table column width allocation & protection across all 9 modules */
+#sec-cli-flags table {
+  min-width: 840px;
+}
+#sec-cli-flags th:first-child,
+#sec-cli-flags td:first-child {
+  min-width: 230px;
+  width: 230px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+#sec-cli-flags th:nth-child(2),
+#sec-cli-flags td:nth-child(2) {
+  min-width: 90px;
+  width: 95px;
+  white-space: nowrap;
+}
+#sec-cli-flags th:nth-child(3),
+#sec-cli-flags td:nth-child(3) {
+  min-width: 90px;
+  width: 95px;
+  white-space: nowrap;
+}
+
+#sec-config-env table {
+  min-width: 840px;
+}
+#sec-config-env th:first-child,
+#sec-config-env td:first-child {
+  min-width: 260px;
+  width: 260px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+#sec-config-env th:nth-child(2),
+#sec-config-env td:nth-child(2) {
+  min-width: 100px;
+  width: 110px;
+  white-space: nowrap;
+}
+
+#sec-cli-profiles table {
+  min-width: 860px;
+}
+#sec-cli-profiles th:first-child,
+#sec-cli-profiles td:first-child {
+  min-width: 200px;
+  white-space: nowrap;
+}
+#sec-cli-profiles th:nth-child(2),
+#sec-cli-profiles td:nth-child(2) {
+  min-width: 380px;
+}
+#sec-cli-profiles td:nth-child(2) code {
+  white-space: normal;
+  word-break: normal;
+  line-height: 1.8;
+}
+
+#sec-engine-scoring table {
+  min-width: 820px;
+}
+#sec-engine-scoring th:first-child,
+#sec-engine-scoring td:first-child {
+  min-width: 220px;
+  white-space: nowrap;
+}
+
+#sec-overview-pillars table,
+#sec-overview-v28 table,
+#sec-engine-waf table,
+#sec-webui-health table,
+#sec-output-parquet table,
+#sec-test-diagnostic table {
+  min-width: 780px;
+}
+
+#sec-test-diagnostic th:nth-child(2),
+#sec-test-diagnostic td:nth-child(2) {
+  min-width: 280px;
 }
 
 tr:nth-child(even) {
@@ -609,7 +714,7 @@ tr:hover {
 /* ── Interactive CLI Builder ───────────────────────────────────────────── */
 .builder-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
   margin-bottom: 20px;
 }

@@ -44,6 +44,7 @@ from cli.cli_wizard_standard import (
     CLR_BOLD,
     CLR_DIM,
     CLR_REVERSE,
+    CLR_ORANGE,
 )
 from cli.cli_wizard_watchdog import mode_continuous_watchdog
 
@@ -77,10 +78,10 @@ def run_cli_wizard():
     while True:
         clear_screen()
         print_banner()
-        print(f"{CLR_BOLD}{CLR_REVERSE} [SYSTEM] █ INTERACTIVE OPERATION MODES {CLR_END}")
+        print(f"{CLR_BOLD}{CLR_REVERSE}{CLR_ORANGE} [SYSTEM] █ INTERACTIVE OPERATION MODES {CLR_END}")
         print(f"{CLR_DIM}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓{CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 01 ] {CLR_GREEN}{CLR_BOLD}General / Broad Scraping{CLR_END}    {CLR_DIM}(Search keyword, presets){CLR_END}")
-        print(f"{CLR_DIM}┃{CLR_END} [ 02 ] {CLR_CYAN}{CLR_BOLD}Specified Seed Scraping{CLR_END}     {CLR_DIM}(Targeted seed files){CLR_END}")
+        print(f"{CLR_DIM}┃{CLR_END} [ 02 ] {CLR_ORANGE}{CLR_BOLD}Specified Seed Scraping{CLR_END}     {CLR_DIM}(Targeted seed files){CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 03 ] {CLR_BLUE}{CLR_BOLD}Continuous Watchdog Agent{CLR_END}   {CLR_DIM}(Periodic monitoring){CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 04 ] {CLR_HEADER}{CLR_BOLD}AI Dataset Exporter{CLR_END}         {CLR_DIM}(LoRA / Kohya_ss ZIP){CLR_END}")
         print(f"{CLR_DIM}┃{CLR_END} [ 05 ] {CLR_WARNING}{CLR_BOLD}RAG Document Ingest{CLR_END}         {CLR_DIM}(Text chunk exporter){CLR_END}")

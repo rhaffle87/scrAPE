@@ -13,6 +13,8 @@ import subprocess
 import re
 from pathlib import Path
 
+from src.config.version import VERSION
+
 # Ensure UTF-8 output encoding for block characters on Windows
 if sys.platform.startswith("win"):
     if hasattr(sys.stdout, "reconfigure"):
@@ -32,6 +34,7 @@ CLR_BOLD = "\033[1m"
 CLR_UNDERLINE = "\033[4m"
 CLR_DIM = "\033[2m"
 CLR_REVERSE = "\033[7m"
+CLR_ORANGE = "\033[38;5;208m"  # Acquisition Orange (#ff5500)
 
 __all__ = [
     "clear_screen",
@@ -55,6 +58,7 @@ __all__ = [
     "val_float",
     "prompt_core_systems_options",
     "mode_core_systems_setup",
+    "CLR_ORANGE",
 ]
 
 
@@ -63,7 +67,8 @@ def clear_screen():
 
 
 def print_banner():
-    banner = f"""{CLR_CYAN}{CLR_BOLD}
+    ver_str = f"v{VERSION}"
+    banner = f"""{CLR_ORANGE}{CLR_BOLD}
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ ███████╗ ██████╗██████╗  █████╗ ██████╗ ███████╗            ┃
 ┃ ██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝            ┃
@@ -72,7 +77,7 @@ def print_banner():
 ┃ ███████║╚██████╗██║  ██║██║  ██║██║     ███████╗            ┃
 ┃ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝            ┃
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-┃ [SYSTEM] DATA & MEDIA AUTONOMOUS AGENT          v2.0.0      ┃
+┃ [SYSTEM] DATA & MEDIA AUTONOMOUS AGENT{ver_str:>16}      ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 {CLR_END}"""
     print(banner)
@@ -81,7 +86,7 @@ def print_banner():
 def get_input(prompt: str, default: str = "", val_fn=None) -> str:
     while True:
         default_str = f" [{CLR_DIM}{default}{CLR_END}]" if default else ""
-        sys.stdout.write(f"{CLR_CYAN}[USER]{CLR_END} ▶ {prompt}{default_str}: ")
+        sys.stdout.write(f"{CLR_ORANGE}[USER]{CLR_END} ▶ {prompt}{default_str}: ")
         sys.stdout.flush()
         try:
             val = sys.stdin.readline().strip()
@@ -169,13 +174,13 @@ def mode_general_scraping():
 
     print("\nChoose a scraping profile:")
     print(
-        f"  1) {CLR_GREEN}{CLR_BOLD}Quick Scan{CLR_END} (Recommended for common users — fast, respects robots.txt, 50 media limit)"
+        f"  1) {CLR_GREEN}{CLR_BOLD}Quick Scan{CLR_END}   (Fast, respects robots.txt, 50 media limit)"
     )
     print(
-        f"  2) {CLR_BLUE}{CLR_BOLD}Deep Scrape{CLR_END} (Recommended for power users — slower, checks deeper pages, 500 media limit)"
+        f"  2) {CLR_BLUE}{CLR_BOLD}Deep Scrape{CLR_END}  (Power users, deeper pages, 500 media limit)"
     )
     print(
-        f"  3) {CLR_CYAN}{CLR_BOLD}Custom Scrape{CLR_END} (Manual configuration of all parameters)"
+        f"  3) {CLR_CYAN}{CLR_BOLD}Custom Scrape{CLR_END}(Manual configuration of all parameters)"
     )
 
     profile = get_input("Select profile (1-3)", default="1")
@@ -515,6 +520,14 @@ def prompt_core_systems_options() -> list[str]:
     # Autonomous Self-Healing DOM Parser
     if get_bool_input("Enable Autonomous Self-Healing DOM Parser fallback?", default=False):
         flags.append("--enable-self-healing")
+
+    # Global Content-Addressable Storage (CAS)
+    if get_bool_input("Enable Global Content-Addressable Storage (CAS) deduplication?", default=False):
+        flags.append("--enable-cas")
+
+    # Columnar Apache Parquet Export
+    if get_bool_input("Export crawl results to Snappy Apache Parquet dataset?", default=False):
+        flags.append("--export-parquet")
 
     # Worker Processes Pool
     w_proc = get_input("Isolated Worker Processes (0 for CPU core auto-detection)", default="0", val_fn=validate_number)

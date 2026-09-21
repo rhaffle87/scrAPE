@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   scrape:
     build:
@@ -9,12 +7,14 @@ services:
     ports:
       - "127.0.0.1:10001:10001"
     environment:
+      - PYTHONPATH=/app:/app/src:/usr/local/lib/python3.11/site-packages/src
       - FLARESOLVERR_URL=http://flaresolverr:8191/v1
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./output:/app/output
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./seeds:/app/seeds
     depends_on:
       - flaresolverr
       - redis

@@ -44,6 +44,7 @@ WORKDIR /app
 # Point Puppeteer to system Chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PYTHONPATH=/app:/app/src:/usr/local/lib/python3.11/site-packages/src
 
 # System-wide installed Python packages
 COPY --from=builder /install /usr/local
@@ -51,10 +52,14 @@ COPY --from=builder /install /usr/local
 # App code: root-owned, read-only for appuser
 COPY --from=builder --chown=root:root /app/crawlee_bridge ./crawlee_bridge
 COPY --chown=root:root frontend/ ./frontend/
+COPY --chown=root:root src/ ./src/
+COPY --chown=root:root data/ ./data/
+COPY --chown=root:root seeds/ ./seeds/
+COPY --chown=root:root pyproject.toml ./pyproject.toml
 COPY --chown=root:root .bandit ./.bandit
 
 # Runtime-writable dirs setup (owned by appuser)
-RUN mkdir -p data seeds logs output && chown -R appuser:appuser data seeds logs output
+RUN mkdir -p data seeds logs output .cache && chown -R appuser:appuser data seeds logs output .cache
 
 USER appuser
 

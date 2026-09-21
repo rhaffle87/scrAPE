@@ -14,6 +14,7 @@ Provides browser automation fallback execution methods for WAF bypass and stealt
 
 from __future__ import annotations
 
+import os
 import sys
 import httpx
 import shutil
@@ -722,7 +723,13 @@ class BrowserClientMixin:
 
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             chrome_options = ChromeOptions()
+            chrome_bin = os.environ.get("PUPPETEER_EXECUTABLE_PATH")
+            if chrome_bin and os.path.exists(chrome_bin):
+                chrome_options.binary_location = chrome_bin
 
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option("useAutomationExtension", False)
