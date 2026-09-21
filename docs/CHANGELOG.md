@@ -31,6 +31,18 @@
 - Verified 0 zombie child processes via `psutil` during shutdown and crawl aborts.
 - Container runtime boot, non-root user (`appuser`), system Chromium path (`PUPPETEER_EXECUTABLE_PATH`), and in-container execution verified live.
 
+### Shipped & Production Deployed (2026-09-21)
+- **Release Version**: `v0.29.0` (Official Production Tag)
+- **Release Commit**: `08c7237` (docs site polish, CLI matrix sync, a11y focus rings, SEO meta tags, brutalist footer)
+- **GitHub Pages Deployment Workflow Run ID**: `35550687993` (Job ID: `106184746841`, Status: `Success` in 14s)
+- **Live Documentation URL**: [https://rhaffle87.github.io/scrAPE/](https://rhaffle87.github.io/scrAPE/)
+- **Live Production Verification**:
+  - 0 JS errors, 0 console warnings, 0 failed network requests, and 0 HTTP 4xx/5xx across all 48 sidebar links.
+  - 100% WCAG 2.1 AA automated accessibility compliance (axe-core 43 rules passed, 0 violations).
+  - Complete CLI Flag Matrix synchronized against `src/cli/main.py` (all 51 options verified with 0 layout wrap bugs).
+  - SEO / Open Graph / Twitter Card tags deployed and verified directly on production.
+  - All external repository, issue tracker, release, and license links verified HTTP 200.
+
 ## [0.28.0] — 2026-09-20
 
 ### Added (0.28.0)
