@@ -19,6 +19,7 @@ def _get_table_rows(cursor: sqlite3.Cursor, table_name: str) -> list[dict]:
 
 def export_db_to_csv(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
+    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -27,7 +28,7 @@ def export_db_to_csv(db_path: Path, output_dir: Path):
         if img_rows:
             csv_path = validate_safe_path(safe_out, safe_out / "images_analytics.csv")
             norm_csv = os.path.abspath(os.path.normpath(str(csv_path)))
-            if not norm_csv.startswith(str(safe_out)):
+            if not (norm_csv.startswith(safe_boundary) or norm_csv == str(safe_out)):
                 raise ValueError("Path traversal detected")
             with open(norm_csv, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=list(img_rows[0].keys()))
@@ -40,7 +41,7 @@ def export_db_to_csv(db_path: Path, output_dir: Path):
         if vid_rows:
             csv_path = validate_safe_path(safe_out, safe_out / "videos_analytics.csv")
             norm_csv = os.path.abspath(os.path.normpath(str(csv_path)))
-            if not norm_csv.startswith(str(safe_out)):
+            if not (norm_csv.startswith(safe_boundary) or norm_csv == str(safe_out)):
                 raise ValueError("Path traversal detected")
             with open(norm_csv, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=list(vid_rows[0].keys()))
@@ -52,6 +53,7 @@ def export_db_to_csv(db_path: Path, output_dir: Path):
 
 def export_db_to_json(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
+    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -61,7 +63,7 @@ def export_db_to_json(db_path: Path, output_dir: Path):
 
         json_path = validate_safe_path(safe_out, safe_out / "analytics.json")
         norm_json = os.path.abspath(os.path.normpath(str(json_path)))
-        if not norm_json.startswith(str(safe_out)):
+        if not (norm_json.startswith(safe_boundary) or norm_json == str(safe_out)):
             raise ValueError("Path traversal detected")
         with open(norm_json, 'w', encoding='utf-8') as f:
             json.dump({"images": images, "videos": videos}, f, indent=2)
@@ -70,6 +72,7 @@ def export_db_to_json(db_path: Path, output_dir: Path):
 
 def export_db_to_parquet(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
+    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -85,7 +88,7 @@ def export_db_to_parquet(db_path: Path, output_dir: Path):
             img_table = pa.Table.from_pylist(img_rows)
             pq_img_path = validate_safe_path(safe_out, safe_out / "images.parquet")
             norm_pq_img = os.path.abspath(os.path.normpath(str(pq_img_path)))
-            if not norm_pq_img.startswith(str(safe_out)):
+            if not (norm_pq_img.startswith(safe_boundary) or norm_pq_img == str(safe_out)):
                 raise ValueError("Path traversal detected")
             pq.write_table(img_table, norm_pq_img, compression="snappy")
             LOGGER.info("Exported images to %s", norm_pq_img)
@@ -94,7 +97,7 @@ def export_db_to_parquet(db_path: Path, output_dir: Path):
             vid_table = pa.Table.from_pylist(vid_rows)
             pq_vid_path = validate_safe_path(safe_out, safe_out / "videos.parquet")
             norm_pq_vid = os.path.abspath(os.path.normpath(str(pq_vid_path)))
-            if not norm_pq_vid.startswith(str(safe_out)):
+            if not (norm_pq_vid.startswith(safe_boundary) or norm_pq_vid == str(safe_out)):
                 raise ValueError("Path traversal detected")
             pq.write_table(vid_table, norm_pq_vid, compression="snappy")
             LOGGER.info("Exported videos to %s", norm_pq_vid)
@@ -129,7 +132,8 @@ def export_analytics(subject_dir: Path, fmt: str):
 
     db_path = validate_safe_path(safe_dir, safe_dir / "database.db")
     norm_db = os.path.abspath(os.path.normpath(str(db_path)))
-    if not norm_db.startswith(str(safe_dir)):
+    safe_boundary = str(safe_dir) if str(safe_dir).endswith(os.sep) else str(safe_dir) + os.sep
+    if not (norm_db.startswith(safe_boundary) or norm_db == str(safe_dir)):
         raise ValueError("Path traversal detected in database path")
 
     if not Path(norm_db).exists():

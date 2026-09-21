@@ -7,6 +7,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import sys
 from subprocess import Popen
 from typing import Any
 from urllib.parse import quote
@@ -203,13 +204,18 @@ async def open_folder(request: Request):
         base_dir = os.path.abspath(str(OUTPUT_DIR))
         safe_path = validate_safe_path(base_dir, Path(base_dir) / clean_name)
         target_path = os.path.abspath(os.path.normpath(str(safe_path)))
+        safe_boundary = base_dir if base_dir.endswith(os.sep) else base_dir + os.sep
 
-        if not target_path.startswith(base_dir):
+        if not (target_path.startswith(safe_boundary) or target_path == base_dir):
             return HTMLResponse("Invalid path")
 
         if os.path.exists(target_path):
             if os.name == "nt":
                 Popen(["explorer", "/select,", target_path])  # nosec B603 B607
+            elif sys.platform == "darwin":
+                Popen(["open", "-R", target_path])  # nosec B603 B607
+            else:
+                Popen(["xdg-open", target_path])  # nosec B603 B607
             return HTMLResponse("Opened")
     except Exception as e:
         logger.warning("Failed to open folder: %s", e)
