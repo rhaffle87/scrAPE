@@ -52,6 +52,12 @@ src/data/profiles/
 src/data/sessions/
 src/data/*.db
 src/data/*.db-journal
+src/data/*.db-wal
+src/data/*.db-shm
+*.db-wal
+*.db-shm
+output/cache/*.db-wal
+output/cache/*.db-shm
 src/storage/key_value_stores/
 src/storage/request_queues/
 

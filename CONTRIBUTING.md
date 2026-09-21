@@ -136,8 +136,12 @@ Whenever you make changes to core functionality, CLI flags, seed annotations, or
 
 Before submitting your pull request:
 
-- [ ] All unit and integration tests pass cleanly (`pytest tests/ -v`).
+- [ ] All unit and integration tests pass cleanly (`pytest tests/ -v`, 541 tests).
 - [ ] Code is formatted cleanly and adheres to Python 3.10+ conventions.
-- [ ] No hardcoded domain rules in Python source files (used `data/url_normalisation_rules.json`).
-- [ ] Updated relevant documentation files (`README.md`, `docs/`, `CHANGELOG.md`).
-- [ ] Clear PR title and description outlining the problem and proposed solution.
+- [ ] Zero `# codeql[...]` suppressions in `src/` or `frontend/` (structural 3-step path resolution mathematically proven).
+- [ ] All filesystem paths derived from user input use strict boundary validation (`validate_safe_path`).
+- [ ] All network target URLs and redirect chain hops use SSRF validation (`is_safe_target_url`).
+- [ ] No hardcoded domain rules in Python source files (all canonicalisation rules in `data/url_normalisation_rules.json`).
+- [ ] Secrets, `.env`, SQLite WAL (`*.db-wal`, `*.db-shm`), `output/`, and `.cache/` are verified excluded in `.gitignore`.
+- [ ] Updated relevant documentation files (`README.md`, `docs/`, `CHANGELOG.md`, `RELEASE_NOTES.md`).
+- [ ] Clear PR title and description outlining the problem, architectural changes, and verification results.

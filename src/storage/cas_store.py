@@ -37,11 +37,23 @@ class ContentAddressableStore:
         return h.hexdigest()
 
     def get_cas_path(self, sha256_hash: str, extension: str = "jpg") -> Path:
-        clean_ext = extension.lstrip(".").lower() or "bin"
-        prefix = sha256_hash[:2]
-        suffix = sha256_hash[2:]
+        import re
+
+        clean_ext = re.sub(r"[^a-zA-Z0-9]", "", extension.lstrip(".").lower()) or "bin"
+        clean_hash = re.sub(r"[^a-fA-F0-9]", "", sha256_hash)
+        if len(clean_hash) < 2:
+            raise ValueError(f"Invalid sha256_hash: {sha256_hash}")
+
+        prefix = clean_hash[:2]
+        suffix = clean_hash[2:]
         bucket_dir = self.root_dir / prefix
-        return bucket_dir / f"{suffix}.{clean_ext}"
+        target = Path(os.path.abspath(os.path.normpath(bucket_dir / f"{suffix}.{clean_ext}")))
+
+        root_str = str(Path(os.path.abspath(os.path.normpath(self.root_dir))))
+        target_str = str(target)
+        if not (target_str == root_str or target_str.startswith(root_str + os.sep)):
+            raise ValueError(f"Path traversal detected: {target_str} outside {root_str}")
+        return target
 
     def exists(self, sha256_hash: str, extension: str = "jpg") -> bool:
         return self.get_cas_path(sha256_hash, extension).is_file()

@@ -240,9 +240,10 @@ class RedisTaskBroker:
     def _init_client(self) -> None:
         try:
             import redis
+            from common.security import sanitize_url_credentials
             self._client = redis.from_url(self.redis_url, socket_timeout=2.0)
             self._client.ping()
-            LOGGER.info("RedisTaskBroker: Connected to Redis at %s", self.redis_url)
+            LOGGER.info("RedisTaskBroker: Connected to Redis at %s", sanitize_url_credentials(self.redis_url))
         except Exception as e:
             LOGGER.warning("RedisTaskBroker: Failed connecting to Redis (%s). Using in-memory fallback.", e)
             self._client = None
@@ -309,9 +310,10 @@ class RedisStreamTaskBroker:
     def _init_client(self) -> None:
         try:
             import redis
+            from common.security import sanitize_url_credentials
             self._client = redis.from_url(self.redis_url, socket_timeout=2.0)
             self._client.ping()
-            LOGGER.info("RedisStreamTaskBroker: Connected to Redis Streams at %s (group: %s)", self.redis_url, self.group_name)
+            LOGGER.info("RedisStreamTaskBroker: Connected to Redis Streams at %s (group: %s)", sanitize_url_credentials(self.redis_url), self.group_name)
         except Exception as e:
             LOGGER.warning("RedisStreamTaskBroker: Failed connecting to Redis (%s). Using in-memory fallback.", e)
             self._client = None

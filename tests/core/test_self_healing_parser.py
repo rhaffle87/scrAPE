@@ -93,3 +93,36 @@ def test_self_healing_tier3_llm_synthesis(tmp_path: Path):
         assert len(items) == 2
         assert items[0].url == "https://obfuscated.com/img1.webp"
         assert "self_healing_llm:div[data-asset-url]" in items[0].extraction_source
+
+
+def test_self_healing_get_metrics_and_run_summary(tmp_path: Path):
+    db_path = tmp_path / "repaired.db"
+    parser = SelfHealingDOMParser(db_path=db_path, enable_llm=False)
+    parser.save_repaired_selector("testsite.org", "div.gallery img", "src", confidence=0.9)
+
+    metrics = parser.get_metrics()
+    assert metrics["total_repaired_domains"] == 1
+    assert metrics["total_cache_hits"] >= 1
+    assert metrics["repaired_domains"][0]["domain"] == "testsite.org"
+    assert metrics["repaired_domains"][0]["selector"] == "div.gallery img"
+
+    # Test run_summary integration
+    from core.models import ScrapeResult, ImageItem
+    from core.run_summary import generate_run_summary
+
+    fake_result = ScrapeResult(
+        keyword="test",
+        images=[
+            ImageItem(url="https://testsite.org/1.jpg", source_page="https://testsite.org", extraction_source="self_healing_cached:div.gallery img"),
+            ImageItem(url="https://testsite.org/2.jpg", source_page="https://testsite.org", extraction_source="self_healing_jsonld"),
+        ],
+        run_id="run_test",
+    )
+
+    with patch("core.run_summary.SelfHealingDOMParser", return_value=parser):
+        summary = generate_run_summary(fake_result, tmp_path, 1.0, 1.0)
+        assert "self_healing" in summary
+        assert summary["self_healing"]["items_recovered_this_run"] == 2
+        assert summary["self_healing"]["breakdown_by_strategy"]["self_healing_cached"] == 1
+        assert summary["self_healing"]["breakdown_by_strategy"]["self_healing_jsonld"] == 1
+        assert summary["self_healing"]["database_metrics"]["total_repaired_domains"] == 1

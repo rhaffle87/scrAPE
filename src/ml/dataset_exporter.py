@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,8 @@ class KohyaDatasetExporter:
         min_aesthetic_score: float = 0.0,
     ):
         self.repeats = repeats
-        self.concept_name = (concept_name or "concept").strip().replace(" ", "_")
+        safe_concept = re.sub(r"[^a-zA-Z0-9_\-]", "_", (concept_name or "concept")).strip("_") or "concept"
+        self.concept_name = safe_concept
         self.min_resolution = min_resolution
         self.min_aesthetic_score = min_aesthetic_score
 

@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any
 
 from core.audit_evaluator import CrawlAuditEvaluator
+from core.self_healing_parser import SelfHealingDOMParser
 from monitoring.logger import get_logger
 
 if TYPE_CHECKING:
@@ -159,6 +160,27 @@ def generate_run_summary(
     except Exception as exc:
         LOGGER.warning("Could not read domain_config.json for auto-remediation summary: %s", exc)
 
+    # 4.6 Self-Healing Parser Metrics
+    self_healing_source_counts: Counter[str] = Counter()
+    for item in result.images:
+        src = getattr(item, "extraction_source", None)
+        if src and src.startswith("self_healing"):
+            category = src.split(":")[0]
+            self_healing_source_counts[category] += 1
+
+    db_metrics: dict[str, Any] = {}
+    try:
+        parser = SelfHealingDOMParser()
+        db_metrics = parser.get_metrics()
+    except Exception as exc:
+        LOGGER.debug("Could not query SelfHealingDOMParser metrics: %s", exc)
+
+    self_healing_summary = {
+        "items_recovered_this_run": sum(self_healing_source_counts.values()),
+        "breakdown_by_strategy": dict(self_healing_source_counts),
+        "database_metrics": db_metrics,
+    }
+
     # 5. Build final summary report
     summary = {
         "run_id": result.run_id,
@@ -187,6 +209,7 @@ def generate_run_summary(
         "dead_download_urls": dead_download_urls,
         "duplicate_hash_skips_by_domain": duplicate_hash_skips_by_domain,
         "auto_remediated": auto_remediated,
+        "self_healing": self_healing_summary,
         "audit_evaluation": CrawlAuditEvaluator.evaluate_crawl(
             result,
             crawl_duration_s=crawl_duration_seconds,
@@ -314,5 +337,23 @@ def log_cli_report(summary: dict[str, Any]) -> None:
             LOGGER.info("Actionable Recommendations:")
             for rec in audit["actionable_recommendations"]:
                 LOGGER.info("  * %s", rec)
+
+    if summary.get("self_healing") and (
+        summary["self_healing"]["items_recovered_this_run"] > 0
+        or summary["self_healing"]["database_metrics"].get("total_cache_hits", 0) > 0
+    ):
+        sh = summary["self_healing"]
+        LOGGER.info(sep)
+        LOGGER.info("SELF-HEALING DOM PARSER:")
+        LOGGER.info(
+            "  Items Recovered This Run: %d | Total Historical Cache Hits: %d | Repaired Domains: %d",
+            sh["items_recovered_this_run"],
+            sh["database_metrics"].get("total_cache_hits", 0),
+            sh["database_metrics"].get("total_repaired_domains", 0),
+        )
+        if sh["breakdown_by_strategy"]:
+            LOGGER.info("  Recovery Breakdown:")
+            for strat, count in sorted(sh["breakdown_by_strategy"].items()):
+                LOGGER.info("    * %s: %d items", strat, count)
 
     LOGGER.info(sep)

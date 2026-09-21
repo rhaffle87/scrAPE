@@ -94,8 +94,8 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
 1. **Strict Brutalist Geometry**:
    - All UI elements MUST have zero border radius (`border-radius: 0 !important`).
 2. **Typography**:
-   - Headers (`<h1>`, `<h2>`, `.logo-text`, `.stat-card .value`): `Oswald` font.
-   - Code, Forms, Labels, Logs, Buttons: `JetBrains Mono` font.
+   - Headers (`<h1>`, `<h2>`, `.logo-text`, `.stat-card .value`, `.accordion-summary`): `Oswald` font (700 weight, uppercase).
+   - Code, Forms, Labels, Logs, Buttons, Selectors (`.btn`, `.run-mode-selector .btn`, `input`, `pre`): `JetBrains Mono` font.
 3. **Color Tokens**:
    - Use CSS variables (`var(--accent)`, `var(--bg-base)`, `var(--bg-surface)`, `var(--text-primary)`, `var(--text-muted)`).
 4. **Context-Aware Telemetry**:
@@ -111,10 +111,11 @@ scratch/                            — Ad-hoc test scripts, scratch validation 
 ### 1. Run
 
 ```powershell
-# Full production run with seed file
+# Full production run with seed file, CAS deduplication, and Parquet export
 python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
   --max-results 200 --workers 12 --dl-workers 16 ^
-  --page-limit 300 --crawl-depth 3 --download-media
+  --page-limit 300 --crawl-depth 3 --download-media ^
+  --enable-cas --export-parquet --enable-self-healing
 
 # Quick validation run (no downloads, low limits)
 python src/cli/main.py --keyword "<subject>" --seed seeds/<subject>.txt ^
@@ -142,7 +143,10 @@ scrape
 
 After a run completes, inspect these primary outputs:
 - `index.html` (in `output/`) — visually browse downloaded media and monitor stats
+- `run_summary.json` — post-run statistics, yield efficiency, self-healing DOM recoveries, and crawl audit grade
 - `results.json` — full result payload (`.images[]`, `.videos[]`, `.rejected_items[]`, `.page_reports[]`, `.domain_stats`, `.duration_seconds`, `.run_metadata`)
+- `images.parquet` / `videos.parquet` — high-performance columnar dataset tables (when `--export-parquet` is enabled)
+- `cas/` — Content-Addressable Storage SHA-256 deduplicated media store (when `--enable-cas` is enabled)
 - `domain_report.json` — per-domain yield breakdown (pages hit, images found, videos found)
 - `images.csv` / `videos.csv` — flat export if `--output both` was used
 - `state_cache.db` (in `output/cache/`) — tracks processed URLs to prevent redundant work

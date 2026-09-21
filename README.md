@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/RELEASE-V0.29.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
-  <img src="https://img.shields.io/badge/TESTS-533%20PASSED-success?style=for-the-badge" alt="533 Tests Passing">
+  <img src="https://img.shields.io/badge/TESTS-541%20PASSED-success?style=for-the-badge" alt="541 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -143,7 +143,9 @@ This opens an interactive menu to start the WebUI, run the CLI Wizard, or execut
 **Running a Direct CLI Scrape:**
 
 ```bash
-python src/cli/main.py --keyword "architecture" --seed-file seeds/architecture.txt --download-media --workers 8 --dl-workers 12
+python src/cli/main.py --keyword "architecture" --seed-file seeds/architecture.txt \
+  --download-media --workers 8 --dl-workers 12 \
+  --enable-cas --export-parquet --enable-self-healing
 ```
 
 ## Architecture
@@ -158,14 +160,12 @@ scrape-dashboard/
 │   ├── routers/         # Decoupled API routes (dashboard, dataset, seeds, watchdog)
 │   └── templates/       # HTMX Brutalist templates
 ├── src/                 # Python Source Core
-│   ├── cli/             # Entry points, interactive launcher, wizard
-│   ├── core/            # Orchestrator, Domain Rules, Filtering, Media Processor, Pipeline
-│   ├── scraper/         # Base and Specialized extractors (google_images, video_scraper)
-│   ├── plugins/         # Extractor plugins (yt-dlp, Reddit, Civitai, Booru)
-│   ├── network/         # 8-tier WAF Pipeline, HttpClient, Proxy Manager
-│   ├── storage/         # Range-resumable FileDownloader, SQLite WAL StateCache
-│   ├── ml/              # AI Auto-tagger, Aesthetic Scorer, Vector Hashing
-│   └── monitoring/      # HardwareLoadGovernor, Telemetry, Structured Logging
+│   ├── cli/             # CLI entrypoints, wizards, watchdog
+│   ├── core/            # BFS crawl loop, filters, worker pool, self-healing DOM parser
+│   ├── network/         # 8-tier WAF stealth pipeline, Domain Tier Memory, proxy rotation
+│   ├── storage/         # SQLite state cache, CAS store, Parquet dataset exporter
+│   └── ml/              # Hardware detection, LLM healing gateway, taggers
+├── tests/               # Domain-structured test suite (533+ tests)
 ├── data/                # Configuration Registries (domain_config, normalisation)
 ├── docs/                # Technical documentation
 └── seeds/               # Per-subject manifest target files
@@ -215,17 +215,18 @@ scrape-dashboard/
 
 ## Testing
 
-scrAPE uses `pytest` for unit and integration testing. Tests include network fallback simulation, database transaction integrity, and UI state verification.
+scrAPE uses `pytest` for unit and integration testing. Over **541 automated tests** validate network fallback simulation, database transaction integrity, UI state verification, Content-Addressable Storage (CAS), Parquet exports, Domain Tier Memory, and anti-SSRF protections.
 
 ### Running Tests
 
 ```bash
-# Run the complete test suite
+# Run the complete test suite (541 tests)
 pytest tests/ -v
 
 # Run specific functional areas
-pytest tests/test_stealth_circuit_breaker.py -v
-pytest tests/test_download_retries.py -v
+pytest tests/test_security_ssrf_and_tier_memory.py -v
+pytest tests/storage/test_cas_and_parquet_exporter.py -v
+pytest tests/core/test_self_healing_parser.py -v
 ```
 
 All test scripts are maintained exclusively inside the `tests/` directory. Temporary diagnostic or scratch scripts should be kept in `scratch/`.

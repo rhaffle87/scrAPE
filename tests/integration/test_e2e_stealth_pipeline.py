@@ -2,6 +2,10 @@ import pytest
 from src.network.http_client import HttpClient
 import logging
 
+@pytest.fixture(autouse=True)
+def allow_local_mock_server(monkeypatch):
+    monkeypatch.setenv("SCRAPE_ALLOW_LOCAL_TARGETS", "1")
+
 @pytest.mark.e2e
 def test_waf_escalation_to_browser(e2e_mock_server):
     """

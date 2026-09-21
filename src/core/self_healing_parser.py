@@ -57,6 +57,48 @@ class SelfHealingDOMParser:
                 )
                 conn.commit()
 
+    def get_metrics(self) -> dict[str, Any]:
+        """Return aggregate self-healing database metrics and cache hit counts."""
+        with self._lock:
+            if not self.db_path.exists():
+                return {
+                    "total_repaired_domains": 0,
+                    "total_cache_hits": 0,
+                    "repaired_domains": [],
+                }
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT domain, selector, attr, hit_count, confidence, updated_at "
+                        "FROM repaired_selectors ORDER BY hit_count DESC"
+                    )
+                    rows = cursor.fetchall()
+                    total_hits = sum(int(r[3] or 0) for r in rows)
+                    domains = [
+                        {
+                            "domain": r[0],
+                            "selector": r[1],
+                            "attr": r[2],
+                            "hits": r[3],
+                            "confidence": r[4],
+                            "updated_at": r[5],
+                        }
+                        for r in rows
+                    ]
+                    return {
+                        "total_repaired_domains": len(rows),
+                        "total_cache_hits": total_hits,
+                        "repaired_domains": domains,
+                    }
+            except Exception as e:
+                LOGGER.warning("Error fetching self-healing metrics: %s", e)
+                return {
+                    "total_repaired_domains": 0,
+                    "total_cache_hits": 0,
+                    "repaired_domains": [],
+                }
+
     def _get_domain(self, url: str) -> str:
         netloc = urlparse(url).netloc.lower()
         if ":" in netloc:

@@ -104,6 +104,7 @@ python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 | `--aesthetic-score`| `float`| `None` | Minimum aesthetic quality score threshold (1.0-10.0). |
 | `--enable-cas` | flag | `False` | Enable global Content-Addressable Storage (CAS) with atomic hardlinks. |
 | `--export-parquet` | flag | `False` | Export crawl datasets to Snappy-compressed Apache Parquet tables. |
+| `--llm-provider` | `str` | `ollama` | LLM backend for self-healing DOM synthesis (`ollama`, `gemini`, `openai`). |
 
 ### Storage Sinks & Concurrency Engine
 | Argument | Type | Default | Description |
@@ -112,6 +113,7 @@ python src/cli/main.py --inject-cookies cookies.txt --domain protected-site.com
 | `--s3-bucket` | `str` | `None` | S3 / MinIO bucket name when using S3 storage sink. |
 | `--s3-prefix` | `str` | `""` | S3 object key prefix for uploaded media assets. |
 | `--worker-processes`| `int`| `0` | Number of dedicated CPU/ML worker processes (0 = automatic). |
+| `--redis-url` | `str` | `None` | Redis connection URL for distributed stream broker (`redis://...`). |
 | `--enable-self-healing`| flag | `False` | Enable multi-tier autonomous self-healing DOM parser. |
 
 ### Stealth, Proxy & CAPTCHA

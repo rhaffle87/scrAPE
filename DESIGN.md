@@ -30,8 +30,10 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 
 ## 3. Typography Guidelines
 
-- **Headers (`<h1>`, `<h2>`, `.logo-text`, `.stat-card .value`)**: `Oswald` (sans-serif) — Uppercase, bold, condensed to evoke high-impact military or security telemetry dashboards.
-- **Body, Inputs, Buttons, Tooltips, Terminal Logs (`body`, `input`, `select`, `.btn`, `pre`)**: `JetBrains Mono` (monospaced) — High technical legibility, code integrity, and terminal authenticity.
+- **Headers (`<h1>`, `<h2>`, `.logo-text`, `.stat-card .value`, `.accordion-summary`)**: `Oswald` (sans-serif) — Uppercase, bold, condensed to evoke high-impact military or security telemetry dashboards.
+  - `.accordion-summary`: `font-family: 'Oswald', sans-serif; font-size: 1.5rem (24px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;`
+- **Body, Inputs, Buttons, Tooltips, Terminal Logs (`body`, `input`, `select`, `.btn`, `.run-mode-selector .btn`, `pre`)**: `JetBrains Mono` (monospaced) — High technical legibility, code integrity, and terminal authenticity.
+  - `.run-mode-selector .btn`: `font-family: 'JetBrains Mono', monospace; font-size: 0.875rem (14px); font-weight: 700; letter-spacing: 0.05em;`
 - **Header Tracking**: `letter-spacing: 0.08em` to `0.18em` on uppercase section headers and titles.
 
 ---
@@ -56,8 +58,9 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
   - Left-aligned layout (`justify-content: flex-start; gap: 0.75rem;`).
   - Indicator Bullet (`.sub-indicator`): 6×6px square bullet on the left. Muted when inactive; glows bright orange (`box-shadow: 0 0 6px var(--accent)`) when active.
 
-### 4.3 Mode Selector Bar (`.mode-selector`)
+### 4.3 Mode Selector Bar (`.mode-selector`, `.run-mode-selector`)
 - High-contrast toggle bar at the top of the scrape parameters form (`[ CUSTOM CONFIGURATION ]` vs `[ INSTANT UNLIMITED RUN ]`).
+- Buttons styled in `JetBrains Mono` 700 weight with uppercase labels.
 - Selecting Unlimited Mode hides configuration fieldsets to reduce visual noise while executing un-capped runs.
 
 ### 4.4 Help Tooltips (`.tooltip-wrapper`)
@@ -66,6 +69,10 @@ The design language follows **Utilitarian Brutalism**. It prioritizes extreme co
 
 ### 4.5 Hardware Safety Alerts (`.alert-warning`)
 - Displays an alert banner (`background-color: rgba(255, 85, 0, 0.1); border: 2px solid var(--accent); color: var(--accent);`) when user input exceeds safe hardware bounds (>16 scrapers, >24 downloaders).
+
+### 4.6 Collapsible Accordion Sections (`.accordion-summary`)
+- Interactive collapsible panels for secondary parameters and execution profiles.
+- Summary headers styled in uppercase `Oswald` 700 (24px / 1.5rem) for authoritative visual grouping.
 
 ---
 

@@ -30,11 +30,22 @@ We enforce strict security rules that govern how code interacts with the filesys
   2.  **Absolute Normalization**: Forcing inputs through `os.path.abspath(os.path.normpath(user_input))`.
   3.  **Prefix Boundary Enforcement**: Checking that the normalized path strictly begins with the safe root using `.startswith(safe_root)`.
 
-## 5. Secret & Credentials Safety
+## 5. Network Security, SSRF & Credentials Safety
 
+- **SSRF & DNS Rebinding Defense**: Every target URL and redirect chain hop is strictly validated against `is_safe_target_url()`. Private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`), link-local (`169.254.0.0/16`), multicast, and cloud metadata services (`169.254.169.254`) are immediately rejected.
+- **Redirect Hop Inspection**: HTTPX event hooks inspect every intermediate response in redirect sequences (`response.history`) to prevent open redirect SSRF pivot attacks.
+- **Credential Scrubbing**: Plaintext passwords in connection strings (such as Redis broker URLs or HTTP basic auth) are automatically sanitized to `***` before logging.
 - **No Secrets in Source**: No API keys, proxies with hardcoded passwords, or private access tokens are stored in the codebase.
-- **Git Ignore Safeguards**: `.gitignore` strictly excludes `.cache/`, `output/`, `.env`, SQLite WAL files, and downloaded media datasets.
+- **Git Ignore Safeguards**: `.gitignore` strictly excludes `.cache/`, `output/`, `.env`, SQLite WAL files (`*.db-wal`, `*.db-shm`), and downloaded media datasets.
 
-## 6. Reporting Vulnerabilities
+## 6. Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 0.29.x  | :white_check_mark: |
+| 0.28.x  | :x:                |
+| < 0.28  | :x:                |
+
+## 7. Reporting Vulnerabilities
 
 If you discover a security vulnerability or bug within scrAPE, please submit an issue or contact the maintainers directly.

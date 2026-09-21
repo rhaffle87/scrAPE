@@ -127,6 +127,8 @@ class StealthPipeline:
                 if hasattr(client, "_preferred_engine_by_host"):
                     with client._preferred_engine_lock:
                         client._preferred_engine_by_host[host] = strategy.name
+                if hasattr(client, "record_domain_tier"):
+                    client.record_domain_tier(host, strategy.name)
 
                 # Auto-persist harvested cookies and user-agent if present
                 if (res.cookies or res.user_agent) and hasattr(client, "_session_pool"):

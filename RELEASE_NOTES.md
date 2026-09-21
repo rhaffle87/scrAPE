@@ -24,13 +24,27 @@
 - **Content-Addressable Storage**: SHA-256 sharded storage with atomic NTFS hardlinks (`st_nlink == 2`), consuming 0 additional disk bytes for duplicate media across runs.
 - **Snappy Parquet Columnar Datasets**: Direct export of media and crawl metadata into columnar Parquet tables (`crawl_dataset.parquet`).
 
-### 5. Multi-Surface Design Harmonization & Remediation
-- **Web Dashboard**: 0px horizontal scroll overflow verified across Desktop, Tablet, and Mobile viewports; WCAG 2.1 touch-target heights $\ge 44\text{px}$.
+### 5. Domain Tier Memory Caching & Throughput Optimization
+- **Bypass Redundant T1 Failures**: Introduces in-memory Domain Tier Memory (`_domain_tier_memory`) that caches the successful stealth tier per host. Hostile bot-protected domains route directly to their proven engine (`curl_cffi`, `flaresolverr`, `drissionpage`, etc.), completely bypassing redundant 500-2000ms T1 HTTPX 403 failure loops.
+- **Empirical Benchmark Results**:
+  - Baseline latency (T1 403 loops + fallback): **347.8 ms/req**.
+  - Subsequent cached tier latency: **41.1 ms/req** (**-88.2% latency reduction, 8.47× speedup**).
+  - Total batch throughput gain: **3.42×**.
+
+### 6. SSRF Redirect Chain Validation & Security Hardening
+- **Anti-SSRF & Rebinding Defense**: Every target URL and redirect chain hop is strictly verified with `is_safe_target_url()` to block private CIDRs, link-local, loopback, and cloud metadata (`169.254.169.254`).
+- **Intermediate Hop Inspection**: Event hook intercepts redirect sequences (`response.history`) to prevent open redirect SSRF pivot vulnerabilities.
+- **Credential Scrubbing**: Plaintext passwords in Redis URLs and HTTP basic auth strings are scrubbed to `***` before logging.
+- **Strict 3-Step Path Resolution**: Enforced across CAS store, Parquet exporter, and dataset exports with zero `# codeql` suppression comments.
+
+### 7. Multi-Surface Design Harmonization & Observability
+- **Web Dashboard**: 0px horizontal scroll overflow verified across Desktop, Tablet, and Mobile viewports; WCAG 2.1 touch-target heights $\ge 44\text{px}$; Oswald 700 accordion headers; JetBrains Mono 700 button selectors.
 - **Documentation Site**: 0 broken anchor links (out of 49 total), mobile table scrolling containers, and verified architectural freshness.
 - **Terminal UI**: Dynamic `v0.29.0` ASCII banner, Acquisition Orange (`CLR_ORANGE`) brand alignment, and strict $\le 80$-column line widths.
+- **Self-Healing Observability**: `run_summary.json` and post-run console summaries now expose `"self_healing"` metrics tracking items recovered per run, strategy breakdown, and historical SQLite cache hits.
 
-### 6. QA Validation & Test Suite
-- **Regression Suite**: 533 passed, 0 failed in 155.50s.
+### 8. QA Validation & Test Suite
+- **Regression Suite**: 541 passed, 0 failed.
 - **Static Security**: Bandit SAST scanned 21,594 LoC with 0 High-severity issues.
 - **SSRF Protection Matrix**: 5/5 targets blocked with HTTP 400.
 

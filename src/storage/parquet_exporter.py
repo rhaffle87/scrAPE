@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+import os
+import re
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,8 +22,8 @@ class ParquetExporter:
     """
 
     def __init__(self, output_dir: str | Path, dataset_name: str = "crawl_dataset") -> None:
-        self.output_dir = Path(output_dir)
-        self.dataset_name = dataset_name
+        self.output_dir = Path(os.path.abspath(os.path.normpath(output_dir)))
+        self.dataset_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", dataset_name).strip("_") or "crawl_dataset"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def _prepare_records(self, result: Any) -> list[dict[str, Any]]:
@@ -67,17 +69,21 @@ class ParquetExporter:
     def export(self, result: Any) -> Path:
         """Export scrape result to Snappy Parquet file or fallback JSON Lines."""
         records = self._prepare_records(result)
+        parquet_path = Path(os.path.abspath(os.path.normpath(self.output_dir / f"{self.dataset_name}.parquet")))
+        root_str = str(self.output_dir)
+        if not (str(parquet_path) == root_str or str(parquet_path).startswith(root_str + os.sep)):
+            raise ValueError(f"Path traversal detected: {parquet_path} outside {root_str}")
+
         if not records:
-            empty_path = self.output_dir / f"{self.dataset_name}.parquet"
-            LOGGER.info("ParquetExporter: 0 records to export; created marker at %s", empty_path)
-            return empty_path
+            parquet_path.touch(exist_ok=True)
+            LOGGER.info("ParquetExporter: 0 records to export; created marker at %s", parquet_path)
+            return parquet_path
 
         try:
             import pyarrow as pa
             import pyarrow.parquet as pq
 
             table = pa.Table.from_pylist(records)
-            parquet_path = self.output_dir / f"{self.dataset_name}.parquet"
             pq.write_table(
                 table,
                 parquet_path,
@@ -90,7 +96,9 @@ class ParquetExporter:
             )
             return parquet_path
         except ImportError:
-            fallback_path = self.output_dir / f"{self.dataset_name}.jsonl"
+            fallback_path = Path(os.path.abspath(os.path.normpath(self.output_dir / f"{self.dataset_name}.jsonl")))
+            if not (str(fallback_path) == root_str or str(fallback_path).startswith(root_str + os.sep)):
+                raise ValueError(f"Path traversal detected: {fallback_path} outside {root_str}")
             LOGGER.warning(
                 "pyarrow is not installed; falling back to JSON Lines dataset at %s",
                 fallback_path,

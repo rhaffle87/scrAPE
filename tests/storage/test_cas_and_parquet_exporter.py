@@ -104,3 +104,27 @@ def test_cas_run_directory_ingestion(tmp_path):
     assert cas.exists(cas.compute_hash(b"sample-image-data-for-cas-ingestion"), extension="jpg")
 
 
+def test_cas_path_traversal_sanitization(tmp_path):
+    import pytest
+
+    cas = ContentAddressableStore(root_dir=tmp_path / "cas_root")
+    # Malicious extension attempt with ../
+    path = cas.get_cas_path("a1b2c3d4e5f60000000000000000000000000000000000000000000000000000", extension="../../evil.png")
+    # Must be sanitized to alphanumeric and contained within root_dir
+    assert "evilpng" in path.name
+    assert str(path).startswith(str(tmp_path / "cas_root"))
+
+    # Invalid short hash should raise ValueError
+    with pytest.raises(ValueError):
+        cas.get_cas_path("../")
+
+
+def test_parquet_path_traversal_sanitization(tmp_path):
+    exporter = ParquetExporter(output_dir=tmp_path / "parquet_out", dataset_name="../../malicious_dataset")
+    assert ".." not in exporter.dataset_name
+    result = ScrapeResult(keyword="test")
+    out = exporter.export(result)
+    assert str(out).startswith(str(tmp_path / "parquet_out"))
+
+
+

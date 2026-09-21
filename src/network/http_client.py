@@ -257,6 +257,50 @@ class HttpClient(BrowserClientMixin):
     }
     _waf_solve_lock = threading.Lock()
 
+    # Per-domain successful tier memory cache (skips T1 HTTPX 403 failure loop on known-hostile domains)
+    _domain_tier_memory: ClassVar[dict[str, str]] = {}
+    _domain_tier_lock: ClassVar[threading.Lock] = threading.Lock()
+
+    @classmethod
+    def get_domain_tier(cls, domain: str) -> str | None:
+        """Return the cached successful fetch tier for *domain*, if any."""
+        with cls._domain_tier_lock:
+            return cls._domain_tier_memory.get(domain.lower().strip())
+
+    @classmethod
+    def record_domain_tier(cls, domain: str, tier: str) -> None:
+        """Record successful tier for *domain* to enable direct dispatch on subsequent requests."""
+        clean_domain = domain.lower().strip()
+        with cls._domain_tier_lock:
+            cls._domain_tier_memory[clean_domain] = tier
+        if tier != "httpx":
+            with cls._stealth_lock:
+                cls._stealth_required_hosts.add(clean_domain)
+            with cls._preferred_engine_lock:
+                cls._preferred_engine_by_host[clean_domain] = tier
+            logger.info("DomainTierMemory: Recorded successful tier '%s' for domain '%s'", tier, clean_domain)
+
+    @classmethod
+    def evict_domain_tier(cls, domain: str) -> None:
+        """Evict domain tier cache on failure to allow re-escalation through the pipeline."""
+        clean_domain = domain.lower().strip()
+        with cls._domain_tier_lock:
+            cls._domain_tier_memory.pop(clean_domain, None)
+        with cls._preferred_engine_lock:
+            cls._preferred_engine_by_host.pop(clean_domain, None)
+        logger.debug("DomainTierMemory: Evicted tier for domain '%s'", clean_domain)
+
+    @staticmethod
+    def _validate_redirect_hook(response: httpx.Response) -> None:
+        """Validate redirect locations against SSRF to prevent redirect hops into private IP spaces."""
+        if response.is_redirect:
+            location = response.headers.get("Location")
+            if location:
+                from common.security import is_safe_target_url
+                target_url = str(response.url.join(location))
+                if not is_safe_target_url(target_url):
+                    raise ScraperBypassError(f"SSRF blocked redirect hop to unsafe target: {target_url}")
+
     SUPPORTED_TLS_PROFILES: ClassVar[list[str]] = [
         "chrome120",
         "chrome124",
@@ -401,8 +445,12 @@ class HttpClient(BrowserClientMixin):
         self.current_proxy_index = 0
         self._proxy_lock = threading.Lock()
         
-        # Configure httpx Client with proxy if available
-        client_kwargs: dict[str, Any] = {"timeout": timeout, "follow_redirects": True}
+        # Configure httpx Client with proxy if available and SSRF redirect validation hook
+        client_kwargs: dict[str, Any] = {
+            "timeout": timeout,
+            "follow_redirects": True,
+            "event_hooks": {"response": [self._validate_redirect_hook]},
+        }
         if self.proxy_list:
             client_kwargs["proxy"] = self.proxy_list[0]
             
@@ -477,9 +525,12 @@ class HttpClient(BrowserClientMixin):
                 pool.get_best_proxy() or self.proxy_list[self.current_proxy_index]
             )
 
-            # Recreate httpx client with new proxy
+            # Recreate httpx client with new proxy and SSRF redirect hook
             self.client = httpx.Client(
-                timeout=self.timeout, follow_redirects=True, proxy=new_proxy
+                timeout=self.timeout,
+                follow_redirects=True,
+                proxy=new_proxy,
+                event_hooks={"response": [self._validate_redirect_hook]},
             )
             return new_proxy
 
@@ -632,6 +683,11 @@ class HttpClient(BrowserClientMixin):
 
         logger = get_logger(__name__)
         domain = urlparse(url).netloc
+        from common.security import is_safe_target_url
+
+        if not is_safe_target_url(url):
+            raise ScraperBypassError(f"SSRF blocked: unsafe target URL '{url}'")
+
         if is_blacklisted(domain):
             raise ScraperBypassError(f"Domain {domain} is blacklisted")
             
@@ -686,6 +742,11 @@ class HttpClient(BrowserClientMixin):
                 else:
                     del self._stealth_failed_hosts[host]
 
+        # Domain Tier Memory lookup (avoids wasting 500-2000ms on guaranteed T1 HTTPX 403 blocks)
+        cached_tier = self.get_domain_tier(host)
+        if cached_tier and not preferred_engine and cached_tier != "httpx":
+            preferred_engine = cached_tier
+
         # Check if the domain is known to require stealth
         from config import STEALTH_REQUIRED_DOMAINS
 
@@ -695,6 +756,7 @@ class HttpClient(BrowserClientMixin):
                 or (host in self._stealth_required_hosts)
                 or (host in STEALTH_REQUIRED_DOMAINS)
                 or self._is_domain_cloudflare_marked(host)
+                or (cached_tier is not None and cached_tier != "httpx")
             )
 
         if requires_stealth and not is_robots_txt:
@@ -702,16 +764,29 @@ class HttpClient(BrowserClientMixin):
 
             if not looks_like_media(url):
                 logger.info(
-                    "Domain '%s' requires direct stealth routing. Directing to WAF pipeline.",
+                    "Domain '%s' requires direct stealth routing (tier=%s). Directing to WAF pipeline.",
                     host,
+                    cached_tier or "fallback",
                 )
                 # Apply rate limiting before direct fallback
                 self._rate_limiter_for(url).wait()
+
+                # Fast-path for curl_cffi cached tier (avoids launching full browser stack)
+                if cached_tier == "curl_cffi":
+                    cffi_resp = self._try_curl_cffi_fallback(
+                        url, headers=headers, timeout=timeout, skip_httpx=False
+                    )
+                    if cffi_resp is not None:
+                        cd_state.record_success()
+                        self._store_cache(url, cffi_resp)
+                        return cffi_resp
+
                 html_content, browser_cookies = self._execute_fallbacks(
                     url, skip_httpx=skip_httpx, preferred_engine=preferred_engine
                 )
 
                 if html_content is None:
+                    self.evict_domain_tier(host)
                     with self._failed_stealth_lock:
                         self._stealth_failed_hosts[host] = time.time() + 1800.0
                     raise ScraperBypassError(
@@ -725,6 +800,8 @@ class HttpClient(BrowserClientMixin):
                 )
                 cd_state.record_success()
                 self._store_cache(url, response)
+                if preferred_engine:
+                    self.record_domain_tier(host, preferred_engine)
 
                 if browser_cookies:
                     cookies_dict = {c["name"]: c["value"] for c in browser_cookies if isinstance(c, dict) and "name" in c and "value" in c}
@@ -794,6 +871,7 @@ class HttpClient(BrowserClientMixin):
                         existing.update({c.name: c.value for c in response.cookies.jar})
                         self.session_manager.save_session(host, existing)
                     cd_state.record_success()
+                    self.record_domain_tier(host, "httpx")
                     self._store_cache(url, response)
                     return response
                 except httpx.TimeoutException as exc:
@@ -886,6 +964,7 @@ class HttpClient(BrowserClientMixin):
                     )
                     if cffi_resp is not None:
                         cd_state.record_success()
+                        self.record_domain_tier(host, "curl_cffi")
                         self._store_cache(url, cffi_resp)
                         return cffi_resp
 
@@ -910,6 +989,7 @@ class HttpClient(BrowserClientMixin):
                     )
 
                     if html_content is None:
+                        self.evict_domain_tier(host)
                         with self._failed_stealth_lock:
                             self._stealth_failed_hosts[host] = time.time() + 1800.0
                         if cf_blocked:
@@ -930,6 +1010,8 @@ class HttpClient(BrowserClientMixin):
                     )
                     cd_state.record_success()
                     self._store_cache(url, response)
+                    if preferred_engine:
+                        self.record_domain_tier(host, preferred_engine)
 
                     # Mark hostname as requiring stealth
                     host = self._hostname(url)
