@@ -14,12 +14,29 @@ function initNavigation() {
   const subLinks = document.querySelectorAll('.nav-sub-item a');
 
   moduleTitles.forEach(title => {
-    title.addEventListener('click', () => {
-      const group = title.parentElement;
+    const group = title.parentElement;
+    title.setAttribute('tabindex', '0');
+    title.setAttribute('role', 'button');
+    title.setAttribute('aria-expanded', group.classList.contains('active') ? 'true' : 'false');
+
+    const toggleAccordion = () => {
       const isAlreadyActive = group.classList.contains('active');
-      document.querySelectorAll('.nav-module-group').forEach(g => g.classList.remove('active'));
+      document.querySelectorAll('.nav-module-group').forEach(g => {
+        g.classList.remove('active');
+        const t = g.querySelector('.nav-module-title');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
       if (!isAlreadyActive) {
         group.classList.add('active');
+        title.setAttribute('aria-expanded', 'true');
+      }
+    };
+
+    title.addEventListener('click', toggleAccordion);
+    title.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAccordion();
       }
     });
   });
@@ -52,8 +69,14 @@ function navigateToSection(targetId) {
     matchingLink.parentElement.classList.add('active');
     const parentGroup = matchingLink.closest('.nav-module-group');
     if (parentGroup) {
-      document.querySelectorAll('.nav-module-group').forEach(g => g.classList.remove('active'));
+      document.querySelectorAll('.nav-module-group').forEach(g => {
+        g.classList.remove('active');
+        const t = g.querySelector('.nav-module-title');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
       parentGroup.classList.add('active');
+      const currentTitle = parentGroup.querySelector('.nav-module-title');
+      if (currentTitle) currentTitle.setAttribute('aria-expanded', 'true');
     }
   }
 

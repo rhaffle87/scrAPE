@@ -4,9 +4,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>scrAPE // Technical Documentation Portal</title>
+  <title>scrAPE v0.29.0 // Technical Documentation Portal</title>
   <meta name="description"
-    content="Official technical documentation, CLI reference, architecture guide, and operational manual for the scrAPE multi-engine web scraping system.">
+    content="Official technical documentation, CLI flag matrix, architecture guide, and operational manual for scrAPE v0.29.0 — high-throughput web scraping, pre-warmed browser pool, Redis Streams broker, VLM visual healing, and Apache Parquet export.">
+  <meta name="keywords"
+    content="scrAPE, web scraping, playwright, vlm healing, crawler, parquet dataset, redis streams, browser pool, content addressable storage">
+  <meta name="author" content="scrAPE Maintainers">
+  <meta name="theme-color" content="#ff5500">
+  <link rel="canonical" href="https://rhaffle87.github.io/scrAPE/">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://rhaffle87.github.io/scrAPE/">
+  <meta property="og:site_name" content="scrAPE Documentation Portal">
+  <meta property="og:title" content="scrAPE v0.29.0 // Technical Documentation Portal">
+  <meta property="og:description"
+    content="Official technical documentation, CLI flag matrix, architecture guide, and operational manual for scrAPE v0.29.0.">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://rhaffle87.github.io/scrAPE/">
+  <meta name="twitter:title" content="scrAPE v0.29.0 // Technical Documentation Portal">
+  <meta name="twitter:description"
+    content="Official technical documentation, CLI flag matrix, architecture guide, and operational manual for scrAPE v0.29.0.">
+
   <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -780,7 +801,7 @@ python src/cli/cli_wizard.py</pre>
                 </tr>
                 <tr>
                   <td><code>--seed-file</code></td>
-                  <td>string</td>
+                  <td>Path</td>
                   <td>None</td>
                   <td>Path to seed manifest <code>.txt</code> file containing URLs and annotations.</td>
                 </tr>
@@ -816,173 +837,237 @@ python src/cli/cli_wizard.py</pre>
                 </tr>
                 <tr>
                   <td><code>--inject-cookies</code></td>
-                  <td>string</td>
+                  <td>Path</td>
                   <td>None</td>
-                  <td>Path to Netscape or JSON cookie export file for session injection.</td>
+                  <td>Import cookies from an exported JSON or Netscape <code>cookies.txt</code> file.</td>
                 </tr>
                 <tr>
                   <td><code>--domain</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Domain association target for injected cookie file.</td>
+                  <td>Target domain associated with injected cookies (required with <code>--inject-cookies</code>).</td>
                 </tr>
                 <tr>
                   <td><code>--max-results</code></td>
                   <td>int</td>
-                  <td>50</td>
-                  <td>Maximum kept media items per type (0 = unlimited).</td>
+                  <td>0</td>
+                  <td>Maximum media items per type to keep (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--output</code></td>
-                  <td>string</td>
+                  <td>choice</td>
                   <td>json</td>
-                  <td>Output report format: <code>json</code>, <code>csv</code>, or <code>both</code>.</td>
+                  <td>Output format for serialized metadata (<code>json</code>, <code>csv</code>, or <code>both</code>).</td>
                 </tr>
                 <tr>
-                  <td><code>--export-db</code></td>
+                  <td><code>--export-db</code>, <code>--auto-export-db</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Export scrape results to SQLite database file (<code>results.db</code>).</td>
+                  <td>Export scraped results to a SQLite database (<code>results.db</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>--export-parquet</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Export crawl results to Snappy-compressed Apache Parquet datasets.</td>
+                </tr>
+                <tr>
+                  <td><code>--export-rag</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Export chunked text embedding payloads for RAG ingestion (<code>rag_payload.jsonl</code>).</td>
                 </tr>
                 <tr>
                   <td><code>--download-media</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Download discovered images and videos into output storage directory.</td>
+                  <td>Download discovered media binary assets into run output directory.</td>
+                </tr>
+                <tr>
+                  <td><code>--tag-dataset</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Auto-generate AI caption and tag sidecar <code>.txt</code> files for downloaded image datasets.</td>
+                </tr>
+                <tr>
+                  <td><code>--auto-crop</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Automatically generate smart face/body centered cropped crops for LoRA training.</td>
+                </tr>
+                <tr>
+                  <td><code>--aesthetic-score</code></td>
+                  <td>float</td>
+                  <td>None</td>
+                  <td>Minimum aesthetic quality threshold (1.0-10.0) for downloaded images.</td>
+                </tr>
+                <tr>
+                  <td><code>--enable-cas</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Enable global Content-Addressable Storage (CAS) with NTFS hardlinks to eliminate duplicate disk usage.</td>
+                </tr>
+                <tr>
+                  <td><code>--storage-backend</code></td>
+                  <td>choice</td>
+                  <td>local</td>
+                  <td>Storage sink backend for scraped media assets (<code>local</code> or <code>s3</code>).</td>
+                </tr>
+                <tr>
+                  <td><code>--s3-bucket</code></td>
+                  <td>string</td>
+                  <td>""</td>
+                  <td>S3 bucket name when <code>--storage-backend s3</code> is selected.</td>
+                </tr>
+                <tr>
+                  <td><code>--s3-prefix</code></td>
+                  <td>string</td>
+                  <td>""</td>
+                  <td>S3 key prefix for uploaded media assets.</td>
+                </tr>
+                <tr>
+                  <td><code>--enable-self-healing</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Enable multi-tier autonomous self-healing DOM parser when selectors fail.</td>
+                </tr>
+                <tr>
+                  <td><code>--worker-processes</code></td>
+                  <td>int</td>
+                  <td>0</td>
+                  <td>Number of dedicated worker processes for CPU/ML tasks (0 = automatic/threads).</td>
                 </tr>
                 <tr>
                   <td><code>--save-rejected</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Comma-separated rejection reason tokens to retain on disk (e.g.
-                    <code>low_subject_relevance,preview_or_thumbnail</code>).</td>
+                  <td>Comma-separated list of rejection reasons to download or <code>all</code>.</td>
                 </tr>
                 <tr>
                   <td><code>--workers</code></td>
                   <td>int</td>
                   <td>6</td>
-                  <td>Concurrent page parsing and crawling worker thread pool count.</td>
+                  <td>Number of pages to fetch concurrently in BFS crawler.</td>
                 </tr>
                 <tr>
                   <td><code>--dl-workers</code></td>
                   <td>int</td>
                   <td>16</td>
-                  <td>Concurrent media file download worker thread pool count.</td>
+                  <td>Number of concurrent media download threads.</td>
                 </tr>
                 <tr>
                   <td><code>--page-limit</code></td>
                   <td>int</td>
-                  <td>100</td>
-                  <td>Maximum web pages fetched during BFS crawl loop (0 = unlimited).</td>
+                  <td>0</td>
+                  <td>Maximum number of pages to visit during crawl (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--crawl-depth</code></td>
                   <td>int</td>
-                  <td>2</td>
-                  <td>Maximum recursion depth for discovered link traversal (0 = unlimited).</td>
+                  <td>0</td>
+                  <td>Maximum link hop depth from seed URLs (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--strict-domain</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Strictly restrict link traversal to host domains declared in seeds.</td>
+                  <td>Strictly constrain discovered URLs to seed domain boundaries.</td>
                 </tr>
                 <tr>
                   <td><code>--site-tree-only</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Restrict crawl strictly to subtrees of initial seed URL paths.</td>
+                  <td>Constrain link discovery strictly within the initial URL's path subtree.</td>
                 </tr>
                 <tr>
                   <td><code>--entity-token</code></td>
                   <td>string[]</td>
                   <td>[]</td>
-                  <td>Extra entity alias keywords to boost relevance scoring. Repeat as needed.</td>
+                  <td>Extra name/entity tokens to boost keyword relevance scoring.</td>
                 </tr>
                 <tr>
                   <td><code>--domain-delay</code></td>
                   <td>string[]</td>
                   <td>[]</td>
-                  <td>Per-domain request delay overrides (e.g. <code>example.com=3.0</code>).</td>
+                  <td>Per-domain rate override in seconds (format: <code>example.com=3.0</code>).</td>
                 </tr>
                 <tr>
                   <td><code>--proxy</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>Single proxy server URL (HTTP/HTTPS/SOCKS5).</td>
+                  <td>Single HTTP/SOCKS proxy URL applied to all engine requests.</td>
                 </tr>
                 <tr>
                   <td><code>--proxy-list</code></td>
-                  <td>string</td>
+                  <td>Path</td>
                   <td>None</td>
-                  <td>Path to proxy list <code>.txt</code> file for IP rotation pool.</td>
+                  <td>Path to proxy list file for round-robin rotation and circuit breaker.</td>
                 </tr>
                 <tr>
                   <td><code>--captcha-provider</code></td>
-                  <td>string</td>
+                  <td>choice</td>
                   <td>None</td>
-                  <td>Challenge solving provider: <code>capsolver</code>, <code>2captcha</code>,
-                    <code>anticaptcha</code>.</td>
+                  <td>Third-party CAPTCHA solver (<code>capsolver</code>, <code>2captcha</code>, <code>anticaptcha</code>).</td>
                 </tr>
                 <tr>
                   <td><code>--captcha-key</code></td>
                   <td>string</td>
                   <td>None</td>
-                  <td>API key credential for chosen captcha solver provider.</td>
+                  <td>API key for the active CAPTCHA solving provider.</td>
                 </tr>
                 <tr>
                   <td><code>--max-captcha-spend</code></td>
                   <td>float</td>
                   <td>None</td>
-                  <td>Maximum monetary spend limit in USD for captcha solving per run.</td>
+                  <td>Maximum dollar budget limit for CAPTCHA solving per crawl run.</td>
                 </tr>
                 <tr>
                   <td><code>--enable-governor</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Enable dynamic CPU/RAM hardware load governor for thread scaling.</td>
+                  <td>Enable hardware governor for dynamic CPU/RAM worker thread scaling.</td>
                 </tr>
                 <tr>
                   <td><code>--dl-speed-limit</code></td>
-                  <td>float</td>
-                  <td>0.0</td>
-                  <td>Global download bandwidth limit in KB/s (0.0 = unthrottled).</td>
+                  <td>int</td>
+                  <td>0</td>
+                  <td>Maximum download bandwidth ceiling in KB/s (0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--rate-limit</code></td>
                   <td>float</td>
                   <td>0.0</td>
-                  <td>Global request rate limit cap in requests/second (0.0 = unthrottled).</td>
+                  <td>Maximum global page request rate ceiling in requests per second (0.0 = unlimited).</td>
                 </tr>
                 <tr>
                   <td><code>--skip-search</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Disable search engine keyword discovery and crawl seed URLs only.</td>
+                  <td>Bypass DuckDuckGo discovery; scrape seed URLs exclusively.</td>
                 </tr>
                 <tr>
                   <td><code>--force-search</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Force search engine discovery even when seed file is present.</td>
+                  <td>Force DuckDuckGo search even when a seed file is specified.</td>
                 </tr>
                 <tr>
                   <td><code>--use-state-cache</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Persist processed URLs in SQLite DB (<code>state_cache.db</code>) across runs.</td>
+                  <td>Enable persistent SQLite state cache to prevent re-crawling across runs.</td>
                 </tr>
                 <tr>
                   <td><code>--clear-cache</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Clear state cache database before starting crawl execution.</td>
+                  <td>Wipe disk and SQLite crawl cache prior to execution.</td>
                 </tr>
                 <tr>
                   <td><code>--ignore-robots</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Bypass <code>robots.txt</code> crawl restrictions.</td>
+                  <td>Bypass <code>robots.txt</code> crawl restrictions and fetch all URLs.</td>
                 </tr>
                 <tr>
                   <td><code>--headless</code></td>
@@ -994,25 +1079,25 @@ python src/cli/cli_wizard.py</pre>
                   <td><code>--stealth-headful</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Force headful (visible) window for browser stealth fallbacks.</td>
+                  <td>Force visible window for browser stealth fallbacks (Drission, Helium).</td>
                 </tr>
                 <tr>
                   <td><code>--validate-seed</code></td>
-                  <td>string</td>
+                  <td>Path</td>
                   <td>None</td>
-                  <td>Validate seed file syntax and annotations, print summary, and exit.</td>
+                  <td>Validate seed manifest syntax and annotations, print summary, and exit.</td>
                 </tr>
                 <tr>
-                  <td><code>--aesthetic-score</code></td>
-                  <td>float</td>
-                  <td>None</td>
-                  <td>Minimum aesthetic quality threshold (1.0-10.0) for image acceptance.</td>
-                </tr>
-                <tr>
-                  <td><code>--auto-crop</code></td>
+                  <td><code>--edit-config</code></td>
                   <td>flag</td>
                   <td>False</td>
-                  <td>Automatically generate smart face/body centered cropped crops for LoRA.</td>
+                  <td>Open <code>domain_config.json</code> in default editor, validate on save, and exit.</td>
+                </tr>
+                <tr>
+                  <td><code>--no-bot</code></td>
+                  <td>flag</td>
+                  <td>False</td>
+                  <td>Disable Telegram bot watcher notifications for this crawl run.</td>
                 </tr>
               </tbody>
             </table>
@@ -2838,6 +2923,43 @@ Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</p
           </ol>
         </div>
       </section>
+
+      <!-- Site Footer -->
+      <footer class="doc-footer">
+        <div class="footer-grid">
+          <div class="footer-brand-col">
+            <div class="footer-logo">scrAPE // CORE SYSTEM</div>
+            <p class="footer-tagline">Autonomous, high-throughput distributed scraping engine with self-healing DOM heuristics and Apache Parquet export.</p>
+            <div class="footer-badges">
+              <span class="badge-tag">RELEASE v0.29.0</span>
+              <span class="badge-tag">MIT LICENSED</span>
+              <span class="badge-tag">PYTHON 3.10+</span>
+            </div>
+          </div>
+          <div class="footer-nav-col">
+            <h4 class="footer-heading">REPOSITORY</h4>
+            <ul class="footer-link-list">
+              <li><a href="https://github.com/rhaffle87/scrAPE" target="_blank" rel="noopener noreferrer">Source Code</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/releases" target="_blank" rel="noopener noreferrer">Release Notes (v0.29.0)</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/actions" target="_blank" rel="noopener noreferrer">CI / Workflows</a></li>
+            </ul>
+          </div>
+          <div class="footer-nav-col">
+            <h4 class="footer-heading">DOCUMENTATION</h4>
+            <ul class="footer-link-list">
+              <li><a href="https://github.com/rhaffle87/scrAPE/blob/main/README.md" target="_blank" rel="noopener noreferrer">System README</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Version Changelog</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></li>
+              <li><a href="https://github.com/rhaffle87/scrAPE/blob/main/docker-compose.yml" target="_blank" rel="noopener noreferrer">Docker Compose</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom-bar">
+          <span class="footer-copy">&copy; 2026 scrAPE Maintainers. Open source under the MIT License.</span>
+          <span class="footer-sysinfo">STATUS: OPERATIONAL // ENGINE: v0.29.0</span>
+        </div>
+      </footer>
 
     </main>
   </div>
