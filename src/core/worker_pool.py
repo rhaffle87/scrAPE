@@ -385,7 +385,7 @@ class RedisStreamTaskBroker:
             is_loopback = hostname in ("127.0.0.1", "localhost", "::1", "")
             if not is_loopback and not has_password:
                 LOGGER.warning(
-                    "INSECURE REDIS CONFIGURATION: Worker connecting to non-loopback Redis host '%s' with NO PASSWORD configured at %s",
+                    "INSECURE REDIS CONFIGURATION: Worker connecting to unauthenticated non-loopback Redis host '%s' (missing credentials) at %s",
                     hostname,
                     sanitize_url_credentials(redis_url),
                 )
