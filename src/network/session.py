@@ -24,6 +24,14 @@ class SessionManager:
             except OSError as exc:
                 logger.warning("Failed to set permissions on session directory: %s", exc)
 
+    def _safe_session_path(self, filename: str) -> str:
+        base_dir = os.path.abspath(SESSION_DIR)
+        target_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, filename)))
+        if not target_file.startswith(base_dir + os.sep):
+            raise ValueError(f"Path traversal detected: {filename} resolves outside session directory")
+        validate_safe_path(base_dir, target_file)
+        return target_file
+
     def get_session_file(self, domain: str) -> str:
         domain_clean = str(domain).strip().lower()
         # Truncated SHA-256 hash guarantees uniqueness for adversarially close domains (e.g. a.b.com vs a_b.com)
@@ -34,15 +42,19 @@ class SessionManager:
             safe_domain = "unknown"
 
         filename = f"{safe_domain}_{domain_hash}.json"
-        base_dir = os.path.abspath(SESSION_DIR)
-        safe_boundary = base_dir if base_dir.endswith(os.sep) else base_dir + os.sep
-        target_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, filename)))
+        return self._safe_session_path(filename)
 
-        if not (target_file.startswith(safe_boundary) or target_file == base_dir):
-            raise ValueError(f"Path traversal detected: {domain} resolves outside session directory")
-
-        validate_safe_path(base_dir, target_file)
-        return target_file
+    def _get_legacy_session_file(self, domain: str) -> str | None:
+        domain_clean = str(domain).strip().lower()
+        safe_domain = re.sub(r"[^\w\-]", "_", domain_clean)
+        safe_domain = re.sub(r"_+", "_", safe_domain).strip("_")
+        if not safe_domain:
+            return None
+        filename = f"{safe_domain}.json"
+        try:
+            return self._safe_session_path(filename)
+        except ValueError:
+            return None
 
     def save_session(self, domain, cookies):
         file_path = self.get_session_file(domain)
@@ -60,16 +72,10 @@ class SessionManager:
         file = self.get_session_file(domain)
         if not os.path.exists(file):
             # Backwards-compatibility: fallback to legacy unhashed filename if it exists
-            base_dir = os.path.abspath(SESSION_DIR)
-            safe_domain = re.sub(r"[^\w\-]", "_", str(domain).strip().lower())
-            legacy_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, f"{safe_domain}.json")))
-            try:
-                validate_safe_path(base_dir, legacy_file)
-                if os.path.exists(legacy_file):
-                    file = legacy_file
-                else:
-                    return None
-            except Exception:
+            legacy = self._get_legacy_session_file(domain)
+            if legacy and os.path.exists(legacy):
+                file = legacy
+            else:
                 return None
         with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -82,15 +88,12 @@ class SessionManager:
             except OSError as exc:
                 logger.warning("Failed to remove session file: %s", exc)
         # Also clean up legacy file if present
-        base_dir = os.path.abspath(SESSION_DIR)
-        safe_domain = re.sub(r"[^\w\-]", "_", str(domain).strip().lower())
-        legacy_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, f"{safe_domain}.json")))
-        try:
-            validate_safe_path(base_dir, legacy_file)
-            if os.path.exists(legacy_file):
-                os.remove(legacy_file)
-        except Exception:
-            pass
+        legacy = self._get_legacy_session_file(domain)
+        if legacy and os.path.exists(legacy):
+            try:
+                os.remove(legacy)
+            except OSError:
+                pass
 
     @classmethod
     def _harvest_firefox_cookies_windows(cls, firefox_profiles_dir: Path, host: str) -> dict[str, str]:
