@@ -23,6 +23,7 @@ env/
 out/
 har/
 benchmark_extract.md
+audit_screenshots/
 
 # --- Build and Package Files ---
 *.egg-info/

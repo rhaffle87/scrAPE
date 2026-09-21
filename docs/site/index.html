@@ -1720,6 +1720,36 @@ info = hw.get_device_info()
 
         <div class="card">
           <h2 class="card-title">4.9 Autonomous Selector Repair</h2>
+          <div class="flow-diagram-container">
+            <div class="flow-pipeline-grid">
+              <div class="flow-card">
+                <div class="flow-badge">TIER 1</div>
+                <div class="flow-name">SQLite Cache</div>
+                <div class="flow-metric">&lt;1ms Hit</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card">
+                <div class="flow-badge">TIER 2</div>
+                <div class="flow-name">Structural Meta</div>
+                <div class="flow-metric">JSON-LD / OG</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card">
+                <div class="flow-badge">TIER 3</div>
+                <div class="flow-name">LLM Synthesis</div>
+                <div class="flow-metric">Ollama / Gemini</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card active">
+                <div class="flow-badge">STAGE 4</div>
+                <div class="flow-name">Cache Persist</div>
+                <div class="flow-metric">Auto-Commit DB</div>
+              </div>
+            </div>
+            <div class="waf-diagram-caption">
+              <strong>[AUTONOMOUS CASCADE PIPELINE]</strong>: Broken selectors cascade automatically from instant SQLite cache hits to semantic DOM metadata and multi-provider VLM/LLM inference before saving to <code>output/cache/repaired_selectors.db</code>.
+            </div>
+          </div>
           <p class="text-secondary" style="margin-bottom: 1.25rem;">
             When anti-bot obfuscation or layout changes break standard selectors, <code>SelfHealingDOMParser</code> (<code>src/core/self_healing_parser.py</code>) executes a 3-tier cascade to restore asset extraction without human intervention:
           </p>
@@ -2188,14 +2218,29 @@ https://example.com/videos/example_subject</pre>
 
         <div class="card">
           <h2 class="card-title">6.2 Dashboard Views</h2>
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_dashboard_overview.png" alt="scrAPE Command Center Overview showing Scrape Parameters, Stealth Telemetry, and Network Tree" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.1 // COMMAND CENTER COCKPIT OVERVIEW (REAL-TIME TELEMETRY, ACTIVE PROFILE PRESETS & DUAL-SPEED LIMITERS)</div>
+          </div>
+
           <h3>Command Center View</h3>
           <p>Provides parameter controls, job start/stop buttons, hardware load meters (CPU/RAM/Disk), preset slot
             loaders (Slots 1-5), and live interactive HTML5 Canvas network tree displaying real-time crawl connections.
           </p>
 
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_scrape_parameters.png" alt="Scrape Parameters Form with collapsible configuration accordions" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.2 // SCRAPE PARAMETERS FORM WITH 5 COLLAPSIBLE CONFIGURATION ACCORDIONS & PRESET SLOTS</div>
+          </div>
+
           <h3>Media Vault View</h3>
           <p>Browse scraped assets grouped recursively by domain. Delete unwanted files directly from disk via HTMX
             endpoints, view high-res previews, or open containing output folders on local disk.</p>
+
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_media_feed.png" alt="Media Vault Stream Feed displaying scraped image and video assets" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.3 // MEDIA VAULT STREAM FEED WITH LIVE ASSET COUNTER, MODAL PREVIEWS & FILTER RULES</div>
+          </div>
         </div>
       </section>
 
@@ -2217,6 +2262,17 @@ https://example.com/videos/example_subject</pre>
             <li><strong>Context-Aware Telemetry Cards</strong>: Stat cards display global totals on Command Center and
               automatically switch to subject-scoped totals on Media Vault view.</li>
           </ul>
+
+          <div class="doc-figure-grid">
+            <div class="doc-figure">
+              <img src="assets/screenshots/webui_stealth_telemetry.png" alt="Stealth Telemetry HUD with FlareSolverr and Camoufox indicators" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 6.4 // STEALTH TELEMETRY HUD (FLARESOLVERR DOCKER BINDINGS & ESCALATION MONITORS)</div>
+            </div>
+            <div class="doc-figure">
+              <img src="assets/screenshots/webui_network_tree.png" alt="HTML5 Canvas Network Tree displaying live crawler graph topology" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 6.5 // INTERACTIVE HTML5 CANVAS NETWORK TREE (REAL-TIME CRAWL GRAPH TOPOLOGY)</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -2295,6 +2351,10 @@ https://example.com/videos/example_subject</pre>
 
         <div class="card">
           <h2 class="card-title">6.5 Tactical Telemetry & Governance</h2>
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_node_health.png" alt="Node Health Tactical Monitor showing cluster CPU, RAM, and Disk telemetry" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.6 // NODE HEALTH TACTICAL MONITOR HUD (HOST CLUSTER CPU, RAM, AND DISK HEADROOM)</div>
+          </div>
           <p class="text-secondary" style="margin-bottom: 1.25rem;">
             The Web Cockpit features an active tactical telemetry bar fed by high-frequency REST and Server-Sent Events (SSE) endpoints exposed in <code>frontend/routers/telemetry.py</code>:
           </p>
@@ -2660,6 +2720,36 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
 
         <div class="card">
           <h2 class="card-title">8.6 Content-Addressable Store Architecture</h2>
+          <div class="flow-diagram-container">
+            <div class="flow-pipeline-grid">
+              <div class="flow-card">
+                <div class="flow-badge">STAGE 1</div>
+                <div class="flow-name">Download Stream</div>
+                <div class="flow-metric">Memory Buffer</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card">
+                <div class="flow-badge">STAGE 2</div>
+                <div class="flow-name">SHA-256 Digest</div>
+                <div class="flow-metric">Content Hashing</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card">
+                <div class="flow-badge">STAGE 3</div>
+                <div class="flow-name">CAS Repository</div>
+                <div class="flow-metric">.storage/cas/</div>
+                <span class="flow-arrow">&rarr;</span>
+              </div>
+              <div class="flow-card active">
+                <div class="flow-badge">STAGE 4</div>
+                <div class="flow-name">Atomic Hardlink</div>
+                <div class="flow-metric">os.link (0 bytes)</div>
+              </div>
+            </div>
+            <div class="waf-diagram-caption">
+              <strong>[GLOBAL DEDUPLICATION PIPELINE]</strong>: Incoming media files are hashed by byte content (SHA-256) and deduplicated into a central CAS repository before creating 0-byte atomic filesystem hardlinks in crawl run folders.
+            </div>
+          </div>
           <p class="text-secondary" style="margin-bottom: 1.25rem;">
             When invoked with <code>--enable-cas</code>, scrAPE routes all downloaded media assets through <code>ContentAddressableStore</code> (<code>src/storage/cas_store.py</code>):
           </p>

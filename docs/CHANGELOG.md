@@ -43,6 +43,24 @@
   - SEO / Open Graph / Twitter Card tags deployed and verified directly on production.
   - All external repository, issue tracker, release, and license links verified HTTP 200.
 
+### Visual Documentation, Typography Alignment & Diagram Audit (2026-09-21)
+- **8-Tier Stealth WAF Pipeline Diagram Fix** (`docs/site/styles.css`):
+  - Fixed right-edge clipping on Tier 8 (`DrissionPage`) and truncated T7&rarr;T8 connecting arrow.
+  - Implemented responsive grid: 8-column layout on &ge;1280px desktop, 4&times;2 grid on &le;1280px tablet/medium viewports, and 2&times;4 grid on &le;640px mobile viewports.
+  - Validated across Desktop (1440px), Medium (1200px), Tablet (820px), and Mobile (375px) with 0 horizontal clipping and 0 unwanted scrollbars.
+- **Real-Time Visual Documentation Additions** (`docs/site/index.html`, `docs/site/assets/screenshots/`):
+  - Captured 6 live production screenshots directly from running WebUI Cockpit (`localhost:10001`): Command Center Overview, Scrape Parameters Form with 5 Collapsible Accordions, Stealth Telemetry HUD, Interactive Canvas Network Tree, Media Stream Vault Feed, and Node Health Tactical Monitor.
+  - Embedded screenshots into Module 06 documentation with high-contrast brutalist framing, lazy-loading (`loading="lazy"`), and WCAG-compliant descriptive `alt` text.
+  - Added multi-step visual flow diagrams for Autonomous Selector Repair Cascade (`[4.9] Self-Healing DOM Parser`) and Global Content Deduplication Pipeline (`[8.6] Content-Addressable Storage`).
+- **WebUI Accordion & Button Typography Harmonization** (`frontend/templates/index.html`):
+  - Eliminated universal `*` override in CSS that forced JetBrains Mono onto accordion summary headers.
+  - Strictly enforced `font-family: 'Oswald', sans-serif !important` (font-weight: 700, 24px) across all 5 collapsible configuration dropdown headers (`Filter & Scope Rules`, `Network & Proxy System`, `Behavior & Automation Flags`, `ML & Dataset Inline Pipeline`, `Storage Sinks & Self-Healing DOM`) to match top-level headers.
+  - Aligned Mode Selector toggle buttons (`.run-mode-selector .btn`) to `JetBrains Mono` per `DESIGN.md` §3 button specifications.
+- **Comprehensive Cross-Surface Typography Audit**:
+  - Swept 1,480 total elements across WebUI Dashboard (`localhost:10001`) and Docs Portal (`docs/site/index.html`).
+  - Cross-referenced all computed `font-family`, `font-weight`, and `font-size` against `DESIGN.md` §3.
+  - Achieved 100% compliance: **1,480 PASS | 0 FAIL**.
+
 ## [0.28.0] — 2026-09-20
 
 ### Added (0.28.0)
