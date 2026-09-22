@@ -114,19 +114,55 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Waiting 30 seconds for GitHub Code Scanning engine to process SARIF upload..."
-          sleep 30
+          TARGET_SHA="${{ github.sha }}"
+          echo "Target commit SHA: $TARGET_SHA"
+          echo "Polling GitHub Code Scanning analyses API to confirm SARIF indexing..."
 
-          # Query open code scanning alerts
-          alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open" --paginate)
-          count=$(echo "$alerts" | jq '. | length')
+          ANALYSIS_INDEXED=false
+          for i in $(seq 1 36); do
+            ANALYSIS=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=${{ github.ref }}" -q ".[] | select(.commit_sha == \"$TARGET_SHA\" and .category == \"/language:python\")" 2>/dev/null || true)
+            if [ -n "$ANALYSIS" ]; then
+              echo "✅ CodeQL Python SARIF analysis indexed by GitHub: $ANALYSIS"
+              ANALYSIS_INDEXED=true
+              break
+            fi
+            echo "Waiting for SARIF ingestion... ($((i * 5))s elapsed)"
+            sleep 5
+          done
 
-          echo "Current open CodeQL alert count: $count"
-          if [ "$count" -gt 0 ]; then
-            echo "::error::Automated CI Gate Failure: Detected $count open CodeQL alerts!"
-            echo "$alerts" | jq -r '.[] | "Alert #\(.number): \(.rule.id) (\(.rule.security_severity_level // "unknown")) in \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
-            exit 1
+          if [ "$ANALYSIS_INDEXED" = false ]; then
+            echo "⚠️ Warning: SARIF analysis record not observed within 180s. Proceeding to alert polling verification..."
           fi
+
+          echo "Polling open CodeQL alerts with consecutive count stability..."
+          PREV_COUNT=-1
+          STABLE_CHECKS=0
+          MAX_POLLS=12
+
+          for i in $(seq 1 $MAX_POLLS); do
+            alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open" --paginate)
+            count=$(echo "$alerts" | jq '. | length')
+            echo "Poll $i/$MAX_POLLS: Detected open alert count = $count"
+
+            if [ "$count" -gt 0 ]; then
+              echo "::error::Automated CI Gate Failure: Detected $count open CodeQL alerts!"
+              echo "$alerts" | jq -r '.[] | "Alert #\(.number): \(.rule.id) (\(.rule.security_severity_level // "unknown")) in \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+              exit 1
+            fi
+
+            if [ "$count" -eq "$PREV_COUNT" ]; then
+              STABLE_CHECKS=$((STABLE_CHECKS + 1))
+              if [ "$STABLE_CHECKS" -ge 2 ]; then
+                echo "Count stability verified across consecutive polls (count: $count)."
+                break
+              fi
+            else
+              STABLE_CHECKS=1
+              PREV_COUNT=$count
+            fi
+
+            sleep 5
+          done
 
           echo "✅ Automated CI Gate Passed: Zero open CodeQL code-scanning alerts certified."
 

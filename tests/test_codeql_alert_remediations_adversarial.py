@@ -88,6 +88,38 @@ class TestSessionDomainCollisionAndTraversal:
         assert not legacy_file.exists(), "save_session must never write to legacy file path"
         assert json.loads(canonical_file.read_text(encoding="utf-8")) == new_cookies
 
+    def test_legacy_session_concurrent_auto_migration(self, tmp_path, monkeypatch):
+        """Verify concurrent worker threads invoking load_session on legacy file do not corrupt data."""
+        import json
+        from concurrent.futures import ThreadPoolExecutor
+
+        session_dir = tmp_path / "sessions_concurrent"
+        session_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr("network.session.SESSION_DIR", str(session_dir))
+
+        sm = SessionManager()
+        domain = "concurrency.test.com"
+        legacy_file = session_dir / "concurrency_test_com.json"
+        initial_cookies = [{"name": "session_id", "value": "xyz123abc456"}, {"name": "csrf", "value": "token789"}]
+        legacy_file.write_text(json.dumps(initial_cookies), encoding="utf-8")
+
+        def worker_load():
+            return sm.load_session(domain)
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(worker_load) for _ in range(10)]
+            results = [f.result() for f in futures]
+
+        # Every single concurrent worker must successfully receive the uncorrupted cookies
+        for res in results:
+            assert res == initial_cookies
+
+        # After concurrent migrations, canonical file exists and legacy file is cleanly deleted
+        canonical_file = Path(sm.get_session_file(domain))
+        assert canonical_file.exists()
+        assert json.loads(canonical_file.read_text(encoding="utf-8")) == initial_cookies
+        assert not legacy_file.exists()
+
     def test_session_path_traversal_rejection(self, tmp_path, monkeypatch):
         """Verify traversal attempts are strictly contained within session directory."""
         session_dir = tmp_path / "sessions"

@@ -170,7 +170,7 @@ def is_safe_subpath_strict(base_dir: str | Path, target_path: str | Path) -> boo
     try:
         validate_safe_path(base_dir, target_path)
         return True
-    except (ValueError, Exception):
+    except (ValueError, TypeError):
         return False
 
 

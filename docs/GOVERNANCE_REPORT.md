@@ -265,13 +265,15 @@ All alerts transitioned to `state: "fixed"` via automated CodeQL re-analysis acr
 - `dismissed_reason: null`
 None of the alerts were closed via administrative dismissal. Every alert was resolved by static analyzer proof.
 
-### 2. Root-Cause Analysis for Mid-Fix Alerts #186 & #187 (Regression in Newly Added Code)
+### 2. Root-Cause Analysis for Mid-Fix Alerts #186 & #187 (Dataflow Leak in Newly Added Code)
 During the initial remediation round in commit `baa5883`:
 1. When introducing backwards-compatibility support for pre-hash session files, `legacy_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, f"{safe_domain}.json")))` was added to `load_session` and `evict_session`.
-2. Although `validate_safe_path(base_dir, legacy_file)` was called, its return value was discarded and `legacy_file` was passed directly to `open(file)` and `os.remove(legacy_file)` without a barrier guard that CodeQL's AST pattern recognizer could verify.
-3. Concurrently, `get_session_file` used a compound condition `if not (target.startswith(...) or target == base_dir)`, which broke CodeQL's `PrefixTestBarrier` match.
-4. **Outcome**: CodeQL flagged 2 brand-new path-injection alerts (**#186 and #187**) on the newly introduced fallback path, while re-opening #174, #175, and #177.
-5. **Architectural Lesson**: Remediation logic that introduces parallel paths or ad-hoc defensive wrappers can inadvertently spawn new instances of the exact vulnerability class being fixed. All path operations must funnel through a single canonical primitive.
+2. Although `validate_safe_path(base_dir, legacy_file)` was called as a statement, its return value was discarded. In Python dataflow analysis, a function call does not mutate its argument in-place to clear taint; the return value must be bound. Consequently, `legacy_file` remained tainted in CodeQL's dataflow graph.
+3. The tainted `legacy_file` flowed directly into two file operations:
+   - `if os.path.exists(legacy_file):` -> Flagged by CodeQL as Alert **#187** (`location: src/network/session.py:68`).
+   - `file = legacy_file` -> `with open(file, "r") as f:` -> Flagged by CodeQL as Alert **#186** (`location: src/network/session.py:61`).
+4. **Outcome**: CodeQL flagged 2 brand-new path-injection alerts (**#186 and #187**) on the newly introduced fallback path.
+5. **Architectural Lesson**: Remediation logic that introduces parallel fallback paths without binding and using the return value of canonical sanitization primitives creates new dataflow leaks. All path resolutions (canonical and legacy) must funnel through and return from a single validated primitive (`validate_safe_path`).
 
 ### 3. Canonical Primitive Consolidation (`validate_safe_path` & `is_safe_subpath_strict`)
 Per `docs/THREAT_MODEL.md` Cross-Cutting Requirement #1 (*"No new, parallel security primitives"*), all hand-rolled `norm_x.startswith(safe_boundary)` checks scattered across `analytics_exporter.py`, `dataset.py`, `gallery.py`, and `session.py` were eliminated.

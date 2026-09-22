@@ -14,6 +14,7 @@ SESSION_DIR = "data/sessions"
 class SessionManager:
     _local_cookie_cache: dict[str, dict[str, str]] = {}
     _local_cookie_lock = threading.Lock()
+    _file_lock = threading.RLock()
 
     def __init__(self):
         os.makedirs(SESSION_DIR, exist_ok=True)
@@ -54,33 +55,54 @@ class SessionManager:
             return None
 
     def save_session(self, domain, cookies):
-        file_path = self.get_session_file(domain)
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(cookies, f)
-            
-        # Enforce strict file permissions for sensitive session cookies
-        if os.name != 'nt':
+        with self._file_lock:
+            file_path = self.get_session_file(domain)
+            # Atomic write via thread-isolated temporary file + os.replace prevents race conditions
+            temp_file = f"{file_path}.tmp.{threading.get_ident()}"
             try:
-                os.chmod(file_path, 0o600)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
-            except OSError as exc:
-                logger.warning("Failed to set permissions on session file: %s", exc)
+                with open(temp_file, "w", encoding="utf-8") as f:
+                    json.dump(cookies, f)
+                    f.flush()
+                    os.fsync(f.fileno())
+                    
+                # Enforce strict file permissions for sensitive session cookies
+                if os.name != 'nt':
+                    try:
+                        os.chmod(temp_file, 0o600)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+                    except OSError as exc:
+                        logger.warning("Failed to set permissions on session file: %s", exc)
+
+                os.replace(temp_file, file_path)
+            except Exception:
+                if os.path.exists(temp_file):
+                    try:
+                        os.remove(temp_file)
+                    except OSError:
+                        pass
+                raise
 
     def load_session(self, domain):
         file = self.get_session_file(domain)
         if not os.path.exists(file):
-            # Backwards-compatibility: read-only fallback to legacy unhashed filename if it exists
-            legacy = self._get_legacy_session_file(domain)
-            if legacy and os.path.exists(legacy):
-                with open(legacy, "r", encoding="utf-8") as f:
-                    cookies = json.load(f)
-                # Auto-migrate forward to collision-resistant hash-suffixed format and retire legacy file
-                self.save_session(domain, cookies)
-                try:
-                    os.remove(legacy)
-                except OSError:
-                    pass
-                return cookies
-            return None
+            with self._file_lock:
+                # Double-checked locking after acquiring lock
+                if os.path.exists(file):
+                    with open(file, "r", encoding="utf-8") as f:
+                        return json.load(f)
+
+                # Backwards-compatibility: read-only fallback to legacy unhashed filename if it exists
+                legacy = self._get_legacy_session_file(domain)
+                if legacy and os.path.exists(legacy):
+                    with open(legacy, "r", encoding="utf-8") as f:
+                        cookies = json.load(f)
+                    # Auto-migrate forward to collision-resistant hash-suffixed format and retire legacy file
+                    self.save_session(domain, cookies)
+                    try:
+                        os.remove(legacy)
+                    except OSError:
+                        pass
+                    return cookies
+                return None
         with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
 
