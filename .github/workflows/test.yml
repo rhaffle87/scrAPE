@@ -92,7 +92,7 @@ jobs:
 
       - name: Verify Clean Startup and Local CAS
         env:
-          PYTHONPATH: .
+          PYTHONPATH: src:.
         run: |
           python -c "
           import config
@@ -109,7 +109,7 @@ jobs:
 
       - name: Run Core & Local CAS Test Suite in Zero-Boto Environment
         env:
-          PYTHONPATH: .
+          PYTHONPATH: src:.
         run: |
           pytest tests/storage/test_cas_key_validation.py tests/storage/test_cas_sync_ssrf.py tests/storage/test_cas_and_parquet_exporter.py tests/storage/test_bloom_filter_and_batching.py tests/core/ -v --timeout=120
 
