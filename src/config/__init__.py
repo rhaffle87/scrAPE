@@ -7,6 +7,7 @@ import re as _re
 import logging
 
 from .version import VERSION as VERSION, VERSION_TAG as VERSION_TAG
+from .settings_manager import SettingsManager as SettingsManager, settings as settings
 
 def _detect_project_root() -> Path:
     if env_root := os.getenv("SCRAPE_PROJECT_ROOT"):
@@ -301,3 +302,4 @@ IMAGE_EXTENSIONS = {
 }
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".ogv", ".mov", ".avi", ".mkv", ".m4v"}
 SUPPORTED_OUTPUT_FORMATS = {"json", "csv", "both"}
+

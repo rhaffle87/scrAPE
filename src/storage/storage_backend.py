@@ -120,12 +120,16 @@ class S3StorageSink(BaseStorageSink):
         region_name: str | None = None,
         spillover_dir: Path | str | None = None,
     ):
+        from common.security import validate_s3_endpoint_url
+        from config.settings_manager import settings
+
         self.bucket_name = bucket_name
         self.prefix = prefix.strip("/")
-        self.endpoint_url = endpoint_url or os.getenv("S3_ENDPOINT_URL")
-        self.access_key = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
-        self.secret_key = aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY")
-        self.region_name = region_name or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+        raw_endpoint = endpoint_url or settings.get_s3_endpoint_url()
+        self.endpoint_url = validate_s3_endpoint_url(raw_endpoint) if raw_endpoint else None
+        self.access_key = aws_access_key_id or settings.get_aws_access_key_id()
+        self.secret_key = aws_secret_access_key or settings.get_aws_secret_access_key()
+        self.region_name = region_name or settings.get_s3_region()
 
         self.spillover_dir = Path(spillover_dir or "output/spillover").resolve()
         self._local_fallback = LocalStorageSink(self.spillover_dir)
@@ -151,7 +155,12 @@ class S3StorageSink(BaseStorageSink):
             self._s3_available = True
             LOGGER.info("S3StorageSink initialized for bucket: %s (endpoint: %s)", self.bucket_name, self.endpoint_url)
         except Exception as exc:
-            LOGGER.warning("boto3 client initialization failed (%s); S3StorageSink will spillover locally.", exc)  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+            from storage.cas_sync import redact_s3_error
+
+            LOGGER.warning(
+                "boto3 client initialization failed (%s); S3StorageSink will spillover locally.",
+                redact_s3_error(exc),
+            )
             self._s3_available = False
 
     def _build_key(self, relative_path: str) -> str:

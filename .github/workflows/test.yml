@@ -60,3 +60,56 @@ jobs:
           PYTHONPATH: .
         run: |
           pytest tests/ -v --timeout=120
+
+  test-base-minimal:
+    name: Test Base Minimal Install (Zero Boto3 / Zero Cloud)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Base Dependencies (NO [cloud] extra)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+          pip install python-multipart pytest pytest-asyncio pytest-socket pytest-mock pytest-timeout
+
+      - name: Verify Boto3 Is NOT Installed
+        run: |
+          python -c "
+          try:
+              import boto3
+              raise RuntimeError('boto3 is installed in base environment, violating zero-dependency guarantee!')
+          except ImportError:
+              print('CONFIRMED: boto3 is not installed.')
+          "
+
+      - name: Verify Clean Startup and Local CAS
+        env:
+          PYTHONPATH: .
+        run: |
+          python -c "
+          import config
+          import common.security
+          import storage.cas_store
+          from storage.cas_store import ContentAddressableStore
+          from pathlib import Path
+
+          store = ContentAddressableStore(root_dir=Path('.cache/test_cas'))
+          key, path = store.store(b'test zero dependency')
+          assert store.exists(key)
+          print('CONFIRMED: Local CAS operates cleanly without boto3.')
+          "
+
+      - name: Run Core & Local CAS Test Suite in Zero-Boto Environment
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest tests/storage/test_cas_key_validation.py tests/storage/test_cas_sync_ssrf.py tests/storage/test_cas_and_parquet_exporter.py tests/storage/test_bloom_filter_and_batching.py tests/core/ -v --timeout=120
+

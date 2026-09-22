@@ -203,6 +203,13 @@ class TestBoundedSpoolingAndBackpressure:
                 syncer.enqueue_upload("2" * 64, test_file, block=False)
                 assert syncer._queue.qsize() == 3
 
+                # Prove memory boundedness (T2.6): queue holds lightweight (key, Path) references (~100B), never file bytes
+                for item in list(syncer._queue.queue):
+                    key, path = item
+                    assert isinstance(key, str)
+                    assert isinstance(path, Path)
+                    assert not isinstance(path, (bytes, bytearray))
+
                 # Attempting to enqueue 4th item when queue is full must raise CASQueueFullError
                 with pytest.raises(CASQueueFullError):
                     syncer.enqueue_upload("3" * 64, test_file, block=False)
@@ -359,3 +366,16 @@ class TestPureLocalCASZeroDependencies:
         linked = cas.link_to_run(sha, run_file, extension="png")
         assert linked.is_file()
         assert linked.read_bytes() == data
+
+    def test_cas_cloud_syncer_raises_importerror_when_boto3_missing(self):
+        """When boto3 is not installed, CASCloudSyncer raises clear ImportError with install guidance."""
+        with patch.dict(os.environ, {"SCRAPE_ALLOW_LOCAL_S3_ENDPOINT": "true"}):
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setitem(sys.modules, "boto3", None)
+
+                with pytest.raises(ImportError, match=r"scrape-dashboard\[cloud\]"):
+                    CASCloudSyncer(
+                        bucket="cas-bucket",
+                        endpoint_url="http://127.0.0.1:9000",
+                    )
+

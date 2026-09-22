@@ -164,8 +164,9 @@ class CASCloudSyncer:
             client_kwargs["aws_access_key_id"] = aws_access_key_id
             client_kwargs["aws_secret_access_key"] = aws_secret_access_key
 
-        # Configure connection timeouts and retry limits
+        # Configure connection timeouts, retry limits, and SigV4 signature version
         config = Config(
+            signature_version="s3v4",
             connect_timeout=5,
             read_timeout=30,
             retries={"max_attempts": 3, "mode": "standard"},
