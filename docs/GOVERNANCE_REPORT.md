@@ -341,4 +341,44 @@ The hard-won lessons from Component 1 and the CodeQL remediation cycle establish
 4. **Full-Suite Regression Invariant**: Targeted test execution (`pytest tests/targeted_test.py`) is suitable only for fast local iteration. Before any merge or release sign-off, the full automated test suite (all ~647 tests) must be executed cleanly, particularly when shared storage, session, or security primitives are modified.
 5. **Defense-in-Depth for Secret Hygiene**: The automated CI credential leak gate (`credential-leak-check`) acts as a repository-wide regex backstop across tracked git files. However, because gitignored directories (`logs/`, `output/`) do not exist in fresh CI checkouts, and regexes cannot intercept dynamic runtime log outputs, code review and implementation must enforce that all outgoing client/exception logs pass through `sanitize_url_credentials()` and structured error redaction at the source.
 
-**Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened against sibling-prefix and collision attacks, guarded by an automated zero-alert CI gate (empirically proven to fail on regressions), strictly audited via the GitHub Code Scanning Alerts API with 0 open findings on `main`, and validated through 647 passing automated tests.
+### 9. Component 2: Cloud CAS Synchronization (S3 / R2 / MinIO) Implementation & Verification
+In accordance with `docs/THREAT_MODEL.md` §2, Component 2 delivers asynchronous replication of Content-Addressable Storage (CAS) blocks to S3-compatible cloud object storage (Amazon S3, Cloudflare R2, MinIO) with strict defense-in-depth boundaries:
+
+#### 9.1 Architecture & Canonical Security Boundaries
+1. **Canonical Key Validation (`validate_cas_key`)**:
+   - Reused uniformly across both local `ContentAddressableStore` and remote `CASCloudSyncer`.
+   - Enforces exact 64-character lowercase hexadecimal regex (`^[0-9a-f]{64}$`).
+   - Mathematically eliminates bucket key traversal, directory escape (`../../`), null-byte injection, and non-hex key fabrication.
+2. **SSRF Defense on Custom Endpoints (`validate_s3_endpoint_url`)**:
+   - Reuses canonical `is_safe_target_url()` to block AWS EC2 metadata (`169.254.169.254`), GCP metadata (`metadata.google.internal`), Azure metadata (`metadata.azure.com`), link-local IPs, and private network CIDRs.
+   - Loopback endpoints (`127.0.0.1`, `localhost`, `::1`) are blocked by default and permitted solely when `SCRAPE_ALLOW_LOCAL_S3_ENDPOINT=true` is explicitly set for local MinIO/LocalStack testing.
+3. **Source-Level Credential & Header Sanitization (`redact_s3_error`)**:
+   - Strips AWS access keys (`AKIA...`), secret access keys, presigned signatures (`X-Amz-Signature`), and URI credentials (`scheme://user:pass@host`) from all error strings.
+   - Decouples botocore `ClientError` to prevent raw HTTP request/response headers (e.g. `Authorization: AWS4-HMAC-SHA256`) from ever appearing in log records or error tracebacks.
+4. **Ephemeral Presigned URLs**:
+   - Scoped strictly to single CAS object keys (`GetObject`).
+   - Enforces a strict upper bound of ≤900 seconds (15 minutes) TTL.
+   - Presigned URLs and query signatures are kept purely in memory and never written to disk files or persistent run metadata.
+5. **Remote Deduplication with S3 HEAD Confirmation**:
+   - Redis SET / Bloom filter (`scrape:cas_remote_index`) serves solely as a fast pre-check.
+   - Never trusts the index blindly: confirmed with an S3 `HEAD` object request before skipping an upload. A 404 response triggers upload regardless of stale index entries.
+6. **Bounded Async Spooling & Ingestion Backpressure**:
+   - Bounded spooling queue (`maxsize=1000`) backed by dedicated worker threads.
+   - Saturated queues under degraded network conditions apply immediate backpressure (`CASQueueFullError`) to local ingestion callers rather than allowing unbounded memory growth.
+7. **Strict TLS Enforcement**:
+   - Certificate validation enabled by default (`verify=True`).
+   - Disabling certificate verification requires `S3_INSECURE_SKIP_VERIFY=true` and emits a loud warning-level log message.
+
+#### 9.2 Acceptance Criteria Verification Matrix
+
+| AC | Requirement | Test Suite | Result |
+| :--- | :--- | :--- | :--- |
+| **AC2.1** | Zero AWS credentials, secret keys, or presigned signatures leaked in logs or error messages | `tests/storage/test_cas_credential_sanitization.py` | **PASS (11/11)** |
+| **AC2.2** | SSRF defense blocking cloud metadata, link-local, and unauthorized loopback endpoints | `tests/storage/test_cas_sync_ssrf.py` | **PASS (26/26)** |
+| **AC2.3** | CAS object key validation strictly enforcing 64-char lowercase hex against path traversal | `tests/storage/test_cas_key_validation.py` | **PASS (41/41)** |
+| **AC2.4** | Presigned URLs scoped to single object keys with TTL clamped to ≤900s (15 min) | `tests/storage/test_cas_credential_sanitization.py` | **PASS (11/11)** |
+| **AC2.5** | Stale remote dedup index confirmed via S3 HEAD request before skipping upload | `tests/storage/test_cas_dedup_and_backpressure.py` | **PASS (6/6)** |
+| **AC2.6** | Bounded spooling queue applying backpressure under network degradation | `tests/storage/test_cas_dedup_and_backpressure.py` | **PASS (6/6)** |
+| **AC2.7** | TLS certificate verification enabled by default; warning emitted on insecure override | `tests/storage/test_cas_dedup_and_backpressure.py` | **PASS (6/6)** |
+
+**Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened against sibling-prefix, path-injection, and SSRF attacks, guarded by an automated zero-alert CI gate (empirically proven to fail on regressions), protected by a secret leak gate, strictly audited via the GitHub Code Scanning Alerts API with 0 open findings on `main`, and validated through **731 passing automated tests**.

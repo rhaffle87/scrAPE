@@ -93,13 +93,13 @@ For each component: **Design** → **Attack Surface** → **Mitigation** → **A
 
 ### 2.4 Acceptance Criteria
 
-- [ ] **AC2.1**: Grep across `logs/`, `output/`, and `run_summary.json` after a full cloud-sync-enabled crawl run finds zero AWS-key-pattern matches and zero presigned-URL query strings — automated as a CI step, not a manual pass.
-- [ ] **AC2.2**: An `S3_ENDPOINT_URL` pointing at `169.254.169.254` or `127.0.0.1` is rejected at client construction time with a clear error, unless the explicit local-override env var is set — verified by a unit test.
-- [ ] **AC2.3**: A fuzz/property test asserting CAS key construction only accepts 64-char lowercase hex input, rejecting all other strings (including path-traversal payloads like `../../etc/passwd`).
-- [ ] **AC2.4**: Any presigned URL generated in a test run is scoped to a single object key and expires within the configured window — verified by inspecting the generated URL's policy/expiry.
-- [ ] **AC2.5**: A test that seeds a stale/incorrect Redis dedup-index entry for a real local asset confirms the sync path still performs a `HEAD` check and uploads the asset if it's genuinely missing remotely (i.e., the system doesn't trust the index blindly).
-- [ ] **AC2.6**: A simulated slow/degraded upload throughput test confirms the spooling queue's memory footprint stays bounded (doesn't grow linearly with local ingestion rate) and that local ingestion visibly throttles rather than the process OOMing.
-- [ ] **AC2.7**: A test asserting the default S3 client configuration has certificate verification enabled, and that disabling it requires the explicit env var and produces a warning-level log line.
+- [x] **AC2.1**: Grep across `logs/`, `output/`, and `run_summary.json` after a full cloud-sync-enabled crawl run finds zero AWS-key-pattern matches and zero presigned-URL query strings — automated as a CI step, not a manual pass.
+- [x] **AC2.2**: An `S3_ENDPOINT_URL` pointing at `169.254.169.254` or `127.0.0.1` is rejected at client construction time with a clear error, unless the explicit local-override env var is set — verified by a unit test.
+- [x] **AC2.3**: A fuzz/property test asserting CAS key construction only accepts 64-char lowercase hex input, rejecting all other strings (including path-traversal payloads like `../../etc/passwd`).
+- [x] **AC2.4**: Any presigned URL generated in a test run is scoped to a single object key and expires within the configured window — verified by inspecting the generated URL's policy/expiry.
+- [x] **AC2.5**: A test that seeds a stale/incorrect Redis dedup-index entry for a real local asset confirms the sync path still performs a `HEAD` check and uploads the asset if it's genuinely missing remotely (i.e., the system doesn't trust the index blindly).
+- [x] **AC2.6**: A simulated slow/degraded upload throughput test confirms the spooling queue's memory footprint stays bounded (doesn't grow linearly with local ingestion rate) and that local ingestion visibly throttles rather than the process OOMing.
+- [x] **AC2.7**: A test asserting the default S3 client configuration has certificate verification enabled, and that disabling it requires the explicit env var and produces a warning-level log line.
 
 ---
 

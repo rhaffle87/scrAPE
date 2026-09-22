@@ -65,7 +65,7 @@ def is_safe_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return True
 
 
-def is_safe_target_url(url: str) -> bool:
+def is_safe_target_url(url: str, allow_local: bool = False) -> bool:
     """
     Validate target URL to prevent SSRF against loopback, link-local, private networks,
     and cloud metadata endpoints. Performs DNS resolution to prevent TOCTOU DNS rebinding.
@@ -87,12 +87,16 @@ def is_safe_target_url(url: str) -> bool:
 
         hostname_clean = hostname.lower().strip(".")
         if hostname_clean in BLOCKED_HOSTS or hostname_clean.endswith(".internal"):
+            if allow_local and hostname_clean in ("localhost", "localhost.localdomain", "127.0.0.1", "::1"):
+                return True
             return False
 
         # Attempt to parse integer / octal / hex encoded IPv4 formats (e.g. 2130706433)
         if hostname_clean.isdigit():
             try:
                 ip = ipaddress.ip_address(int(hostname_clean))
+                if ip.is_loopback and allow_local:
+                    return True
                 if not is_safe_ip(ip):
                     return False
             except ValueError:
@@ -101,6 +105,8 @@ def is_safe_target_url(url: str) -> bool:
         # Check if hostname is an IP literal
         try:
             ip = ipaddress.ip_address(hostname_clean)
+            if ip.is_loopback and allow_local:
+                return True
             if not is_safe_ip(ip):
                 return False
             return True
@@ -116,6 +122,8 @@ def is_safe_target_url(url: str) -> bool:
                 resolved_ip_str = item[4][0]
                 try:
                     resolved_ip = ipaddress.ip_address(resolved_ip_str)
+                    if resolved_ip.is_loopback and allow_local:
+                        continue
                     if not is_safe_ip(resolved_ip):
                         LOGGER.warning("SSRF blocked: Domain %s resolved to unsafe IP %s", hostname_clean, resolved_ip_str)
                         return False
@@ -185,3 +193,42 @@ def sanitize_filename(name: str) -> str:
     safe = safe.replace("..", "_").strip(" ._")
     safe = re.sub(r"_+", "_", safe)
     return safe or "unnamed"
+
+
+CAS_KEY_REGEX = re.compile(r"^[0-9a-f]{64}$")
+
+
+def validate_cas_key(key: str) -> str:
+    """
+    Validate that a Content-Addressable Storage (CAS) key is a valid SHA-256 hex digest (AC2.3).
+    Enforces exactly 64 lowercase hexadecimal ASCII characters.
+    Rejects path traversal, null bytes, non-hex, uppercase, whitespace, and malformed strings.
+    """
+    if not isinstance(key, str):
+        raise ValueError(f"CAS key must be a string, got {type(key).__name__}")
+    if not CAS_KEY_REGEX.match(key):
+        raise ValueError(
+            f"Invalid CAS key: '{key}'. Must be exactly 64 lowercase hexadecimal characters."
+        )
+    return key
+
+
+def validate_s3_endpoint_url(endpoint_url: str | None) -> str | None:
+    """
+    Validate custom S3 endpoint URL (MinIO / Cloudflare R2 / LocalStack) against SSRF,
+    cloud metadata, link-local, and private network exploitation (AC2.2).
+    Allows loopback/local endpoints only if SCRAPE_ALLOW_LOCAL_S3_ENDPOINT=true.
+    """
+    if not endpoint_url:
+        return None
+    endpoint_str = str(endpoint_url).strip()
+    if not endpoint_str:
+        return None
+
+    allow_local = os.environ.get("SCRAPE_ALLOW_LOCAL_S3_ENDPOINT", "").lower() in ("true", "1")
+    if not is_safe_target_url(endpoint_str, allow_local=allow_local):
+        raise ValueError(
+            f"SSRF blocked: S3_ENDPOINT_URL '{endpoint_str}' points to an insecure or restricted address. "
+            f"Set SCRAPE_ALLOW_LOCAL_S3_ENDPOINT=true to allow local loopback endpoints for testing."
+        )
+    return endpoint_str
