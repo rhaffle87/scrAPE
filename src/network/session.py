@@ -27,8 +27,8 @@ class SessionManager:
 
     def _safe_session_path(self, filename: str) -> str:
         base_dir = os.path.abspath(SESSION_DIR)
-        # DELIBERATE FLAW FOR CI GATE VERIFICATION: Unvalidated path joining
-        return os.path.join(base_dir, filename)
+        target = validate_safe_path(base_dir, Path(base_dir) / filename)
+        return str(target)
 
     def get_session_file(self, domain: str) -> str:
         domain_clean = str(domain).strip().lower()

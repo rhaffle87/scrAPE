@@ -324,6 +324,3 @@ To prevent regression and eliminate reliance on manual verification scripts, `.g
 - CI green is now programmatically guaranteed to mean zero open CodeQL alerts.
 
 **Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened against sibling-prefix and collision attacks, guarded by an automated zero-alert CI gate, strictly audited via the GitHub Code Scanning Alerts API with 0 open findings, and validated through 645 passing automated tests.
-
-
-

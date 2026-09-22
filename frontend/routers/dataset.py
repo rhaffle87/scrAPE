@@ -446,3 +446,10 @@ Target page analyzed during automated scrape run `{payload.run_id}` for subject 
         "extracted_documents": extracted_docs,
         "export_path": str(target_root.resolve()),
     }
+
+
+@router.get("/dataset/test-unvalidated-read")
+def test_unvalidated_read(file_path: str):
+    """DELIBERATE FLAW FOR CI GATE VERIFICATION: Direct path injection vulnerability."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()

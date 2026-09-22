@@ -124,6 +124,15 @@ jobs:
             if [ -n "$ANALYSIS" ]; then
               echo "✅ CodeQL Python SARIF analysis indexed by GitHub: $ANALYSIS"
               ANALYSIS_INDEXED=true
+              
+              # Extract results_count across all indexed analyses for this commit
+              ALL_ANALYSES=$(gh api "repos/${{ github.repository }}/code-scanning/analyses?ref=${{ github.ref }}" -q ".[] | select(.commit_sha == \"$TARGET_SHA\")" 2>/dev/null || true)
+              TOTAL_RESULTS=$(echo "$ALL_ANALYSES" | jq -s 'map(.results_count) | add // 0')
+              echo "Total CodeQL findings in indexed analyses for commit $TARGET_SHA: $TOTAL_RESULTS"
+              if [ "$TOTAL_RESULTS" -gt 0 ]; then
+                echo "::error::Automated CI Gate Failure: CodeQL detected $TOTAL_RESULTS finding(s) in commit $TARGET_SHA!"
+                exit 1
+              fi
               break
             fi
             echo "Waiting for SARIF ingestion... ($((i * 5))s elapsed)"
@@ -140,12 +149,12 @@ jobs:
           MAX_POLLS=12
 
           for i in $(seq 1 $MAX_POLLS); do
-            alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open" --paginate)
+            alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?ref=${{ github.ref }}&state=open" --paginate 2>/dev/null || gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open" --paginate)
             count=$(echo "$alerts" | jq '. | length')
             echo "Poll $i/$MAX_POLLS: Detected open alert count = $count"
 
             if [ "$count" -gt 0 ]; then
-              echo "::error::Automated CI Gate Failure: Detected $count open CodeQL alerts!"
+              echo "::error::Automated CI Gate Failure: Detected $count open CodeQL alerts on ref ${{ github.ref }}!"
               echo "$alerts" | jq -r '.[] | "Alert #\(.number): \(.rule.id) (\(.rule.security_severity_level // "unknown")) in \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
               exit 1
             fi
