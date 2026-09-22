@@ -114,3 +114,24 @@ class TestS3EndpointSSRFDefense:
         assert validate_s3_endpoint_url(None) is None
         assert validate_s3_endpoint_url("") is None
         assert validate_s3_endpoint_url("   ") is None
+
+    def test_ssrf_validation_has_zero_external_dependencies_and_unconditional_execution(self):
+        """
+        Point 6: Confirm validate_s3_endpoint_url() has zero dependency on boto3, redis, or cloud SDKs.
+        The function must execute unconditionally and never be skipped in CI regardless of
+        optional dependency availability.
+        """
+        import sys
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "boto3", None)
+            mp.setitem(sys.modules, "redis", None)
+
+            # Cloud metadata must be blocked without any cloud SDK installed
+            with pytest.raises(ValueError, match="SSRF blocked"):
+                validate_s3_endpoint_url("http://169.254.169.254/latest/meta-data/")
+
+            # Public cloud URL must pass
+            public_url = "https://s3.us-west-2.amazonaws.com"
+            assert validate_s3_endpoint_url(public_url) == public_url
+

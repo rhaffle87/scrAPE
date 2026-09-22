@@ -138,3 +138,23 @@ class TestCASKeyValidation:
             # but our injected chars are non-hex/uppercase/separators or alter the length != 64.
             with pytest.raises(ValueError):
                 validate_cas_key(payload)
+
+    def test_cas_key_validation_has_zero_external_dependencies_and_unconditional_execution(self):
+        """
+        Point 6: Confirm validate_cas_key() has zero dependency on boto3, redis, or cloud SDKs.
+        The function must execute unconditionally and never be skipped in CI regardless of
+        optional dependency availability.
+        """
+        import sys
+
+        # Simulate absence of boto3 and redis by masking them in sys.modules
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "boto3", None)
+            mp.setitem(sys.modules, "redis", None)
+
+            valid_key = "a" * 64
+            assert validate_cas_key(valid_key) == valid_key
+
+            with pytest.raises(ValueError, match="Invalid CAS key"):
+                validate_cas_key("not-a-valid-key")
+

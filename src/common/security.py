@@ -225,7 +225,9 @@ def validate_s3_endpoint_url(endpoint_url: str | None) -> str | None:
     if not endpoint_str:
         return None
 
-    allow_local = os.environ.get("SCRAPE_ALLOW_LOCAL_S3_ENDPOINT", "").lower() in ("true", "1")
+    from config.settings_manager import settings
+
+    allow_local = settings.is_local_s3_endpoint_allowed()
     if not is_safe_target_url(endpoint_str, allow_local=allow_local):
         raise ValueError(
             f"SSRF blocked: S3_ENDPOINT_URL '{endpoint_str}' points to an insecure or restricted address. "

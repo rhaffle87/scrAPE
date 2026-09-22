@@ -11,9 +11,11 @@ Verifies:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from pathlib import Path
+import re
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -252,3 +254,89 @@ class TestPresignedURLSecurity:
                             assert fake_sig not in content
                         except Exception:
                             pass
+
+    def test_presigned_urls_never_persisted_to_run_summary_or_disk_after_crawl_run(self, tmp_path):
+        """
+        AC2.1 & AC2.4: Execute a full CAS-sync-enabled operation and crawl summary generation,
+        proving that run_summary.json and all persisted disk artifacts contain zero presigned URLs,
+        zero X-Amz-Signature parameters, and zero AWS access keys.
+        """
+        from core.models import ScrapeResult
+        from core.run_summary import generate_run_summary
+        from storage.cas_store import ContentAddressableStore
+
+        fake_sig = "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a"
+        secret_sig_param = f"X-Amz-Signature={fake_sig}"
+        presigned_url = (
+            f"https://cas-bucket.s3.amazonaws.com/cas/{SAMPLE_SHA256[:2]}/{SAMPLE_SHA256[2:4]}/{SAMPLE_SHA256}"
+            f"?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential={DUMMY_KEY_ID}%2F20260922%2Fus-east-1%2Fs3%2Faws4_request"
+            f"&X-Amz-Date=20260922T000000Z&X-Amz-Expires=900&X-Amz-SignedHeaders=host&{secret_sig_param}"
+        )
+
+        with patch.dict(os.environ, {"SCRAPE_ALLOW_LOCAL_S3_ENDPOINT": "true"}):
+            with patch("boto3.client") as mock_boto_cls:
+                mock_client = MagicMock()
+                mock_boto_cls.return_value = mock_client
+                mock_client.generate_presigned_url.return_value = presigned_url
+
+                # Initialize CAS store with cloud syncer
+                syncer = CASCloudSyncer(
+                    bucket="cas-bucket",
+                    endpoint_url="http://127.0.0.1:9000",
+                    aws_access_key_id=DUMMY_KEY_ID,
+                    aws_secret_access_key=DUMMY_SECRET,
+                )
+                store = ContentAddressableStore(root_dir=tmp_path / "cas", cloud_syncer=syncer)
+
+                # Store an item and obtain presigned URL in memory
+                content = b"sample crawl content for CAS test"
+                cas_key, _ = store.store(content)
+                assert cas_key == hashlib.sha256(content).hexdigest()
+
+                # In-memory retrieval of presigned URL
+                ephemeral_url = syncer.generate_presigned_get_url(cas_key)
+                assert fake_sig in ephemeral_url
+
+                # Generate run_summary.json into tmp_path
+                scrape_result = ScrapeResult(keyword="test-cas-crawl")
+                summary_data = generate_run_summary(
+                    result=scrape_result,
+                    output_dir=tmp_path,
+                    crawl_duration_seconds=1.5,
+                    download_duration_seconds=0.5,
+                )
+
+                # Close syncer cleanly
+                syncer.close(drain=False)
+
+        # Assert run_summary.json was generated
+        summary_file = tmp_path / "run_summary.json"
+        assert summary_file.exists(), "run_summary.json must be created by generate_run_summary"
+
+        # Regex patterns to detect credential or presigned leak
+        leak_patterns = [
+            re.compile(r"X-Amz-Signature=[0-9a-fA-F]{16,}", re.IGNORECASE),
+            re.compile(r"AKIA[0-9A-Z]{16}"),
+            re.compile(re.escape(DUMMY_SECRET)),
+            re.compile(re.escape(fake_sig)),
+            re.compile(r"X-Amz-Algorithm="),
+        ]
+
+        # Grep every file in tmp_path (including run_summary.json, CAS blocks, etc.)
+        persisted_files = list(tmp_path.rglob("*"))
+        assert len(persisted_files) > 0
+
+        for file_path in persisted_files:
+            if file_path.is_file():
+                try:
+                    file_bytes = file_path.read_bytes()
+                    file_text = file_bytes.decode("utf-8", errors="ignore")
+                    for pattern in leak_patterns:
+                        match = pattern.search(file_text)
+                        assert match is None, (
+                            f"LEAK DETECTED: File {file_path.name} contains matched pattern "
+                            f"'{pattern.pattern}': {match.group(0) if match else ''}"
+                        )
+                except Exception as exc:
+                    pytest.fail(f"Failed scanning persisted file {file_path}: {exc}")
+

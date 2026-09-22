@@ -68,5 +68,33 @@ class SettingsManager:
         cursor.execute("SELECT key, value FROM settings")
         return {row[0]: row[1] for row in cursor.fetchall()}
 
+    # S3 / Cloud CAS Configuration Accessors (Canonical Single Source of Truth)
+    def get_s3_endpoint_url(self) -> str | None:
+        val = self.get("S3_ENDPOINT_URL", "").strip()
+        return val or None
+
+    def get_s3_bucket(self) -> str:
+        return self.get("S3_BUCKET", "").strip()
+
+    def get_s3_region(self) -> str:
+        return self.get("S3_REGION", "us-east-1").strip() or "us-east-1"
+
+    def get_aws_access_key_id(self) -> str | None:
+        val = self.get("AWS_ACCESS_KEY_ID", "").strip()
+        return val or None
+
+    def get_aws_secret_access_key(self) -> str | None:
+        val = self.get("AWS_SECRET_ACCESS_KEY", "").strip()
+        return val or None
+
+    def is_local_s3_endpoint_allowed(self) -> bool:
+        return self.get("SCRAPE_ALLOW_LOCAL_S3_ENDPOINT", "false").lower() in ("true", "1")
+
+    def is_s3_insecure_skip_verify(self) -> bool:
+        return self.get("S3_INSECURE_SKIP_VERIFY", "false").lower() in ("true", "1")
+
+    def is_cloud_cas_sync_enabled(self) -> bool:
+        return self.get("ENABLE_CLOUD_CAS_SYNC", "false").lower() in ("true", "1")
+
 # Global singleton instance
 settings = SettingsManager()

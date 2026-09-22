@@ -43,18 +43,16 @@ class ContentAddressableStore:
         try:
             from config.settings_manager import settings
 
-            enable_sync = settings.get("ENABLE_CLOUD_CAS_SYNC", "false").lower() in ("true", "1")
-            bucket = settings.get("S3_BUCKET", "")
-            if enable_sync and bucket:
+            if settings.is_cloud_cas_sync_enabled() and settings.get_s3_bucket():
                 from storage.cas_sync import CASCloudSyncer
 
                 cloud_syncer = CASCloudSyncer(
-                    bucket=bucket,
-                    endpoint_url=settings.get("S3_ENDPOINT_URL") or None,
-                    region_name=settings.get("S3_REGION", "us-east-1"),
-                    aws_access_key_id=settings.get("AWS_ACCESS_KEY_ID") or None,
-                    aws_secret_access_key=settings.get("AWS_SECRET_ACCESS_KEY") or None,
-                    insecure_skip_verify=settings.get("S3_INSECURE_SKIP_VERIFY", "false").lower() in ("true", "1"),
+                    bucket=settings.get_s3_bucket(),
+                    endpoint_url=settings.get_s3_endpoint_url(),
+                    region_name=settings.get_s3_region(),
+                    aws_access_key_id=settings.get_aws_access_key_id(),
+                    aws_secret_access_key=settings.get_aws_secret_access_key(),
+                    insecure_skip_verify=settings.is_s3_insecure_skip_verify(),
                     redis_client=redis_client,
                 )
         except Exception as exc:

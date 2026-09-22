@@ -14,16 +14,8 @@ from pathlib import Path
 import queue
 import re
 import threading
+import time
 from typing import Any
-
-try:
-    import boto3
-    from botocore.config import Config
-    from botocore.exceptions import ClientError
-except ImportError:
-    boto3 = None
-    Config = None
-    ClientError = Exception
 
 from common.security import (
     validate_cas_key,
@@ -123,6 +115,12 @@ class CASCloudSyncer:
         else:
             self._verify_ssl = True
 
+        if self.redis_client is None:
+            LOGGER.info(
+                "Cloud CAS running in standalone mode (no Redis client provided); "
+                "relying exclusively on direct S3 HEAD verification for deduplication."
+            )
+
         # Initialize S3 client securely without logging credentials (AC2.1)
         self._client = self._init_s3_client(
             aws_access_key_id=aws_access_key_id,
@@ -144,11 +142,14 @@ class CASCloudSyncer:
         aws_secret_access_key: str | None,
     ) -> Any:
         """Create boto3 S3 client using safe parameters without leaking credentials to logs."""
-        if boto3 is None:
+        try:
+            import boto3
+            from botocore.config import Config
+        except ImportError:
             raise ImportError(
                 "boto3 is required for cloud CAS synchronization. "
-                "Install it via 'pip install boto3'."
-            )
+                "Install it via 'pip install scrape-dashboard[cloud]' or 'pip install boto3'."
+            ) from None
 
         client_kwargs: dict[str, Any] = {
             "service_name": "s3",
@@ -202,7 +203,10 @@ class CASCloudSyncer:
             try:
                 cached = bool(self.redis_client.sismember("scrape:cas_remote_index", valid_key))
             except Exception as exc:
-                LOGGER.debug("Redis remote index lookup error: %s", exc)
+                LOGGER.warning(
+                    "Redis remote dedup index lookup failed (%s); falling back to direct S3 HEAD verification.",
+                    exc,
+                )
 
         # 2. AC2.5: Never trust index blindly — confirm with cheap HEAD check against the bucket
         try:
@@ -212,18 +216,20 @@ class CASCloudSyncer:
             if self.redis_client:
                 try:
                     self.redis_client.sadd("scrape:cas_remote_index", valid_key)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    LOGGER.warning(
+                        "Failed to update Redis remote dedup index (%s); proceeding with direct S3 state.",
+                        exc,
+                    )
             return True
-        except ClientError as exc:
-            # 404 / NotFound means the object does not actually exist remotely (stale index entry)
-            error_code = str(exc.response.get("Error", {}).get("Code", ""))
-            if error_code in ("404", "NoSuchKey", "NotFound"):
-                return False
-            # Other errors (e.g. 403, 500) are logged safely
-            LOGGER.warning("S3 HEAD error checking remote block %s: %s", valid_key, redact_s3_error(exc))
-            return False
         except Exception as exc:
+            # 404 / NotFound means the object does not actually exist remotely (stale index entry)
+            if hasattr(exc, "response") and isinstance(exc.response, dict):
+                error_code = str(exc.response.get("Error", {}).get("Code", ""))
+                if error_code in ("404", "NoSuchKey", "NotFound"):
+                    return False
+                LOGGER.warning("S3 HEAD error checking remote block %s: %s", valid_key, redact_s3_error(exc))
+                return False
             LOGGER.warning("Unexpected error during S3 HEAD check for %s: %s", valid_key, redact_s3_error(exc))
             return False
 
@@ -328,7 +334,7 @@ class CASCloudSyncer:
         """Worker thread loop processing queued uploads."""
         while self._running:
             try:
-                item = self._queue.get(timeout=0.5)
+                item = self._queue.get(timeout=0.1)
             except queue.Empty:
                 continue
 
@@ -346,12 +352,14 @@ class CASCloudSyncer:
 
     def close(self, drain: bool = True, timeout: float = 10.0):
         """Shutdown background workers, optionally draining in-flight queue items."""
-        self._running = False
         if drain:
-            try:
-                self._queue.join()
-            except Exception:
-                pass
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if self._queue.unfinished_tasks == 0:
+                    break
+                time.sleep(0.02)
+
+        self._running = False
 
         # Send poison pills to unblock worker loops
         for _ in self._workers:
@@ -360,5 +368,6 @@ class CASCloudSyncer:
             except Exception:
                 pass
 
+        per_worker_timeout = max(0.1, timeout / max(1, len(self._workers)))
         for t in self._workers:
-            t.join(timeout=timeout / max(1, len(self._workers)))
+            t.join(timeout=per_worker_timeout)
