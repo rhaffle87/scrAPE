@@ -79,3 +79,49 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+  credential-leak-check:
+    name: Credential & Secret Leak Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for Exposed Cloud Credentials & Presigned Signatures
+        run: |
+          echo "Scanning workspace for AWS access keys, secret keys, and presigned signatures..."
+          FAILED=0
+
+          # 1. Check for AWS Access Key ID pattern (AKIA[0-9A-Z]{16})
+          if git grep -E -I -n "AKIA[0-9A-Z]{16}" -- ':!tests/' ':!docs/' ':!CHANGELOG.md'; then
+            echo "::error::Detected hardcoded AWS Access Key ID in repository!"
+            FAILED=1
+          fi
+
+          # 2. Check for live S3 presigned signatures
+          if git grep -E -I -n "X-Amz-Signature=[0-9a-fA-F]{64}" -- ':!tests/'; then
+            echo "::error::Detected live S3 presigned signature parameter in repository!"
+            FAILED=1
+          fi
+
+          # 3. Check for hardcoded AWS secret assignments
+          if git grep -E -I -n "(aws_secret_access_key|AWS_SECRET_ACCESS_KEY)[[:space:]]*=[[:space:]]*['\"][0-9a-zA-Z/+]{40}['\"]" -- ':!tests/'; then
+            echo "::error::Detected hardcoded AWS Secret Access Key in repository!"
+            FAILED=1
+          fi
+
+          # 4. Check runtime output directories if present
+          for dir in logs output; do
+            if [ -d "$dir" ]; then
+              if grep -r -E "AKIA[0-9A-Z]{16}" "$dir/"; then
+                echo "::error::Detected AWS Access Key in $dir/!"
+                FAILED=1
+              fi
+            fi
+          done
+
+          if [ $FAILED -ne 0 ]; then
+            echo "Credential leak gate failed: exposed secrets detected."
+            exit 1
+          fi
+          echo "✅ Credential leak gate passed: Zero exposed cloud keys or signatures detected."
