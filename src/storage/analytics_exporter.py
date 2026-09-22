@@ -19,7 +19,6 @@ def _get_table_rows(cursor: sqlite3.Cursor, table_name: str) -> list[dict]:
 
 def export_db_to_csv(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -27,33 +26,26 @@ def export_db_to_csv(db_path: Path, output_dir: Path):
         img_rows = _get_table_rows(cursor, "images")
         if img_rows:
             csv_path = validate_safe_path(safe_out, safe_out / "images_analytics.csv")
-            norm_csv = os.path.abspath(os.path.normpath(str(csv_path)))
-            if not (norm_csv.startswith(safe_boundary) or norm_csv == str(safe_out)):
-                raise ValueError("Path traversal detected")
-            with open(norm_csv, 'w', newline='', encoding='utf-8') as f:
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=list(img_rows[0].keys()))
                 writer.writeheader()
                 for row in img_rows:
                     writer.writerow(row)
-            LOGGER.info("Exported images to %s", norm_csv)
+            LOGGER.info("Exported images to %s", csv_path)
 
         vid_rows = _get_table_rows(cursor, "videos")
         if vid_rows:
             csv_path = validate_safe_path(safe_out, safe_out / "videos_analytics.csv")
-            norm_csv = os.path.abspath(os.path.normpath(str(csv_path)))
-            if not (norm_csv.startswith(safe_boundary) or norm_csv == str(safe_out)):
-                raise ValueError("Path traversal detected")
-            with open(norm_csv, 'w', newline='', encoding='utf-8') as f:
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=list(vid_rows[0].keys()))
                 writer.writeheader()
                 for row in vid_rows:
                     writer.writerow(row)
-            LOGGER.info("Exported videos to %s", norm_csv)
+            LOGGER.info("Exported videos to %s", csv_path)
 
 
 def export_db_to_json(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -62,17 +54,13 @@ def export_db_to_json(db_path: Path, output_dir: Path):
         videos = _get_table_rows(cursor, "videos")
 
         json_path = validate_safe_path(safe_out, safe_out / "analytics.json")
-        norm_json = os.path.abspath(os.path.normpath(str(json_path)))
-        if not (norm_json.startswith(safe_boundary) or norm_json == str(safe_out)):
-            raise ValueError("Path traversal detected")
-        with open(norm_json, 'w', encoding='utf-8') as f:
+        with open(json_path, 'w', encoding='utf-8') as f:
             json.dump({"images": images, "videos": videos}, f, indent=2)
-        LOGGER.info("Exported JSON analytics to %s", norm_json)
+        LOGGER.info("Exported JSON analytics to %s", json_path)
 
 
 def export_db_to_parquet(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    safe_boundary = str(safe_out) if str(safe_out).endswith(os.sep) else str(safe_out) + os.sep
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -87,20 +75,14 @@ def export_db_to_parquet(db_path: Path, output_dir: Path):
         if img_rows:
             img_table = pa.Table.from_pylist(img_rows)
             pq_img_path = validate_safe_path(safe_out, safe_out / "images.parquet")
-            norm_pq_img = os.path.abspath(os.path.normpath(str(pq_img_path)))
-            if not (norm_pq_img.startswith(safe_boundary) or norm_pq_img == str(safe_out)):
-                raise ValueError("Path traversal detected")
-            pq.write_table(img_table, norm_pq_img, compression="snappy")
-            LOGGER.info("Exported images to %s", norm_pq_img)
+            pq.write_table(img_table, str(pq_img_path), compression="snappy")
+            LOGGER.info("Exported images to %s", pq_img_path)
 
         if vid_rows:
             vid_table = pa.Table.from_pylist(vid_rows)
             pq_vid_path = validate_safe_path(safe_out, safe_out / "videos.parquet")
-            norm_pq_vid = os.path.abspath(os.path.normpath(str(pq_vid_path)))
-            if not (norm_pq_vid.startswith(safe_boundary) or norm_pq_vid == str(safe_out)):
-                raise ValueError("Path traversal detected")
-            pq.write_table(vid_table, norm_pq_vid, compression="snappy")
-            LOGGER.info("Exported videos to %s", norm_pq_vid)
+            pq.write_table(vid_table, str(pq_vid_path), compression="snappy")
+            LOGGER.info("Exported videos to %s", pq_vid_path)
     except ImportError:
         LOGGER.warning("pyarrow not installed; falling back to JSON export.")
         export_db_to_json(db_path, safe_out)
@@ -131,21 +113,16 @@ def export_analytics(subject_dir: Path, fmt: str):
         raise ValueError(f"Target directory escapes allowed workspace boundaries: {subject_dir}")
 
     db_path = validate_safe_path(safe_dir, safe_dir / "database.db")
-    norm_db = os.path.abspath(os.path.normpath(str(db_path)))
-    safe_boundary = str(safe_dir) if str(safe_dir).endswith(os.sep) else str(safe_dir) + os.sep
-    if not (norm_db.startswith(safe_boundary) or norm_db == str(safe_dir)):
-        raise ValueError("Path traversal detected in database path")
-
-    if not Path(norm_db).exists():
-        raise FileNotFoundError(f"Database not found at {norm_db}")
+    if not db_path.exists():
+        raise FileNotFoundError(f"Database not found at {db_path}")
 
     fmt_lower = fmt.lower().strip()
     if fmt_lower == "csv":
-        export_db_to_csv(Path(norm_db), safe_dir)
+        export_db_to_csv(db_path, safe_dir)
     elif fmt_lower == "json":
-        export_db_to_json(Path(norm_db), safe_dir)
+        export_db_to_json(db_path, safe_dir)
     elif fmt_lower == "parquet":
-        export_db_to_parquet(Path(norm_db), safe_dir)
+        export_db_to_parquet(db_path, safe_dir)
     else:
         raise ValueError("Unsupported format. Use 'csv', 'json', or 'parquet'.")
 

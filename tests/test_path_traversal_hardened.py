@@ -96,6 +96,40 @@ def test_validate_safe_path_casing_and_cross_platform(tmp_path):
         assert is_safe_subpath(lower_base, child) is True
 
 
+def test_is_safe_subpath_strict_and_dead_code_proof(tmp_path):
+    """
+    Prove that validate_safe_path alone halts execution with ValueError on sibling-prefix
+    and traversal attacks, making any downstream manual startswith check unreachable dead code.
+    """
+    from common.security import is_safe_subpath_strict
+
+    base_dir = tmp_path / "app_root"
+    base_dir.mkdir()
+
+    sibling_attack = tmp_path / "app_root_evil" / "payload.sh"
+    sibling_attack.parent.mkdir()
+    sibling_attack.touch()
+
+    # 1. Strict subpath helper returns False
+    assert is_safe_subpath_strict(base_dir, sibling_attack) is False
+
+    # 2. Direct validate_safe_path raises ValueError immediately
+    with pytest.raises(ValueError, match="Path traversal detected"):
+        validate_safe_path(base_dir, sibling_attack)
+
+    # 3. Execution halts: any code placed after validate_safe_path is unreachable for attacks
+    hit_downstream = False
+    try:
+        validated = validate_safe_path(base_dir, sibling_attack)
+        # The following manual startswith check could never execute
+        if not str(validated).startswith(str(base_dir) + os.sep):
+            hit_downstream = True
+    except ValueError:
+        pass
+
+    assert hit_downstream is False, "Downstream check was reached despite malicious input!"
+
+
 def test_sanitize_filename_comprehensive():
     assert sanitize_filename("safe_name.jpg") == "safe_name.jpg"
     assert sanitize_filename("../../../etc/passwd") == "etc_passwd"
@@ -103,3 +137,4 @@ def test_sanitize_filename_comprehensive():
     assert sanitize_filename("   ") == "unnamed"
     assert sanitize_filename("...---...") == "---"
     assert sanitize_filename("photo(1) [test].png") == "photo_1_test_.png"
+

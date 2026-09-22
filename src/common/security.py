@@ -153,16 +153,30 @@ def validate_safe_path(base_dir: str | Path, target_path: str | Path) -> Path:
     except Exception as exc:
         raise ValueError(f"Path traversal detected: {target} is outside {base}") from exc
 
+    base_str = str(base)
+    safe_boundary = base_str if base_str.endswith(os.sep) else base_str + os.sep
+    target_str = str(target)
+    norm_target = os.path.normcase(target_str)
+    norm_boundary = os.path.normcase(safe_boundary)
+    norm_base = os.path.normcase(base_str)
+    if not (norm_target.startswith(norm_boundary) or norm_target == norm_base):
+        raise ValueError(f"Path traversal detected: {target} is outside {base}")
+
     return target
 
 
-def is_safe_subpath(base_dir: str | Path, target_path: str | Path) -> bool:
-    """Return True if target_path is cleanly contained inside base_dir without traversal."""
+def is_safe_subpath_strict(base_dir: str | Path, target_path: str | Path) -> bool:
+    """Return True if target_path is cleanly and strictly contained inside base_dir without traversal or sibling escape."""
     try:
         validate_safe_path(base_dir, target_path)
         return True
     except (ValueError, Exception):
         return False
+
+
+def is_safe_subpath(base_dir: str | Path, target_path: str | Path) -> bool:
+    """Return True if target_path is cleanly contained inside base_dir without traversal."""
+    return is_safe_subpath_strict(base_dir, target_path)
 
 
 def sanitize_filename(name: str) -> str:

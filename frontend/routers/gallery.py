@@ -203,13 +203,9 @@ async def open_folder(request: Request):
     try:
         base_dir = os.path.abspath(str(OUTPUT_DIR))
         safe_path = validate_safe_path(base_dir, Path(base_dir) / clean_name)
-        target_path = os.path.abspath(os.path.normpath(str(safe_path)))
-        safe_boundary = base_dir if base_dir.endswith(os.sep) else base_dir + os.sep
 
-        if not (target_path.startswith(safe_boundary) or target_path == base_dir):
-            return HTMLResponse("Invalid path")
-
-        if os.path.exists(target_path):
+        if safe_path.exists():
+            target_path = str(safe_path)
             if os.name == "nt":
                 Popen(["explorer", "/select,", target_path])  # nosec B603 B607
             elif sys.platform == "darwin":

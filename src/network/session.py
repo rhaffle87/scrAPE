@@ -26,11 +26,8 @@ class SessionManager:
 
     def _safe_session_path(self, filename: str) -> str:
         base_dir = os.path.abspath(SESSION_DIR)
-        target_file = os.path.abspath(os.path.normpath(os.path.join(base_dir, filename)))
-        if not target_file.startswith(base_dir + os.sep):
-            raise ValueError(f"Path traversal detected: {filename} resolves outside session directory")
-        validate_safe_path(base_dir, target_file)
-        return target_file
+        target = validate_safe_path(base_dir, Path(base_dir) / filename)
+        return str(target)
 
     def get_session_file(self, domain: str) -> str:
         domain_clean = str(domain).strip().lower()
@@ -71,12 +68,19 @@ class SessionManager:
     def load_session(self, domain):
         file = self.get_session_file(domain)
         if not os.path.exists(file):
-            # Backwards-compatibility: fallback to legacy unhashed filename if it exists
+            # Backwards-compatibility: read-only fallback to legacy unhashed filename if it exists
             legacy = self._get_legacy_session_file(domain)
             if legacy and os.path.exists(legacy):
-                file = legacy
-            else:
-                return None
+                with open(legacy, "r", encoding="utf-8") as f:
+                    cookies = json.load(f)
+                # Auto-migrate forward to collision-resistant hash-suffixed format and retire legacy file
+                self.save_session(domain, cookies)
+                try:
+                    os.remove(legacy)
+                except OSError:
+                    pass
+                return cookies
+            return None
         with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
 

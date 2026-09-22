@@ -101,3 +101,32 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
+
+  verify-zero-alerts:
+    name: Verify Zero Open CodeQL Alerts Gate
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: read
+      contents: read
+    steps:
+      - name: Await SARIF Processing & Enforce Zero Open Alerts Gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Waiting 30 seconds for GitHub Code Scanning engine to process SARIF upload..."
+          sleep 30
+
+          # Query open code scanning alerts
+          alerts=$(gh api "repos/${{ github.repository }}/code-scanning/alerts?state=open" --paginate)
+          count=$(echo "$alerts" | jq '. | length')
+
+          echo "Current open CodeQL alert count: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::Automated CI Gate Failure: Detected $count open CodeQL alerts!"
+            echo "$alerts" | jq -r '.[] | "Alert #\(.number): \(.rule.id) (\(.rule.security_severity_level // "unknown")) in \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+            exit 1
+          fi
+
+          echo "✅ Automated CI Gate Passed: Zero open CodeQL code-scanning alerts certified."
+

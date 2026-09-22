@@ -57,6 +57,37 @@ class TestSessionDomainCollisionAndTraversal:
         assert sm.load_session(d1) is None
         assert sm.load_session(d2) == cookies_d2  # d2 still intact
 
+    def test_legacy_session_fallback_read_only_and_migration(self, tmp_path, monkeypatch):
+        """Verify pre-existing unhashed legacy session files can be read, are auto-migrated, and are never written to."""
+        import json
+        session_dir = tmp_path / "sessions"
+        session_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr("network.session.SESSION_DIR", str(session_dir))
+
+        sm = SessionManager()
+        domain = "legacy.site.org"
+        legacy_file = session_dir / "legacy_site_org.json"
+        legacy_cookies = [{"name": "old_session", "value": "legacy_val"}]
+        legacy_file.write_text(json.dumps(legacy_cookies), encoding="utf-8")
+
+        # 1. Verify load_session reads from legacy file when hashed file does not exist
+        loaded = sm.load_session(domain)
+        assert loaded == legacy_cookies
+
+        # 2. Verify auto-migration: canonical hashed file is created
+        canonical_file = Path(sm.get_session_file(domain))
+        assert canonical_file.exists()
+        assert json.loads(canonical_file.read_text(encoding="utf-8")) == legacy_cookies
+
+        # 3. Verify legacy file was retired / removed upon migration
+        assert not legacy_file.exists(), "Legacy unhashed file should be deleted after migration"
+
+        # 4. Verify save_session writes strictly to the hashed file, never legacy
+        new_cookies = [{"name": "updated", "value": "new_val"}]
+        sm.save_session(domain, new_cookies)
+        assert not legacy_file.exists(), "save_session must never write to legacy file path"
+        assert json.loads(canonical_file.read_text(encoding="utf-8")) == new_cookies
+
     def test_session_path_traversal_rejection(self, tmp_path, monkeypatch):
         """Verify traversal attempts are strictly contained within session directory."""
         session_dir = tmp_path / "sessions"
