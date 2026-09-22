@@ -207,8 +207,8 @@
         <ul class="nav-sub-list">
           <li class="nav-sub-item"><a href="#sec-threat-overview">[10.1] Pre-Implementation Scope</a></li>
           <li class="nav-sub-item"><a href="#sec-threat-leasing">[10.2] Task Leasing Matrix <span class="badge-tag" style="background:var(--accent);color:#000;font-size:9px;padding:0 4px;margin-left:4px;">VERIFIED</span></a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-cas">[10.3] Cloud CAS Matrix (Roadmap)</a></li>
-          <li class="nav-sub-item"><a href="#sec-threat-vlm">[10.4] VLM Healing Matrix (Roadmap)</a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-cas">[10.3] Cloud CAS Matrix <span class="badge-tag" style="background:var(--accent);color:#000;font-size:9px;padding:0 4px;margin-left:4px;">VERIFIED</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-threat-vlm">[10.4] VLM Healing Matrix <span class="badge-tag" style="background:#ffaa00;color:#000;font-size:9px;padding:0 4px;margin-left:4px;">PENDING CI</span></a></li>
           <li class="nav-sub-item"><a href="#sec-threat-ac">[10.5] Acceptance Criteria Contract</a></li>
         </ul>
       </div>
@@ -3610,53 +3610,61 @@ Return ONLY a valid JSON object matching this schema:
               <thead>
                 <tr>
                   <th>Criterion ID</th>
+                  <th>Status</th>
                   <th>Requirement Description</th>
                   <th>Test Methodology &amp; Assertion</th>
-                  <th>Target Test Suite</th>
+                  <th>Verified Test Suite</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><code>AC2.1</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>Automated credential &amp; presigned URL leak scan</td>
                   <td>Run automated regex scan across <code>logs/</code>, <code>output/</code>, and <code>run_summary.json</code>; assert zero matches for AWS secret keys or presigned parameters.</td>
-                  <td><code>tests/test_security_audit.py</code></td>
+                  <td><code>tests/storage/test_cas_credential_sanitization.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.2</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>SSRF endpoint blocking for cloud metadata &amp; loopback</td>
                   <td>Configure <code>S3_ENDPOINT_URL="http://169.254.169.254"</code>; assert client construction fails with <code>SecurityValidationError</code> unless override is set.</td>
-                  <td><code>tests/test_cas_sync.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.3</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>CAS key path regex fuzzing &amp; traversal protection</td>
                   <td>Fuzz key constructor with traversal strings, non-hex tokens, and malformed digests; assert 100% rejection rate.</td>
-                  <td><code>tests/test_cas_store.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.4</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>Presigned URL single-key scoping &amp; expiry bound</td>
                   <td>Generate presigned upload URL; inspect policy; assert expiration &le; 900s and scope restricted to single object key.</td>
-                  <td><code>tests/test_cas_sync.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.5</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>Two-phase dedup verification against stale index</td>
                   <td>Seed false-positive entry in Redis Bloom filter; assert sync pipeline performs <code>HEAD</code> request and uploads genuinely missing asset.</td>
-                  <td><code>tests/test_cas_sync.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.6</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>Bounded spooling queue &amp; backpressure throttling</td>
                   <td>Simulate 10kb/s upload bottleneck; assert queue memory stays bounded and local ingestion throttles without OOM crash.</td>
-                  <td><code>tests/test_cas_sync.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC2.7</code></td>
+                  <td><span class="badge-tag" style="background:var(--accent);color:#000;font-size:10px;padding:2px 6px;">PASSED</span></td>
                   <td>Enforced TLS certificate verification by default</td>
                   <td>Assert S3 client defaults to TLS verification enabled; assert disabling requires <code>S3_INSECURE_SKIP_VERIFY=true</code> and emits log warning.</td>
-                  <td><code>tests/test_cas_sync.py</code></td>
+                  <td><code>tests/storage/test_cas_cloud_sync_adversarial.py</code></td>
                 </tr>
               </tbody>
             </table>
@@ -3670,6 +3678,7 @@ Return ONLY a valid JSON object matching this schema:
               <thead>
                 <tr>
                   <th>Criterion ID</th>
+                  <th>Status</th>
                   <th>Requirement Description</th>
                   <th>Test Methodology &amp; Assertion</th>
                   <th>Target Test Suite</th>
@@ -3678,39 +3687,45 @@ Return ONLY a valid JSON object matching this schema:
               <tbody>
                 <tr>
                   <td><code>AC3.1</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
                   <td>Prompt injection resistance in visible DOM content</td>
                   <td>Inject adversarial prompt in webpage DOM; assert synthesized selector adheres strictly to CSS regex schema and ignores prompt commands.</td>
-                  <td><code>tests/test_vlm_healing.py</code></td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC3.2</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
                   <td>Per-domain VLM failure circuit breaker</td>
                   <td>Simulate 3 consecutive Tier 4 failures on domain; assert subsequent requests on that domain skip Tier 4 and call count remains capped.</td>
-                  <td><code>tests/test_vlm_healing.py</code></td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC3.3</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
                   <td>Screenshot memory buffer deallocation</td>
                   <td>Execute 100 simulated VLM healing iterations; measure memory baseline before and after; assert zero residual screenshot buffer leaks.</td>
-                  <td><code>tests/test_vlm_healing.py</code></td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC3.4</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
                   <td>Interactive coordinate destruction gate</td>
                   <td>Enable <code>--enable-vlm-interaction</code>; mock VLM response targeting element with text &ldquo;Delete Account&rdquo;; assert click is rejected.</td>
-                  <td><code>tests/test_vlm_healing.py</code></td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC3.5</code></td>
-                  <td>Live DOM pre-cache validation check</td>
-                  <td>Mock synthesized selector returning 0 media elements; assert selector is discarded and never persisted to <code>repaired_selectors.db</code>.</td>
-                  <td><code>tests/test_self_healing.py</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
+                  <td>Live DOM pre-cache validation check &amp; 7-day TTL</td>
+                  <td>Mock synthesized selector returning 0 media elements; assert selector is discarded and never persisted to <code>repaired_selectors.db</code>. Purge entries &gt; 7 days old.</td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
                 <tr>
                   <td><code>AC3.6</code></td>
+                  <td><span class="badge-tag" style="background:#ffaa00;color:#000;font-size:10px;padding:2px 6px;">PENDING CI</span></td>
                   <td>Privacy consent gate for external hosted APIs</td>
                   <td>Invoke Tier 4 with hosted API provider without <code>--vlm-provider-consent</code> flag; assert execution fails closed and refuses to send screenshots.</td>
-                  <td><code>tests/test_vlm_healing.py</code></td>
+                  <td><code>tests/core/test_vlm_healing.py</code></td>
                 </tr>
               </tbody>
             </table>

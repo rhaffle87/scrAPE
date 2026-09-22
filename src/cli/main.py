@@ -337,6 +337,34 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Automatically export crawl results to Snappy-compressed Apache Parquet datasets.",
     )
+    parser.add_argument(
+        "--enable-vlm-healing",
+        action="store_true",
+        help="Enable Tier 4 Vision-Language DOM healing with multimodal vision models (AC3.1).",
+    )
+    parser.add_argument(
+        "--vlm-provider",
+        type=str,
+        default="ollama",
+        choices=["ollama", "gemini", "openai"],
+        help="Vision-Language model provider for Tier 4 DOM healing (default: ollama).",
+    )
+    parser.add_argument(
+        "--vlm-provider-consent",
+        action="store_true",
+        help="Explicit consent to transmit page screenshots to hosted vision APIs (Gemini/OpenAI) (AC3.6).",
+    )
+    parser.add_argument(
+        "--enable-vlm-interaction",
+        action="store_true",
+        help="Opt-in to allow VLM coordinate-based interaction with safety checks (AC3.4).",
+    )
+    parser.add_argument(
+        "--max-vlm-calls",
+        type=int,
+        default=20,
+        help="Maximum number of VLM calls permitted in a single crawl execution (AC3.2).",
+    )
     return parser
 
 
@@ -684,6 +712,20 @@ def main() -> None:
                     "Domain '%s' flagged cloudflare_blocked — Crawl4AI fallback disabled.",
                     profile.domain,
                 )
+
+    # Synchronize VLM DOM Healing CLI configurations
+    from config.settings_manager import settings
+
+    if getattr(args, "enable_vlm_healing", False):
+        settings.set("ENABLE_VLM_HEALING", "1")
+    if getattr(args, "vlm_provider", None):
+        settings.set("SCRAPE_VLM_PROVIDER", args.vlm_provider)
+    if getattr(args, "vlm_provider_consent", False):
+        settings.set("SCRAPE_VLM_PROVIDER_CONSENT", "1")
+    if getattr(args, "enable_vlm_interaction", False):
+        settings.set("SCRAPE_ENABLE_VLM_INTERACTION", "1")
+    if getattr(args, "max_vlm_calls", None):
+        settings.set("SCRAPE_MAX_VLM_CALLS", str(args.max_vlm_calls))
 
     engine = ScrapingEngine(
         domain_delays=domain_delays or None,

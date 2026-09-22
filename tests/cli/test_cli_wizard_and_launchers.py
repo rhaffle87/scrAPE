@@ -48,3 +48,23 @@ def test_master_launcher_script_existence_and_options():
     assert run_sh.exists()
     sh_content = run_sh.read_text(encoding="utf-8")
     assert "Launch Continuous Watchdog Agent" in sh_content
+
+
+def test_main_cli_vlm_flags_parsing():
+    """Verify that VLM DOM Healing flags parse accurately into Namespace."""
+    from src.cli.main import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args([
+        "--keyword", "test",
+        "--enable-vlm-healing",
+        "--vlm-provider", "gemini",
+        "--vlm-provider-consent",
+        "--enable-vlm-interaction",
+        "--max-vlm-calls", "35",
+    ])
+    assert args.enable_vlm_healing is True
+    assert args.vlm_provider == "gemini"
+    assert args.vlm_provider_consent is True
+    assert args.enable_vlm_interaction is True
+    assert args.max_vlm_calls == 35

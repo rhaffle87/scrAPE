@@ -32,12 +32,25 @@ class SelfHealingDOMParser:
         db_path: Path | str | None = None,
         enable_llm: bool = False,
         llm_provider: str = "ollama",
+        enable_vlm: bool = False,
+        vlm_provider: str | None = None,
+        vlm_healer: Any | None = None,
     ):
         self.db_path = Path(db_path or "output/cache/repaired_selectors.db")
         self.enable_llm = enable_llm or bool(os.getenv("ENABLE_LLM_HEALING", "0") in ("1", "true"))
         self.llm_provider = llm_provider
+        self.enable_vlm = enable_vlm or bool(os.getenv("ENABLE_VLM_HEALING", "0") in ("1", "true"))
+        self.vlm_provider = vlm_provider
+        self._vlm_healer = vlm_healer
         self._lock = threading.RLock()
         self._init_db()
+
+    @property
+    def vlm_healer(self) -> Any:
+        if self._vlm_healer is None:
+            from core.vlm_healing import VisionDOMHealer
+            self._vlm_healer = VisionDOMHealer(provider=self.vlm_provider)
+        return self._vlm_healer
 
     def _init_db(self) -> None:
         with self._lock:
@@ -110,6 +123,7 @@ class SelfHealingDOMParser:
         soup: BeautifulSoup,
         page_url: str,
         page_title: str = "",
+        screenshot_bytes: bytes | None = None,
     ) -> list[ImageItem]:
         """
         Execute multi-tier self-healing extraction cascade.
@@ -118,7 +132,7 @@ class SelfHealingDOMParser:
         domain = self._get_domain(page_url)
         items: list[ImageItem] = []
 
-        # Tier 1: Cached Repaired Selector
+        # Tier 1: Cached Repaired Selector (with 7-day TTL validation)
         items = self._try_cached_selector(soup, domain, page_url, page_title)
         if items:
             LOGGER.info("Tier 1 self-healing cache hit for domain '%s' (%d items)", domain, len(items))
@@ -129,7 +143,7 @@ class SelfHealingDOMParser:
         if items:
             LOGGER.info("Tier 2 structural/microdata recovery succeeded for '%s' (%d items)", domain, len(items))
             if candidate_sel:
-                self.save_repaired_selector(domain, candidate_sel, candidate_attr, confidence=0.85)
+                self.save_repaired_selector(domain, candidate_sel, candidate_attr, confidence=0.85, soup=soup)
             return items
 
         # Tier 3: Pluggable LLM Synthesizer (if enabled or available)
@@ -137,6 +151,13 @@ class SelfHealingDOMParser:
             items = self._synthesize_with_llm(soup, domain, page_url, page_title)
             if items:
                 LOGGER.info("Tier 3 LLM selector synthesis succeeded for '%s' (%d items)", domain, len(items))
+                return items
+
+        # Tier 4: Multi-Modal Vision-Language DOM Healing (VLM)
+        if self.enable_vlm and screenshot_bytes:
+            items = self._synthesize_with_vlm(soup, domain, page_url, page_title, screenshot_bytes)
+            if items:
+                LOGGER.info("Tier 4 VLM selector synthesis succeeded for '%s' (%d items)", domain, len(items))
                 return items
 
         return []
@@ -148,7 +169,7 @@ class SelfHealingDOMParser:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT selector, attr, hit_count FROM repaired_selectors WHERE domain = ?",
+                    "SELECT selector, attr, hit_count, updated_at FROM repaired_selectors WHERE domain = ?",
                     (domain,),
                 )
                 row = cursor.fetchone()
@@ -156,7 +177,25 @@ class SelfHealingDOMParser:
         if not row:
             return []
 
-        selector, attr, hits = row
+        selector, attr, hits, updated_at_str = row
+
+        # Enforce 7-day TTL expiration check (AC3.5)
+        if updated_at_str:
+            try:
+                updated_dt = datetime.fromisoformat(updated_at_str)
+                if updated_dt.tzinfo is None:
+                    updated_dt = updated_dt.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                if (now - updated_dt).total_seconds() > 7 * 86400:
+                    LOGGER.info("Cached selector for '%s' expired (> 7 days TTL). Invalidating cache entry.", domain)
+                    with self._lock:
+                        with sqlite3.connect(self.db_path) as del_conn:
+                            del_conn.execute("DELETE FROM repaired_selectors WHERE domain = ?", (domain,))
+                            del_conn.commit()
+                    return []
+            except Exception as exc:
+                LOGGER.debug("Could not parse updated_at timestamp for '%s': %s", domain, exc)
+
         items: list[ImageItem] = []
         try:
             matched_tags = soup.select(selector)
@@ -326,10 +365,48 @@ class SelfHealingDOMParser:
                                 )
                             )
                     if items:
-                        self.save_repaired_selector(domain, selector, attr, confidence=0.9)
+                        self.save_repaired_selector(domain, selector, attr, confidence=0.9, soup=soup)
                         return items
         except Exception as e:
             LOGGER.warning("LLM synthesis failed for %s: %s", domain, e)
+
+        return []
+
+    def _synthesize_with_vlm(
+        self,
+        soup: BeautifulSoup,
+        domain: str,
+        page_url: str,
+        page_title: str,
+        screenshot_bytes: bytes,
+    ) -> list[ImageItem]:
+        """Synthesize selector using screenshot and multimodal VLM inference (Tier 4)."""
+        try:
+            result = self.vlm_healer.heal(soup, screenshot_bytes, page_url, page_title)
+            if not result:
+                return []
+
+            matched = soup.select(result.selector)
+            items: list[ImageItem] = []
+            for t in matched:
+                v = t.get(result.attr) if isinstance(t, Tag) else None
+                if v and isinstance(v, str):
+                    items.append(
+                        ImageItem(
+                            url=urljoin(page_url, v.strip()),
+                            source_page=page_url,
+                            page_title=page_title,
+                            extraction_source=f"self_healing_vlm:{result.selector}",
+                        )
+                    )
+
+            if items:
+                self.save_repaired_selector(
+                    domain, result.selector, result.attr, confidence=result.confidence, soup=soup
+                )
+                return items
+        except Exception as exc:
+            LOGGER.warning("Tier 4 VLM synthesis failed for '%s': %s", domain, exc)
 
         return []
 
@@ -396,9 +473,36 @@ class SelfHealingDOMParser:
         raise RuntimeError(f"All configured LLM providers failed or are unreachable (provider={self.llm_provider})")
 
     def save_repaired_selector(
-        self, domain: str, selector: str, attr: str = "src", confidence: float = 1.0
-    ) -> None:
-        """Persist newly validated repair rule into SQLite."""
+        self,
+        domain: str,
+        selector: str,
+        attr: str = "src",
+        confidence: float = 1.0,
+        soup: BeautifulSoup | None = None,
+    ) -> bool:
+        """
+        Persist newly validated repair rule into SQLite (AC3.5).
+        Validates selector syntax via validate_css_selector.
+        If soup is provided, validates that selector extracts >= 1 valid media element
+        before persisting to prevent selector cache poisoning.
+        """
+        from common.security import validate_css_selector
+
+        try:
+            selector = validate_css_selector(selector)
+        except ValueError as exc:
+            LOGGER.warning("Refusing to cache unsafe selector '%s' for domain '%s': %s", selector, domain, exc)
+            return False
+
+        if soup is not None:
+            if not self.vlm_healer.validate_selector_extracts_media(selector, attr, soup):
+                LOGGER.warning(
+                    "Refusing to cache poisoned/empty selector '%s' for domain '%s' (extracted 0 valid media elements).",
+                    selector,
+                    domain,
+                )
+                return False
+
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
@@ -416,3 +520,4 @@ class SelfHealingDOMParser:
                 )
                 conn.commit()
             LOGGER.info("Saved repaired rule for domain '%s' -> %s[%s]", domain, selector, attr)
+        return True

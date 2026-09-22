@@ -520,6 +520,13 @@ def prompt_core_systems_options() -> list[str]:
     # Autonomous Self-Healing DOM Parser
     if get_bool_input("Enable Autonomous Self-Healing DOM Parser fallback?", default=False):
         flags.append("--enable-self-healing")
+        if get_bool_input("Enable Tier 4 Multi-Modal Vision-Language (VLM) DOM healing?", default=False):
+            flags.append("--enable-vlm-healing")
+            vlm_prov = get_input("VLM Provider (ollama/gemini/openai)", default="ollama")
+            flags.extend(["--vlm-provider", vlm_prov.lower()])
+            if vlm_prov.lower() in ("gemini", "openai"):
+                if get_bool_input("Grant explicit consent to send screenshots to hosted API?", default=False):
+                    flags.append("--vlm-provider-consent")
 
     # Global Content-Addressable Storage (CAS)
     if get_bool_input("Enable Global Content-Addressable Storage (CAS) deduplication?", default=False):

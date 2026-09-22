@@ -96,5 +96,28 @@ class SettingsManager:
     def is_cloud_cas_sync_enabled(self) -> bool:
         return self.get("ENABLE_CLOUD_CAS_SYNC", "false").lower() in ("true", "1")
 
+    # Component 3: Vision-Language DOM Healing (VLM) Configuration Accessors
+    def get_vlm_provider(self) -> str:
+        val = self.get("SCRAPE_VLM_PROVIDER", "").strip() or self.get("VLM_PROVIDER", "").strip()
+        return val.lower() if val else "ollama"
+
+    def get_vlm_provider_consent(self) -> bool:
+        val = self.get("SCRAPE_VLM_PROVIDER_CONSENT", "").strip() or self.get("VLM_PROVIDER_CONSENT", "").strip()
+        return val.lower() in ("true", "1")
+
+    def get_vlm_enable_interaction(self) -> bool:
+        val = self.get("SCRAPE_ENABLE_VLM_INTERACTION", "").strip() or self.get("ENABLE_VLM_INTERACTION", "").strip()
+        return val.lower() in ("true", "1")
+
+    def get_vlm_max_calls(self) -> int:
+        val = self.get("SCRAPE_MAX_VLM_CALLS", "").strip() or self.get("MAX_VLM_CALLS", "").strip()
+        try:
+            return int(val) if val else 20
+        except ValueError:
+            return 20
+
+    def get_vlm_model_name(self) -> str:
+        return self.get("SCRAPE_VLM_MODEL", "").strip() or self.get("VLM_MODEL", "").strip()
+
 # Global singleton instance
 settings = SettingsManager()
