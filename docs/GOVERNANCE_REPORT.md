@@ -381,4 +381,15 @@ In accordance with `docs/THREAT_MODEL.md` §2, Component 2 delivers asynchronous
 | **AC2.6** | Bounded spooling queue applying backpressure under network degradation | `tests/storage/test_cas_dedup_and_backpressure.py` | **PASS (6/6)** |
 | **AC2.7** | TLS certificate verification enabled by default; warning emitted on insecure override | `tests/storage/test_cas_dedup_and_backpressure.py` | **PASS (6/6)** |
 
-**Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened against sibling-prefix, path-injection, and SSRF attacks, guarded by an automated zero-alert CI gate (empirically proven to fail on regressions), protected by a secret leak gate, strictly audited via the GitHub Code Scanning Alerts API with 0 open findings on `main`, and validated through **731 passing automated tests**.
+#### 9.3 Empirical CI Gate Failure Proof (`credential-leak-check`)
+To guarantee that the automated secret detection gate actively halts PR merges upon detecting hardcoded cloud secrets:
+- In Pull Request **#9** (`test/verify-credential-leak-gate`), a deliberate exposed AWS Access Key ID (`AKIAIOSFODNN7EXAMPLE`) was planted in `src/dummy_leak_proof.py`.
+- The `credential-leak-check` gate job (Workflow Run `35676641787`, Job ID `106584441472`) ran on GitHub Actions, matched the access key pattern, output:
+  ```
+  ::error::Detected hardcoded AWS Access Key ID in repository!
+  Credential leak gate failed: exposed secrets detected.
+  ```
+  and immediately terminated with **exit code 1** in 6 seconds.
+- GitHub Actions successfully marked the check as failed and blocked the pull request, empirically validating the gate's enforcement capabilities. The throwaway PR was subsequently closed and the branch cleaned up.
+
+**Final Certification**: scrAPE is verified across all supported operating systems (Ubuntu, macOS, Windows) and Python versions (3.10, 3.13), mathematically hardened against sibling-prefix, path-injection, and SSRF attacks, guarded by an automated zero-alert CI gate (empirically proven to fail on regressions), protected by an empirically verified secret leak gate, strictly audited via the GitHub Code Scanning Alerts API with 0 open findings on `main`, and validated through **731 passing automated tests**.

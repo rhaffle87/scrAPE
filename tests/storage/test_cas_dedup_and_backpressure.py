@@ -17,7 +17,10 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from botocore.exceptions import ClientError
+try:
+    from botocore.exceptions import ClientError
+except ImportError:
+    ClientError = Exception
 import fakeredis
 import pytest
 
