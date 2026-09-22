@@ -7,15 +7,13 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-import gc
 import json
 import logging
 import os
 import re
-import sys
 import threading
 import time
-from typing import Any, Generator
+from typing import Any
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup, Tag
