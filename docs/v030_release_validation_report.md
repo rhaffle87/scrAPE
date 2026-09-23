@@ -35,6 +35,11 @@ Every metric, pass count, and security defense in this document was collected vi
     ```text
     566 passed, 0 failed, 9 warnings in 58.78s
     ```
+> **Reconciliation with Subsequent Post-Audit Commits**:
+> Release commit `da31741` authoritatively represents **903 tests passed** (local) / **886 passed** (CI standard matrix) / **566 passed** (CI minimal install).
+> The subsequent post-audit commit `7eca992` increased this count to **904 passed** (local) / **887 passed** (CI standard matrix) / **567 passed** (CI minimal install), reflecting the 1 new distributed Redis circuit-breaker test added during audit.
+> The post-audit verification HEAD contains **907 tests passed** (local), adding 2 live DOM render tests (`tests/frontend/test_webui_dormant_subsystems_dom_render.py`) and 1 zero-redis standalone isolation test (`tests/core/test_vlm_healing.py`).
+
 
 ### 2.2 Exact Arithmetic Reconciliation
 The 18-test delta between local collection (907) and CI collection (889) is accounted for by disk fixture presence:

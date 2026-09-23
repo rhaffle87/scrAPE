@@ -845,3 +845,53 @@ def test_domain_failure_circuit_breaker_distributed_redis_coordination():
     assert "Global VLM budget ceiling reached" in budget_reason
 
 
+def test_domain_failure_circuit_breaker_standalone_zero_redis_isolation():
+    """
+    Component 2 Governance Lesson #6 / Dependency Isolation:
+    Confirm DomainVLMTracker and VisionDOMHealer operate with 100% independence
+    in standalone single-node mode when Redis is completely absent (redis_client=None),
+    and that Redis network disconnects degrade gracefully to the in-memory tracker.
+    """
+    # 1. Pure in-memory standalone instance
+    standalone_tracker = DomainVLMTracker(failure_threshold=3, cooldown_seconds=60.0, redis_client=None)
+    assert standalone_tracker.redis_client is None
+    assert standalone_tracker.total_calls == 0
+
+    domain = "standalone-domain.com"
+    can, _ = standalone_tracker.can_call(domain)
+    assert can is True
+
+    # Record 3 failures in-memory
+    for _ in range(3):
+        standalone_tracker.record_failure(domain)
+
+    can_after, reason = standalone_tracker.can_call(domain)
+    assert can_after is False
+    assert "Circuit breaker OPEN" in reason
+    assert "in Redis cluster" not in reason  # Confirmed local in-memory circuit
+
+    # 2. VisionDOMHealer instantiation with no Redis
+    healer = VisionDOMHealer(provider="ollama", redis_client=None)
+    assert healer.tracker is not None
+
+    # 3. Fault injection: Redis client drops connection (raises ConnectionError)
+    broken_redis = MagicMock()
+    broken_redis.get.side_effect = ConnectionError("Redis disconnected")
+    broken_redis.incr.side_effect = ConnectionError("Redis disconnected")
+    broken_redis.ttl.side_effect = ConnectionError("Redis disconnected")
+
+    fault_tolerant_tracker = DomainVLMTracker(failure_threshold=2, cooldown_seconds=60.0, redis_client=broken_redis)
+    # Tracker should NOT raise, but fall back seamlessly to in-memory evaluation
+    can_ft, _ = fault_tolerant_tracker.can_call("fault-domain.com")
+    assert can_ft is True
+
+    fault_tolerant_tracker.record_call()
+    assert fault_tolerant_tracker.total_calls == 1
+
+    fault_tolerant_tracker.record_failure("fault-domain.com")
+    fault_tolerant_tracker.record_failure("fault-domain.com")
+    can_ft_after, _ = fault_tolerant_tracker.can_call("fault-domain.com")
+    assert can_ft_after is False
+
+
+
