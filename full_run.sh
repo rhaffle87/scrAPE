@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ========================================================
-# scrAPE v0.29.0 — Master QA & Batch Diagnostic Suite (POSIX)
+# scrAPE v0.30.0 — Master QA & Batch Diagnostic Suite (POSIX)
 # ========================================================
 
 set -e
@@ -30,7 +30,7 @@ elif [ -n "$TARGET_ARG" ]; then
 fi
 
 echo "========================================================"
-echo " scrAPE v0.29.0 BATCH DIAGNOSTIC SUITE"
+echo " scrAPE v0.30.0 BATCH DIAGNOSTIC SUITE"
 echo " Execution Mode : [$MODE]"
 echo " Target Seeds   : [$SEEDS_PATTERN]"
 echo "========================================================"

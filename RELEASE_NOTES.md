@@ -1,3 +1,45 @@
+# Release Notes — scrAPE v0.30.0
+**Release Date**: September 23, 2026  
+**Focus**: Distributed Task Leasing & Autonomous Worker Daemons, Cloud Content-Addressable Storage (CAS) S3/R2 Synchronization, and Multimodal Vision-Language (VLM) DOM Healing with Prompt-Injection Immunity and Default-Deny Interaction Gating.
+
+---
+
+## Key Highlights (v0.30.0)
+
+### 1. Distributed Task Leasing & Autonomous Worker Daemons (Component 1)
+- **Atomic Idempotency Locking (AC1.1)**: Upgraded `RedisStreamTaskBroker` (`src/core/worker_pool.py`) with distributed mutual exclusion locks (`SET scrape:completed:{task_id} NX EX 86400`). Guaranteed single execution and single disk output across worker restarts, re-claims, and network partitions (verified via unmocked process termination tests).
+- **Poison-Pill Routing & Dead Letter Stream (AC1.4)**: Malformed or unprocessable crawl tasks are detected after max retries and automatically shunted to the Dead Letter Stream (`scrape:dead_letter`), preventing PEL head-of-line blocking.
+- **Autonomous Worker Daemons (`DistributedWorkerNode`) (AC1.5 & AC1.6)**: New daemon (`src/core/distributed_worker.py`) and standalone CLI entrypoint (`src/cli/worker.py`) implementing strict write-before-ack ordering, background heartbeats (`scrape:workers:heartbeats`), active node tracking, and automatic stale consumer garbage collection (AC1.7).
+- **Adversarial Schema Validation (AC1.3)**: 84 adversarial fuzz test cases against Pydantic task schemas (`src/core/task_schema.py`) validating strict rejection of path traversal, SSRF payloads, and invalid execution boundaries.
+
+### 2. Cloud Content-Addressable Storage (CAS) S3/R2 Synchronization (Component 2)
+- **Asynchronous Cloud Replication (`CASCloudSyncer`) (AC2.5 & AC2.6)**: Bounded spooling queue (`maxsize=1000`) providing asynchronous block replication to Amazon S3, Cloudflare R2, and MinIO with immediate backpressure (`CASQueueFullError`) under network saturation.
+- **Canonical Key Validation & Traversal Immunity (AC2.3)**: Strict 64-character lowercase hex digest validation (`validate_cas_key`) mathematically eliminates directory traversal, null-byte injection, and non-hex object key fabrication across local and cloud CAS storage.
+- **Unconditional SSRF Endpoint Defense (AC2.2)**: Canonical `validate_s3_endpoint_url` blocks AWS EC2 metadata (`169.254.169.254`), GCP metadata (`metadata.google.internal`), Azure metadata (`metadata.azure.com`), link-local IPs, private network CIDRs, and default loopbacks.
+- **Source-Level Credential & Header Redaction (AC2.1 & AC2.4)**: `redact_s3_error` strips AWS access keys (`AKIA...`), secret access keys, presigned signatures (`X-Amz-Signature`), and basic auth credentials from all logs and error traces. Ephemeral presigned URLs are clamped to ≤900s TTL and kept purely in memory, never written to disk or `run_summary.json`.
+- **Zero-Dependency Architecture**: `boto3` decoupled into optional `[cloud]` extra; pure local CAS operations run with zero cloud SDKs installed. Verified on clean environments via dedicated CI runner `test-base-minimal`.
+
+### 3. Multimodal Vision-Language (VLM) DOM Healing (Component 3)
+- **Tier 4 Multimodal Self-Healing (`VisionDOMHealer`)**: Seamlessly integrated into `SelfHealingDOMParser` (`src/core/self_healing_parser.py`) as a fail-safe fallback when rule-based (T1), heuristic (T2), and text LLM (T3) strategies fail.
+- **Prompt Injection Immunity (AC3.1)**: System prompts isolate untrusted page content and attribute strings within strict XML boundary tags (`<untrusted_scraped_data>`). Validated against a 75-vector parameterized fuzzing corpus (`PROMPT_INJECTION_ADVERSARIAL_CORPUS`) with 100% rejection of system overrides, delimiter breakouts, script/iframe smuggling, and SQL/shell injection payloads.
+- **Output Parsing & Pseudo-Class Filtering**: Strict structured regex validation requiring standard media element prefixes (`img`, `video`, `source`, `picture`, `[data-src]`) and blocking dangerous pseudo-classes (`:is`, `:has`, `:where`, `:scope`, `:root`).
+- **Structural Default-Deny Allowlist (AC3.4)**: `is_safe_vlm_interaction_target()` enforces a default-deny allowlist accepting only verified media player controls (`play`, `pause`, `mute`, `fullscreen`) and overlay/cookie dismissals (`close`, `dismiss`, `accept`, `reject cookies`), rejecting destructive form submissions, checkout buttons, and arbitrary navigational links.
+- **Live DOM Validation Gate & 7-Day TTL (AC3.5)**: Repaired selectors must match $\ge 1$ DOM media element before cache persistence; empty or unvalidated selectors are never written to cache. Cached repairs strictly expire after 7 days (`MAX_REPAIRED_SELECTOR_AGE_SECONDS = 604800`).
+- **Circuit Breakers & Global Budget Ceiling (AC3.2)**: `DomainVLMTracker` trips after 3 consecutive failures for any single domain to fail closed; global session budget ceiling (`max_vlm_calls`, default 50) halts calls when exhausted.
+- **Explicit User Consent & Memory Lifecycle (AC3.3 & AC3.6)**: Hosted third-party providers (Gemini, OpenAI) fail closed unless `--vlm-provider-consent` is explicitly supplied. `ScreenshotContext` ensures deterministic memory buffer disposal and aborts under critical host RAM pressure (>90% via `psutil`). Built exclusively with raw `httpx` REST calls (0 added base dependencies).
+
+### 4. QA Validation, Test Matrix & Empirical Proofs
+- **Full Regression Test Suite**:
+  - **Local Workstation (Windows 11, Python 3.13)**: **903 passed, 4 deselected, 0 failed in 147.76s** (907 collected).
+  - **GitHub Actions CI Matrix (Workflow Run [`35750843737`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843737))**: All 7 jobs passed (886 passed across all 6 OS/Python runners; 566 passed on dedicated `test-base-minimal` runner).
+- **Security Scan (Workflow Run [`35750843771`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843771))**: 5/5 security jobs passed (Gitleaks, Bandit, Semgrep, Trivy, OSV-Scanner).
+- **CodeQL Advanced (Workflow Run [`35750843900`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843900))**: Automated gate passed; GitHub Code Scanning REST API verified with `[]` (0 open alerts).
+- **Empirical CI Failure Gate Tests**:
+  - Pull Request #8: Proven automated pipeline block on injected path traversal flaw.
+  - Pull Request #9: Proven automated pipeline block on committed cloud access keys.
+
+---
+
 # Release Notes — scrAPE v0.29.0
 **Release Date**: September 21, 2026  
 **Focus**: Distributed Cluster Orchestration, Pre-Warmed Anti-Bot Browser Lifecycle Pool, Multi-Provider LLM Self-Healing DOM Parser, Vision Hardware Acceleration, Global Content-Addressable Storage (CAS), Snappy Apache Parquet Columnar Export, and Full Surface UX Harmonization.

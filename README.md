@@ -7,10 +7,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.29.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.30.0-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
-  <img src="https://img.shields.io/badge/TESTS-546%20PASSED-success?style=for-the-badge" alt="546 Tests Passing">
+  <img src="https://img.shields.io/badge/TESTS-903%20PASSED-success?style=for-the-badge" alt="903 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -27,8 +27,10 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 
 ## Key Features
 
+- **Distributed Task Leasing & Autonomous Worker Daemons**: Scalable multi-node cluster architecture using Redis Streams (`RedisStreamTaskBroker`), atomic idempotency locks (`SET NX EX 86400`) preventing duplicate execution, dead-letter stream routing (`scrape:dead_letter`), background worker heartbeats, and autonomous CLI worker daemons (`DistributedWorkerNode`).
+- **Cloud Content-Addressable Storage (CAS) Synchronization**: Asynchronous cloud block replication to Amazon S3, Cloudflare R2, and MinIO with bounded spooling (`maxsize=1000`) and backpressure, 64-hex key validation against traversal, unconditional SSRF endpoint defense, and source-level credential redaction. Decoupled zero-cloud-dependency core.
+- **Multimodal Vision-Language (VLM) DOM Healing**: Tier 4 DOM healing fallback using vision models (Gemini Flash, GPT-4o-mini, Ollama Vision) with strict prompt-injection immunity (`<untrusted_scraped_data>` tags and 75-vector fuzzing rejection), structural default-deny allowlist for interactive elements, live DOM validation gate, and 7-day TTL cache expiration.
 - **Pre-Warmed Anti-Bot Browser Pool**: Eliminates 3–5s cold starts by pre-warming browser sessions (DrissionPage, Camoufox, Chromium) asynchronously in a background pool (<50ms lease time).
-- **Distributed Cluster Task Broker (Redis Streams)**: Supports enterprise scraper clusters via Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XCLAIM`) with transparent fallback to local memory.
 - **Hardware Device Manager & Multi-Provider LLM Gateway**: Automatic CUDA, DirectML, MPS, and CPU routing with FP16/FP32 precision. Multi-provider LLM self-healing DOM parser (Ollama `qwen2.5-coder`, Google Gemini 1.5 Flash, OpenAI `gpt-4o-mini`) with SQLite rule caching.
 - **Global Content-Addressable Storage (CAS)**: SHA-256 content deduplication with atomic NTFS/POSIX hardlinks (`os.link`), consuming 0 additional disk bytes for identical media across runs and queries.
 - **Columnar Apache Parquet Dataset Exporter**: Snappy-compressed Apache Parquet tables (`images.parquet`, `videos.parquet`, `run_summary.parquet`) for high-performance ML analytics with JSONL fallback.
@@ -38,7 +40,6 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 - **Asynchronous Inline ML Pipeline**: Decoupled background worker (`AsyncMLPipelineWorker`) running non-blocking aesthetic scoring/culling, smart face/body cropping, and WD14 dataset tagging.
 - **Pluggable Multi-Tier Storage Sinks**: Atomic `LocalStorageSink` (traversal-safe) and direct multipart `S3StorageSink` (Amazon S3 / MinIO) with automatic offline spillover.
 - **3-Tier Hierarchical Deduplication**: $O(1)$ SHA-256 Bloom filter $\to$ 64-bit DCT pHash indexed in a BK-Tree metric tree $\to$ vector cosine similarity index.
-- **Autonomous Self-Healing DOM Parser**: SQLite rule cache $\to$ structural tree heuristics / JSON-LD microdata $\to$ pluggable LLM selector synthesis.
 - **Hybrid Worker Concurrency Pool**: CPU/GPU process isolation via `ProcessPoolExecutor` (`spawn` context) and `psutil` process-tree tracking guaranteeing zero zombie child processes.
 - **HardwareLoadGovernor**: Dynamic system RAM & CPU monitoring that overrides the pipeline's concurrency factor (scales 1x to 3x) and forces garbage collection under load.
 - **Dual Speed Limiters**: Token-bucket rate-limiting on outgoing page requests (`RPS`) and network bandwidth throttling on media asset downloads (`KBPS`).

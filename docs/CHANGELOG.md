@@ -1,6 +1,43 @@
 # Changelog — scrAPE
 > Chronological record of all notable changes, additions, and fixes made to the project.
 
+## [0.30.0] — 2026-09-23
+
+### Added (0.30.0)
+- **Distributed Task Leasing & Autonomous Worker Daemons (Component 1)** (`src/core/worker_pool.py`, `src/core/distributed_worker.py`, `src/cli/worker.py`):
+  - Distributed mutual exclusion idempotency locking (`SET scrape:completed:{task_id} NX EX 86400`) in `RedisStreamTaskBroker` preventing duplicate execution across worker crashes, restarts, and re-claims (AC1.1).
+  - Autonomous `DistributedWorkerNode` daemon with write-before-ack ordering, background heartbeats (`scrape:workers:heartbeats`), active worker counts, and automatic stale consumer garbage collection (AC1.5, AC1.6, AC1.7).
+  - Dead Letter Stream routing (`scrape:dead_letter`) for poison-pill tasks exceeding retry thresholds (AC1.4).
+  - Strict Pydantic task schemas (`src/core/task_schema.py`) fortified against path traversal and SSRF attacks (AC1.3).
+  - Standalone worker daemon CLI entrypoint (`python -m src.cli.worker`).
+- **Cloud Content-Addressable Storage (CAS) Synchronization (Component 2)** (`src/storage/cas_sync.py`, `src/storage/cas_store.py`):
+  - `CASCloudSyncer` providing asynchronous block replication to Amazon S3, Cloudflare R2, and MinIO with bounded spooling queue (`maxsize=1000`) and backpressure (`CASQueueFullError`) under network degradation (AC2.5, AC2.6).
+  - Canonical 64-character lowercase hex digest validation (`validate_cas_key`) mathematically preventing bucket key traversal (AC2.3).
+  - Unconditional SSRF validation (`validate_s3_endpoint_url`) blocking cloud metadata (`169.254.169.254`), private CIDRs, and loopbacks (AC2.2).
+  - Source-level credential redaction (`redact_s3_error`) scrubbing access keys, secret keys, presigned signatures (`X-Amz-Signature`), and basic auth credentials from all log entries (AC2.1).
+  - Ephemeral presigned URLs clamped to ≤900s TTL and kept purely in memory, never written to disk or `run_summary.json` (AC2.4).
+  - Zero-dependency architecture: `boto3` decoupled into optional `[cloud]` extra with dedicated CI verification (`test-base-minimal`).
+- **Multimodal Vision-Language (VLM) DOM Healing (Component 3)** (`src/core/vlm_healing.py`, `src/core/self_healing_parser.py`, `src/common/security.py`):
+  - Tier 4 `VisionDOMHealer` fallback integrated into `SelfHealingDOMParser` when T1-T3 heuristics fail.
+  - Prompt injection immunity: untrusted HTML isolated in `<untrusted_scraped_data>` tags, with 75-vector parameterized fuzz corpus rejection (AC3.1).
+  - Strict output parsing regex requiring standard media element prefixes and blocking dangerous pseudo-classes (`:is`, `:has`, `:where`, `:scope`, `:root`).
+  - Structural default-deny allowlist (`is_safe_vlm_interaction_target`) permitting only verified media controls and cookie/overlay dismissals (AC3.4).
+  - Live DOM validation gate requiring $\ge 1$ DOM media element match before cache writing (AC3.5).
+  - 7-day TTL cache expiration for repaired selectors (`MAX_REPAIRED_SELECTOR_AGE_SECONDS = 604800`) (AC3.5).
+  - Domain failure circuit breaker (3 consecutive failures opens circuit) and global budget ceiling (`max_vlm_calls`, default 50) (AC3.2).
+  - Explicit user consent gate (`--vlm-provider-consent`) failing closed for hosted third-party providers (AC3.6).
+  - Deterministic `ScreenshotContext` memory lifecycle with proactive abort under critical host RAM pressure (>90% via `psutil`) (AC3.3).
+  - Zero heavy external AI SDK dependencies: built entirely on raw `httpx` REST calls (AC3.6).
+
+### Validated & QA Verified (0.30.0)
+- Full local test suite passing cleanly: **903 passed, 4 deselected, 0 failed in 147.76s** (Windows 11, Python 3.13).
+- GitHub Actions CI Automated Test Suite (Run [`35750843737`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843737)):
+  - All 6 OS/Python matrix runners: **886 passed, 3 skipped, 0 failed**.
+  - Dedicated `Test Base Minimal Install (Zero Boto3 / Zero Cloud)` runner: **566 passed, 0 failed**.
+- GitHub Actions Security Scan (Run [`35750843771`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843771)): 5/5 jobs passed (Gitleaks, Bandit, Semgrep, Trivy container scan, OSV-Scanner).
+- GitHub Actions CodeQL Advanced (Run [`35750843900`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843900)): Gate passed; GitHub Code Scanning REST API returned `[]` (0 open alerts).
+- Empirical gate failure tests confirmed in PR #8 (CodeQL path traversal gate) and PR #9 (AWS credential leak gate).
+
 ## [0.29.0] — 2026-09-20
 
 ### Added (0.29.0)

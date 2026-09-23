@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM ========================================================
-REM scrAPE v0.29.0 — Master QA & Batch Diagnostic Suite
+REM scrAPE v0.30.0 — Master QA & Batch Diagnostic Suite
 REM ========================================================
 
 set "MODE=smoke"
@@ -32,7 +32,7 @@ if /i "%TARGET_ARG%"=="--deep" (
 )
 
 echo ========================================================
-echo  scrAPE v0.29.0 BATCH DIAGNOSTIC SUITE
+echo  scrAPE v0.30.0 BATCH DIAGNOSTIC SUITE
 echo  Execution Mode : [%MODE%]
 echo  Target Seeds   : [%SEEDS_PATTERN%]
 echo ========================================================
