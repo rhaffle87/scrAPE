@@ -20,20 +20,20 @@ Every metric, pass count, and security defense in this document was collected vi
 
 ## 2. Test Execution & CI Matrix Reconciliation
 
-### 2.1 Final Test Counts
-- **Local Developer Workstation (Windows 11, Python 3.13)**:
+### 2.1 Final Test Counts (Commit `da31741`)
+- **Local Developer Workstation (Windows 11, Python 3.13 — Commit `da31741`)**:
   ```text
-  903 passed, 4 deselected, 0 failed in 147.76s (0:02:27)
+  903 passed, 4 deselected, 0 failed in 270.91s (0:04:30)
   ```
   *(Total collected: 907 tests).*
-- **GitHub Actions Automated Test Suite (Run ID `35750843737`)**:
+- **GitHub Actions Automated Test Suite (Run ID [`35807593427`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593427) — Commit `da31741`)**:
   - **All 6 Standard Matrix Runners** (Ubuntu 3.10/3.13, Windows 3.10/3.13, macOS 3.10/3.13):
     ```text
-    886 passed, 3 skipped, 0 failed in 83.77s (0:01:23)
+    886 passed, 3 skipped, 0 failed in 90.79s (0:01:30)
     ```
   - **Dedicated Runner 7** (`Test Base Minimal Install (Zero Boto3 / Zero Cloud)`):
     ```text
-    566 passed, 0 failed in 57.13s
+    566 passed, 0 failed, 9 warnings in 58.78s
     ```
 
 ### 2.2 Exact Arithmetic Reconciliation
@@ -98,14 +98,14 @@ In accordance with `docs/THREAT_MODEL.md` §3, Component 3 delivers Tier 4 multi
 ## 6. Security Analysis & Automated CI Gates
 
 ### 6.1 GitHub Actions Workflow Matrix
-All workflows executed with 100% green status on commit `959580c`:
+All workflows executed with 100% green status on commit `da31741` (the tagged `v0.30.0` release commit):
 
 | Workflow | Run ID | Status | Jobs Passed | Key Checks |
 | :--- | :--- | :--- | :--- | :--- |
-| **Automated Test Suite** | [`35750843737`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843737) | **SUCCESS** | **7 / 7** | Py3.10/3.13 on Ubuntu, Windows, macOS; Minimal Base Install |
-| **Security Scan** | [`35750843771`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843771) | **SUCCESS** | **5 / 5** | Gitleaks, Bandit (0 High), Semgrep (`p/python`), Trivy, OSV-Scanner |
-| **CodeQL Advanced** | [`35750843900`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843900) | **SUCCESS** | **1 / 1** | Automated SARIF analysis and zero-alert validation gate |
-| **Deploy Dashboard & Docs** | [`35750843833`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843833) | **SUCCESS** | **1 / 1** | GitHub Pages deployment verified |
+| **Automated Test Suite** | [`35807593427`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593427) | **SUCCESS** | **7 / 7** | Py3.10/3.13 on Ubuntu, Windows, macOS; Minimal Base Install (886 + 566 passed) |
+| **Security Scan** | [`35807593255`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593255) | **SUCCESS** | **5 / 5** | Gitleaks, Bandit (0 High), Semgrep (`p/python`), Trivy, OSV-Scanner |
+| **CodeQL Advanced** | [`35807593384`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593384) | **SUCCESS** | **1 / 1** | Automated SARIF analysis and zero-alert validation gate |
+| **Deploy Dashboard & Docs** | [`35807593497`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593497) | **SUCCESS** | **1 / 1** | GitHub Pages deployment verified |
 
 ### 6.2 Programmatic CodeQL Alerts REST API Query
 Per the standing governance protocol established in `docs/GOVERNANCE_REPORT.md` §4:
