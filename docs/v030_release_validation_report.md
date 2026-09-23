@@ -36,9 +36,12 @@ Every metric, pass count, and security defense in this document was collected vi
     566 passed, 0 failed, 9 warnings in 58.78s
     ```
 > **Reconciliation with Subsequent Post-Audit Commits**:
-> Release commit `da31741` authoritatively represents **903 tests passed** (local) / **886 passed** (CI standard matrix) / **566 passed** (CI minimal install).
-> The subsequent post-audit commit `7eca992` increased this count to **904 passed** (local) / **887 passed** (CI standard matrix) / **567 passed** (CI minimal install), reflecting the 1 new distributed Redis circuit-breaker test added during audit.
-> The post-audit verification HEAD contains **907 tests passed** (local), adding 2 live DOM render tests (`tests/frontend/test_webui_dormant_subsystems_dom_render.py`) and 1 zero-redis standalone isolation test (`tests/core/test_vlm_healing.py`).
+> 
+> | Commit / State | Local Suite (`pytest -m "not e2e"`) | CI Matrix (Ubuntu / Win / Mac) | CI Minimal Install | Delta Breakdown & Specific Tests Added |
+> |---|---|---|---|---|
+> | **Tagged Release [`da31741`](https://github.com/rhaffle87/scrAPE/commit/da31741)** | **903 passed** (0 failed, 4 deselected) | **886 passed** (3 skipped, 0 failed) | **566 passed** (0 failed) | **Base Release State**: Tagged v0.30.0 release milestone. |
+> | **Post-Audit Fix [`7eca992`](https://github.com/rhaffle87/scrAPE/commit/7eca992)** | **904 passed** (0 failed, 4 deselected) | **887 passed** (3 skipped, 0 failed) | **567 passed** (0 failed) | **+1 test**: `+1 distributed Redis test` (`test_domain_failure_circuit_breaker_distributed_redis`). |
+> | **Verification HEAD [`dca1891`](https://github.com/rhaffle87/scrAPE/commit/dca1891)** | **907 passed** (0 failed, 4 deselected) | **890 passed** (3 skipped, 0 failed) | **568 passed** (0 failed) | **+3 tests**: `+2 DOM render tests` (`test_webui_dormant_subsystems_dom_render.py`) + `+1 zero-Redis test` (`test_domain_failure_circuit_breaker_standalone_zero_redis_isolation`). |
 
 
 ### 2.2 Exact Arithmetic Reconciliation

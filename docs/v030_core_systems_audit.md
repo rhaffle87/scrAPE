@@ -161,22 +161,13 @@ All 4 GitHub Actions workflows for the post-audit commit [`7eca992`](https://git
 
 ### 5.1 Test Count Reconciliation Across Canonical Documents
 
-To eliminate any ambiguity between documents, the test count progression across commits is explicitly reconciled:
-- **Tagged Release Commit `da31741`**:
-  - **903 tests passed** locally (4 deselected, 270.91s).
-  - **886 passed, 3 skipped, 0 failed** on CI standard matrix (Run `35807593427`).
-  - **566 passed, 0 failed** on CI minimal install runner.
-  - Documented authoritatively in [`docs/v030_release_validation_report.md`](file:///e:/Projects/scraper/docs/v030_release_validation_report.md).
-- **Post-Audit Commit `7eca992`**:
-  - **904 tests passed** locally.
-  - **887 passed, 3 skipped, 0 failed** on CI standard matrix (Run `35811046624`).
-  - **567 passed, 0 failed** on CI minimal install runner.
-  - Reflects the **1 new test** added to verify distributed Redis circuit breaker coordination (`test_domain_failure_circuit_breaker_distributed_redis_coordination`).
-- **Post-Audit Verification HEAD**:
-  - **907 tests passed** locally (4 deselected, 176.80s).
-  - Reflects **3 additional tests** added during this audit:
-    - 2 live DOM render and interaction tests in [`tests/frontend/test_webui_dormant_subsystems_dom_render.py`](file:///e:/Projects/scraper/tests/frontend/test_webui_dormant_subsystems_dom_render.py).
-    - 1 zero-redis standalone isolation test in [`tests/core/test_vlm_healing.py`](file:///e:/Projects/scraper/tests/core/test_vlm_healing.py) (`test_domain_failure_circuit_breaker_standalone_zero_redis_isolation`).
+To eliminate any ambiguity between documents and avoid requiring readers to cross-reference multiple sections, the test count progression across commits is explicitly reconciled with exact per-commit deltas:
+
+| Commit / State | Local Suite (`pytest -m "not e2e"`) | CI Matrix (Ubuntu / Win / Mac) | CI Minimal Install | Delta Breakdown & Specific Tests Added |
+|---|---|---|---|---|
+| **Tagged Release [`da31741`](https://github.com/rhaffle87/scrAPE/commit/da31741)** | **903 passed** (0 failed, 4 deselected) | **886 passed** (3 skipped, 0 failed) | **566 passed** (0 failed) | **Base Release State**: Tagged v0.30.0 release milestone. (CI excludes 17 local-fixture tests, 3 skipped). |
+| **Post-Audit Fix [`7eca992`](https://github.com/rhaffle87/scrAPE/commit/7eca992)** | **904 passed** (0 failed, 4 deselected) | **887 passed** (3 skipped, 0 failed) | **567 passed** (0 failed) | **+1 test**: `+1 distributed Redis test` ([`tests/core/test_vlm_healing.py`](file:///e:/Projects/scraper/tests/core/test_vlm_healing.py): `test_domain_failure_circuit_breaker_distributed_redis`). |
+| **Verification HEAD [`dca1891`](https://github.com/rhaffle87/scrAPE/commit/dca1891)** | **907 passed** (0 failed, 4 deselected) | **890 passed** (3 skipped, 0 failed) | **568 passed** (0 failed) | **+3 tests**: `+2 DOM render tests` ([`tests/frontend/test_webui_dormant_subsystems_dom_render.py`](file:///e:/Projects/scraper/tests/frontend/test_webui_dormant_subsystems_dom_render.py)) + `+1 standalone zero-Redis isolation test` ([`tests/core/test_vlm_healing.py`](file:///e:/Projects/scraper/tests/core/test_vlm_healing.py): `test_domain_failure_circuit_breaker_standalone_zero_redis_isolation`). |
 
 ### 5.2 Documentation Cross-Verification Matrix
 
