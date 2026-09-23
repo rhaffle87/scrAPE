@@ -35,6 +35,7 @@ class SelfHealingDOMParser:
         enable_vlm: bool = False,
         vlm_provider: str | None = None,
         vlm_healer: Any | None = None,
+        redis_client: Any | None = None,
     ):
         self.db_path = Path(db_path or "output/cache/repaired_selectors.db")
         self.enable_llm = enable_llm or bool(os.getenv("ENABLE_LLM_HEALING", "0") in ("1", "true"))
@@ -42,6 +43,7 @@ class SelfHealingDOMParser:
         self.enable_vlm = enable_vlm or bool(os.getenv("ENABLE_VLM_HEALING", "0") in ("1", "true"))
         self.vlm_provider = vlm_provider
         self._vlm_healer = vlm_healer
+        self.redis_client = redis_client
         self._lock = threading.RLock()
         self._init_db()
 
@@ -49,7 +51,10 @@ class SelfHealingDOMParser:
     def vlm_healer(self) -> Any:
         if self._vlm_healer is None:
             from core.vlm_healing import VisionDOMHealer
-            self._vlm_healer = VisionDOMHealer(provider=self.vlm_provider)
+            self._vlm_healer = VisionDOMHealer(
+                provider=self.vlm_provider,
+                redis_client=self.redis_client,
+            )
         return self._vlm_healer
 
     def _init_db(self) -> None:

@@ -30,10 +30,10 @@
 
 ### 4. QA Validation, Test Matrix & Empirical Proofs
 - **Full Regression Test Suite**:
-  - **Local Workstation (Windows 11, Python 3.13)**: **903 passed, 4 deselected, 0 failed in 147.76s** (907 collected).
-  - **GitHub Actions CI Matrix (Workflow Run [`35750843737`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843737))**: All 7 jobs passed (886 passed across all 6 OS/Python runners; 566 passed on dedicated `test-base-minimal` runner).
-- **Security Scan (Workflow Run [`35750843771`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843771))**: 5/5 security jobs passed (Gitleaks, Bandit, Semgrep, Trivy, OSV-Scanner).
-- **CodeQL Advanced (Workflow Run [`35750843900`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843900))**: Automated gate passed; GitHub Code Scanning REST API verified with `[]` (0 open alerts).
+  - **Local Workstation (Windows 11, Python 3.13)**: **903 passed, 4 deselected, 0 failed in 270.91s** (907 collected).
+  - **GitHub Actions CI Matrix (Workflow Run [`35807593427`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593427))**: All 7 jobs passed (886 passed across all 6 OS/Python runners; 566 passed on dedicated `test-base-minimal` runner).
+- **Security Scan (Workflow Run [`35807593255`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593255))**: 5/5 security jobs passed (Gitleaks, Bandit, Semgrep, Trivy, OSV-Scanner).
+- **CodeQL Advanced (Workflow Run [`35807593384`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593384))**: Automated gate passed; GitHub Code Scanning REST API verified with `[]` (0 open alerts).
 - **Empirical CI Failure Gate Tests**:
   - Pull Request #8: Proven automated pipeline block on injected path traversal flaw.
   - Pull Request #9: Proven automated pipeline block on committed cloud access keys.

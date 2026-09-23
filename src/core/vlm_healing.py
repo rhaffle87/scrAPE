@@ -125,11 +125,18 @@ class ScreenshotContext:
 class DomainVLMTracker:
     """
     Per-domain failure tracking, circuit breaking, and global run budget ceiling (AC3.2).
+    Supports standalone in-memory operation or distributed cluster-wide synchronization via Redis.
     """
 
-    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0) -> None:
+    def __init__(
+        self,
+        failure_threshold: int = 3,
+        cooldown_seconds: float = 300.0,
+        redis_client: Any | None = None,
+    ) -> None:
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
+        self.redis_client = redis_client
         self._lock = threading.Lock()
         self._failures: dict[str, int] = {}
         self._cooldown_until: dict[str, float] = {}
@@ -137,11 +144,23 @@ class DomainVLMTracker:
 
     @property
     def total_calls(self) -> int:
+        if self.redis_client:
+            try:
+                val = self.redis_client.get("scrape:vlm:total_calls")
+                if val:
+                    return int(val)
+            except Exception:
+                pass
         with self._lock:
             return self._total_calls
 
     def reset(self) -> None:
         """Reset all counters (useful for unit tests)."""
+        if self.redis_client:
+            try:
+                self.redis_client.delete("scrape:vlm:total_calls")
+            except Exception:
+                pass
         with self._lock:
             self._failures.clear()
             self._cooldown_until.clear()
@@ -154,6 +173,25 @@ class DomainVLMTracker:
             clean_domain = clean_domain.split(":")[0]
 
         max_calls = settings.get_vlm_max_calls()
+
+        # Cluster-wide check via Redis if available
+        if self.redis_client:
+            try:
+                tot = self.redis_client.get("scrape:vlm:total_calls")
+                if tot and int(tot) >= max_calls:
+                    return (
+                        False,
+                        f"Global VLM budget ceiling reached ({int(tot)}/{max_calls} calls across cluster).",
+                    )
+                circuit_key = f"scrape:vlm:circuit:{clean_domain}"
+                ttl = self.redis_client.ttl(circuit_key)
+                if ttl and ttl > 0:
+                    return (
+                        False,
+                        f"Circuit breaker OPEN for domain '{clean_domain}' in Redis cluster (cooling down for {ttl}s).",
+                    )
+            except Exception as exc:
+                LOGGER.debug("Redis VLM tracker check error: %s", exc)
 
         with self._lock:
             if self._total_calls >= max_calls:
@@ -174,6 +212,11 @@ class DomainVLMTracker:
         return True, "Allowed"
 
     def record_call(self) -> None:
+        if self.redis_client:
+            try:
+                self.redis_client.incr("scrape:vlm:total_calls")
+            except Exception:
+                pass
         with self._lock:
             self._total_calls += 1
 
@@ -181,6 +224,14 @@ class DomainVLMTracker:
         clean_domain = domain.lower().lstrip("www.")
         if ":" in clean_domain:
             clean_domain = clean_domain.split(":")[0]
+
+        if self.redis_client:
+            try:
+                self.redis_client.delete(f"scrape:vlm:failures:{clean_domain}")
+                self.redis_client.delete(f"scrape:vlm:circuit:{clean_domain}")
+            except Exception:
+                pass
+
         with self._lock:
             self._failures[clean_domain] = 0
             self._cooldown_until.pop(clean_domain, None)
@@ -189,6 +240,25 @@ class DomainVLMTracker:
         clean_domain = domain.lower().lstrip("www.")
         if ":" in clean_domain:
             clean_domain = clean_domain.split(":")[0]
+
+        if self.redis_client:
+            try:
+                fail_key = f"scrape:vlm:failures:{clean_domain}"
+                cluster_count = self.redis_client.incr(fail_key)
+                self.redis_client.expire(fail_key, 86400)
+                if cluster_count >= self.failure_threshold:
+                    mult = 2 ** min(4, cluster_count - self.failure_threshold)
+                    cooldown = int(min(1800.0, self.cooldown_seconds * mult))
+                    self.redis_client.set(f"scrape:vlm:circuit:{clean_domain}", "open", ex=cooldown)
+                    LOGGER.warning(
+                        "Circuit breaker TRIPPED for domain '%s' in Redis cluster after %d consecutive failures (cooling down %ds).",
+                        clean_domain,
+                        cluster_count,
+                        cooldown,
+                    )
+            except Exception as exc:
+                LOGGER.debug("Redis VLM record_failure error: %s", exc)
+
         with self._lock:
             count = self._failures.get(clean_domain, 0) + 1
             self._failures[clean_domain] = count
@@ -219,9 +289,15 @@ class VisionDOMHealer:
         provider: str | None = None,
         tracker: DomainVLMTracker | None = None,
         model_name: str | None = None,
+        redis_client: Any | None = None,
     ) -> None:
         self.provider = (provider or settings.get_vlm_provider()).lower()
-        self.tracker = tracker or _SHARED_VLM_TRACKER
+        if tracker is not None:
+            self.tracker = tracker
+        elif redis_client is not None:
+            self.tracker = DomainVLMTracker(redis_client=redis_client)
+        else:
+            self.tracker = _SHARED_VLM_TRACKER
         self.model_name = model_name or settings.get_vlm_model_name()
 
     def heal(

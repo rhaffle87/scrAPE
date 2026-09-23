@@ -7,24 +7,28 @@ This document provides unified project-scoped instructions, architectural guidel
 ## 1. Project Layout & Architecture
 
 ```text
-src/cli/main.py                     — CLI entry point, all flags documented via --help (--export-rag support)
-src/cli/monitor_agent.py            — Watchdog entry point, continuous monitoring loop
-src/cli/cli_wizard.py               — Interactive wizard for standard & watchdog runs
-src/config/__init__.py              — Tunable constants & .env credential loader
-src/core/engine.py                  — BFS crawl loop, page scoring, domain stats
-src/core/filters.py                 — Facade for URL classification, media detection, relevance scoring
-src/core/domain_rules.py            — Aggregates domain profiles and dynamic JSON settings
-src/core/media_processor.py         — Evaluates discovered media links and prepares downloads
-src/core/orchestrator.py            — Manages BFS crawl queue and dynamic concurrency
-src/core/models.py                  — ScrapeResult, ImageItem, VideoItem dataclasses
-src/scraper/google_images.py        — Search provider + page scraper + link/media extraction
-src/storage/downloader/             — Concurrent media downloader with MIME/size validation
-src/network/http_client.py            — Rate limiting, session pooling, 429 circuit breaker
-src/network/browser_client.py         — Browser automation fallback mixin (BrowserClientMixin)
-src/network/prewarmed_browser_pool.py — Pre-warmed browser pool for sub-50ms cold starts
-src/network/stealth/                — 8-tier WAF fallback pipeline orchestrator
-src/captcha/captcha_strategy.py       — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha, FreeAudio)
-src/notifications/telegram_bot.py           — Telegram Bot alerts & interactive command handler
+src/cli/main.py                           — CLI entry point, all flags documented via --help (--export-rag support)
+src/cli/worker.py                         — Distributed worker CLI entry point (`scrape-worker` / `python -m src.cli.worker`)
+src/cli/monitor_agent.py                  — Watchdog entry point, continuous monitoring loop
+src/cli/cli_wizard.py                     — Interactive wizard for standard & watchdog runs
+src/config/__init__.py                    — Tunable constants & .env credential loader
+src/core/engine.py                        — BFS crawl loop, page scoring, domain stats
+src/core/filters.py                       — Facade for URL classification, media detection, relevance scoring
+src/core/domain_rules.py                  — Aggregates domain profiles and dynamic JSON settings
+src/core/media_processor.py               — Evaluates discovered media links and prepares downloads
+src/core/orchestrator.py                  — Manages BFS crawl queue and dynamic concurrency
+src/core/models.py                        — ScrapeResult, ImageItem, VideoItem dataclasses
+src/core/task_schema.py                   — Distributed task & result schemas (Pydantic models for cluster messaging)
+src/core/distributed_worker.py            — Distributed worker node with heartbeats, lease renewal, Redis Streams & graceful shutdown
+src/core/vlm_healing.py                   — VLM DOM healer with multi-provider fallback (Ollama, OpenAI, Claude) & circuit breaker
+src/scraper/google_images.py              — Search provider + page scraper + link/media extraction
+src/storage/downloader/                   — Concurrent media downloader with MIME/size validation
+src/network/http_client.py                — Rate limiting, session pooling, 429 circuit breaker
+src/network/browser_client.py             — Browser automation fallback mixin (BrowserClientMixin)
+src/network/prewarmed_browser_pool.py     — Pre-warmed browser pool for sub-50ms cold starts
+src/network/stealth/                      — 8-tier WAF fallback pipeline orchestrator
+src/captcha/captcha_strategy.py           — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha, FreeAudio)
+src/notifications/telegram_bot.py         — Telegram Bot alerts & interactive command handler
 src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
 src/ml/hardware.py                   — Device detection & precision manager (CUDA, MPS, DirectML, CPU)
 src/ml/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
@@ -34,10 +38,11 @@ src/ml/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
 src/ml/ollama_provider.py        — Local Ollama vision API captioning provider
 src/ml/rag_exporter.py           — Vector embedding payload chunker (rag_payload.jsonl)
 src/storage/cas_store.py         — Global Content-Addressable Storage (.storage/cas) with NTFS hardlinks
+src/storage/cas_sync.py          — Two-way cloud CAS sync engine (S3/R2/MinIO) with atomic staged tempfiles
 src/storage/parquet_exporter.py  — Columnar Apache Parquet dataset exporter
 src/storage/storage_backend.py   — Pluggable storage sinks (LocalStorageSink, S3StorageSink)
 src/storage/hierarchical_dedup.py — 3-tier deduplication cascade (Bloom -> BK-Tree pHash -> Cosine)
-src/core/self_healing_parser.py  — Multi-tier autonomous self-healing DOM parser
+src/core/self_healing_parser.py  — Multi-tier autonomous self-healing DOM parser (Rule-based, heuristic, VLM fallback)
 src/core/worker_pool.py          — HybridWorkerPool, RedisStreamTaskBroker & process-tree hygiene
 src/common/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
 src/network/session.py                — Persistent cookie cache (data/sessions/)

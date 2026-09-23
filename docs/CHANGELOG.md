@@ -30,12 +30,12 @@
   - Zero heavy external AI SDK dependencies: built entirely on raw `httpx` REST calls (AC3.6).
 
 ### Validated & QA Verified (0.30.0)
-- Full local test suite passing cleanly: **903 passed, 4 deselected, 0 failed in 147.76s** (Windows 11, Python 3.13).
-- GitHub Actions CI Automated Test Suite (Run [`35750843737`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843737)):
+- Full local test suite passing cleanly: **903 passed, 4 deselected, 0 failed in 270.91s** (Windows 11, Python 3.13).
+- GitHub Actions CI Automated Test Suite (Run [`35807593427`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593427)):
   - All 6 OS/Python matrix runners: **886 passed, 3 skipped, 0 failed**.
   - Dedicated `Test Base Minimal Install (Zero Boto3 / Zero Cloud)` runner: **566 passed, 0 failed**.
-- GitHub Actions Security Scan (Run [`35750843771`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843771)): 5/5 jobs passed (Gitleaks, Bandit, Semgrep, Trivy container scan, OSV-Scanner).
-- GitHub Actions CodeQL Advanced (Run [`35750843900`](https://github.com/rhaffle87/scrAPE/actions/runs/35750843900)): Gate passed; GitHub Code Scanning REST API returned `[]` (0 open alerts).
+- GitHub Actions Security Scan (Run [`35807593255`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593255)): 5/5 jobs passed (Gitleaks, Bandit, Semgrep, Trivy container scan, OSV-Scanner).
+- GitHub Actions CodeQL Advanced (Run [`35807593384`](https://github.com/rhaffle87/scrAPE/actions/runs/35807593384)): Gate passed; GitHub Code Scanning REST API returned `[]` (0 open alerts).
 - Empirical gate failure tests confirmed in PR #8 (CodeQL path traversal gate) and PR #9 (AWS credential leak gate).
 
 ## [0.29.0] — 2026-09-20

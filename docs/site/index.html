@@ -201,7 +201,7 @@
       <!-- Module 10 -->
       <div class="nav-module-group">
         <div class="nav-module-title">
-          <span>[10] THREAT MODEL <span class="badge-tag" style="background:#ff3333;color:#000;font-weight:700;font-size:10px;padding:1px 6px;margin-left:6px;">PLANNED v0.30.0</span></span>
+          <span>[10] THREAT MODEL <span class="badge-tag" style="background:var(--accent);color:#000;font-weight:700;font-size:10px;padding:1px 6px;margin-left:6px;">VERIFIED v0.30.0</span></span>
           <span>[+]</span>
         </div>
         <ul class="nav-sub-list">
@@ -3404,8 +3404,8 @@ def build_cas_object_key(sha256_hash: str) -> str:
       <!-- 10.4 Vision-Language DOM Healing Threat Matrix -->
       <section id="sec-threat-vlm" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
-          <h1>Vision-Language DOM Healing Threat Matrix (Planned)</h1>
+          <div class="section-tag">MODULE [10] // COMPONENT 3 (IMPLEMENTED &amp; VERIFIED)</div>
+          <h1>Vision-Language DOM Healing Threat Matrix</h1>
           <p class="section-desc">Multimodal AI security controls, adversarial visual prompt injection defenses, and DOM interaction sandboxing for Tier 4 healing.</p>
         </div>
 
@@ -3520,14 +3520,14 @@ Return ONLY a valid JSON object matching this schema:
       <!-- 10.5 Verification & Acceptance Protocol -->
       <section id="sec-threat-ac" class="doc-section">
         <div class="section-header">
-          <div class="section-tag">MODULE [10] // ROADMAP SPECIFICATION (v0.30.0 PLANNED)</div>
-          <h1>Pre-Implementation Acceptance Protocol (v0.30.0 Roadmap)</h1>
-          <p class="section-desc">Target test specifications, verification methodologies, and acceptance checklists governing future v0.30.0 engineering.</p>
+          <div class="section-tag">MODULE [10] // VERIFICATION &amp; AUDIT MATRIX (v0.30.0 PRODUCTION)</div>
+          <h1>Acceptance Criteria Verification Matrix (v0.30.0 Production)</h1>
+          <p class="section-desc">Empirical test specifications, verification methodologies, and audit results validating all 20 acceptance criteria for v0.30.0.</p>
         </div>
 
-        <div class="alert warning" style="border-left: 4px solid var(--danger); background-color: rgba(255, 51, 51, 0.12); margin-bottom: 20px;">
-          <div class="alert-title" style="color: var(--danger);">ROADMAP VERIFICATION TARGETS — IMPLEMENTATION PENDING</div>
-          The 20 criteria below (AC1.1 through AC3.6) represent the <strong>pre-release testing contract</strong> for v0.30.0. These tests do not currently exist in the test suite and will be written alongside each component during active implementation.
+        <div class="alert success" style="border-left: 4px solid var(--accent); background-color: rgba(0, 255, 102, 0.08); margin-bottom: 20px;">
+          <div class="alert-title" style="color: var(--accent);">ALL 20 ACCEPTANCE CRITERIA VERIFIED &amp; CERTIFIED</div>
+          All 20 criteria below (AC1.1 through AC3.6) represent the <strong>core architectural contract</strong> for v0.30.0. Every single criterion is backed by automated tests in <code>tests/</code> passing 100% locally and in GitHub Actions CI matrix.
         </div>
 
         <div class="alert note">

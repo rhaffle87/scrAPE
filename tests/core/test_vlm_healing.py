@@ -801,3 +801,47 @@ def test_vlm_base_install_without_hosted_sdks(monkeypatch):
             assert gemini_healer.provider == "gemini"
             assert openai_healer.provider == "openai"
 
+
+def test_domain_failure_circuit_breaker_distributed_redis_coordination():
+    """
+    AC3.2 / Distributed Concurrency: Multiple worker nodes sharing Redis coordinate
+    domain circuit breaking in real time, preventing concurrent workers from hammering
+    hostile domains once 3 failures occur cluster-wide.
+    """
+    import fakeredis
+    fake_redis = fakeredis.FakeStrictRedis()
+
+    worker_1_tracker = DomainVLMTracker(failure_threshold=3, cooldown_seconds=60.0, redis_client=fake_redis)
+    worker_2_tracker = DomainVLMTracker(failure_threshold=3, cooldown_seconds=60.0, redis_client=fake_redis)
+
+    domain = "hostile-waf.org"
+
+    # Both workers allowed initially
+    can1, _ = worker_1_tracker.can_call(domain)
+    can2, _ = worker_2_tracker.can_call(domain)
+    assert can1 is True
+    assert can2 is True
+
+    # Worker 1 fails 3 times
+    for _ in range(3):
+        worker_1_tracker.record_failure(domain)
+
+    # Worker 1 is tripped
+    can1_after, msg1 = worker_1_tracker.can_call(domain)
+    assert can1_after is False
+
+    # Worker 2 in an independent process is ALSO tripped via Redis
+    can2_after, msg2 = worker_2_tracker.can_call(domain)
+    assert can2_after is False
+    assert "in Redis cluster" in msg2
+
+    # Cluster-wide budget ceiling coordination
+    worker_1_tracker.reset()
+    for _ in range(50):
+        worker_1_tracker.record_call()
+
+    can_budget, budget_reason = worker_2_tracker.can_call("any-domain.com")
+    assert can_budget is False
+    assert "Global VLM budget ceiling reached" in budget_reason
+
+

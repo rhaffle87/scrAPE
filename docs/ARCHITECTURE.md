@@ -67,19 +67,19 @@ scrape-dashboard/
 │       └── watchdog.py          — Continuous monitoring agent status & controls
 │
 ├── src/                         — Python Source Core
-│   ├── cli/                     — Primary CLI, interactive wizards, watchdog loop, seed studio
+│   ├── cli/                     — Primary CLI, interactive wizards, watchdog loop, seed studio, worker daemon
 │   ├── config/                  — Canonical path anchoring (PROJECT_ROOT, DATA_DIR, PROFILES_DIR)
-│   ├── core/                    — ScrapingEngine main orchestration, BFS crawling, parsing
+│   ├── core/                    — ScrapingEngine, distributed workers, VLM healing, task schemas
 │   ├── scraper/                 — Base Scraper classes, fallback logic
 │   ├── plugins/                 — Platform-specific extractors (Booru, Civitai, Reddit, yt-dlp)
-│   ├── captcha/                 — Universal CAPTCHA strategy providers
-│   ├── ml/                      — AI tagging, cropping, LoRA exporting, Ollama vision
-│   ├── monitoring/              — Hardware governor, structured telemetry
-│   ├── network/                 — Tiered HTTP client, stealth pipeline, rate limiting
+│   ├── captcha/                 — Universal CAPTCHA strategy providers (CapSolver, 2Captcha, AntiCaptcha, FreeAudio)
+│   ├── ml/                      — AI tagging, cropping, LoRA exporting, Ollama vision, aesthetic scoring
+│   ├── monitoring/              — Hardware governor, structured telemetry, process hygiene
+│   ├── network/                 — Tiered HTTP client, pre-warmed browser pool, stealth pipeline, rate limiting
 │   ├── notifications/           — Pluggable notification pipeline
-│   └── storage/                 — SQLite WAL state caching, chunked downloading
+│   └── storage/                 — SQLite WAL state caching, CAS store, Cloud CAS sync, Parquet exporter
 │
-├── tests/                       — Domain-Structured Automated Test Suite (546 Tests)
+├── tests/                       — Domain-Structured Automated Test Suite (903 Tests Passing Locally / 886 + 566 CI)
 │   ├── conftest.py              — Global pytest fixtures, project_root resolution, network isolation
 │   ├── mock_target_server.py    — Local ephemeral HTTP mock server for offline integration tests
 │   ├── cli/                     — CLI launcher, wizards, preflight, release automation
@@ -296,6 +296,25 @@ The engine couples host-level network health with host-level hardware resource c
 
 - **Domain Tier Memory Caching**: In-memory domain-to-tier lookup (`_domain_tier_memory`) that bypasses redundant T1 HTTPX 403 failure loops on known bot-protected domains, cutting subsequent request latency by 88.2% (8.47× speedup).
 - **Anti-SSRF & DNS Rebinding Defense**: Strict IP octet decoding, private CIDR validation, cloud metadata protection, and redirect hop inspection across every intermediate response in redirect chains.
+
+### 3.22 Distributed Task Leasing & Autonomous Worker Daemons (`src/core/distributed_worker.py`, `src/core/worker_pool.py`)
+
+- **Distributed Task Leasing**: Redis Streams task broker (`RedisStreamTaskBroker`) utilizing consumer groups (`XREADGROUP`), atomic mutual exclusion idempotency locks (`SET scrape:completed:{task_id} NX EX 86400`), and orphan task auto-claiming (`XAUTOCLAIM`).
+- **Autonomous Worker Daemons**: Standalone CLI entrypoint (`python -m src.cli.worker`) running write-before-ack ordering, background heartbeats (`scrape:workers:heartbeats`), active node tracking, and automatic stale consumer garbage collection.
+- **Dead-Letter Routing & Poison-Pill Defense**: Tasks exceeding retry limits route to `scrape:dead_letter` without blocking pending entry lists.
+
+### 3.23 Cloud Content-Addressable Storage (CAS) Synchronization (`src/storage/cas_sync.py`)
+
+- **Asynchronous Cloud Block Replication**: Bounded spooling queue (`maxsize=1000`) replicating deduplicated SHA-256 blocks to Amazon S3, Cloudflare R2, and MinIO with immediate backpressure (`CASQueueFullError`).
+- **SSRF & Credential Protection**: Strict 64-hex key validation (`validate_cas_key`), unconditional endpoint validation (`validate_s3_endpoint_url`), and source-level error redaction (`redact_s3_error`).
+- **Zero-Cloud-Dependency Core**: `boto3` isolated to optional `[cloud]` extra, maintaining pure zero-cloud local operation.
+
+### 3.24 Multimodal Vision-Language (VLM) DOM Self-Healing (`src/core/vlm_healing.py`)
+
+- **Tier 4 Multimodal Self-Healing**: Integrated into `SelfHealingDOMParser` as fail-safe fallback when T1-T3 strategies fail.
+- **Prompt Injection Defense**: System prompts isolate untrusted DOM content inside `<untrusted_scraped_data>` tags, validated against a 75-vector adversarial fuzz corpus.
+- **Structural Default-Deny Allowlist & Live DOM Validation**: Accepts only verified media controls and cookie dismissals (`is_safe_vlm_interaction_target`), enforces live DOM element verification before cache writes, and applies 7-day TTL expiration.
+- **Distributed Circuit Breaker**: Synchronizes per-domain failure counts and global budget ceiling across cluster worker nodes via Redis.
 
 ---
 
