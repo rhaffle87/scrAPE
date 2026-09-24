@@ -1058,7 +1058,6 @@ class BrowserClientMixin:
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
             host = self._hostname(url)
-            profile_path = self._get_browser_profile_path(host)
             kwargs = {
                 "headless": is_headless,
                 "os": camou_os,
