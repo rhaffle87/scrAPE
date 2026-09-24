@@ -1063,11 +1063,9 @@ class BrowserClientMixin:
                 "headless": is_headless,
                 "os": camou_os,
                 "humanize": True,
-                "window_size": (1920, 1080),
-                "user_data_dir": profile_path,
             }
             with Camoufox(**kwargs) as browser:
-                page = browser.new_page()
+                page = browser.new_page(viewport={"width": 1920, "height": 1080})
                 try:
                     stealth_js = self.get_stealth_script(host)
                     if hasattr(page, "add_init_script"):
