@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import json
+from urllib.parse import urlparse
 from unittest.mock import MagicMock
 
 import pytest
@@ -54,7 +55,7 @@ def test_searxng_failover_on_http_errors(monkeypatch):
     resp_healthy.json.return_value = json.loads(resp_healthy.text)
 
     def mock_get(url, *args, **kwargs):
-        if "failing-instance.org" in url:
+        if urlparse(str(url)).netloc == "failing-instance.org":
             return resp_502
         return resp_healthy
 
@@ -91,7 +92,7 @@ def test_searxng_failover_on_html_challenge_page(monkeypatch):
     resp_clean.json.return_value = json.loads(resp_clean.text)
 
     def mock_get(url, *args, **kwargs):
-        if "challenge-instance.org" in url:
+        if urlparse(str(url)).netloc == "challenge-instance.org":
             return resp_challenge
         return resp_clean
 

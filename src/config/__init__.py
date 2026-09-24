@@ -5,6 +5,7 @@ import json
 import os
 import re as _re
 import logging
+import warnings
 
 from .version import VERSION as VERSION, VERSION_TAG as VERSION_TAG
 from .settings_manager import SettingsManager as SettingsManager, settings as settings
@@ -47,8 +48,6 @@ OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "moondream").strip()
 WEBUI_HOST: str = os.getenv("WEBUI_HOST", "0.0.0.0").strip()
 WEBUI_PORT: int = int(os.getenv("WEBUI_PORT", "10001"))
 
-
-import warnings
 try:
     import urllib3.exceptions
     warnings.filterwarnings("ignore", category=urllib3.exceptions.DependencyWarning)
