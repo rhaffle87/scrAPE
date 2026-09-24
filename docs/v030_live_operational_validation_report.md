@@ -252,7 +252,23 @@ To eliminate single-manifest bias, an unmocked live crawl was executed across **
    - Line 49: `https://www.google.com/search?tbm=isch&q=apple+high+resolution`
    - Lines 42–45: `https://www.apple.com/newsroom/`, `/iphone/`, `/mac/`, `/ipad/` (Domain #5 in seed queue)
 2. **Budget Exhaustion**: With `--page-limit 4`, the crawler crawled the 4 search engine queries and halted before ever dispatching a request to `www.apple.com`.
-3. **Empirical Resolution**: Running with `--page-limit 10` under WARP egress (`Run 20260924T050100Z`) confirmed `www.apple.com` was reached on pages 7–10, downloading **12 real high-resolution images** (3 skipped duplicates, 25 rejected low-res icons, 100% download success, **Audit Health Grade B**) in 15.0s.
+3. **Empirical Resolution & Verbatim Telemetry**: Running with `--page-limit 10` under WARP egress (`Run 20260924T050100Z`) confirmed `www.apple.com` was reached on pages 7–10, downloading **12 real high-resolution images** (3 skipped duplicates, 25 rejected low-res icons, 100% download success, **Audit Health Grade B**) in 15.0s.
+
+   *Verbatim excerpts from `logs/run_20260924T050100Z.log`:*
+   ```
+   2026-09-24 12:01:14 | INFO     | storage.downloader.manager | Downloaded E:\Projects\scraper\output\apple\runs\20260924T050100Z\images\www.apple.com\www_apple_com_002_iphone_duo_held_by_two_hands_in_open_lan.jpg
+   2026-09-24 12:01:14 | INFO     | monitoring.telemetry | [TELEMETRY:media_downloaded] {"url": "https://www.apple.com/v/iphone/home/ck/images/overview/priority-router/hero_iphone_duo__wqpt8bqwtfm2_large.jpg", "file_path": "apple/runs/20260924T050100Z/images/www.apple.com/www_apple_com_002_iphone_duo_held_by_two_hands_in_open_lan.jpg", "media_kind": "image", "width": 1260, "height": 680, "mime_type": "image/jpeg", "file_size_bytes": 96642}
+   2026-09-24 12:01:15 | INFO     | httpx | HTTP Request: GET https://www.apple.com/ipad/ "HTTP/1.1 200 OK"
+   2026-09-24 12:01:17 | INFO     | core.audit_evaluator | Crawl Audit Completed: Grade B | HTTP Success Rate: 70.0% | Download Success Rate: 100.0%
+   2026-09-24 12:01:17 | INFO     | core.run_summary | DOMAIN BREAKDOWN:
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   Domain                          Pages   Img     Vid     Rej     Dupes   Wasted
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   --------------------------------------------------------------------
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   archive.org                     2       0       0       0       0       2     
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   vimeo.com                       1       0       0       0       0       1     
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   www.apple.com                   4       12      0       25      0       0     
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   www.flickr.com                  1       0       0       0       0       1     
+   2026-09-24 12:01:17 | INFO     | core.run_summary |   www.google.com                  2       0       0       0       0       2     
+   ```
 4. **Benchmark Footnote**: This confirms that Cloudflare WARP egress did *not* block or degrade `apple.com`. The earlier 33-item scaled clean benchmark (§1.2) remains fully valid and unconfounded: because it used `--page-limit 10`, it reached `www.apple.com` and ingested 33 images. The measured wall-clock and throughput numbers reflect genuine pipeline performance.
 
 #### 4.4.2 Rejection Hygiene & Cross-Manifest False-Negative Audit
@@ -268,7 +284,7 @@ To evaluate whether the 4:1 rejection ratio represents clean filtering or errone
   - `takomayuyi.txt`: Rejections consisted of site logos, SVG play button icons (`fapello.com/.../icon-play.svg`), and 300px low-res previews.
   - `akariiiii_cos.txt`: Rejections consisted of emoji assets (`leakgallery.com/icons/emoji/fire.png`, `droplets.png`), background placeholders (`bg.jpg`), and play button SVGs.
   - `hana_bunny.txt`: Rejections consisted of 32px social media icons (`32px-Web_icon.png`, `Facebook_icon.png`, `Fansly_icon.png`).
-- **Cross-Manifest Verdict:** Filtering operates as intended across all manifests, eliminating small icons, UI controls, and thumbnail clutter without discarding full-resolution gallery assets.
+- **Cross-Manifest Calibration & Verdict:** While `meenfox.txt`'s 48 rejections were subjected to exhaustive, item-by-item URL provenance verification (yielding a proven 0.0% false-negative rate), the remaining 338 rejections across the other manifests were evaluated via aggregated categorization and spot-check sampling. These samples are fully consistent with appropriate filtering (eliminating icons, navigation SVGs, dead links, and duplicate thumbnail previews), but have not been audited individually with the same item-level granularity.
 
 #### 4.4.3 Gap 2: Live Cloudflare Turnstile Evasion & Signature-Derived Regression Test
 Cloudflare Turnstile evasion was verified against live target domain `celebforum.cc`:
@@ -348,7 +364,7 @@ tests/network/* .......................................... [100%]
 scrAPE v0.30.0 has demonstrated **operational integrity across all 7 seed manifests and threat-modeled subsystems under live real-world conditions**, with all originally-scoped validation gaps resolved under explicitly stated operational boundaries:
 
 1. **All-Seeds Crawl Matrix & Apple Seed Root-Causing**: Ingested **80 real media assets** across 26 scanned pages across all 7 seed manifests in the 4-page snapshot, plus an additional **12 high-resolution assets** on `apple.txt` in the 10-page resolution run (`Run 20260924T050100Z`), achieving a **100% download success rate** across all attempted media downloads. The initial 0-download result in the 4-page snapshot was root-caused to queue-ordering truncation (budget exhausted on search domains #1–4 before reaching `www.apple.com` at domain #5), not a WARP IP block or network degradation.
-2. **Rejection Hygiene Audited**: Detailed inspection confirmed a **0.0% false-negative rate in the audited `meenfox.txt` sample (48/386 total rejections)**, with cross-manifest spot-checking across the remaining 338 rejections verifying that filtered assets were true UI icons, 32px social badges, responsive banner crops, and CDN video poster thumbnails rather than missed full-resolution media.
+2. **Rejection Hygiene Audited**: Detailed inspection confirmed a **proven 0.0% false-negative rate in the exhaustively audited `meenfox.txt` sample (48/48 items correctly rejected)**. Cross-manifest aggregated pattern verification of the remaining 338 rejections showed consistent filtering (UI icons, 32px social badges, responsive banner crops, and CDN poster frames) without evidence of discarded full-resolution media, though unverified at individual item-by-item granularity.
 3. **Turnstile Evasion & Engine Hardening**: Dual-engine verified on `celebforum.cc` (Nodriver in live crawl; Camoufox in standalone mode: 37.31s, 28,309 bytes). Hardened against Playwright Firefox kwargs with targeted regression test coverage.
 4. **Environmental Boundary (Network Egress)**: Testing against restricted domains in ISP DPI environments requires an encrypted tunnel (Cloudflare WARP or VPN). Under direct domestic ISP routing, external blocks redirect traffic to ISP landing pages, safely rejected by scrAPE's SSRF validator.
 5. **Extractor Provenance Boundary**: Public API extractors (Civitai, Safebooru, yt-dlp) are 100% verified with live asset downloads. Social extractors (Reddit, Instagram) are verified on defensive error-handling and boundary paths only; full authenticated extraction requires user-provided session tokens in `data/sessions/`.
