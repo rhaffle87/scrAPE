@@ -103,13 +103,34 @@ def test_camoufox_fallback_not_installed(monkeypatch):
 def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
     """Targeted regression test: verify Camoufox is launched without invalid Playwright Firefox kwargs
 
-    (window_size, user_data_dir) and that viewport geometry is configured on new_page().
+    Validates that all kwargs passed to Camoufox are strictly checked against
+    camoufox.launch_options's actual parameter signature (via inspect.signature),
+    rejecting illegal Chromium/arbitrary kwargs like window_size or user_data_dir.
     """
+    import inspect
     import sys
     from unittest.mock import MagicMock
 
     client = HttpClient()
     url = "https://example-turnstile.com/gallery"
+
+    # Derive valid parameter names dynamically from real camoufox.launch_options and Playwright BrowserType.launch signatures
+    try:
+        import camoufox
+        from playwright.sync_api import BrowserType
+        valid_camou_params = set(inspect.signature(camoufox.launch_options).parameters.keys())
+        valid_playwright_params = set(inspect.signature(BrowserType.launch).parameters.keys())
+        allowed_launch_kwargs = valid_camou_params.union(valid_playwright_params)
+    except Exception:
+        allowed_launch_kwargs = {
+            "headless", "os", "humanize", "config", "geoip", "addons",
+            "fonts", "screen", "window", "fingerprint", "proxy", "executable_path",
+            "args", "env", "timeout", "firefox_user_prefs", "slow_mo"
+        }
+
+    # Ensure prohibited chromium/persistent kwargs are not in the allowed signature
+    assert "window_size" not in allowed_launch_kwargs
+    assert "user_data_dir" not in allowed_launch_kwargs
 
     captured_init_kwargs = {}
     captured_new_page_kwargs = {}
@@ -131,11 +152,10 @@ def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
 
     class MockCamoufox:
         def __init__(self, **kwargs):
-            # Adversarial simulation: mimic Playwright Firefox launch behavior
-            forbidden_args = {"window_size", "user_data_dir"}
-            invalid_found = forbidden_args.intersection(kwargs.keys())
-            if invalid_found:
-                raise TypeError(f"BrowserType.launch() got an unexpected keyword argument '{list(invalid_found)[0]}'")
+            # Adversarial simulation: strictly enforce signature constraints derived from upstream
+            for kw in kwargs:
+                if kw not in allowed_launch_kwargs:
+                    raise TypeError(f"BrowserType.launch() got an unexpected keyword argument '{kw}'")
             captured_init_kwargs.update(kwargs)
 
         def __enter__(self):
@@ -143,6 +163,14 @@ def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+
+    # Verify MockCamoufox independently rejects arbitrary kwargs based on signature, not hardcoded diff names
+    with pytest.raises(TypeError, match="unexpected keyword argument 'arbitrary_invalid_param'"):
+        MockCamoufox(arbitrary_invalid_param=True)
+    with pytest.raises(TypeError, match="unexpected keyword argument 'window_size'"):
+        MockCamoufox(window_size=(1920, 1080))
+    with pytest.raises(TypeError, match="unexpected keyword argument 'user_data_dir'"):
+        MockCamoufox(user_data_dir="/tmp/test")
 
     mock_sync_api = MagicMock()
     mock_sync_api.Camoufox = MockCamoufox
@@ -154,19 +182,23 @@ def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
 
     html, cookies = client._get_with_camoufox(url)
 
-    # 1. Assert invalid kwargs are never passed to Camoufox launch
+    # 1. Assert all passed kwargs are strictly within the real Camoufox launch signature
+    for passed_kw in captured_init_kwargs:
+        assert passed_kw in allowed_launch_kwargs, f"Unexpected kwarg '{passed_kw}' passed to Camoufox"
+
+    # 2. Assert specific forbidden Chromium/Playwright kwargs are absent
     assert "window_size" not in captured_init_kwargs
     assert "user_data_dir" not in captured_init_kwargs
 
-    # 2. Assert valid stealth kwargs are properly supplied
+    # 3. Assert valid stealth kwargs are properly supplied
     assert "headless" in captured_init_kwargs
     assert "os" in captured_init_kwargs
     assert captured_init_kwargs.get("humanize") is True
 
-    # 3. Assert viewport geometry is set on new_page()
+    # 4. Assert viewport geometry is set on new_page()
     assert captured_new_page_kwargs == {"viewport": {"width": 1920, "height": 1080}}
 
-    # 4. Assert returned HTML and extracted cookies
+    # 5. Assert returned HTML and extracted cookies
     assert "Target Gallery Content" in html
     assert any(c["name"] == "cf_clearance" for c in cookies)
 
