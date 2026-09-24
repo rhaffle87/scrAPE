@@ -90,8 +90,8 @@ def test_smoke_05_database_exporter(tmp_path):
     exporter.export(res)
     assert db_file.is_file()
 
-    # Query SQLite database to verify relational schema and record presence
-    with sqlite3.connect(db_file) as conn:
+    conn = sqlite3.connect(db_file)
+    try:
         cursor = conn.cursor()
         cursor.execute("SELECT count(*) FROM images")
         img_count = cursor.fetchone()[0]
@@ -100,6 +100,8 @@ def test_smoke_05_database_exporter(tmp_path):
         cursor.execute("SELECT count(*) FROM videos")
         vid_count = cursor.fetchone()[0]
         assert vid_count == 1
+    finally:
+        conn.close()
 
 
 def test_smoke_06_reddit_extractor():

@@ -605,7 +605,7 @@ class CrawlCoordinator:
             if not (self.task_state.get("abort_requested") or self.task_state.get("stop_requested")):
                 self.state_cache.clear_crawl_checkpoint(self.result.run_id)
 
-        if self.max_results > 0:
+        if self.max_results > 0 and getattr(self.options, "use_search", True):
             extra_videos = self.video_scraper.search(
                 self.options.keyword, self.max_results,
                 allow_domains=self.options.allow_domains, block_domains=self.options.block_domains

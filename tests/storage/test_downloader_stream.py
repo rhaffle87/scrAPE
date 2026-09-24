@@ -39,6 +39,11 @@ def test_downloader_stream_early_resolution_abort(monkeypatch):
         yield resp
 
     monkeypatch.setattr(httpx.Client, "stream", mock_stream)
+    monkeypatch.setattr(
+        httpx.Client,
+        "head",
+        lambda *a, **kw: httpx.Response(404, request=httpx.Request("HEAD", "https://example.com/small_image.png")),
+    )
 
     temp_dir = Path("output/test_stream_abort")
     temp_dir.mkdir(parents=True, exist_ok=True)

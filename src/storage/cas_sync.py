@@ -372,3 +372,16 @@ class CASCloudSyncer:
         per_worker_timeout = max(0.1, timeout / max(1, len(self._workers)))
         for t in self._workers:
             t.join(timeout=per_worker_timeout)
+
+        if self._client is not None and hasattr(self._client, "close"):
+            try:
+                self._client.close()
+            except Exception:
+                pass
+            self._client = None
+
+    def __enter__(self) -> CASCloudSyncer:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import functools
 import json
 import logging
@@ -124,8 +125,14 @@ class StateCache:
             LOGGER.warning("SQLite VACUUM failed: %s", exc)
             return False
 
+    @contextmanager
     def _get_connection(self):
-        return sqlite3.connect(str(self.db_path), timeout=30.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self):
         with self._get_connection() as conn:

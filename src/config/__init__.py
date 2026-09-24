@@ -48,13 +48,32 @@ WEBUI_HOST: str = os.getenv("WEBUI_HOST", "0.0.0.0").strip()
 WEBUI_PORT: int = int(os.getenv("WEBUI_PORT", "10001"))
 
 
+import warnings
+try:
+    import urllib3.exceptions
+    warnings.filterwarnings("ignore", category=urllib3.exceptions.DependencyWarning)
+except Exception:
+    pass
+try:
+    from requests.exceptions import RequestsDependencyWarning
+    warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
+except Exception:
+    pass
+
 ENABLE_COOKIE_HARVESTING = True
 ENABLE_DRISSIONPAGE_FALLBACK = True
 ENABLE_HELIUM_FALLBACK = True
 ENABLE_CAMOUFOX_FALLBACK = True
 ENABLE_FLARESOLVERR_FALLBACK = os.getenv("ENABLE_FLARESOLVERR_FALLBACK", "False").lower() in ("true", "1")
 FLARESOLVERR_URL = os.getenv("FLARESOLVERR_URL", "http://127.0.0.1:8191/v1")
-SEARXNG_HOSTS: list[str] = ["https://searx.be", "https://searx.space"]
+
+# SearXNG fallback instances pool (excludes non-instance directory endpoints like searx.space)
+_searxng_env = os.getenv("SEARXNG_INSTANCES")
+if _searxng_env:
+    SEARXNG_HOSTS: list[str] = [h.strip() for h in _searxng_env.split(",") if h.strip()]
+else:
+    SEARXNG_HOSTS: list[str] = ["https://searx.be", "https://search.ononoki.org", "https://searx.work"]
+
 DEFAULT_VIDEO_QUALITY = "best"
 FORCE_HEADLESS: bool = False
 STEALTH_HEADFUL: bool = False

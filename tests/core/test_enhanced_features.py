@@ -1,4 +1,5 @@
 import struct
+import time
 from unittest.mock import MagicMock
 import pytest
 
@@ -512,6 +513,9 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
             "Forbidden", request=httpx.Request("GET", url), response=response
         )
 
+    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get)
 
     from network.stealth.strategies import CrawleeStrategy
@@ -588,6 +592,9 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
         resp = httpx.Response(403, request=httpx.Request("GET", url))
         raise httpx.HTTPStatusError("403 Forbidden", request=httpx.Request("GET", url), response=resp)
 
+    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get_403)
 
     def mock_fail(self, url, options):
@@ -775,7 +782,7 @@ def test_cache_disposal_and_run_id_passing(tmp_path):
     assert result.run_id == "TEST_RUN_123"
 
 
-def test_media_downloader_unicode_quoting(monkeypatch):
+def test_media_downloader_unicode_quoting(monkeypatch, tmp_path):
     from storage.downloader.manager import MediaDownloader
     import httpx
     from pathlib import Path
@@ -800,14 +807,22 @@ def test_media_downloader_unicode_quoting(monkeypatch):
         resp.headers["content-type"] = "image/png"
         yield resp
 
+    def mock_head(client_self, url, **kwargs):
+        resp = httpx.Response(
+            status_code=200,
+            headers={"content-type": "image/png", "content-length": "25000"},
+            request=httpx.Request("HEAD", url),
+        )
+        return resp
+
     monkeypatch.setattr(httpx.Client, "stream", mock_stream)
+    monkeypatch.setattr(httpx.Client, "head", mock_head)
 
     # Pass a url and referer with non-ASCII characters
     unicode_url = "https://example.com/path/with/unicode/测试.png"
     unicode_referer = "https://example.com/referer/测试"
 
-    # Create a dummy temp directory
-    temp_dir = Path("output/test_unicode_dl")
+    temp_dir = tmp_path / "test_unicode_dl"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -859,6 +874,8 @@ def test_http_client_direct_stealth_routing(monkeypatch):
             "Forbidden", request=httpx.Request("GET", url), response=response
         )
 
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get)
 
     # Mock _execute_fallbacks
@@ -1175,9 +1192,21 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
             }
         ]
 
+    from network.stealth.pipeline import (
+        Crawl4AIStrategy,
+        DrissionPageStrategy,
+        CrawleeStrategy,
+        CamoufoxStrategy,
+        FlareSolverrStrategy,
+    )
+    from captcha.captcha_strategy import ThirdPartyCaptchaStrategy as CapSolverStrategy
+
     monkeypatch.setattr(CrawleeStrategy, "execute", mock_crawlee_fail)
     monkeypatch.setattr(Crawl4AIStrategy, "execute", mock_crawl4ai_fail)
     monkeypatch.setattr(DrissionPageStrategy, "execute", mock_drission_fail)
+    monkeypatch.setattr(CamoufoxStrategy, "is_available", lambda self: False)
+    monkeypatch.setattr(FlareSolverrStrategy, "is_available", lambda self: False)
+    monkeypatch.setattr(CapSolverStrategy, "is_available", lambda self: False)
     monkeypatch.setattr(client, "_get_with_helium", mock_helium_success)
 
     def mock_get_429(url, **kwargs):
@@ -1186,6 +1215,9 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
             "429 Too Many Requests", request=httpx.Request("GET", url), response=resp
         )
 
+    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get_429)
 
     resp = client.get("https://helium-test.com/path")
@@ -1198,6 +1230,7 @@ def test_get_with_helium_launches_chrome_first_then_firefox(monkeypatch):
     from network.http_client import HttpClient
 
     client = HttpClient()
+    monkeypatch.setattr(time, "sleep", lambda x: None)
 
     # Mock helium module
     mock_helium = MagicMock()

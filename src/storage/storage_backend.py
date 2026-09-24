@@ -232,6 +232,23 @@ class S3StorageSink(BaseStorageSink):
             return f"s3://{self.bucket_name}/{key}"
         return self._local_fallback.get_uri(relative_path)
 
+    def close(self) -> None:
+        """Close underlying boto3 client and release network resources."""
+        if self._client is not None and hasattr(self._client, "close"):
+            try:
+                self._client.close()
+            except Exception:
+                pass
+            self._client = None
+            self._s3_available = False
+
+    def __enter__(self) -> S3StorageSink:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
+
+
 
 def get_storage_sink(
     backend: str = "local",

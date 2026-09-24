@@ -59,7 +59,10 @@ filterwarnings = [
     "ignore::DeprecationWarning:uvicorn.*:",
     "ignore::DeprecationWarning:speech_recognition.*:",
     "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*:",
-    "ignore::DeprecationWarning:fastapi.*:"
+    "ignore::DeprecationWarning:fastapi.*:",
+    "ignore:.*doesn't match a supported version.*:",
+    "ignore::urllib3.exceptions.DependencyWarning:",
+    "ignore::requests.exceptions.RequestsDependencyWarning:"
 ]
 
 [tool.ruff]

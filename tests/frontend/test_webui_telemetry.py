@@ -33,10 +33,13 @@ async def test_api_telemetry_stream_endpoint():
     response = await stream_telemetry(mock_request)
     assert response.media_type == "text/event-stream"
 
+    from contextlib import aclosing
+
     first_chunk = None
-    async for chunk in response.body_iterator:
-        first_chunk = chunk
-        break
+    async with aclosing(response.body_iterator) as it:
+        async for chunk in it:
+            first_chunk = chunk
+            break
 
     assert first_chunk is not None
     chunk_str = first_chunk.decode("utf-8") if isinstance(first_chunk, bytes) else str(first_chunk)

@@ -533,7 +533,7 @@ class VisionDOMHealer:
             if b64_image:
                 payload["images"] = [b64_image]
 
-            res = httpx.post(url, json=payload, timeout=20.0)
+            res = httpx.post(url, json=payload, timeout=45.0)
             if res.status_code == 200:
                 return res.json().get("response", "")
             raise RuntimeError(f"Ollama Vision API returned HTTP {res.status_code}: {res.text}")

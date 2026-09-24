@@ -967,7 +967,50 @@ class SearchProviderScraper(BaseSearchScraper):
             LOGGER.info("Attempting SearXNG fallback search: %s", searx_url)
             try:
                 response = self.http.get(searx_url)
-                data = response.json()
+                status = getattr(response, "status_code", 200)
+                if isinstance(status, int) and status != 200:
+                    LOGGER.warning(
+                        "SearXNG host '%s' returned HTTP %s; failing over to next instance.",
+                        host,
+                        status,
+                    )
+                    continue
+
+                headers = getattr(response, "headers", {})
+                content_type = ""
+                if isinstance(headers, dict) or hasattr(headers, "get"):
+                    raw_ct = headers.get("content-type", "")
+                    content_type = str(raw_ct).lower() if isinstance(raw_ct, str) else ""
+
+                resp_text = getattr(response, "text", "")
+                resp_text = resp_text.strip() if isinstance(resp_text, str) else ""
+
+                data = None
+                if hasattr(response, "json") and callable(response.json):
+                    try:
+                        data = response.json()
+                    except Exception:
+                        data = None
+
+                if not isinstance(data, dict):
+                    if "application/json" not in content_type and not (resp_text.startswith("{") and resp_text.endswith("}")):
+                        LOGGER.warning(
+                            "SearXNG host '%s' returned non-JSON Content-Type ('%s') (potential HTML/CAPTCHA challenge); failing over.",
+                            host,
+                            content_type,
+                        )
+                        continue
+
+                    try:
+                        data = json.loads(resp_text)
+                    except Exception:
+                        LOGGER.warning("SearXNG host '%s' returned invalid JSON payload; failing over.", host)
+                        continue
+
+                if not isinstance(data, dict):
+                    LOGGER.warning("SearXNG host '%s' returned invalid JSON payload; failing over.", host)
+                    continue
+
                 results = data.get("results", [])
                 for item in results:
                     href = item.get("url", "").strip()

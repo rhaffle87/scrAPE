@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import os
 import sqlite3
 import threading
@@ -21,31 +22,42 @@ class SettingsManager:
     def _init_db(self):
         self.db_path = Path("data/settings.db")
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn_local = threading.local()
-
-    def _get_conn(self):
-        if not hasattr(self.conn_local, "conn"):
-            self.conn_local.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            self.conn_local.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS settings (
+                        key TEXT PRIMARY KEY,
+                        value TEXT
+                    )
+                    """
                 )
-                """
-            )
-            self.conn_local.conn.commit()
-        return self.conn_local.conn
+        finally:
+            conn.close()
+
+    @contextmanager
+    def _get_conn(self):
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    def close(self):
+        """Deterministic cleanup hook."""
+        pass
 
     def get(self, key: str, default: str = "") -> str:
         """Get a setting. Tries SQLite first, then os.getenv(), then default."""
         try:
-            conn = self._get_conn()
-            cursor = conn.cursor()
-            cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
-            row = cursor.fetchone()
-            if row and row[0]:
-                return row[0]
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+                row = cursor.fetchone()
+                if row and row[0]:
+                    return row[0]
         except Exception as _exc:
             import logging as _log
             _log.getLogger(__name__).debug("Settings DB read failed for key '%s': %s", key, _exc)
@@ -53,20 +65,19 @@ class SettingsManager:
 
     def set(self, key: str, value: str):
         """Set a setting in the SQLite database."""
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-            (key, value)
-        )
-        conn.commit()
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value)
+            )
 
     def get_all(self):
         """Get all explicitly set settings from DB."""
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        cursor.execute("SELECT key, value FROM settings")
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT key, value FROM settings")
+            return {row[0]: row[1] for row in cursor.fetchall()}
 
     # S3 / Cloud CAS Configuration Accessors (Canonical Single Source of Truth)
     def get_s3_endpoint_url(self) -> str | None:

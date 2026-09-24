@@ -37,10 +37,13 @@ def test_api_export_database_parquet(tmp_path, monkeypatch):
     db_path = sub_dir / "database.db"
     if db_path.exists():
         db_path.unlink()
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         conn.execute("CREATE TABLE IF NOT EXISTS images (url TEXT, score REAL)")
         conn.execute("INSERT INTO images VALUES ('https://example.com/art.png', 0.95)")
         conn.commit()
+    finally:
+        conn.close()
 
     try:
         res = client.post(f"/api/dataset/export-db/{sub}", json={"format": "parquet"})

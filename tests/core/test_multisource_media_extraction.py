@@ -176,7 +176,17 @@ def test_file_downloader_fallback_urls_execution(monkeypatch, tmp_path: Path):
             monkeypatch.setattr(resp, "iter_bytes", valid_iter)
             yield resp
 
+    def mock_head(client_self, url, **kwargs):
+        if "bad" in str(url):
+            return httpx.Response(status_code=404, request=httpx.Request("HEAD", url))
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "video/mp4", "content-length": "32768"},
+            request=httpx.Request("HEAD", url),
+        )
+
     monkeypatch.setattr(httpx.Client, "stream", mock_stream)
+    monkeypatch.setattr(httpx.Client, "head", mock_head)
 
     ok, res = downloader._download_file(
         "https://example.com/bad_video.mp4",

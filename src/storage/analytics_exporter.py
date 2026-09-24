@@ -5,9 +5,20 @@ import json
 from pathlib import Path
 import logging
 
+from contextlib import contextmanager
 from common.security import validate_safe_path
 
 LOGGER = logging.getLogger(__name__)
+
+@contextmanager
+def _open_db(db_path: Path):
+    """Context manager ensuring SQLite connection is strictly closed upon exit."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 def _get_table_rows(cursor: sqlite3.Cursor, table_name: str) -> list[dict]:
     cursor.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
@@ -19,8 +30,7 @@ def _get_table_rows(cursor: sqlite3.Cursor, table_name: str) -> list[dict]:
 
 def export_db_to_csv(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with _open_db(db_path) as conn:
         cursor = conn.cursor()
 
         img_rows = _get_table_rows(cursor, "images")
@@ -46,8 +56,7 @@ def export_db_to_csv(db_path: Path, output_dir: Path):
 
 def export_db_to_json(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with _open_db(db_path) as conn:
         cursor = conn.cursor()
 
         images = _get_table_rows(cursor, "images")
@@ -61,8 +70,7 @@ def export_db_to_json(db_path: Path, output_dir: Path):
 
 def export_db_to_parquet(db_path: Path, output_dir: Path):
     safe_out = Path(os.path.abspath(os.path.normpath(str(output_dir)))).resolve()
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with _open_db(db_path) as conn:
         cursor = conn.cursor()
 
         img_rows = _get_table_rows(cursor, "images")

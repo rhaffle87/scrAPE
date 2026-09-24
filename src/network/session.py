@@ -139,23 +139,26 @@ class SessionManager:
                 db_path = profile / "cookies.sqlite"
                 if db_path.exists():
                     temp_db = Path(tempfile.gettempdir()) / f"temp_ff_cookies_{random.randint(1000, 9999)}.sqlite"
+                    conn = None
                     try:
                         shutil.copy2(db_path, temp_db)
                         conn = sqlite3.connect(str(temp_db))
                         cursor = conn.cursor()
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='moz_cookies'")
-                        if not cursor.fetchone():
-                            conn.close()
-                            continue
-                        query = "SELECT name, value, host FROM moz_cookies WHERE " + " OR ".join(["host LIKE ?"] * len(domains_to_try))
-                        params = [f"%{dom}%" for dom in domains_to_try]
-                        cursor.execute(query, params)
-                        for name, value, host_key in cursor.fetchall():
-                            harvested[name] = value
-                        conn.close()
+                        if cursor.fetchone():
+                            query = "SELECT name, value, host FROM moz_cookies WHERE " + " OR ".join(["host LIKE ?"] * len(domains_to_try))
+                            params = [f"%{dom}%" for dom in domains_to_try]
+                            cursor.execute(query, params)
+                            for name, value, host_key in cursor.fetchall():
+                                harvested[name] = value
                     except Exception as err:
                         logger.debug("Failed to read from Firefox db %s: %s", db_path, err)
                     finally:
+                        if conn:
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
                         if temp_db.exists():
                             try:
                                 temp_db.unlink()
@@ -226,6 +229,7 @@ class SessionManager:
                 db_path = user_data_dir / profile / "Cookies"
             if db_path.exists():
                 temp_db = Path(tempfile.gettempdir()) / f"temp_chr_cookies_{random.randint(1000, 9999)}.sqlite"
+                conn = None
                 try:
                     shutil.copy2(db_path, temp_db)
                     conn = sqlite3.connect(str(temp_db))
@@ -237,10 +241,14 @@ class SessionManager:
                         dec_val = decrypt_value(enc_val, key)
                         if dec_val:
                             harvested[name] = dec_val
-                    conn.close()
                 except Exception as err:
                     logger.debug("Failed to read from Chromium db %s: %s", db_path, err)
                 finally:
+                    if conn:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
                     if temp_db.exists():
                         try:
                             temp_db.unlink()

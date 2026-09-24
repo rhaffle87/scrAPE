@@ -567,11 +567,14 @@ def test_unvalidated_or_empty_selector_never_persisted_to_cache(tmp_path: Path):
     assert saved is False
 
     # Confirm zero rows in SQLite database
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         cursor = conn.cursor()
         cursor.execute("SELECT count(*) FROM repaired_selectors WHERE domain = 'poison-test.org'")
         count = cursor.fetchone()[0]
         assert count == 0
+    finally:
+        conn.close()
 
 
 def test_valid_selector_extracts_media_and_persists_to_cache(tmp_path: Path):
@@ -600,12 +603,15 @@ def test_valid_selector_extracts_media_and_persists_to_cache(tmp_path: Path):
     assert saved is True
 
     # Verify persisted in SQLite
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         cursor = conn.cursor()
         cursor.execute("SELECT selector, attr, hit_count FROM repaired_selectors WHERE domain = 'legit-site.org'")
         row = cursor.fetchone()
         assert row is not None
         assert row[0] == "div.gallery img"
+    finally:
+        conn.close()
 
 
 def test_cached_selector_7_day_ttl_expiration(tmp_path: Path):
@@ -615,7 +621,8 @@ def test_cached_selector_7_day_ttl_expiration(tmp_path: Path):
 
     # Insert a stale selector updated 8 days ago
     eight_days_ago = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         conn.execute(
             """
             INSERT INTO repaired_selectors (domain, selector, attr, confidence, updated_at, hit_count)
@@ -624,6 +631,8 @@ def test_cached_selector_7_day_ttl_expiration(tmp_path: Path):
             ("stale-domain.com", "div.old-gallery img", "src", 0.9, eight_days_ago),
         )
         conn.commit()
+    finally:
+        conn.close()
 
     html = """
     <html>
@@ -640,10 +649,13 @@ def test_cached_selector_7_day_ttl_expiration(tmp_path: Path):
     assert len(items) == 0
 
     # Verify row was purged from SQLite
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         cursor = conn.cursor()
         cursor.execute("SELECT count(*) FROM repaired_selectors WHERE domain = 'stale-domain.com'")
         assert cursor.fetchone()[0] == 0
+    finally:
+        conn.close()
 
 
 # ============================================================================

@@ -64,12 +64,15 @@ def test_analytics_exporter_parquet(tmp_path):
     from storage.analytics_exporter import export_analytics
 
     db_path = tmp_path / "database.db"
-    with sqlite3.connect(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    try:
         conn.execute("CREATE TABLE images (url TEXT, score REAL, width INT, height INT)")
         conn.execute("INSERT INTO images VALUES ('https://example.com/1.jpg', 0.9, 1024, 768)")
         conn.execute("CREATE TABLE videos (url TEXT, title TEXT)")
         conn.execute("INSERT INTO videos VALUES ('https://example.com/1.mp4', 'Test Video')")
         conn.commit()
+    finally:
+        conn.close()
 
     export_analytics(tmp_path, "parquet")
     # Should create images.parquet (or images_analytics.csv/analytics.json fallback)

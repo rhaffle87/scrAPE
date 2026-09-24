@@ -246,8 +246,8 @@ class TestPresignedURLSecurity:
 
                 syncer.close(drain=False)
 
-                # Scan workspace output/logs to ensure this fake signature wasn't written to disk
-                for path in Path(".").glob("output/**/*"):
+                # Scan tmp_path to ensure this fake signature wasn't written to disk
+                for path in tmp_path.glob("**/*"):
                     if path.is_file():
                         try:
                             content = path.read_text(errors="ignore")
@@ -275,6 +275,7 @@ class TestPresignedURLSecurity:
                 aws_access_key_id=DUMMY_KEY_ID,
                 aws_secret_access_key=DUMMY_SECRET,
             )
+            syncer.upload_block_sync = MagicMock(return_value=True)
             store = ContentAddressableStore(root_dir=tmp_path / "cas", cloud_syncer=syncer)
 
             # Store an item into CAS

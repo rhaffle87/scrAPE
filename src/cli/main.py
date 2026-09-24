@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 import sys
 import time
@@ -70,9 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        choices=["json", "csv", "both"],
+        choices=["json", "csv", "both", "stdout"],
         default=DEFAULT_OUTPUT_FORMAT,
-        help="Output format.",
+        help="Output format (json, csv, both, or stdout for clean JSON piping).",
     )
     parser.add_argument(
         "--export-db",
@@ -422,6 +423,12 @@ def main() -> None:
     logger.info("Logging to file: %s", log_path)
 
     args = build_parser().parse_args()
+
+    if getattr(args, "output", "") == "stdout":
+        # Force any stdout stream logging handlers to sys.stderr to guarantee clean stdout for Unix piping
+        for h in logging.getLogger().handlers:
+            if isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout:
+                h.stream = sys.stderr
 
     if args.headless:
         import config
@@ -1010,31 +1017,36 @@ def main() -> None:
         logger.info("Stopping Telegram command handler...")
         cmd_handler.stop()
 
-    # ── TUI ASCII Run Summary ──────────────────────────────────────────────
-    print("\n" + "+" + "-"*61 + "+")
-    print("|" + "RUN SUMMARY REPORT".center(61) + "|")
-    print("+" + "-"*61 + "+")
-    print(f"| Duration : {result.duration_seconds:<48.1f} |")
-    _pages_total = sum(s.get("pages_scanned", 0) for s in result.domain_stats.values())
-    print(f"| Pages    : {_pages_total:<48} |")
-    print(f"| Images   : {len(result.images):<48} |")
-    print(f"| Videos   : {len(result.videos):<48} |")
-    print("+" + "-"*61 + "+")
-    print("|" + "TOP DOMAINS YIELD".center(61) + "|")
-    print("+" + "-"*61 + "+")
-    _dom_sorted = sorted(
-        result.domain_stats.items(),
-        key=lambda kv: kv[1].get("images_kept", 0) + kv[1].get("videos_kept", 0),
-        reverse=True,
-    )
-    for idx, (d, s) in enumerate(_dom_sorted[:5], 1):
-        yield_str = f"{s.get('images_kept', 0)} imgs / {s.get('videos_kept', 0)} vids"
-        row = f"{idx}. {d:<25} -> {yield_str:<20}"
-        print(f"| {row:<59} |")
-    print("+" + "-"*61 + "+\n")
-    
-    if not getattr(args, "tag_dataset", False):
-        print("For human-in-the-loop visual cropping or AI Auto-Tagging, launch the WebUI Dataset Studio via run.bat\n")
+    # ── TUI ASCII Run Summary or Clean JSON Stdout ──────────────────────────
+    if getattr(args, "output", "") == "stdout":
+        clean_json = json.dumps(result.to_dict(), indent=2, ensure_ascii=False)
+        sys.stdout.write(clean_json + "\n")
+        sys.stdout.flush()
+    else:
+        print("\n" + "+" + "-"*61 + "+")
+        print("|" + "RUN SUMMARY REPORT".center(61) + "|")
+        print("+" + "-"*61 + "+")
+        print(f"| Duration : {result.duration_seconds:<48.1f} |")
+        _pages_total = sum(s.get("pages_scanned", 0) for s in result.domain_stats.values())
+        print(f"| Pages    : {_pages_total:<48} |")
+        print(f"| Images   : {len(result.images):<48} |")
+        print(f"| Videos   : {len(result.videos):<48} |")
+        print("+" + "-"*61 + "+")
+        print("|" + "TOP DOMAINS YIELD".center(61) + "|")
+        print("+" + "-"*61 + "+")
+        _dom_sorted = sorted(
+            result.domain_stats.items(),
+            key=lambda kv: kv[1].get("images_kept", 0) + kv[1].get("videos_kept", 0),
+            reverse=True,
+        )
+        for idx, (d, s) in enumerate(_dom_sorted[:5], 1):
+            yield_str = f"{s.get('images_kept', 0)} imgs / {s.get('videos_kept', 0)} vids"
+            row = f"{idx}. {d:<25} -> {yield_str:<20}"
+            print(f"| {row:<59} |")
+        print("+" + "-"*61 + "+\n")
+        
+        if not getattr(args, "tag_dataset", False):
+            print("For human-in-the-loop visual cropping or AI Auto-Tagging, launch the WebUI Dataset Studio via run.bat\n")
 
 
 import atexit  # noqa: E402

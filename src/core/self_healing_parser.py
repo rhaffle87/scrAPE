@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import logging
@@ -47,6 +48,16 @@ class SelfHealingDOMParser:
         self._lock = threading.RLock()
         self._init_db()
 
+    @contextmanager
+    def _get_conn(self):
+        """Context manager yielding SQLite connection and strictly closing on exit."""
+        conn = sqlite3.connect(str(self.db_path), timeout=10.0)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     @property
     def vlm_healer(self) -> Any:
         if self._vlm_healer is None:
@@ -60,7 +71,7 @@ class SelfHealingDOMParser:
     def _init_db(self) -> None:
         with self._lock:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS repaired_selectors (
@@ -85,7 +96,7 @@ class SelfHealingDOMParser:
                     "repaired_domains": [],
                 }
             try:
-                with sqlite3.connect(self.db_path) as conn:
+                with self._get_conn() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT domain, selector, attr, hit_count, confidence, updated_at "
@@ -171,7 +182,7 @@ class SelfHealingDOMParser:
         self, soup: BeautifulSoup, domain: str, page_url: str, page_title: str
     ) -> list[ImageItem]:
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT selector, attr, hit_count, updated_at FROM repaired_selectors WHERE domain = ?",
@@ -194,7 +205,7 @@ class SelfHealingDOMParser:
                 if (now - updated_dt).total_seconds() > 7 * 86400:
                     LOGGER.info("Cached selector for '%s' expired (> 7 days TTL). Invalidating cache entry.", domain)
                     with self._lock:
-                        with sqlite3.connect(self.db_path) as del_conn:
+                        with self._get_conn() as del_conn:
                             del_conn.execute("DELETE FROM repaired_selectors WHERE domain = ?", (domain,))
                             del_conn.commit()
                     return []
@@ -219,7 +230,7 @@ class SelfHealingDOMParser:
 
             if items:
                 with self._lock:
-                    with sqlite3.connect(self.db_path) as conn:
+                    with self._get_conn() as conn:
                         conn.execute(
                             "UPDATE repaired_selectors SET hit_count = hit_count + 1, updated_at = ? WHERE domain = ?",
                             (datetime.now(timezone.utc).isoformat(), domain),
@@ -509,7 +520,7 @@ class SelfHealingDOMParser:
                 return False
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_conn() as conn:
                 conn.execute(
                     """
                     INSERT INTO repaired_selectors (domain, selector, attr, confidence, updated_at, hit_count)

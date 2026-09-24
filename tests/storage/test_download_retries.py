@@ -72,6 +72,11 @@ def test_download_file_retry_on_network_error(tmp_path):
         patch("storage.downloader.manager.get_image_dimensions", return_value=(800, 600)),
         patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl),
         patch("curl_cffi.requests.Session") as mock_curl_session,
+        patch.object(
+            httpx.Client,
+            "head",
+            return_value=httpx.Response(404, request=httpx.Request("HEAD", "https://example.com/img.jpg")),
+        ),
     ):
         mock_curl_resp = MagicMock()
         mock_curl_resp.status_code = 200
@@ -143,6 +148,11 @@ def test_download_file_retry_on_server_error(tmp_path):
         patch("storage.downloader.manager._sleep") as mock_sleep,
         patch("storage.downloader.manager.get_image_dimensions", return_value=(800, 600)),
         patch.object(downloader, "_fast_limiter_for", return_value=mock_fast_rl2),
+        patch.object(
+            httpx.Client,
+            "head",
+            return_value=httpx.Response(404, request=httpx.Request("HEAD", "https://example.com/img.jpg")),
+        ),
     ):
         success, reason = downloader._download_file(
             url="https://example.com/img.jpg",

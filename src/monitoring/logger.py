@@ -4,6 +4,8 @@ import logging
 import sys
 from pathlib import Path
 
+import re
+
 # Root logger name used when no specific name is requested
 _ROOT = "scraper"
 
@@ -11,29 +13,45 @@ _ROOT = "scraper"
 _DEFAULT_LOG_DIR = Path("logs")
 _DEFAULT_LOG_FILE = "logs.txt"
 
+# Regex patterns for scrubbing secrets from all log output
+AWS_KEY_PATTERN = re.compile(r"(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}")
+AWS_SECRET_PATTERN = re.compile(
+    r"(?i)(aws_secret_access_key|secret_access_key|secret_key|secret|password|sig)[\s:=]+['\"]?([0-9a-zA-Z/+=_-]{16,64})['\"]?"
+)
+AMZ_SIG_PATTERN = re.compile(r"X-Amz-Signature=[0-9a-fA-F]+")
+URL_CRED_PATTERN = re.compile(r"([a-zA-Z0-9+.-]+://)([^:\s/@]+):([^@\s/]+)@")
+
+
+def scrub_credentials(text: str) -> str:
+    """Scrub sensitive AWS keys, signatures, and URL embedded credentials."""
+    if not isinstance(text, str) or not text:
+        return text
+    text = AWS_KEY_PATTERN.sub("[REDACTED_AWS_KEY]", text)
+    text = AMZ_SIG_PATTERN.sub("X-Amz-Signature=[REDACTED_SIGNATURE]", text)
+    text = AWS_SECRET_PATTERN.sub(r"\1=[REDACTED_SECRET]", text)
+    text = URL_CRED_PATTERN.sub(r"\1***:***@", text)
+    return text
+
+
+class CredentialScrubbingFilter(logging.Filter):
+    """Logging filter that scrubs sensitive AWS credentials and signatures before emission."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = scrub_credentials(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {k: scrub_credentials(v) if isinstance(v, str) else v for k, v in record.args.items()}
+            elif isinstance(record.args, (tuple, list)):
+                record.args = tuple(scrub_credentials(v) if isinstance(v, str) else v for v in record.args)
+        return True
+
 
 def configure_logging(
     level: int = logging.DEBUG,
     log_dir: Path | None = None,
     log_file: str = _DEFAULT_LOG_FILE,
 ) -> Path:
-    """Configure the root logger with both console and rotating file handlers.
-
-    Parameters
-    ----------
-    level:
-        Minimum log level captured by *both* handlers.
-    log_dir:
-        Directory in which to create ``log_file``.  Defaults to ``logs/``
-        relative to the current working directory.
-    log_file:
-        Filename for the persistent log.  Defaults to ``logs.txt``.
-
-    Returns
-    -------
-    Path
-        Absolute path to the log file being written.
-    """
+    """Configure the root logger with both console and rotating file handlers."""
     log_dir = (log_dir or _DEFAULT_LOG_DIR).resolve()
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / log_file
@@ -41,8 +59,16 @@ def configure_logging(
     root = logging.getLogger()
     root.setLevel(level)
 
+    # Attach CredentialScrubbingFilter to root logger
+    if not any(isinstance(f, CredentialScrubbingFilter) for f in root.filters):
+        root.addFilter(CredentialScrubbingFilter())
+
     # Suppress verbose third-party logs
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("s3transfer").setLevel(logging.WARNING)
 
     _fmt = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",

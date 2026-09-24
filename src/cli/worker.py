@@ -34,6 +34,11 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--name", default=None, help="Custom consumer name")
     parser.add_argument("--lease-ttl", type=int, default=30, help="Task lease TTL in seconds")
     parser.add_argument("--max-tasks", type=int, default=None, help="Optional maximum tasks to process before exit")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate broker connectivity, assert/create stream consumer groups, log ready status, and exit 0",
+    )
     return parser.parse_args(args)
 
 
@@ -48,6 +53,31 @@ def main(args: list[str] | None = None) -> int:
         consumer_name=parsed.name,
         lease_ttl=parsed.lease_ttl,
     )
+
+    if parsed.dry_run:
+        LOGGER.info("Executing --dry-run: verifying broker connectivity and stream consumer groups...")
+        client = getattr(worker.broker, "_client", None)
+        if client is None:
+            LOGGER.error("Dry-run failed: Unable to connect to Redis broker at %s", parsed.broker)
+            return 1
+        try:
+            client.ping()
+        except Exception as exc:
+            LOGGER.error("Dry-run failed: Redis ping failed (%s)", exc)
+            return 1
+
+        for stream in worker.streams:
+            if hasattr(worker.broker, "_ensure_group"):
+                worker.broker._ensure_group(stream)
+            LOGGER.info("Verified consumer group '%s' for stream '%s'", parsed.group, stream)
+
+        LOGGER.info(
+            "Dry-run SUCCESS: Worker '%s' is ready. Connected to %s, consumer group '%s' verified.",
+            worker.worker_id,
+            parsed.broker,
+            parsed.group,
+        )
+        return 0
 
     def _signal_handler(sig, frame):
         LOGGER.info("Received termination signal (%s). Initiating graceful worker shutdown...", sig)

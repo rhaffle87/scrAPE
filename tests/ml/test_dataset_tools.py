@@ -74,8 +74,8 @@ def test_dataset_cropper_batch_resizing(temp_dataset_dir: Path):
 
     output_dir = Path(res["output_dir"])
     for i in range(3):
-        img = Image.open(output_dir / f"crop_sample_{i}.png")
-        assert img.size == (512, 512)
+        with Image.open(output_dir / f"crop_sample_{i}.png") as img:
+            assert img.size == (512, 512)
 
 
 

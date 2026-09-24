@@ -30,26 +30,45 @@ def test_local_storage_sink_atomic_and_path_safety(tmp_path: Path):
         sink._resolve_target("../../outside.txt")
 
 
-def test_s3_storage_sink_spillover_resilience(tmp_path: Path):
+def test_s3_storage_sink_spillover_resilience(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SCRAPE_ALLOW_LOCAL_S3_ENDPOINT", "true")
     spillover_dir = tmp_path / "spillover"
     # Provide dummy S3 config without network; should initialize and spillover locally
     sink = S3StorageSink(
         bucket_name="test-bucket",
         prefix="scrapes",
         spillover_dir=spillover_dir,
+        endpoint_url="http://127.0.0.1:59998",
+        aws_access_key_id="mock-key",
+        aws_secret_access_key="mock-secret",
     )
-    test_bytes = b"image content for s3"
-    out_uri = sink.save_bytes(test_bytes, "apple/img1.jpg")
-    assert Path(out_uri).exists()
-    assert Path(out_uri).read_bytes() == test_bytes
+    try:
+        test_bytes = b"image content for s3"
+        out_uri = sink.save_bytes(test_bytes, "apple/img1.jpg")
+        assert Path(out_uri).exists()
+        assert Path(out_uri).read_bytes() == test_bytes
+    finally:
+        sink.close()
 
 
-def test_storage_sink_factory(tmp_path: Path):
+def test_storage_sink_factory(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SCRAPE_ALLOW_LOCAL_S3_ENDPOINT", "true")
     local_sink = get_storage_sink("local", root_dir=tmp_path)
     assert isinstance(local_sink, LocalStorageSink)
 
-    s3_sink = get_storage_sink("s3", s3_bucket="my-bucket", root_dir=tmp_path)
-    assert isinstance(s3_sink, S3StorageSink)
+    s3_sink = get_storage_sink(
+        "s3",
+        s3_bucket="my-bucket",
+        root_dir=tmp_path,
+        endpoint_url="http://127.0.0.1:9000",
+        aws_access_key_id="mock-key",
+        aws_secret_access_key="mock-secret",
+    )
+    try:
+        assert isinstance(s3_sink, S3StorageSink)
+    finally:
+        if hasattr(s3_sink, "close"):
+            s3_sink.close()
 
 
 def test_hierarchical_dedup_engine_l1_sha256():
