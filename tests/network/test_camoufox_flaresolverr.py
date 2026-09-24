@@ -100,6 +100,77 @@ def test_camoufox_fallback_not_installed(monkeypatch):
     assert "Camoufox" in str(exc_info.value)
 
 
+def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
+    """Targeted regression test: verify Camoufox is launched without invalid Playwright Firefox kwargs
+
+    (window_size, user_data_dir) and that viewport geometry is configured on new_page().
+    """
+    import sys
+    from unittest.mock import MagicMock
+
+    client = HttpClient()
+    url = "https://example-turnstile.com/gallery"
+
+    captured_init_kwargs = {}
+    captured_new_page_kwargs = {}
+
+    mock_page = MagicMock()
+    mock_page.content.return_value = "<html><body>Target Gallery Content</body></html>"
+    mock_page.context.cookies.return_value = [{"name": "cf_clearance", "value": "camou_token"}]
+
+    class MockBrowser:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def new_page(self, **kwargs):
+            captured_new_page_kwargs.update(kwargs)
+            return mock_page
+
+    class MockCamoufox:
+        def __init__(self, **kwargs):
+            # Adversarial simulation: mimic Playwright Firefox launch behavior
+            forbidden_args = {"window_size", "user_data_dir"}
+            invalid_found = forbidden_args.intersection(kwargs.keys())
+            if invalid_found:
+                raise TypeError(f"BrowserType.launch() got an unexpected keyword argument '{list(invalid_found)[0]}'")
+            captured_init_kwargs.update(kwargs)
+
+        def __enter__(self):
+            return MockBrowser()
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    mock_sync_api = MagicMock()
+    mock_sync_api.Camoufox = MockCamoufox
+    mock_camoufox_module = MagicMock()
+    mock_camoufox_module.sync_api = mock_sync_api
+
+    monkeypatch.setitem(sys.modules, "camoufox", mock_camoufox_module)
+    monkeypatch.setitem(sys.modules, "camoufox.sync_api", mock_sync_api)
+
+    html, cookies = client._get_with_camoufox(url)
+
+    # 1. Assert invalid kwargs are never passed to Camoufox launch
+    assert "window_size" not in captured_init_kwargs
+    assert "user_data_dir" not in captured_init_kwargs
+
+    # 2. Assert valid stealth kwargs are properly supplied
+    assert "headless" in captured_init_kwargs
+    assert "os" in captured_init_kwargs
+    assert captured_init_kwargs.get("humanize") is True
+
+    # 3. Assert viewport geometry is set on new_page()
+    assert captured_new_page_kwargs == {"viewport": {"width": 1920, "height": 1080}}
+
+    # 4. Assert returned HTML and extracted cookies
+    assert "Target Gallery Content" in html
+    assert any(c["name"] == "cf_clearance" for c in cookies)
+
+
 def test_preferred_engine_routing_and_host_memory(monkeypatch):
     client = HttpClient()
     url = "https://preferred-engine-test.com/page"
