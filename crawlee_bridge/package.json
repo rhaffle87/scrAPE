@@ -24,7 +24,7 @@
     "browserslist": ">=4.29.0",
     "ip-address": ">=10.4.0",
     "qs": ">=6.16.0",
-    "undici": ">=7.29.0",
+    "undici": ">=8.11.2",
     "minimatch": "10.2.6",
     "rimraf": "6.0.1",
     "glob": "11.1.0",
