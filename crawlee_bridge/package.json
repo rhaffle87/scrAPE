@@ -20,7 +20,7 @@
   "overrides": {
     "adm-zip": ">=0.6.1",
     "baseline-browser-mapping": ">=2.11.25",
-    "brace-expansion": ">=5.0.9",
+    "brace-expansion": ">=5.0.12",
     "browserslist": ">=4.29.0",
     "ip-address": ">=10.4.0",
     "qs": ">=6.16.0",
