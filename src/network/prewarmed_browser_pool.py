@@ -63,11 +63,19 @@ class PrewarmedBrowserPool:
             if self._camoufox_instance is None:
                 try:
                     from camoufox.sync_api import Camoufox
-                    self._camoufox_instance = Camoufox(headless=True, humanize=True)
+                    self._camoufox_instance = Camoufox(
+                        headless=True,
+                        humanize=True,
+                        disable_coop=True,
+                        i_know_what_im_doing=True,
+                        block_webrtc=True,
+                        enable_cache=True,
+                    )
                     self._camoufox_uses = 0
                     LOGGER.info("PrewarmedBrowserPool: Initialized warm Camoufox instance.")
                 except Exception as e:
                     LOGGER.debug("PrewarmedBrowserPool: Failed warming Camoufox (%s)", e)
+                    self._camoufox_instance = None
                     return None
 
             self._camoufox_uses += 1

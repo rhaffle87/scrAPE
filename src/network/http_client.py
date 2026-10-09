@@ -981,7 +981,22 @@ class HttpClient(BrowserClientMixin):
                         self.session_manager.evict_session(host)
                     
                     if status in {403, 429}:
-                        logger.warning("HTTP %d received from %s. Immediately rotating proxy with AIMD quarantine and retrying...", status, host)
+                        resp_body = (getattr(exc.response, "text", "") or "").lower()
+                        is_cf_1020 = status == 403 and any(
+                            sig in resp_body
+                            for sig in ("error code: 1020", "error 1020", "access denied")
+                        )
+                        if is_cf_1020:
+                            logger.warning(
+                                "Cloudflare Error 1020 (IP Access Denied) received from %s. Immediately escalating to proxy failover...",
+                                host,
+                            )
+                        else:
+                            logger.warning(
+                                "HTTP %d received from %s. Immediately rotating proxy with AIMD quarantine and retrying...",
+                                status,
+                                host,
+                            )
                         from network.proxy_manager import ProxyPoolManager
                         pool = ProxyPoolManager.get_instance()
                         pool.clear_domain_binding(host)

@@ -1199,35 +1199,110 @@ class BrowserClientMixin:
         def _fetch_camou(is_headless: bool) -> tuple[str, list[dict]]:
             logger.info("Launching Camoufox for %s (headless=%s, os=%s)", url, is_headless, camou_os)
             host = self._hostname(url)
-            kwargs = {
-                "headless": is_headless,
-                "os": camou_os,
-                "humanize": True,
-            }
-            with Camoufox(**kwargs) as browser:
-                page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            proxy_url = self.get_proxy() if hasattr(self, "get_proxy") else None
+            proxy_cfg = {"server": proxy_url} if proxy_url else None
+
+            from network.prewarmed_browser_pool import get_prewarmed_browser_pool
+            pool = get_prewarmed_browser_pool()
+            browser = None
+            owns_browser = False
+            camou_cm = None
+
+            # Borrow warm instance when running headless and unproxied
+            if is_headless and not proxy_cfg:
+                warm_cm = pool.acquire_camoufox()
+                if warm_cm is not None:
+                    try:
+                        browser = warm_cm.__enter__() if hasattr(warm_cm, "__enter__") else warm_cm
+                    except Exception:
+                        browser = warm_cm
+
+            if browser is None:
+                kwargs: dict[str, Any] = {
+                    "headless": is_headless,
+                    "os": camou_os,
+                    "humanize": True,
+                    "disable_coop": True,
+                    "i_know_what_im_doing": True,
+                    "block_webrtc": True,
+                    "enable_cache": True,
+                }
+                if proxy_cfg:
+                    kwargs["proxy"] = proxy_cfg
+                camou_cm = Camoufox(**kwargs)
+                browser = camou_cm.__enter__() if hasattr(camou_cm, "__enter__") else camou_cm
+                owns_browser = True
+
+            context = browser.new_context(viewport={"width": 1920, "height": 1080}) if hasattr(browser, "new_context") else None
+            try:
+                page = context.new_page() if context is not None else browser.new_page(viewport={"width": 1920, "height": 1080})
                 try:
                     stealth_js = self.get_stealth_script(host)
                     if hasattr(page, "add_init_script"):
                         page.add_init_script(stealth_js)
                 except Exception as sf_err:
                     logger.debug("Failed injecting stealth fingerprint in Camoufox: %s", sf_err)
+
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-                if is_headless and self._is_cloudflare_challenge(page.content()):
-                    raise TimeoutError("Camoufox headless hit Cloudflare Turnstile challenge.")
+                # Active Turnstile / Cloudflare challenge resolution
+                if self._is_cloudflare_challenge(page.content()):
+                    logger.info("Camoufox detected Cloudflare challenge on %s. Attempting active Turnstile solver...", url)
+                    solve_timeout = 25.0
+                    start_solve = time.time()
+                    clicked = False
+                    while time.time() - start_solve < solve_timeout:
+                        if not self._is_cloudflare_challenge(page.content()):
+                            logger.info("Camoufox successfully bypassed Cloudflare challenge on %s.", url)
+                            break
+
+                        if not clicked:
+                            try:
+                                # 1. Search inside child frames for Turnstile checkbox
+                                if hasattr(page, "frames"):
+                                    for frame in page.frames:
+                                        if any(p in frame.url for p in ("cloudflare", "turnstile", "challenges.cloudflare.com")):
+                                            chk = frame.locator("input[type=checkbox], #challenge-stage, .ctp-checkbox-label").first
+                                            if chk.is_visible():
+                                                chk.click(timeout=3000)
+                                                clicked = True
+                                                logger.info("Clicked Turnstile checkbox element in iframe.")
+                                                break
+
+                                # 2. Fallback: locate Turnstile iframe bounding box on main page
+                                if not clicked and hasattr(page, "locator"):
+                                    iframe_el = page.locator("iframe[src*='cloudflare'], iframe[src*='turnstile'], iframe[src*='challenges.cloudflare.com']").first
+                                    if iframe_el.is_visible():
+                                        box = iframe_el.bounding_box()
+                                        if box:
+                                            click_x = box["x"] + min(35.0, box["width"] / 2.0)
+                                            click_y = box["y"] + box["height"] / 2.0
+                                            if hasattr(page, "mouse") and hasattr(page.mouse, "click"):
+                                                page.mouse.click(click_x, click_y)
+                                            clicked = True
+                                            logger.info("Clicked Turnstile bounding box at (%.1f, %.1f).", click_x, click_y)
+                            except Exception as click_err:
+                                logger.debug("Turnstile frame click attempt exception: %s", click_err)
+
+                        page.wait_for_timeout(1000)
+
+                    if is_headless and self._is_cloudflare_challenge(page.content()):
+                        raise TimeoutError("Camoufox headless hit Cloudflare Turnstile challenge timeout.")
 
                 try:
                     page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(2000)
+                    page.wait_for_timeout(1500)
                 except Exception:
                     pass
 
                 html = page.content()
-                cookies = page.context.cookies()
+                cookies = []
+                if context is not None and hasattr(context, "cookies"):
+                    cookies = context.cookies()
+                elif hasattr(page, "context") and hasattr(page.context, "cookies"):
+                    cookies = page.context.cookies()
 
                 cookie_list = []
-                host = self._hostname(url)
                 for c in cookies:
                     cookie_list.append(
                         {
@@ -1238,6 +1313,17 @@ class BrowserClientMixin:
                         }
                     )
                 return html, cookie_list
+            finally:
+                if context is not None and hasattr(context, "close"):
+                    try:
+                        context.close()
+                    except Exception:
+                        pass
+                if owns_browser and camou_cm is not None:
+                    try:
+                        camou_cm.__exit__(None, None, None)
+                    except Exception:
+                        pass
 
         try:
             return _fetch_camou(headless_mode)
