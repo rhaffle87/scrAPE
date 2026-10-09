@@ -123,6 +123,8 @@ class HierarchicalDedupEngine:
 
         # L3: Embedding vectors
         self.l3_embeddings: list[tuple[list[float], str]] = []
+        self._l3_matrix: Any = None
+        self._l3_ids: list[str] = []
 
         self._lock = threading.RLock()
 
@@ -153,7 +155,25 @@ class HierarchicalDedupEngine:
                     return True, f"phash_hamming_distance_{dist}", matched_id
 
             # L3: Semantic embedding cosine match
-            if embedding and self.l3_embeddings:
+            if embedding and (self.l3_embeddings or self._l3_matrix is not None):
+                # Vectorized NumPy SIMD acceleration
+                if self._l3_matrix is not None and len(self._l3_ids) > 0:
+                    try:
+                        import numpy as np
+                        q = np.asarray(embedding, dtype=np.float32)
+                        q_norm = np.linalg.norm(q)
+                        if q_norm > 1e-12:
+                            q_unit = q / q_norm
+                            sims = np.dot(self._l3_matrix, q_unit)
+                            max_idx = int(np.argmax(sims))
+                            best_sim = float(sims[max_idx])
+                            if best_sim >= self.similarity_threshold:
+                                return True, f"vector_cosine_similarity_{best_sim:.3f}", self._l3_ids[max_idx]
+                        return False, "", ""
+                    except Exception as err:
+                        LOGGER.debug("NumPy vector check fallback: %s", err)
+
+                # Pure Python fallback
                 for stored_vec, stored_id in self.l3_embeddings:
                     sim = cosine_similarity(embedding, stored_vec)
                     if sim >= self.similarity_threshold:
@@ -180,7 +200,21 @@ class HierarchicalDedupEngine:
                 self.l2_bktree.add(int_hash, identifier or sha256)
 
             if embedding:
-                self.l3_embeddings.append((embedding, identifier or sha256))
+                ident = identifier or sha256
+                self.l3_embeddings.append((embedding, ident))
+                try:
+                    import numpy as np
+                    v = np.asarray(embedding, dtype=np.float32)
+                    v_norm = np.linalg.norm(v)
+                    if v_norm > 1e-12:
+                        unit_v = (v / v_norm).reshape(1, -1)
+                        if self._l3_matrix is None:
+                            self._l3_matrix = unit_v
+                        else:
+                            self._l3_matrix = np.vstack([self._l3_matrix, unit_v])
+                        self._l3_ids.append(ident)
+                except Exception as err:
+                    LOGGER.debug("NumPy matrix update fallback: %s", err)
 
     def stats(self) -> dict[str, Any]:
         """Return index counts across all 3 tiers."""

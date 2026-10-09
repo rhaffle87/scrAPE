@@ -31,6 +31,9 @@ class Session:
         self.user_agent = random.choice(USER_AGENTS)
         self.cookies = FlatCookies()
         self.consecutive_errors = 0
+        self.tls_profile: str = "chrome120"
+        self.bound_proxy: str | None = None
+        self.clearance_expires_at: float = 0.0
         self.lock = threading.Lock()
         self._cookie_file = Path(".cache") / "cookies" / f"{self.domain}.json"
         self._load_from_disk()
@@ -44,6 +47,12 @@ class Session:
                         self.user_agent = data["user_agent"]
                     if "cookies" in data and isinstance(data["cookies"], dict):
                         self.cookies.update(data["cookies"])
+                    if "tls_profile" in data:
+                        self.tls_profile = str(data["tls_profile"])
+                    if "bound_proxy" in data:
+                        self.bound_proxy = data["bound_proxy"]
+                    if "clearance_expires_at" in data:
+                        self.clearance_expires_at = float(data["clearance_expires_at"])
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Failed to load session from disk: %s", exc)
 
@@ -52,7 +61,13 @@ class Session:
         with self.lock:
             try:
                 self._cookie_file.parent.mkdir(parents=True, exist_ok=True)
-                data = {"user_agent": self.user_agent, "cookies": self.cookies}
+                data = {
+                    "user_agent": self.user_agent,
+                    "cookies": dict(self.cookies),
+                    "tls_profile": self.tls_profile,
+                    "bound_proxy": self.bound_proxy,
+                    "clearance_expires_at": self.clearance_expires_at,
+                }
                 self._cookie_file.write_text(json.dumps(data), encoding="utf-8")
             except (OSError, TypeError) as exc:
                 logger.warning("Failed to save session to disk: %s", exc)
@@ -75,11 +90,52 @@ class Session:
             )
             self.cookies.clear()
             self.consecutive_errors = 0
+            self.tls_profile = "chrome120"
+            self.bound_proxy = None
+            self.clearance_expires_at = 0.0
             try:
                 if self._cookie_file.exists():
                     self._cookie_file.unlink()
             except OSError as exc:
                 logger.warning("Failed to delete session file: %s", exc)
+
+    def bind_tls_session(
+        self,
+        cookies: list[dict] | dict,
+        tls_profile: str = "chrome120",
+        user_agent: str | None = None,
+        proxy: str | None = None,
+        ttl_seconds: float = 3600.0,
+    ) -> None:
+        """Bind solved cf_clearance cookies to a matching TLS profile, IP proxy, and TTL."""
+        import time
+
+        with self.lock:
+            if user_agent:
+                self.user_agent = user_agent
+            if isinstance(cookies, list):
+                for c in cookies:
+                    if isinstance(c, dict) and "name" in c and "value" in c:
+                        self.cookies[c["name"]] = c["value"]
+            elif isinstance(cookies, dict):
+                self.cookies.update(cookies)
+            self.tls_profile = tls_profile
+            self.bound_proxy = proxy
+            self.clearance_expires_at = time.time() + ttl_seconds
+        self.save_to_disk()
+
+    def is_clearance_valid(self, proxy: str | None = None) -> bool:
+        """Return True if cf_clearance exists, is unexpired, and matches proxy IP binding."""
+        import time
+
+        with self.lock:
+            if "cf_clearance" not in self.cookies:
+                return False
+            if time.time() >= self.clearance_expires_at:
+                return False
+            if self.bound_proxy is not None and proxy is not None and self.bound_proxy != proxy:
+                return False
+            return True
 
     def update_cookies(self, cookies: list[dict] | dict, user_agent: str | None = None) -> None:
         """Update session cookies and optional user_agent, then persist to disk."""
@@ -135,4 +191,28 @@ class SessionPool:
         """Update session cookies and/or User-Agent for *domain*."""
         session = self.get_session(domain)
         session.update_session(cookies=cookies, user_agent=user_agent)
+
+    def bind_tls_session(
+        self,
+        domain: str,
+        cookies: list[dict] | dict,
+        tls_profile: str = "chrome120",
+        user_agent: str | None = None,
+        proxy: str | None = None,
+        ttl_seconds: float = 3600.0,
+    ) -> None:
+        """Bind solved cf_clearance cookies for *domain* to TLS profile, proxy IP, and TTL."""
+        session = self.get_session(domain)
+        session.bind_tls_session(
+            cookies,
+            tls_profile=tls_profile,
+            user_agent=user_agent,
+            proxy=proxy,
+            ttl_seconds=ttl_seconds,
+        )
+
+    def is_clearance_valid(self, domain: str, proxy: str | None = None) -> bool:
+        """Check if *domain* has a valid, unexpired cf_clearance matching proxy IP binding."""
+        session = self.get_session(domain)
+        return session.is_clearance_valid(proxy=proxy)
 

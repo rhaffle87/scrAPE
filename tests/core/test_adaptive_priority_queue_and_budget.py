@@ -120,3 +120,57 @@ def test_adaptive_crawl_queue_checkpoint_serialization():
     top = new_q.pop()
     assert top[5] == "https://site.com/p1"
     assert top[0] == 80.0
+
+
+def test_url_pattern_bandit_archetype_extraction():
+    """Verify URLPatternBandit extracts canonical path archetypes."""
+    from core.priority_queue import URLPatternBandit
+    bandit = URLPatternBandit()
+
+    arch1 = bandit.extract_archetype("https://example.com/gallery/12345/view")
+    assert arch1 == "example.com::/gallery/{id}/view"
+
+    arch2 = bandit.extract_archetype("https://cdn.site.org/assets/c0ffee01-1234-5678-abcd-0123456789ab/pic.png")
+    assert arch2 == "cdn.site.org::/assets/{uuid}/pic.png"
+
+    arch3 = bandit.extract_archetype("https://img.host.net/raw/abcdef1234567890abcdef1234567890/item")
+    assert arch3 == "img.host.net::/raw/{hash}/item"
+
+
+def test_url_pattern_bandit_learning_and_scoring():
+    """Verify bandit rewards high-yield archetypes and penalizes zero-yield dead-ends."""
+    from core.priority_queue import URLPatternBandit, AdaptiveCrawlQueue
+    bandit = URLPatternBandit()
+
+    good_url1 = "https://site.com/gallery/100"
+    good_url2 = "https://site.com/gallery/101"
+    dead_url1 = "https://site.com/legal/terms"
+    dead_url2 = "https://site.com/legal/privacy"
+    dead_url3 = "https://site.com/legal/cookie-policy"
+
+    # Initially neutral (0.0)
+    assert bandit.score_adjustment(good_url1) == 0.0
+    assert bandit.score_adjustment(dead_url1) == 0.0
+
+    # Record good harvests for gallery archetype
+    bandit.record_harvest(good_url1, media_yield=8)
+    bandit.record_harvest(good_url2, media_yield=10)
+
+    # Record repeated zero-yield harvests for legal archetype
+    bandit.record_harvest(dead_url1, media_yield=0)
+    bandit.record_harvest(dead_url2, media_yield=0)
+    bandit.record_harvest(dead_url3, media_yield=0)
+
+    # Gallery pattern should receive high boost
+    good_boost = bandit.score_adjustment("https://site.com/gallery/102")
+    assert good_boost > 10.0
+
+    # Legal pattern should receive negative penalty
+    dead_penalty = bandit.score_adjustment("https://site.com/legal/disclaimer")
+    assert dead_penalty < 0.0
+
+    # Test integration with AdaptiveCrawlQueue
+    q = AdaptiveCrawlQueue(pattern_bandit=bandit)
+    score_good = q.calculate_score("https://site.com/gallery/103", depth=1)
+    score_dead = q.calculate_score("https://site.com/legal/dmca", depth=1)
+    assert score_good > score_dead + 20.0

@@ -357,6 +357,8 @@ class CrawlCoordinator:
                                 if self.state_cache:
                                     self.state_cache.mark_dead(page, status=status_code)
                             self.governor.report_yield(host, len(page_images) + len(page_videos))
+                            if hasattr(pages_queue, "pattern_bandit") and pages_queue.pattern_bandit:
+                                pages_queue.pattern_bandit.record_harvest(page, len(page_images) + len(page_videos))
                             
                             # Link discovery in Phase 2
                             if scrape_status == "ok" and content:

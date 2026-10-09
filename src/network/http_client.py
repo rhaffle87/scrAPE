@@ -506,7 +506,7 @@ class HttpClient(BrowserClientMixin):
             best = pool.get_best_proxy()
             return best or self.proxy_list[self.current_proxy_index]
 
-    def rotate_proxy(self) -> str | None:
+    def rotate_proxy(self, is_rate_limit: bool = False) -> str | None:
         with self._proxy_lock:
             if not self.proxy_list:
                 return None
@@ -515,8 +515,11 @@ class HttpClient(BrowserClientMixin):
             pool = ProxyPoolManager.get_instance()
             pool.set_proxies(self.proxy_list)
             current = self.proxy_list[self.current_proxy_index]
-            pool.record_proxy_failure(current)
-            pool.quarantine_proxy(current, duration_s=60.0)
+            if is_rate_limit:
+                pool.record_proxy_rate_limit(current)
+            else:
+                pool.record_proxy_failure(current)
+                pool.quarantine_proxy(current, duration_s=60.0)
 
             self.current_proxy_index = (self.current_proxy_index + 1) % len(
                 self.proxy_list
@@ -533,6 +536,19 @@ class HttpClient(BrowserClientMixin):
                 event_hooks={"response": [self._validate_redirect_hook]},
             )
             return new_proxy
+
+    def _record_domain_success(self, host: str, url: str) -> None:
+        """Record successful request for domain: increment reputation and additively increase RPS."""
+        cd_state = self._cooldown_state_for(url)
+        cd_state.record_success()
+        with self._rl_lock:
+            limiter = self._rate_limiters.get(host)
+            if limiter:
+                base_rps = self._domain_rps_overrides.get(host, DEFAULT_REQUESTS_PER_SECOND)
+                if self.global_rate_limit_rps > 0.0:
+                    base_rps = min(base_rps, self.global_rate_limit_rps)
+                if limiter.requests_per_second < base_rps:
+                    limiter.requests_per_second = min(base_rps, round(limiter.requests_per_second + 0.05, 3))
 
     # ------------------------------------------------------------------
     # Domain helpers
@@ -771,13 +787,14 @@ class HttpClient(BrowserClientMixin):
                 # Apply rate limiting before direct fallback
                 self._rate_limiter_for(url).wait()
 
-                # Fast-path for curl_cffi cached tier (avoids launching full browser stack)
-                if cached_tier == "curl_cffi":
+                # Fast-path for curl_cffi cached tier or valid cf_clearance session (avoids launching full browser stack)
+                session = self._session_pool.get_session(host)
+                if cached_tier == "curl_cffi" or session.is_clearance_valid(self.get_proxy()):
                     cffi_resp = self._try_curl_cffi_fallback(
                         url, headers=headers, timeout=timeout, skip_httpx=False
                     )
                     if cffi_resp is not None:
-                        cd_state.record_success()
+                        self._record_domain_success(host, url)
                         self._store_cache(url, cffi_resp)
                         return cffi_resp
 
@@ -809,8 +826,16 @@ class HttpClient(BrowserClientMixin):
                     existing.update(cookies_dict)
                     self.session_manager.save_session(host, existing)
                     session = self._session_pool.get_session(host)
-                    session.cookies.update(cookies_dict)
-                    session.save_to_disk()
+                    if "cf_clearance" in cookies_dict:
+                        session.bind_tls_session(
+                            cookies_dict,
+                            tls_profile="chrome120",
+                            user_agent=session.user_agent,
+                            proxy=self.get_proxy(),
+                        )
+                    else:
+                        session.cookies.update(cookies_dict)
+                        session.save_to_disk()
 
                 return response
 
@@ -870,7 +895,7 @@ class HttpClient(BrowserClientMixin):
                         existing = self.session_manager.load_session(host) or {}
                         existing.update({c.name: c.value for c in response.cookies.jar})
                         self.session_manager.save_session(host, existing)
-                    cd_state.record_success()
+                    self._record_domain_success(host, url)
                     self.record_domain_tier(host, "httpx")
                     self._store_cache(url, response)
                     return response
@@ -914,11 +939,14 @@ class HttpClient(BrowserClientMixin):
                         self.session_manager.evict_session(host)
                     
                     if status in {403, 429}:
-                        logger.warning("HTTP %d received from %s. Immediately rotating proxy and retrying...", status, host)
+                        logger.warning("HTTP %d received from %s. Immediately rotating proxy with AIMD quarantine and retrying...", status, host)
                         from network.proxy_manager import ProxyPoolManager
                         pool = ProxyPoolManager.get_instance()
                         pool.clear_domain_binding(host)
-                        self.rotate_proxy()
+                        try:
+                            self.rotate_proxy(is_rate_limit=True)
+                        except TypeError:
+                            self.rotate_proxy()
                         if attempt < DEFAULT_RETRY_ATTEMPTS:
                             continue
 
@@ -963,7 +991,7 @@ class HttpClient(BrowserClientMixin):
                         url, headers=headers, timeout=current_timeout, skip_httpx=skip_httpx
                     )
                     if cffi_resp is not None:
-                        cd_state.record_success()
+                        self._record_domain_success(host, url)
                         self.record_domain_tier(host, "curl_cffi")
                         self._store_cache(url, cffi_resp)
                         return cffi_resp
@@ -973,7 +1001,7 @@ class HttpClient(BrowserClientMixin):
                         url, headers=headers, timeout=current_timeout
                     )
                     if harvest_resp is not None:
-                        cd_state.record_success()
+                        self._record_domain_success(host, url)
                         self._store_cache(url, harvest_resp)
                         return harvest_resp
 
@@ -1027,8 +1055,16 @@ class HttpClient(BrowserClientMixin):
                             elif isinstance(browser_cookies, dict):
                                 cookies_dict = browser_cookies
                             if cookies_dict:
-                                session.cookies.update(cookies_dict)
-                                session.save_to_disk()
+                                if "cf_clearance" in cookies_dict:
+                                    session.bind_tls_session(
+                                        cookies_dict,
+                                        tls_profile="chrome120",
+                                        user_agent=session.user_agent,
+                                        proxy=self.get_proxy(),
+                                    )
+                                else:
+                                    session.cookies.update(cookies_dict)
+                                    session.save_to_disk()
                                 for ck, cv in cookies_dict.items():
                                     self.client.cookies.set(ck, cv, domain=host)
                         except Exception as cookie_err:
@@ -1061,7 +1097,7 @@ class HttpClient(BrowserClientMixin):
                             resp = unverified_client.get(url, headers=ssl_headers)
                             if resp.status_code == 200:
                                 logger.info("Unverified SSL fallback succeeded for %s.", url)
-                                cd_state.record_success()
+                                self._record_domain_success(host, url)
                                 self._store_cache(url, resp)
                                 return resp
                     except Exception as unverify_err:

@@ -7,6 +7,7 @@ from __future__ import annotations
 import heapq
 import math
 import re
+import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -14,6 +15,105 @@ from urllib.parse import urlparse
 from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
+
+
+class URLPatternBandit:
+    """
+    Multi-Armed Bandit (MAB) for URL path archetypes.
+    Canonicalizes URLs into structural archetypes (e.g. 'domain.com::/gallery/{id}').
+    Tracks trials (pages visited) and rewards (media harvested).
+    Computes dynamic UCB1 score bonuses and dead-end penalties.
+    """
+
+    def __init__(self, exploration_weight: float = 1.414, max_bonus: float = 25.0):
+        self.exploration_weight = exploration_weight
+        self.max_bonus = max_bonus
+        self._counts: Dict[str, int] = {}
+        self._rewards: Dict[str, float] = {}
+        self._total_trials = 0
+        self._lock = threading.RLock()
+
+    @staticmethod
+    def extract_archetype(url: str) -> str:
+        """
+        Normalize a URL into its structural path archetype.
+        e.g. 'https://example.com/gallery/12345/view' -> 'example.com::/gallery/{id}/view'
+        """
+        try:
+            parsed = urlparse(url)
+            host = parsed.netloc.lower().strip()
+            path = parsed.path or "/"
+            # Replace UUIDs
+            path = re.sub(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", "{uuid}", path, flags=re.I)
+            # Replace long hex/hashes (32+ chars)
+            path = re.sub(r"[a-f0-9]{32,}", "{hash}", path, flags=re.I)
+            # Replace numeric IDs
+            path = re.sub(r"\b\d+\b", "{id}", path)
+            return f"{host}::{path}"
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def extract_prefix_archetype(url: str) -> str:
+        """
+        Extract coarse section archetype (e.g. 'example.com::/gallery/*').
+        """
+        try:
+            parsed = urlparse(url)
+            host = parsed.netloc.lower().strip()
+            parts = [p for p in (parsed.path or "/").split("/") if p]
+            if parts:
+                return f"{host}::/{parts[0]}/*"
+            return f"{host}::/*"
+        except Exception:
+            return "unknown"
+
+    def record_harvest(self, url: str, media_yield: int) -> None:
+        """Record the media yield outcome of a crawled page."""
+        archetype = self.extract_archetype(url)
+        prefix_archetype = self.extract_prefix_archetype(url)
+        with self._lock:
+            self._total_trials += 1
+            reward = min(10.0, float(max(0, media_yield)))
+
+            self._counts[archetype] = self._counts.get(archetype, 0) + 1
+            self._rewards[archetype] = self._rewards.get(archetype, 0.0) + reward
+
+            if prefix_archetype != archetype:
+                self._counts[prefix_archetype] = self._counts.get(prefix_archetype, 0) + 1
+                self._rewards[prefix_archetype] = self._rewards.get(prefix_archetype, 0.0) + reward
+
+    def score_adjustment(self, url: str) -> float:
+        """
+        Compute priority score adjustment (-25.0 to +max_bonus) for this URL archetype.
+        - High-yield archetypes get a positive boost.
+        - Consistently zero-yield archetypes get a penalty.
+        - Unexplored archetypes return 0.0 (neutral).
+        """
+        archetype = self.extract_archetype(url)
+        with self._lock:
+            key = archetype
+            n = self._counts.get(key, 0)
+            if n == 0:
+                prefix_key = self.extract_prefix_archetype(url)
+                if self._counts.get(prefix_key, 0) > 0:
+                    key = prefix_key
+                    n = self._counts[key]
+                else:
+                    return 0.0
+
+            total = max(1, self._total_trials)
+            mean_reward = self._rewards.get(key, 0.0) / n
+
+            # Dead-end penalty: after 3+ visits with 0 yield
+            if mean_reward == 0.0 and n >= 3:
+                penalty = min(25.0, 5.0 * n)
+                return -penalty
+
+            # UCB1 bonus for promising paths
+            exploration = self.exploration_weight * math.sqrt(math.log(total) / n)
+            bonus = min(self.max_bonus, (mean_reward * 2.5) + (exploration * 1.5))
+            return round(bonus, 4)
 
 
 class DomainBudgetGovernor:
@@ -78,11 +178,13 @@ class AdaptiveCrawlQueue:
         w_yield: float = 30.0,
         w_token: float = 30.0,
         depth_lambda: float = 0.5,
+        pattern_bandit: Optional[URLPatternBandit] = None,
     ):
         self.w_depth = w_depth
         self.w_yield = w_yield
         self.w_token = w_token
         self.depth_lambda = depth_lambda
+        self.pattern_bandit = pattern_bandit or URLPatternBandit()
         self._heap: List[Tuple[float, int, int, float, float, str]] = []
 
     def calculate_score(
@@ -111,7 +213,12 @@ class AdaptiveCrawlQueue:
                 token_ratio = overlap / len(kw_tokens)
                 token_score = self.w_token * token_ratio
 
-        composite = depth_score + yield_score + token_score - budget_penalty
+        # 4. Multi-Armed Bandit Pattern Archetype adjustment
+        pattern_adj = 0.0
+        if self.pattern_bandit is not None:
+            pattern_adj = self.pattern_bandit.score_adjustment(url)
+
+        composite = depth_score + yield_score + token_score + pattern_adj - budget_penalty
         return round(composite, 4)
 
     def push(

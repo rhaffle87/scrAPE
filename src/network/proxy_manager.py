@@ -120,6 +120,20 @@ class ProxyInfo:
             duration_s,
         )
 
+    def record_rate_limit(self, base_duration_s: float = 30.0) -> float:
+        """Adaptive AIMD quarantine backoff on HTTP 429/403 rate-limiting."""
+        self.quarantine_tier = min(5, self.quarantine_tier + 1)
+        duration = min(600.0, base_duration_s * (2 ** (self.quarantine_tier - 1)))
+        self.cooldown_until = time.monotonic() + duration
+        self.health_score = max(0.1, round(self.health_score * 0.5, 3))
+        LOGGER.warning(
+            "Proxy '%s' entered AIMD rate-limit quarantine for %.0fs (tier %d).",
+            self.url,
+            duration,
+            self.quarantine_tier,
+        )
+        return duration
+
 
 class ProxyPoolManager:
     """Thread-safe Proxy Pool Manager handling health probing, latency sorting, bandwidth quota, and auto-eviction."""
@@ -340,6 +354,14 @@ class ProxyPoolManager:
             info = self._proxies.get(proxy_url)
             if info:
                 info.quarantine(duration_s)
+
+    def record_proxy_rate_limit(self, proxy_url: str, base_duration_s: float = 30.0) -> float:
+        """Apply AIMD rate-limit quarantine to proxy_url."""
+        with self._pool_lock:
+            info = self._proxies.get(proxy_url)
+            if info:
+                return info.record_rate_limit(base_duration_s)
+            return base_duration_s
 
     def clear_domain_binding(self, domain: str) -> None:
         """Clear the sticky proxy assigned to a domain to force rotation on next request."""

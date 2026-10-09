@@ -39,7 +39,57 @@ from typing import ClassVar
 
 logger = get_logger(__name__)
 
-__all__ = ["BrowserClientMixin"]
+__all__ = ["BrowserClientMixin", "generate_bezier_curve"]
+
+
+def generate_bezier_curve(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    steps: int = 25,
+) -> list[tuple[int, int]]:
+    """Generate human-like smooth Bézier mouse trajectory with ease-in-out timing and micro-jitter."""
+    import math
+    import random
+
+    x0, y0 = float(start[0]), float(start[1])
+    x1, y1 = float(end[0]), float(end[1])
+    dx = x1 - x0
+    dy = y1 - y0
+    dist = math.hypot(dx, dy)
+    if dist < 1.0 or steps <= 1:
+        return [(round(x1), round(y1))]
+
+    # Normal vector perpendicular to chord
+    nx, ny = -dy / dist, dx / dist
+
+    # Randomized control points offset from the line
+    deflection1 = random.uniform(-0.25, 0.25) * dist
+    deflection2 = random.uniform(-0.25, 0.25) * dist
+
+    cx1 = x0 + dx * 0.33 + nx * deflection1
+    cy1 = y0 + dy * 0.33 + ny * deflection1
+
+    cx2 = x0 + dx * 0.67 + nx * deflection2
+    cy2 = y0 + dy * 0.67 + ny * deflection2
+
+    points: list[tuple[int, int]] = []
+    for i in range(steps + 1):
+        t_raw = i / steps
+        # Smooth ease-in-out cosine curve
+        t = 0.5 * (1.0 - math.cos(math.pi * t_raw))
+
+        inv_t = 1.0 - t
+        bx = (inv_t**3) * x0 + 3 * (inv_t**2) * t * cx1 + 3 * inv_t * (t**2) * cx2 + (t**3) * x1
+        by = (inv_t**3) * y0 + 3 * (inv_t**2) * t * cy1 + 3 * inv_t * (t**2) * cy2 + (t**3) * y1
+
+        # Add 1px micro-jitter for intermediate points
+        if 0 < i < steps:
+            bx += random.uniform(-1.0, 1.0)
+            by += random.uniform(-1.0, 1.0)
+
+        points.append((round(bx), round(by)))
+
+    return points
 
 
 def _get_or_create_event_loop():
@@ -312,13 +362,19 @@ class BrowserClientMixin:
         try:
             from curl_cffi import requests as c_requests
 
-            logger.info("Attempting curl_cffi TLS spoofing for %s", url)
-
-            proxy = self.get_proxy()
+            proxy = self.get_proxy() if hasattr(self, "get_proxy") else None
             proxy_dict = {"http": proxy, "https": proxy} if proxy else None
-            impersonate_val: typing.Literal["chrome120"] = "chrome120"
+
+            tls_profile = "chrome120"
+            if session and getattr(session, "tls_profile", None):
+                tls_profile = session.tls_profile
+            elif hasattr(self, "get_tls_impersonate"):
+                tls_profile = self.get_tls_impersonate(host)
+
+            logger.info("Attempting curl_cffi TLS spoofing for %s (profile=%s)", url, tls_profile)
+
             c_session = c_requests.Session(
-                impersonate=impersonate_val,
+                impersonate=tls_profile,
                 proxies=proxy_dict,  # type: ignore[arg-type]
             )
 
@@ -341,11 +397,22 @@ class BrowserClientMixin:
                     request=httpx.Request("GET", url),
                 )
 
-                if c_resp.cookies and session:
-                    cookies_dict = {c.name: c.value for c in c_resp.cookies.jar}
-                    session.cookies.update(cookies_dict)
-                    session.save_to_disk()
-                    if self.session_manager:
+                if session:
+                    cookies_dict = {}
+                    if c_resp.cookies:
+                        cookies_dict = {c.name: c.value for c in c_resp.cookies.jar}
+                        session.cookies.update(cookies_dict)
+                    if "cf_clearance" in session.cookies or "cf_clearance" in cookies_dict:
+                        session.bind_tls_session(
+                            session.cookies,
+                            tls_profile=tls_profile,
+                            user_agent=session.user_agent,
+                            proxy=proxy,
+                        )
+                    else:
+                        session.save_to_disk()
+
+                    if self.session_manager and cookies_dict:
                         cookie_list = [
                             {"name": k, "value": v, "domain": host, "path": "/"}
                             for k, v in cookies_dict.items()
@@ -640,18 +707,46 @@ class BrowserClientMixin:
                     if not self._is_cloudflare_challenge(html):
                         break
 
-                    # Active Turnstile clicker
+                    # Active Turnstile clicker with Bézier kinematics
                     try:
                         import random
-                        # Inject human-like mouse jitter
-                        page.actions.move(random.randint(50, 200), random.randint(50, 200))
 
                         if not clicked:
                             cf_iframe = page.ele('xpath://iframe', timeout=1) or page.ele('#jvye6', timeout=1)
                             if cf_iframe:
-                                logger.info("Found Cloudflare Turnstile widget/iframe, simulating human hover and click.")
+                                logger.info("Found Cloudflare Turnstile widget/iframe, simulating human Bézier trajectory and click.")
+                                target_x, target_y = None, None
+                                rect = getattr(cf_iframe, "rect", None)
+                                if rect:
+                                    if hasattr(rect, "viewport_midpoint"):
+                                        target_x, target_y = rect.viewport_midpoint
+                                    elif hasattr(rect, "midpoint"):
+                                        target_x, target_y = rect.midpoint
+                                    elif hasattr(rect, "location") and hasattr(rect, "size"):
+                                        target_x = rect.location[0] + rect.size[0] / 2.0
+                                        target_y = rect.location[1] + rect.size[1] / 2.0
+
+                                if target_x is not None and target_y is not None:
+                                    start_x = float(random.randint(80, 250))
+                                    start_y = float(random.randint(80, 250))
+                                    curve = generate_bezier_curve((start_x, start_y), (float(target_x), float(target_y)), steps=25)
+                                    for px, py in curve:
+                                        try:
+                                            if hasattr(page, "run_cdp"):
+                                                page.run_cdp("Input.dispatchMouseEvent", type="mouseMoved", x=px, y=py)
+                                            elif hasattr(page, "actions"):
+                                                page.actions.move(px, py)
+                                        except Exception:
+                                            pass
+                                        time.sleep(random.uniform(0.006, 0.020))
+                                    time.sleep(random.uniform(0.12, 0.28))
+                                else:
+                                    page.actions.move(random.randint(50, 200), random.randint(50, 200))
+
                                 page.actions.move_to(cf_iframe).click()
                                 clicked = True
+                        else:
+                            page.actions.move(random.randint(50, 200), random.randint(50, 200))
                     except Exception as e:
                         logger.debug("Turnstile auto-clicker exception: %s", repr(e))
 
@@ -689,6 +784,19 @@ class BrowserClientMixin:
                             "path": c.get("path") or "/",
                         }
                     )
+
+                if cookies_list and hasattr(self, "_session_pool") and self._session_pool:
+                    session = self._session_pool.get_session(host)
+                    cookie_dict = {c["name"]: c["value"] for c in cookies_list if "name" in c and "value" in c}
+                    if "cf_clearance" in cookie_dict:
+                        session.bind_tls_session(
+                            cookie_dict,
+                            tls_profile="chrome120",
+                            user_agent=session.user_agent,
+                            proxy=proxy,
+                        )
+                    else:
+                        session.update_cookies(cookie_dict)
 
                 return html, cookies_list
 

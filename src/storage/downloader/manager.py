@@ -12,6 +12,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import multiprocessing
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -708,70 +709,88 @@ class MediaDownloader:
                             )
                             bytes_written = 0
 
+                        import hashlib
+                        inline_hasher = hashlib.sha256()
+
                         if media_kind == "image":
-                            chunks = []
                             bytes_read = 0
+                            header_bytes = b""
                             dimensions_checked = False
                             
-                            last_chunk_time = time.monotonic()
-                            for chunk in response.iter_bytes(chunk_size=8192):
-                                current_time = time.monotonic()
-                                if current_time - last_chunk_time > 60.0:
-                                    raise TimeoutError(f"Download stalled for over 60s for {url}")
-                                last_chunk_time = current_time
-                                
-                                self.bandwidth_limiter.throttle(len(chunk))
-                                chunks.append(chunk)
-                                bytes_read += len(chunk)
+                            early_abort = False
+                            abort_reason: dict[str, Any] = {}
 
-                                if not dimensions_checked:
-                                    # Try parsing dimensions early on the accumulated bytes
-                                    current_bytes = b"".join(chunks)
-                                    w, h = get_image_dimensions(current_bytes)
-                                    if w is not None and h is not None:
-                                        limit_w = (
-                                            min_image_size[0]
-                                            if min_image_size
-                                            else MIN_IMAGE_WIDTH
-                                        )
-                                        limit_h = (
-                                            min_image_size[1]
-                                            if min_image_size
-                                            else MIN_IMAGE_HEIGHT
-                                        )
-                                        if w < limit_w or h < limit_h:
-                                            LOGGER.info(
-                                                "Skipping low-resolution image asset %s (%dx%d)",
-                                                url,
-                                                w,
-                                                h,
-                                            )
-                                            return False, {"reason": "low_resolution"}
-                                        dimensions_checked = True
-                                    elif bytes_read >= 65536:
-                                        if suffix.lower() in {
-                                            ".jpg",
-                                            ".jpeg",
-                                            ".png",
-                                            ".webp",
-                                            ".gif",
-                                        }:
-                                            LOGGER.info(
-                                                "Skipping image with unparseable dimensions %s",
-                                                url,
-                                            )
-                                            return False, {
-                                                "reason": "unparseable_dimensions"
-                                            }
-                                        dimensions_checked = True
-                            content = b"".join(chunks)
-                            content_length = len(content)
+                            try:
+                                with open(temp_target, "wb") as f:
+                                    last_chunk_time = time.monotonic()
+                                    for chunk in response.iter_bytes(chunk_size=65536):
+                                        current_time = time.monotonic()
+                                        if current_time - last_chunk_time > 60.0:
+                                            raise TimeoutError(f"Download stalled for over 60s for {url}")
+                                        last_chunk_time = current_time
+                                        
+                                        self.bandwidth_limiter.throttle(len(chunk))
+                                        f.write(chunk)
+                                        inline_hasher.update(chunk)
+                                        bytes_read += len(chunk)
+
+                                        if len(header_bytes) < 65536:
+                                            header_bytes += chunk[:65536 - len(header_bytes)]
+
+                                        if not dimensions_checked and len(header_bytes) >= 1024:
+                                            w, h = get_image_dimensions(header_bytes)
+                                            if w is not None and h is not None:
+                                                limit_w = (
+                                                    min_image_size[0]
+                                                    if min_image_size
+                                                    else MIN_IMAGE_WIDTH
+                                                )
+                                                limit_h = (
+                                                    min_image_size[1]
+                                                    if min_image_size
+                                                    else MIN_IMAGE_HEIGHT
+                                                )
+                                                if w < limit_w or h < limit_h:
+                                                    LOGGER.info(
+                                                        "Skipping low-resolution image asset %s (%dx%d)",
+                                                        url,
+                                                        w,
+                                                        h,
+                                                    )
+                                                    early_abort = True
+                                                    abort_reason = {"reason": "low_resolution"}
+                                                    break
+                                                dimensions_checked = True
+                                            elif bytes_read >= 65536:
+                                                if suffix.lower() in {
+                                                    ".jpg",
+                                                    ".jpeg",
+                                                    ".png",
+                                                    ".webp",
+                                                    ".gif",
+                                                }:
+                                                    LOGGER.info(
+                                                        "Skipping image with unparseable dimensions %s",
+                                                        url,
+                                                    )
+                                                    early_abort = True
+                                                    abort_reason = {"reason": "unparseable_dimensions"}
+                                                    break
+                                                dimensions_checked = True
+                            except Exception as e:
+                                temp_target.unlink(missing_ok=True)
+                                raise e
+
+                            if early_abort:
+                                temp_target.unlink(missing_ok=True)
+                                return False, abort_reason
+
+                            content = header_bytes
+                            content_length = bytes_read
                         else:
-                            import hashlib
                             write_mode = "ab" if bytes_written > 0 else "wb"
                             bytes_read = bytes_written
                             header_bytes = b""
-                            inline_hasher = hashlib.sha256()
 
                             # If resuming existing partial file, seed hasher with already downloaded bytes
                             if bytes_written > 0 and temp_target.exists():
@@ -802,6 +821,7 @@ class MediaDownloader:
 
                 if media_kind == "image" and content_length < MIN_IMAGE_DOWNLOAD_BYTES:
                     LOGGER.info("Skipping tiny image asset %s", url)
+                    temp_target.unlink(missing_ok=True)
                     return False, {"reason": "low_resolution"}
                 if (
                     media_kind == "video"
@@ -813,8 +833,7 @@ class MediaDownloader:
                         url,
                         content_length,
                     )
-                    if media_kind == "video":
-                        temp_target.unlink(missing_ok=True)
+                    temp_target.unlink(missing_ok=True)
                     return False, {"reason": "low_resolution"}
 
                 if not self._looks_like_expected_media(
@@ -826,13 +845,11 @@ class MediaDownloader:
                         url,
                         content_type,
                     )
-                    if media_kind == "video":
-                        temp_target.unlink(missing_ok=True)
+                    temp_target.unlink(missing_ok=True)
                     return False, {"reason": "invalid_media_type"}
 
-                import hashlib
                 if media_kind == "image":
-                    content_hash = hashlib.sha256(content).hexdigest()
+                    content_hash = inline_hasher.hexdigest()
                 else:
                     temp_target.rename(target)
                     # Zero-Copy streaming: hash calculated inline during socket-to-disk write pass
@@ -840,7 +857,7 @@ class MediaDownloader:
                     content_length = target.stat().st_size
 
                 if media_kind == "image":
-                    w, h = get_image_dimensions(content)
+                    w, h = get_image_dimensions(header_bytes)
                     if w is not None and h is not None and not is_rejected:
                         limit_w = min_image_size[0] if min_image_size else MIN_IMAGE_WIDTH
                         limit_h = min_image_size[1] if min_image_size else MIN_IMAGE_HEIGHT
@@ -853,10 +870,7 @@ class MediaDownloader:
                         temp_target.unlink(missing_ok=True)
                         return False, {"reason": "unparseable_dimensions"}
 
-                    # Save raw content to temp target for out-of-process CPU work
-                    temp_target.write_bytes(content)
-
-                    # Offload CPU-bound hash/score/sanitize to ProcessPoolExecutor
+                    # Offload CPU-bound hash/score/sanitize to ProcessPoolExecutor (temp_target already streamed)
                     future = self._cpu_pool.submit(
                         __import__('storage.downloader.cpu_worker', fromlist=['cpu_worker'])._process_image_cpu_bound,
                         str(temp_target),

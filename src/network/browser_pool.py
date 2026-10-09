@@ -145,6 +145,25 @@ WebGLRenderingContext.prototype.getParameter = function(parameter) {
         except Exception as e:
             LOGGER.debug("Failed to inject stealth.js into new pooled browser: %s", e)
 
+        # Block non-essential heavy resources (trackers, fonts, ads) via CDP Network API
+        try:
+            page.run_cdp("Network.enable")
+            page.run_cdp(
+                "Network.setBlockedURLs",
+                urls=[
+                    "*google-analytics.com*",
+                    "*googletagmanager.com*",
+                    "*doubleclick.net*",
+                    "*scorecardresearch.com*",
+                    "*hotjar.com*",
+                    "*.woff2*",
+                    "*.woff*",
+                    "*.ttf*",
+                ],
+            )
+        except Exception as e:
+            LOGGER.debug("Failed configuring Network.setBlockedURLs on pooled browser: %s", e)
+
         return PooledBrowser(page=page, proxy=proxy, headless=headless, last_used=time.time())
 
     @classmethod

@@ -513,7 +513,7 @@ def test_http_client_crawl4ai_fallback(monkeypatch):
             "Forbidden", request=httpx.Request("GET", url), response=response
         )
 
-    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(client, "rotate_proxy", lambda *a, **kw: None)
     monkeypatch.setattr(time, "sleep", lambda x: None)
     monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get)
@@ -592,7 +592,7 @@ def test_http_client_no_retry_on_bypass_failure(monkeypatch):
         resp = httpx.Response(403, request=httpx.Request("GET", url))
         raise httpx.HTTPStatusError("403 Forbidden", request=httpx.Request("GET", url), response=resp)
 
-    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(client, "rotate_proxy", lambda *a, **kw: None)
     monkeypatch.setattr(time, "sleep", lambda x: None)
     monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get_403)
@@ -1215,7 +1215,7 @@ def test_helium_fallback_triggers_when_crawl4ai_fails(monkeypatch):
             "429 Too Many Requests", request=httpx.Request("GET", url), response=resp
         )
 
-    monkeypatch.setattr(client, "rotate_proxy", lambda: None)
+    monkeypatch.setattr(client, "rotate_proxy", lambda *a, **kw: None)
     monkeypatch.setattr(time, "sleep", lambda x: None)
     monkeypatch.setattr("network.rate_limiter.time.sleep", lambda x: None)
     monkeypatch.setattr(client.client, "get", mock_get_429)
