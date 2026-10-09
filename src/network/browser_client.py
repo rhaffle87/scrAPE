@@ -386,8 +386,24 @@ class BrowserClientMixin:
                 cookie_str = "; ".join([f"{k}={v}" for k, v in session.cookies.items()])
                 c_req_headers["Cookie"] = cookie_str
 
+            try:
+                from curl_cffi import CurlOpt
+                from network.doh_resolver import DoHResolver
+                if hasattr(c_session, "curl") and hasattr(c_session.curl, "setopt"):
+                    c_session.curl.setopt(CurlOpt.DOH_URL, DoHResolver.get_doh_url().encode("utf-8"))
+            except Exception:
+                pass
+
+            if host.endswith("flickr.com"):
+                c_req_headers["Accept-Encoding"] = "identity"
+
             current_timeout = timeout if timeout is not None else self.timeout
             c_resp = c_session.get(url, headers=c_req_headers, timeout=current_timeout)
+
+            # Retry with identity encoding if server fails with 502 compression error
+            if c_resp.status_code == 502 and c_req_headers.get("Accept-Encoding") != "identity":
+                c_req_headers["Accept-Encoding"] = "identity"
+                c_resp = c_session.get(url, headers=c_req_headers, timeout=current_timeout)
 
             if c_resp.status_code == 200 and not self._is_blocked_page(c_resp.text, url):
                 logger.info("curl_cffi TLS spoofing successfully bypassed WAF for %s.", url)
@@ -605,6 +621,14 @@ class BrowserClientMixin:
         if not html:
             return True
         if self._is_cloudflare_challenge(html):
+            return True
+        lower_html = html.lower()
+        if (
+            "internetbaik.telkomsel.com" in lower_html
+            or "trustpositif.kominfo.go.id" in lower_html
+            or "uzone.id/internet-positif" in lower_html
+            or "mercusuar.uzone.id" in lower_html
+        ):
             return True
         parsed = urlparse(url)
         host = parsed.netloc or parsed.hostname or ""

@@ -490,6 +490,13 @@ class HttpClient(BrowserClientMixin):
         # Run automated cleanup for old persistent browser profiles
         self._cleanup_stale_profiles()
 
+        # Install transparent DoH anti-poisoning resolver
+        try:
+            from network.doh_resolver import DoHResolver
+            DoHResolver.get_instance().install()
+        except Exception as _doh_err:
+            logger.debug("DoHResolver installation skipped: %s", _doh_err)
+
 
 
     # ------------------------------------------------------------------
@@ -930,6 +937,31 @@ class HttpClient(BrowserClientMixin):
                     if attempt < DEFAULT_RETRY_ATTEMPTS:
                         time.sleep(2.0 ** (attempt + 1))
                         continue
+                    logger.info(
+                        "HTTP %d on %s persists after %d attempts. Escalating to fallback sequence...",
+                        status,
+                        url,
+                        DEFAULT_RETRY_ATTEMPTS,
+                    )
+                    cffi_resp = self._try_curl_cffi_fallback(
+                        url, headers=headers, timeout=timeout, skip_httpx=False
+                    )
+                    if cffi_resp is not None:
+                        self._record_domain_success(host, url)
+                        self._store_cache(url, cffi_resp)
+                        return cffi_resp
+                    html_content, browser_cookies = self._execute_fallbacks(
+                        url, skip_httpx=skip_httpx, preferred_engine=preferred_engine
+                    )
+                    if html_content is not None and not self._is_blocked_page(html_content, url):
+                        response = httpx.Response(
+                            status_code=200,
+                            content=html_content.encode("utf-8"),
+                            request=httpx.Request("GET", url),
+                        )
+                        cd_state.record_success()
+                        self._store_cache(url, response)
+                        return response
                     raise exc
 
                 if status in {403, 401, 429, 412, 406}:
