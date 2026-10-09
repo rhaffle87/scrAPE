@@ -125,8 +125,13 @@ def test_camoufox_launcher_kwargs_and_viewport_isolation(monkeypatch):
         allowed_launch_kwargs = {
             "headless", "os", "humanize", "config", "geoip", "addons",
             "fonts", "screen", "window", "fingerprint", "proxy", "executable_path",
-            "args", "env", "timeout", "firefox_user_prefs", "slow_mo"
+            "args", "env", "timeout", "firefox_user_prefs", "slow_mo",
+            "disable_coop", "i_know_what_im_doing", "block_webrtc", "enable_cache"
         }
+
+    from network.prewarmed_browser_pool import get_prewarmed_browser_pool
+    pool = get_prewarmed_browser_pool()
+    pool.shutdown()
 
     # Ensure prohibited chromium/persistent kwargs are not in the allowed signature
     assert "window_size" not in allowed_launch_kwargs
