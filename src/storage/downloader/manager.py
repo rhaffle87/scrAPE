@@ -378,8 +378,18 @@ class MediaDownloader:
         if self.http and hasattr(self.http, "session_manager"):
             parts = host.split('.')
             base_domain = '.'.join(parts[-2:]) if len(parts) >= 2 else host
-            cookies = self.http.session_manager.load_session(host) or {}
-            base_cookies = self.http.session_manager.load_session(base_domain) or {}
+            raw_cookies = self.http.session_manager.load_session(host)
+            raw_base = self.http.session_manager.load_session(base_domain)
+            
+            def _to_cookie_dict(val):
+                if isinstance(val, list):
+                    return {c["name"]: c["value"] for c in val if isinstance(c, dict) and "name" in c and "value" in c}
+                if isinstance(val, dict):
+                    return val
+                return {}
+
+            cookies = _to_cookie_dict(raw_cookies)
+            base_cookies = _to_cookie_dict(raw_base)
             
             # Merge cookies, prioritizing specific host over base domain
             merged_cookies = {**base_cookies, **cookies}

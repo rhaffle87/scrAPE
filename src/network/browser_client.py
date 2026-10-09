@@ -379,7 +379,7 @@ class BrowserClientMixin:
             )
 
             c_req_headers = self._headers(url) if hasattr(self, "_headers") else {}
-            if headers:
+            if headers and isinstance(headers, dict):
                 c_req_headers.update(headers)
 
             if session and session.cookies:

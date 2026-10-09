@@ -135,10 +135,20 @@ class StealthPipeline:
                     try:
                         client._session_pool.update_session(host, cookies=res.cookies, user_agent=res.user_agent)
                         if hasattr(client, "session_manager"):
-                            existing = client.session_manager.load_session(host) or {}
+                            existing = client.session_manager.load_session(host)
+                            if isinstance(existing, list):
+                                existing = {c["name"]: c["value"] for c in existing if isinstance(c, dict) and "name" in c and "value" in c}
+                            elif not isinstance(existing, dict):
+                                existing = {}
                             if res.cookies:
-                                existing.update(res.cookies)
-                            client.session_manager.save_session(host, existing)
+                                if isinstance(res.cookies, dict):
+                                    existing.update(res.cookies)
+                                elif isinstance(res.cookies, list):
+                                    for c in res.cookies:
+                                        if isinstance(c, dict) and "name" in c and "value" in c:
+                                            existing[c["name"]] = c["value"]
+                            cookie_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in existing.items()]
+                            client.session_manager.save_session(host, cookie_list)
                     except Exception as c_err:
                         logger.warning(
                             "Failed to persist harvested session for %s: %s", host, c_err

@@ -829,9 +829,14 @@ class HttpClient(BrowserClientMixin):
 
                 if browser_cookies:
                     cookies_dict = {c["name"]: c["value"] for c in browser_cookies if isinstance(c, dict) and "name" in c and "value" in c}
-                    existing = self.session_manager.load_session(host) or {}
+                    existing = self.session_manager.load_session(host)
+                    if isinstance(existing, list):
+                        existing = {c["name"]: c["value"] for c in existing if isinstance(c, dict) and "name" in c and "value" in c}
+                    elif not isinstance(existing, dict):
+                        existing = {}
                     existing.update(cookies_dict)
-                    self.session_manager.save_session(host, existing)
+                    cookie_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in existing.items()]
+                    self.session_manager.save_session(host, cookie_list)
                     session = self._session_pool.get_session(host)
                     if "cf_clearance" in cookies_dict:
                         session.bind_tls_session(
@@ -899,9 +904,14 @@ class HttpClient(BrowserClientMixin):
                     session.cookies.update({c.name: c.value for c in response.cookies.jar})
                     session.save_to_disk()
                     if response.cookies:
-                        existing = self.session_manager.load_session(host) or {}
+                        existing = self.session_manager.load_session(host)
+                        if isinstance(existing, list):
+                            existing = {c["name"]: c["value"] for c in existing if isinstance(c, dict) and "name" in c and "value" in c}
+                        elif not isinstance(existing, dict):
+                            existing = {}
                         existing.update({c.name: c.value for c in response.cookies.jar})
-                        self.session_manager.save_session(host, existing)
+                        cookie_list = [{"name": k, "value": v, "domain": host, "path": "/"} for k, v in existing.items()]
+                        self.session_manager.save_session(host, cookie_list)
                     self._record_domain_success(host, url)
                     self.record_domain_tier(host, "httpx")
                     self._store_cache(url, response)
