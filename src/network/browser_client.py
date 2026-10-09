@@ -394,7 +394,8 @@ class BrowserClientMixin:
             except Exception:
                 pass
 
-            if host.endswith("flickr.com"):
+            parsed_host = urlparse(url).hostname or host
+            if parsed_host == "flickr.com" or parsed_host.endswith(".flickr.com"):
                 c_req_headers["Accept-Encoding"] = "identity"
 
             current_timeout = timeout if timeout is not None else self.timeout
@@ -616,6 +617,19 @@ class BrowserClientMixin:
             return True
         return False
 
+    @staticmethod
+    def _has_isp_censorship_signatures(text_content: str) -> bool:
+        """Detect Indonesian ISP censorship landing page content."""
+        if not text_content:
+            return False
+        indicators = (
+            "internetbaik",
+            "trustpositif",
+            "internet-positif",
+            "mercusuar.uzone",
+        )
+        return any(ind in text_content for ind in indicators)
+
     def _is_blocked_page(self, html: str, url: str = "") -> bool:
         """Return True if the HTML indicates a Cloudflare challenge or a soft block/redirect by DuckDuckGo."""
         if not html:
@@ -623,12 +637,7 @@ class BrowserClientMixin:
         if self._is_cloudflare_challenge(html):
             return True
         lower_html = html.lower()
-        if (
-            "internetbaik.telkomsel.com" in lower_html
-            or "trustpositif.kominfo.go.id" in lower_html
-            or "uzone.id/internet-positif" in lower_html
-            or "mercusuar.uzone.id" in lower_html
-        ):
+        if self._has_isp_censorship_signatures(lower_html):
             return True
         parsed = urlparse(url)
         host = parsed.netloc or parsed.hostname or ""
