@@ -31,14 +31,14 @@ class StealthPipeline:
             self.strategies = [
                 HttpxStrategy(),
                 CurlCffiStrategy(),
-                ThirdPartyCaptchaStrategy(),
+                CamoufoxStrategy(),
+                DrissionPageStrategy(),
                 CrawleeStrategy(),
                 Crawl4AIStrategy(),
-                DrissionPageStrategy(),
-                HeliumStrategy(),
                 FlareSolverrStrategy(),
+                HeliumStrategy(),
                 NodriverStrategy(),
-                CamoufoxStrategy(),
+                ThirdPartyCaptchaStrategy(),
             ]
 
     def get_ordered_strategies(self, host: str, client: Any = None, preferred_engine: str | None = None) -> list[StealthStrategy]:

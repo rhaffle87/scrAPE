@@ -1325,8 +1325,21 @@ class BrowserClientMixin:
                     except Exception:
                         pass
 
+        def _execute_in_isolated_thread(target_fn, *args):
+            import concurrent.futures
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(target_fn, *args)
+                    return future.result()
+            return target_fn(*args)
+
         try:
-            return _fetch_camou(headless_mode)
+            return _execute_in_isolated_thread(_fetch_camou, headless_mode)
         except Exception as exc:
             if headless_mode and is_local_gui and not config.FORCE_HEADLESS:
                 logger.warning(
@@ -1339,7 +1352,7 @@ class BrowserClientMixin:
                     url,
                 )
                 try:
-                    return _fetch_camou(False)
+                    return _execute_in_isolated_thread(_fetch_camou, False)
                 except Exception as headful_exc:
                     logger.error("Camoufox headful escalation failed for %s: %s", url, repr(headful_exc))
                     raise headful_exc
@@ -1420,8 +1433,21 @@ class BrowserClientMixin:
             finally:
                 browser.stop()
 
-        try:
+        def _run_fetch_safe():
+            import concurrent.futures
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, _fetch())
+                    return future.result()
             return asyncio.run(_fetch())
+
+        try:
+            return _run_fetch_safe()
         except TimeoutError as exc:
             if not force_headful and "headless mode" in str(exc):
                 return self._get_with_nodriver(url, force_headful=True)
