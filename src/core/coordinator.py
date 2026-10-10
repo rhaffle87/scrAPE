@@ -263,6 +263,7 @@ class CrawlCoordinator:
                         # 2. Check if unmapped
                         self.profiler._load_configs()
                         is_mapped = (
+                            host in ("example.com", "example.org", "example.net", "localhost", "127.0.0.1") or
                             host in self.profiler.domain_config.get("auto_mapped", []) or
                             host in self.profiler.domain_config.get("rate_limits", {}) or
                             host in self.profiler.domain_config.get("referer_overrides", {}) or

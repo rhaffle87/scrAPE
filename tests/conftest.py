@@ -34,6 +34,8 @@ def ensure_config_files_exist():
                     "rules": [{"pattern": "\\\\.pic\\\\d+\\\\.(jpe?g|png|webp)$", "replacement": ".\\\\1", "target": "path"}]
                 }
             },
+            "auto_mapped": ["example.com", "example.org", "example.net", "localhost", "127.0.0.1", "test.com"],
+            "rate_limits": {"example.com": 1.0},
             "watchdog": {
                 "min_interval_s": 60,
                 "ttl_days": 7
