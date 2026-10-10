@@ -78,9 +78,10 @@ class CrawlCoordinator:
             if key in self.seen_rejected_urls:
                 return False
             self.seen_rejected_urls.add(key)
-            self.result.rejected_items.append(
-                RejectedItem(kind=kind, url=norm_url, source_page=source_page, reason=reason, score=score)
-            )
+            if len(self.result.rejected_items) < 10000:
+                self.result.rejected_items.append(
+                    RejectedItem(kind=kind, url=norm_url, source_page=source_page, reason=reason, score=score)
+                )
             return True
 
     async def _run_preflight(self, urls: List[str]) -> List[str]:
@@ -566,7 +567,8 @@ class CrawlCoordinator:
                             if self.state_cache:
                                 self.state_cache.mark_dead(page)
                         elif is_worker_error:
-                            self.governor.report_error(host)
+                            is_overload = "503" in scrape_status or "502" in scrape_status or "connection_reset" in scrape_status
+                            self.governor.report_error(host, is_server_overload=is_overload)
                             self._auto_remediate_host(host)
                             with self.result_lock:
                                 if host not in self.result.domain_stats:
@@ -576,10 +578,10 @@ class CrawlCoordinator:
                                     }
                                 self.result.domain_stats[host]["error_other_count"] += 1
                             if retry_count < 3:
-                                # D: 2s release gate on generic error retry
                                 now_err = time.monotonic()
-                                release_at = now_err + 2.0
-                                LOGGER.info("Retrying %s (attempt %d/3) after error; release in 2.0s.", page, retry_count + 1)
+                                cd = self.governor.cooldown_remaining(host) if is_overload else 2.0
+                                release_at = now_err + max(2.0, cd)
+                                LOGGER.info("Retrying %s (attempt %d/3) after error; release in %.1fs.", page, retry_count + 1, max(2.0, cd))
                                 pages_queue.push(
                                     url=page,
                                     depth=depth,

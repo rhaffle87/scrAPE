@@ -98,8 +98,10 @@ class CrawlGovernor:
                     LOGGER.warning("Governor: Host %s is PARKED (SR < 25%%). Quiet backoff 15s applied.", host)
                 if time.monotonic() < self.host_cooldowns[host]:
                     return False
-                else:
-                    del self.host_cooldowns[host]
+                # Half-open canary probe: allow exactly 1 worker to probe health
+                if self.active_workers.get(host, 0) >= 1:
+                    return False
+                return True
 
             if host in self.host_cooldowns:
                 if time.monotonic() < self.host_cooldowns[host]:
@@ -162,7 +164,7 @@ class CrawlGovernor:
                 f"Governor: Rate limit (429) hit for {host}. AIMD window reduced to {self.host_concurrency[host]:.1f}. Pausing host for {cd:.1f}s."
             )
 
-    def report_error(self, host: str, is_login_wall: bool = False):
+    def report_error(self, host: str, is_login_wall: bool = False, is_server_overload: bool = False):
         """Report a fetch error for a host with AIMD multiplicative decrease."""
         with self.lock:
             self._record_host_outcome(host, False)
@@ -174,6 +176,14 @@ class CrawlGovernor:
             if is_login_wall:
                 self.failed_hosts.add(host)
                 LOGGER.warning(f"Governor: Flagging {host} as failed (login wall).")
+            elif is_server_overload:
+                fails = self.consecutive_host_failures.get(host, 0) + 1
+                self.consecutive_host_failures[host] = fails
+                backoff = min(60.0, 5.0 * (2 ** min(4, fails - 1)))
+                self.host_cooldowns[host] = time.monotonic() + backoff
+                LOGGER.warning(
+                    f"Governor: Server overload/503 on {host} (attempt {fails}). Pausing host for {backoff:.1f}s."
+                )
             else:
                 self.consecutive_host_failures[host] = (
                     self.consecutive_host_failures.get(host, 0) + 1
@@ -299,7 +309,9 @@ class CrawlGovernor:
             is_seeded = clean_host in self.seed_hosts
             successes = sum(1 for ok in self.host_outcomes.get(host, []) if ok)
 
-            if self.host_yield.get(host, 0) >= 5 or (is_seeded and successes >= 1):
+            if self.get_host_health_state(host) == "PARKED":
+                base = 1
+            elif self.host_yield.get(host, 0) >= 5 or (is_seeded and successes >= 1):
                 base = int(round(self.host_concurrency.get(host, float(self.max_concurrency))))
                 base = max(self.min_concurrency, min(base, self.max_concurrency))
             elif is_seeded:

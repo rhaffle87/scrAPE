@@ -450,4 +450,69 @@ class TestCoreOptimizationAndCircuitBreaker:
         assert first_unparked[5] == f"https://{host}/page1"
         assert first_unparked[0] == 90.0
 
+    def test_governor_server_overload_exponential_backoff(self):
+        gov = CrawlGovernor(initial_concurrency=4)
+        host = "overloaded-api.com"
+
+        # 3 consecutive 503 errors trigger exponential backoff without marking host failed
+        gov.report_error(host, is_server_overload=True)
+        assert gov.cooldown_remaining(host) > 0.0
+        assert host not in gov.failed_hosts
+
+        gov.report_error(host, is_server_overload=True)
+        assert host not in gov.failed_hosts
+
+        gov.report_error(host, is_server_overload=True)
+        assert host not in gov.failed_hosts
+        assert gov.cooldown_remaining(host) >= 15.0
+
+    def test_governor_parked_half_open_single_flight_canary(self):
+        gov = CrawlGovernor(initial_concurrency=4)
+        host = "recovering-host.com"
+
+        # Drive rolling success rate below 0.25 (5 attempts, 1 success, 4 429/overload)
+        gov.report_success(host)
+        gov.report_429(host, cooldown_s=1.0)
+        gov.report_error(host, is_server_overload=True)
+        gov.report_429(host, cooldown_s=1.0)
+        gov.report_error(host, is_server_overload=True)
+
+        assert gov.get_host_health_state(host) == "PARKED"
+        assert gov.get_allowed_concurrency(host) == 1
+
+        # Simulate cooldown expiration
+        gov.host_cooldowns[host] = time.monotonic() - 1.0
+
+        # Worker 1 can acquire canary probe
+        assert gov.is_host_available(host) is True
+        gov.increment_worker(host)
+
+        # Worker 2 blocked while canary probe is in-flight
+        assert gov.is_host_available(host) is False
+
+        # Canary finishes with success -> restores health
+        gov.decrement_worker(host)
+        gov.report_success(host)
+        assert gov.consecutive_host_failures[host] == 0
+
+    def test_coordinator_bounded_rejected_items(self):
+        from core.coordinator import CrawlCoordinator
+        from core.models import ScrapeResult
+
+        coord = CrawlCoordinator(
+            search_provider=MagicMock(),
+            video_scraper=MagicMock(),
+            options=MagicMock(),
+            result=ScrapeResult(keyword="test"),
+            state_cache=None,
+            workers=2,
+        )
+
+        # Add 10,050 unique rejected items
+        for i in range(10050):
+            coord.add_rejected("page", f"https://test.com/rejected_{i}", "https://test.com", "junk_pattern")
+
+        # Result list is bounded at 10,000 items to protect memory footprint
+        assert len(coord.result.rejected_items) == 10000
+
 
