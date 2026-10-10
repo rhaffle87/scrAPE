@@ -371,7 +371,7 @@ class TestCoreOptimizationAndCircuitBreaker:
         profiler.rules_config_path = r_conf
         profiler._load_configs(force=True)
 
-        assert "cached.com" in profiler.domain_config["auto_mapped"]
+        assert profiler.domain_config.get("auto_mapped") == ["cached.com"]
 
         # Call _load_configs again; mtime is unchanged, so no disk re-parsing
         old_mtime = profiler._domain_config_mtime
