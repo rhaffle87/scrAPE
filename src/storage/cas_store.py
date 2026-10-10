@@ -107,6 +107,60 @@ class ContentAddressableStore:
 
         return sha256_hash, cas_path
 
+    def store_stream(
+        self,
+        stream_iterator: Any,
+        extension: str = "jpg",
+        chunk_size: int = 65536,
+    ) -> tuple[str, Path, int]:
+        """
+        Stream media chunks directly to disk with zero RAM buffering and in-flight SHA-256 hashing.
+        Returns: (sha256_hash, cas_path, total_bytes_written).
+        """
+        import uuid
+
+        tmp_dir = self.root_dir / "tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        unique_token = f"{os.getpid()}_{uuid.uuid4().hex[:8]}"
+        tmp_path = tmp_dir / f"stream_{unique_token}.tmp"
+
+        h = hashlib.sha256()
+        total_bytes = 0
+
+        try:
+            with open(tmp_path, "wb") as f:
+                for chunk in stream_iterator:
+                    if not chunk:
+                        continue
+                    h.update(chunk)
+                    f.write(chunk)
+                    total_bytes += len(chunk)
+
+            sha256_hash = h.hexdigest()
+            cas_path = self.get_cas_path(sha256_hash, extension)
+
+            if not cas_path.is_file():
+                cas_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path.replace(cas_path)
+                LOGGER.debug("CAS: Stored streamed asset %s (%d bytes)", sha256_hash[:12], total_bytes)
+            else:
+                LOGGER.debug("CAS: Streamed asset %s already exists; deduplicated.", sha256_hash[:12])
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+            if self.cloud_syncer is not None:
+                self.cloud_syncer.enqueue_upload(sha256_hash, cas_path)
+
+            return sha256_hash, cas_path, total_bytes
+        except Exception:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
+
     def link_to_run(
         self,
         sha256_hash: str,

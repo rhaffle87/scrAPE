@@ -1141,6 +1141,19 @@ class HttpClient(BrowserClientMixin):
                     continue
                 raise exc
 
+            except OSError as os_err:
+                err_str = str(os_err)
+                if getattr(os_err, "errno", None) in (10055, 24) or "10055" in err_str or "WSAENOBUFS" in err_str:
+                    logger.error(
+                        "OS socket exhaustion detected while fetching %s: %s. Applying emergency socket backpressure.",
+                        url,
+                        os_err,
+                    )
+                    time.sleep(3.0 * attempt)
+                    if attempt < DEFAULT_RETRY_ATTEMPTS:
+                        continue
+                raise
+
             except httpx.HTTPError as exc:
                 if "CERTIFICATE_VERIFY_FAILED" in str(exc) or "certificate verify failed" in str(exc):
                     logger.warning("SSL certificate verification failed for %s. Retrying with verify=False fallback...", url)

@@ -271,6 +271,247 @@ class InMemoryTaskBroker:
         return True
 
 
+class SqliteTaskBroker:
+    """
+    Zero-dependency multi-process task broker backed by SQLite in WAL mode.
+    Enables concurrent multi-process worker coordination and crash resilience
+    without requiring an external Redis server.
+    """
+
+    def __init__(self, db_path: str = ".storage/tasks.db", consumer_name: str | None = None) -> None:
+        from pathlib import Path
+
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.consumer_name = consumer_name or f"worker_{os.getpid()}"
+        self._lock = threading.Lock()
+        self._init_db()
+
+    def _get_connection(self):
+        import sqlite3
+
+        conn = sqlite3.connect(str(self.db_path), timeout=15.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=15000")
+        return conn
+
+    def _init_db(self) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS broker_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    queue_name TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    worker_id TEXT,
+                    delivery_count INTEGER DEFAULT 0,
+                    created_at REAL NOT NULL,
+                    leased_at REAL DEFAULT 0,
+                    completed_at REAL DEFAULT 0
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS broker_locks (
+                    task_id TEXT PRIMARY KEY,
+                    worker_id TEXT NOT NULL,
+                    expires_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS broker_dead_letters (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    queue_name TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    error_trace TEXT,
+                    routed_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_queue_status ON broker_tasks(queue_name, status)")
+            conn.commit()
+
+    def push_task(self, queue_name: str, payload: dict[str, Any]) -> bool:
+        import time
+        import uuid
+
+        task_id = str(payload.get("task_id") or uuid.uuid4().hex[:12])
+        payload_copy = dict(payload)
+        payload_copy["_task_id"] = task_id
+
+        with self._lock:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO broker_tasks (queue_name, task_id, payload, status, created_at)
+                    VALUES (?, ?, ?, 'pending', ?)
+                    """,
+                    (queue_name, task_id, json.dumps(payload_copy), time.time()),
+                )
+                conn.commit()
+        return True
+
+    def pop_task(self, queue_name: str, timeout: float = 1.0) -> dict[str, Any] | None:
+        import time
+
+        deadline = time.time() + timeout
+        while time.time() <= deadline:
+            with self._lock:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("BEGIN IMMEDIATE")
+                    cursor.execute(
+                        """
+                        SELECT id, task_id, payload, delivery_count
+                        FROM broker_tasks
+                        WHERE queue_name = ? AND status = 'pending'
+                        ORDER BY id ASC
+                        LIMIT 1
+                        """,
+                        (queue_name,),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        row_id, task_id, raw_payload, delivery_count = row
+                        now = time.time()
+                        cursor.execute(
+                            """
+                            UPDATE broker_tasks
+                            SET status = 'leased', worker_id = ?, leased_at = ?, delivery_count = ?
+                            WHERE id = ?
+                            """,
+                            (self.consumer_name, now, delivery_count + 1, row_id),
+                        )
+                        conn.commit()
+                        data = json.loads(raw_payload)
+                        data["_task_id"] = task_id
+                        data["delivery_count"] = delivery_count + 1
+                        return data
+                    conn.rollback()
+            time.sleep(min(0.1, max(0.01, timeout / 10)))
+        return None
+
+    def ack_task(self, queue_name: str, task_id: str) -> bool:
+        import time
+
+        with self._lock:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    UPDATE broker_tasks
+                    SET status = 'completed', completed_at = ?
+                    WHERE queue_name = ? AND task_id = ?
+                    """,
+                    (time.time(), queue_name, task_id),
+                )
+                conn.commit()
+        return True
+
+    def autoclaim_abandoned_tasks(self, queue_name: str, min_idle_ms: int = 60000) -> list[dict[str, Any]]:
+        import time
+
+        min_idle_s = min_idle_ms / 1000.0
+        cutoff = time.time() - min_idle_s
+        reclaimed: list[dict[str, Any]] = []
+
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("BEGIN IMMEDIATE")
+                cursor.execute(
+                    """
+                    SELECT id, task_id, payload, delivery_count
+                    FROM broker_tasks
+                    WHERE queue_name = ? AND status = 'leased' AND leased_at < ?
+                    LIMIT 10
+                    """,
+                    (queue_name, cutoff),
+                )
+                rows = cursor.fetchall()
+                now = time.time()
+                for row_id, task_id, raw_payload, d_count in rows:
+                    cursor.execute(
+                        """
+                        UPDATE broker_tasks
+                        SET worker_id = ?, leased_at = ?, delivery_count = ?
+                        WHERE id = ?
+                        """,
+                        (self.consumer_name, now, d_count + 1, row_id),
+                    )
+                    data = json.loads(raw_payload)
+                    data["_task_id"] = task_id
+                    data["delivery_count"] = d_count + 1
+                    reclaimed.append(data)
+                conn.commit()
+        return reclaimed
+
+    def get_queue_length(self, queue_name: str) -> int:
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(*) FROM broker_tasks WHERE queue_name = ? AND status = 'pending'",
+                    (queue_name,),
+                )
+                return int(cursor.fetchone()[0])
+
+    def acquire_idempotency_lock(self, task_id: str, worker_id: str, ttl_seconds: int = 120) -> bool:
+        import time
+
+        now = time.time()
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("BEGIN IMMEDIATE")
+                cursor.execute("SELECT worker_id, expires_at FROM broker_locks WHERE task_id = ?", (task_id,))
+                row = cursor.fetchone()
+                if row:
+                    _owner, expires_at = row
+                    if now < expires_at:
+                        conn.rollback()
+                        return False
+                    cursor.execute(
+                        "UPDATE broker_locks SET worker_id = ?, expires_at = ? WHERE task_id = ?",
+                        (worker_id, now + ttl_seconds, task_id),
+                    )
+                else:
+                    cursor.execute(
+                        "INSERT INTO broker_locks (task_id, worker_id, expires_at) VALUES (?, ?, ?)",
+                        (task_id, worker_id, now + ttl_seconds),
+                    )
+                conn.commit()
+                return True
+
+    def release_idempotency_lock(self, task_id: str) -> bool:
+        with self._lock:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM broker_locks WHERE task_id = ?", (task_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+
+    def route_dead_letter(self, stream_name: str, message_id: str, payload: dict[str, Any], error_trace: str) -> bool:
+        import time
+
+        with self._lock:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO broker_dead_letters (queue_name, task_id, payload, error_trace, routed_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (stream_name, message_id, json.dumps(payload), error_trace, time.time()),
+                )
+                conn.commit()
+        return True
+
+
 class RedisTaskBroker:
     """Distributed Redis task broker with automatic fallback to InMemoryTaskBroker."""
 

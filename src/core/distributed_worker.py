@@ -58,6 +58,11 @@ class DistributedWorkerNode:
             self.broker = broker
             if hasattr(self.broker, "consumer_name"):
                 self.broker.consumer_name = self.worker_id
+        elif broker_url.startswith("sqlite://"):
+            from core.worker_pool import SqliteTaskBroker
+
+            sqlite_path = broker_url.replace("sqlite://", "").strip() or ".storage/tasks.db"
+            self.broker = SqliteTaskBroker(db_path=sqlite_path, consumer_name=self.worker_id)
         else:
             self.broker = RedisStreamTaskBroker(
                 redis_url=broker_url,

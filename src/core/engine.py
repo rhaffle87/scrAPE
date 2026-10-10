@@ -289,16 +289,16 @@ class ScrapingEngine:
                     if media_dir.exists():
                         for orig_file in media_dir.rglob("*.*"):
                             if orig_file.is_file() and orig_file.suffix != ".tmp":
-                                data = orig_file.read_bytes()
                                 ext = orig_file.suffix.lstrip(".") or "bin"
-                                sha, _ = cas.store(data, extension=ext)
+                                with open(orig_file, "rb") as f:
+                                    sha, _, _ = cas.store_stream(iter(lambda: f.read(65536), b""), extension=ext)
                                 try:
                                     orig_file.unlink(missing_ok=True)
                                     cas.link_to_run(sha, orig_file, extension=ext)
                                     cas_count += 1
                                 except Exception as link_err:
                                     LOGGER.debug("CAS link fallback: %s", link_err)
-                LOGGER.info("ScrapingEngine: Ingested and hardlinked %d media items into CAS.", cas_count)
+                LOGGER.info("ScrapingEngine: Ingested and hardlinked %d media items into CAS via stream.", cas_count)
             except Exception as err:
                 LOGGER.warning("ScrapingEngine: CAS storage processing error: %s", err)
 

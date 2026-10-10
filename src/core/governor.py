@@ -48,6 +48,12 @@ class CrawlGovernor:
         self.host_latencies: Dict[str, list[float]] = {}  # host -> recent latencies
         self.host_outcomes: Dict[str, list[bool]] = {}  # host -> rolling outcomes (True/False)
 
+        # TCP / Socket exhaustion backpressure
+        self._last_socket_check = 0.0
+        self._cached_socket_pressure = False
+        self._socket_backpressure_until = 0.0
+        self._max_safe_connections = 1200  # Safe threshold below Windows ephemeral exhaustion
+
         # Hardware Governor integration
         if hardware_governor is not None:
             self.hardware_governor = hardware_governor
@@ -234,13 +240,43 @@ class CrawlGovernor:
         with self.lock:
             self.host_yield[host] = self.host_yield.get(host, 0) + items_found
 
+    def is_socket_pressure_active(self) -> bool:
+        """Check if OS socket depletion backpressure is active."""
+        now = time.monotonic()
+        if now < self._socket_backpressure_until:
+            return True
+
+        if now - self._last_socket_check > 2.5:
+            self._last_socket_check = now
+            try:
+                import psutil
+
+                conns = len(psutil.net_connections(kind="inet"))
+                self._cached_socket_pressure = conns >= self._max_safe_connections
+                if self._cached_socket_pressure:
+                    self._socket_backpressure_until = now + 5.0
+                    LOGGER.warning(
+                        "Governor: High network socket pressure detected (%d active sockets). Applying 5s brake.",
+                        conns,
+                    )
+            except Exception:
+                self._cached_socket_pressure = False
+
+        return self._cached_socket_pressure
+
+    def report_socket_error(self, err: Exception | int) -> None:
+        """Emergency backpressure activation on WSAENOBUFS (10055) or EMFILE (24)."""
+        with self.lock:
+            self._socket_backpressure_until = time.monotonic() + 10.0
+            LOGGER.error("Governor: Socket exhaustion error reported (%s). Emergency 10s backpressure active.", err)
+
     def get_allowed_concurrency(self, host: str) -> int:
         """
         Dual Governor dynamic concurrency:
         1. Host allocation: 1 worker for broad discovery (<5 items), scaled AIMD window
            for deep scrape (>=5 items).
         2. System modulation: Modulated by HardwareLoadGovernor scale factor (0.25 to 1.0)
-           to prevent system freezes under high memory or CPU stress.
+           and clamped if TCP socket backpressure is active.
         """
         with self.lock:
             if self.host_yield.get(host, 0) >= 5:
@@ -256,11 +292,14 @@ class CrawlGovernor:
                 except Exception:
                     hw_scale = 1.0
 
+            if self.is_socket_pressure_active():
+                hw_scale = min(hw_scale, 0.5)
+
             allowed = max(self.min_concurrency, int(round(base * hw_scale)))
             return allowed
 
     def get_global_concurrency_limit(self) -> int:
-        """Return the overall system concurrency ceiling based on hardware load."""
+        """Return the overall system concurrency ceiling based on hardware load and socket state."""
         with self.lock:
             hw_scale = 1.0
             if self.hardware_governor is not None:
@@ -268,11 +307,20 @@ class CrawlGovernor:
                     hw_scale = self.hardware_governor.get_concurrency_scale_factor()
                 except Exception:
                     hw_scale = 1.0
+
+            if self.is_socket_pressure_active():
+                hw_scale = min(hw_scale, 0.5)
+
             return max(1, int(round(self.max_concurrency * hw_scale)))
 
     def can_acquire_worker(self, host: str) -> bool:
-        """Check if a host can take another worker based on its allowed concurrency."""
+        """Check if a host can take another worker based on allowed concurrency and socket state."""
         with self.lock:
+            if self.is_socket_pressure_active():
+                # Disallow scaling out new workers while socket pressure is actively draining
+                if sum(self.active_workers.values()) >= max(1, self.max_concurrency // 2):
+                    return False
+
             allowed = self.get_allowed_concurrency(host)
             current = self.active_workers.get(host, 0)
             return current < allowed
