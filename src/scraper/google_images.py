@@ -348,7 +348,9 @@ class SearchProviderScraper(BaseSearchScraper):
             link_host = urlparse(absolute_url).netloc.lower()
             # Accept same-host links OR links to a known CDN domain that is associated
             # with the current seed domain (e.g. cdn.example.com when on example.com).
-            if link_host != current_host and not is_cdn_asset_domain(absolute_url):
+            clean_link_host = link_host[4:] if link_host.startswith("www.") else link_host
+            clean_curr_host = current_host[4:] if current_host.startswith("www.") else current_host
+            if clean_link_host != clean_curr_host and not is_cdn_asset_domain(absolute_url):
                 continue
             if absolute_url in seen:
                 continue

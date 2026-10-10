@@ -34,6 +34,7 @@ class CrawlGovernor:
 
         # Host tracking
         self.failed_hosts: Set[str] = set()
+        self.seed_hosts: Set[str] = set()
         self.host_cooldowns: Dict[str, float] = {}  # host -> unpause time
         self.consecutive_host_failures: Dict[str, int] = {}
 
@@ -270,18 +271,38 @@ class CrawlGovernor:
             self._socket_backpressure_until = time.monotonic() + 10.0
             LOGGER.error("Governor: Socket exhaustion error reported (%s). Emergency 10s backpressure active.", err)
 
+    def register_seed_hosts(self, hosts: Any) -> None:
+        """Register designated seed domains to boost their initial concurrency."""
+        with self.lock:
+            for h in hosts:
+                if isinstance(h, str) and h.strip():
+                    cleaned = h.lower().strip()
+                    self.seed_hosts.add(cleaned)
+                    if cleaned.startswith("www."):
+                        self.seed_hosts.add(cleaned[4:])
+                    else:
+                        self.seed_hosts.add(f"www.{cleaned}")
+
     def get_allowed_concurrency(self, host: str) -> int:
         """
         Dual Governor dynamic concurrency:
-        1. Host allocation: 1 worker for broad discovery (<5 items), scaled AIMD window
-           for deep scrape (>=5 items).
+        1. Host allocation:
+           - If host_yield >= 5 or (is_seeded and successes >= 1): scaled AIMD window.
+           - If is_seeded (prior to first success): 2 workers jumpstart discovery.
+           - Otherwise: 1 worker for broad unseeded discovery.
         2. System modulation: Modulated by HardwareLoadGovernor scale factor (0.25 to 1.0)
            and clamped if TCP socket backpressure is active.
         """
         with self.lock:
-            if self.host_yield.get(host, 0) >= 5:
+            clean_host = host.lower().strip()
+            is_seeded = clean_host in self.seed_hosts
+            successes = sum(1 for ok in self.host_outcomes.get(host, []) if ok)
+
+            if self.host_yield.get(host, 0) >= 5 or (is_seeded and successes >= 1):
                 base = int(round(self.host_concurrency.get(host, float(self.max_concurrency))))
                 base = max(self.min_concurrency, min(base, self.max_concurrency))
+            elif is_seeded:
+                base = min(2, self.max_concurrency)
             else:
                 base = 1
 

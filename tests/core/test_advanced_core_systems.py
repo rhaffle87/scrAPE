@@ -258,3 +258,67 @@ class TestSelfHealingDOMParserVLM:
         assert metrics["repaired_domains"][0]["domain"] == "vlm-target-site.com"
         assert metrics["repaired_domains"][0]["selector"] == ".obfuscated_container_xyz99 img"
         assert metrics["repaired_domains"][0]["attr"] == "data-vlm-target"
+
+
+# =========================================================================
+# 5. Seed Concurrency Priming & Domain Succession Hardening
+# =========================================================================
+
+class TestCrawlSuccessionAndGovernorPriming:
+    def test_governor_seed_hosts_initial_concurrency_boost(self):
+        governor = CrawlGovernor(initial_concurrency=8, min_concurrency=1)
+        governor.register_seed_hosts(["seedsite.com", "gallery.org"])
+
+        # Unseeded host starts with 1 worker prior to yield
+        assert governor.get_allowed_concurrency("unseeded.com") == 1
+
+        # Seeded host starts with 2 workers to jumpstart broad discovery
+        assert governor.get_allowed_concurrency("seedsite.com") == 2
+        assert governor.get_allowed_concurrency("www.seedsite.com") == 2
+
+        # After first successful response, seeded host scales into AIMD window
+        governor.report_success("seedsite.com", latency_s=0.5)
+        assert governor.get_allowed_concurrency("seedsite.com") >= 2
+
+    def test_is_same_domain_and_subdomain_normalizes_www(self):
+        from core.url_classifier import is_same_domain, is_subdomain_of
+
+        assert is_same_domain("https://www.erome.com/a/123", "https://erome.com/search") is True
+        assert is_same_domain("https://erome.com/a/123", "https://www.erome.com/search") is True
+        assert is_same_domain("https://site.com", "https://diff.com") is False
+
+        assert is_subdomain_of("https://cdn.erome.com/i/1.jpg", "www.erome.com") is True
+        assert is_subdomain_of("https://www.erome.com/i/1.jpg", "erome.com") is True
+
+    def test_preflight_bounded_concurrency(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+        from core.coordinator import CrawlCoordinator
+
+        options = MagicMock()
+        options.max_results = 10
+        options.seed_domains = ["test.com"]
+        options.domain_profiles = {}
+        options.seed_urls = []
+
+        coordinator = CrawlCoordinator(
+            search_provider=MagicMock(),
+            video_scraper=MagicMock(),
+            options=options,
+            result=MagicMock(),
+            state_cache=None,
+            workers=4,
+        )
+
+        urls = [f"https://test.com/item/{i}" for i in range(25)]
+        with patch("core.coordinator.httpx.AsyncClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_client.head = AsyncMock(return_value=mock_resp)
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            valid = asyncio.run(coordinator._run_preflight(urls))
+            assert len(valid) == 25
+            assert mock_client.head.call_count == 25

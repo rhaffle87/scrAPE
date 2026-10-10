@@ -457,12 +457,22 @@ def extract_domain_from_url(url: str) -> str:
 
 
 def is_same_domain(url1: str, url2: str) -> bool:
-    return extract_domain_from_url(url1) == extract_domain_from_url(url2)
+    h1 = extract_domain_from_url(url1)
+    h2 = extract_domain_from_url(url2)
+    if h1.startswith("www."):
+        h1 = h1[4:]
+    if h2.startswith("www."):
+        h2 = h2[4:]
+    return h1 == h2
 
 
 def is_subdomain_of(child_url: str, parent_domain: str) -> bool:
     child_host = extract_domain_from_url(child_url)
     parent_host = parent_domain.lower()
+    if child_host.startswith("www."):
+        child_host = child_host[4:]
+    if parent_host.startswith("www."):
+        parent_host = parent_host[4:]
     return child_host == parent_host or child_host.endswith(f".{parent_host}")
 
 

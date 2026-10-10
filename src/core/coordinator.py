@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from urllib.parse import urlparse
 from typing import List, Tuple
 from pathlib import Path
+import httpx
 
 from core.governor import CrawlGovernor
 from core.pipeline import MediaPipeline
@@ -53,6 +54,14 @@ class CrawlCoordinator:
         self.workers = workers
         
         self.governor = CrawlGovernor(initial_concurrency=workers)
+        if getattr(options, "seed_domains", None):
+            self.governor.register_seed_hosts(options.seed_domains)
+        if getattr(options, "domain_profiles", None):
+            self.governor.register_seed_hosts(options.domain_profiles.keys())
+        if getattr(options, "seed_urls", None):
+            self.governor.register_seed_hosts([
+                urlparse(u).netloc.lower() for u in options.seed_urls if urlparse(u).netloc
+            ])
         self.budget_governor = DomainBudgetGovernor()
         self.profiler = DomainProfiler(state_cache=self.state_cache)
         
@@ -75,22 +84,23 @@ class CrawlCoordinator:
             return True
 
     async def _run_preflight(self, urls: List[str]) -> List[str]:
-        import httpx
         import asyncio
         valid_urls = []
+        sem = asyncio.Semaphore(15)
         
         async def check_url(client, url):
-            try:
-                resp = await client.head(url, follow_redirects=True, timeout=3.0)
-                if resp.status_code not in (404, 410):
+            async with sem:
+                try:
+                    resp = await client.head(url, follow_redirects=True, timeout=3.0)
+                    if resp.status_code not in (404, 410):
+                        valid_urls.append(url)
+                    else:
+                        LOGGER.info(f"Pre-flight failed for {url} (status {resp.status_code})")
+                        if self.state_cache:
+                            self.state_cache.mark_dead(url, status=resp.status_code)
+                except Exception as e:
+                    LOGGER.info(f"Pre-flight exception for {url} ({type(e).__name__}: {repr(e)}). Allowing to pass to stealth pipeline.")
                     valid_urls.append(url)
-                else:
-                    LOGGER.info(f"Pre-flight failed for {url} (status {resp.status_code})")
-                    if self.state_cache:
-                        self.state_cache.mark_dead(url, status=resp.status_code)
-            except Exception as e:
-                LOGGER.info(f"Pre-flight exception for {url} ({type(e).__name__}: {repr(e)}). Allowing to pass to stealth pipeline.")
-                valid_urls.append(url)
 
         async with httpx.AsyncClient(verify=False) as client:  # nosec B501
             tasks = [check_url(client, u) for u in urls]
@@ -657,8 +667,8 @@ class CrawlCoordinator:
             page_images = [ImageItem(url=u, source_page=page, status="pending") for u in spec_result.images]
             page_videos = [VideoItem(url=u, source_page=page, type="direct", status="pending") for u in spec_result.videos]
             scrape_status = "ok"
-            content = ""
-            content_type = ""
+            content = getattr(spec_result, "content", "") or ""
+            content_type = getattr(spec_result, "content_type", "") or ""
         else:
             page_images, page_videos, scrape_status, content, content_type = self.search_provider.scrape_page(
                 page, allow_domains=self.options.allow_domains, block_domains=self.options.block_domains

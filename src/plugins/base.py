@@ -20,6 +20,8 @@ LOGGER = logging.getLogger(__name__)
 class SpecializedResult:
     images: List[str]
     videos: List[str]
+    content: str = ""
+    content_type: str = ""
 
 
 class ExtractorPlugin(ABC):
