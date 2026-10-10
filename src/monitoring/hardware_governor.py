@@ -33,6 +33,8 @@ class HardwareLoadGovernor:
         self._disk_alert_sent = False
 
         self._last_poll_time = 0.0
+        self._last_scale_log = 0.0
+        self._last_cleanup_time = 0.0
         self._cached_metrics: dict[str, float] = {"cpu_percent": 0.0, "ram_percent_available": 100.0}
         self._load_config()
 
@@ -94,20 +96,29 @@ class HardwareLoadGovernor:
         cpu = metrics.get("cpu_percent", 0.0)
         ram_avail = metrics.get("ram_percent_available", 100.0)
 
+        now = time.time()
         # Critical load threshold check
         if cpu >= 95.0 or ram_avail <= 5.0:
-            LOGGER.warning("CRITICAL SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.25x.", cpu, ram_avail)
-            self.trigger_memory_cleanup()
+            if now - self._last_scale_log >= 10.0:
+                self._last_scale_log = now
+                LOGGER.warning("CRITICAL SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.25x.", cpu, ram_avail)
+                self.trigger_memory_cleanup()
             return 0.25
         elif cpu >= self.max_cpu_percent or ram_avail <= self.min_ram_percent:
-            LOGGER.warning("HIGH SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.50x.", cpu, ram_avail)
-            self.trigger_memory_cleanup()
+            if now - self._last_scale_log >= 10.0:
+                self._last_scale_log = now
+                LOGGER.warning("HIGH SYSTEM LOAD: CPU=%.1f%%, RAM Avail=%.1f%%. Throttling workers to 0.50x.", cpu, ram_avail)
+                self.trigger_memory_cleanup()
             return 0.50
 
         return 1.0
 
     def trigger_memory_cleanup(self) -> int:
         """Triggers explicit Python garbage collection to release unreferenced memory objects."""
+        now = time.time()
+        if now - self._last_cleanup_time < 15.0:
+            return 0
+        self._last_cleanup_time = now
         import gc
         collected = gc.collect()
         LOGGER.info("HardwareLoadGovernor: Explicit GC cycle collected %d unreferenced objects.", collected)

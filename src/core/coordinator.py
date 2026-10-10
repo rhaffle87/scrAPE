@@ -344,13 +344,27 @@ class CrawlCoordinator:
                         pages_queue.requeue_batch(skipped, now=now)
                         if not futures:
                             earliest = pages_queue.earliest_release_at(now=now)
+                            earliest_cooldown = min(
+                                (
+                                    self.governor.cooldown_remaining(urlparse(p).netloc.lower())
+                                    for *_, p in skipped
+                                    if self.governor.cooldown_remaining(urlparse(p).netloc.lower()) > 0
+                                ),
+                                default=None,
+                            )
                             has_pending_wait = (
                                 (earliest is not None and earliest > now)
+                                or (earliest_cooldown is not None and earliest_cooldown > 0)
                                 or bool(self.profiling_domains)
                                 or bool(self.quarantined_domains)
                             )
                             if has_pending_wait:
-                                delay = min(0.5, max(0.05, earliest - now)) if (earliest is not None and earliest > now) else 0.2
+                                wait_s = 0.2
+                                if earliest is not None and earliest > now:
+                                    wait_s = earliest - now
+                                elif earliest_cooldown is not None and earliest_cooldown > 0:
+                                    wait_s = earliest_cooldown
+                                delay = min(0.5, max(0.05, wait_s))
                                 time.sleep(delay)
                                 continue
                             return False
@@ -649,6 +663,9 @@ class CrawlCoordinator:
                 while len(futures) < current_concurrency:
                     if not submit_next():
                         break
+
+                if not futures and pages_queue:
+                    time.sleep(0.05)
 
         pipeline.stop()
 
