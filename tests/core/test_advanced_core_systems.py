@@ -417,3 +417,37 @@ class TestCoreOptimizationAndCircuitBreaker:
         assert duration is not None
         assert client.get_domain_cooldown_remaining(host) > 0.0
 
+    def test_coordinator_host_parking_and_batch_requeue(self):
+        from core.priority_queue import AdaptiveCrawlQueue
+
+        q = AdaptiveCrawlQueue()
+        host = "saturated-domain.com"
+        q.push(f"https://{host}/page1", depth=1, score=90.0)
+        q.push(f"https://{host}/page2", depth=1, score=85.0)
+        q.push("https://other-domain.com/index", depth=1, score=50.0)
+
+        # Simulate coordinator parking saturated host items
+        item1 = q.pop()
+        assert item1[5] == f"https://{host}/page1"
+        q.park_host(host, item1)
+
+        item2 = q.pop()
+        assert item2[5] == f"https://{host}/page2"
+        q.park_host(host, item2)
+
+        # Only other-domain remains in ready heap
+        top = q.pop()
+        assert top[5] == "https://other-domain.com/index"
+
+        # Saturated items remain tracked in length
+        assert len(q) == 2
+        # When worker finishes for host, unpark restores them
+        restored = q.unpark_host(host)
+        assert restored == 2
+        assert len(q) == 2
+
+        first_unparked = q.pop()
+        assert first_unparked[5] == f"https://{host}/page1"
+        assert first_unparked[0] == 90.0
+
+

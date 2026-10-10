@@ -212,6 +212,7 @@ class CrawlCoordinator:
                         continue
 
                     skipped = []
+                    saturated_hosts = set()
                     while pages_queue:
                         if total_pages_scanned >= self.page_limit:
                             pages_queue.clear()
@@ -219,15 +220,20 @@ class CrawlCoordinator:
 
                         score, next_depth, next_retry, release_at, time_enqueued, next_page = pages_queue.pop()
 
+                        now = time.monotonic()
                         # D: release-gate — park entries that aren't ready yet
-                        if release_at > time.monotonic():
-                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                        if release_at > now:
+                            skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
                             continue
 
                         if self.state_cache and self.state_cache.is_dead(next_page):
                             continue
 
                         host = urlparse(next_page).netloc.lower()
+
+                        if host in saturated_hosts:
+                            pages_queue.park_host(host, (score, next_depth, next_retry, release_at, time_enqueued, next_page))
+                            continue
 
                         # -- AUTO-PROFILER INTERCEPTION START --
 
@@ -250,7 +256,8 @@ class CrawlCoordinator:
                                 del self.quarantined_domains[host]
                             else:
                                 release_at = time.monotonic() + 10.0
-                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
+                                saturated_hosts.add(host)
                                 continue
 
                         # 2. Check if unmapped
@@ -265,7 +272,8 @@ class CrawlCoordinator:
                         if not is_mapped:
                             if host in self.profiling_domains:
                                 release_at = time.monotonic() + 5.0
-                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
+                                saturated_hosts.add(host)
                                 continue
 
                             self.profiling_domains.add(host)
@@ -286,7 +294,8 @@ class CrawlCoordinator:
 
                             executor.submit(_run_profiler)
                             release_at = time.monotonic() + 5.0
-                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
+                            saturated_hosts.add(host)
                             continue
 
                         # -- AUTO-PROFILER INTERCEPTION END --
@@ -295,7 +304,10 @@ class CrawlCoordinator:
                             with self.governor.lock:
                                 is_failed = host in self.governor.failed_hosts
                             if not is_failed:
-                                skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                                rem = self.governor.cooldown_remaining(host)
+                                rel = (now + rem) if rem > 0 else (now + 1.0)
+                                skipped.append((score, next_depth, next_retry, rel, time_enqueued, next_page))
+                                saturated_hosts.add(host)
                             else:
                                 with self.result_lock:
                                     self.result.page_reports.append(
@@ -307,12 +319,13 @@ class CrawlCoordinator:
                                     )
                             continue
                         if not self.governor.can_acquire_worker(host):
-                            skipped.append((score, next_depth, next_retry, release_at, time.monotonic(), next_page))
+                            pages_queue.park_host(host, (score, next_depth, next_retry, release_at, time_enqueued, next_page))
+                            saturated_hosts.add(host)
                             continue
 
                         self.governor.increment_worker(host)
-                        for item in skipped:
-                            pages_queue.push(url=item[5], depth=item[1], retry_count=item[2], release_at=item[3], score=item[0])
+                        if skipped:
+                            pages_queue.requeue_batch(skipped)
 
                         total_pages_scanned += 1
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
@@ -320,12 +333,11 @@ class CrawlCoordinator:
                         return True
 
                     if skipped:
-                        for item in skipped:
-                            pages_queue.push(url=item[5], depth=item[1], retry_count=item[2], release_at=item[3], score=item[0])
+                        pages_queue.requeue_batch(skipped)
                         if not futures:
+                            earliest = pages_queue.earliest_release_at()
                             now = time.monotonic()
-                            wait_times = [item[3] - now for item in skipped if item[3] > now]
-                            delay = min(0.5, max(0.05, min(wait_times))) if wait_times else 0.2
+                            delay = min(0.5, max(0.05, earliest - now)) if (earliest is not None and earliest > now) else 0.2
                             time.sleep(delay)
                             continue
                         return False
@@ -359,6 +371,8 @@ class CrawlCoordinator:
                         host = urlparse(page).netloc.lower()
 
                         self.governor.decrement_worker(host)
+                        if hasattr(pages_queue, "unpark_host"):
+                            pages_queue.unpark_host(host)
 
                         discovered_links = []
                         content = ""

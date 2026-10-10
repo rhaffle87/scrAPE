@@ -174,3 +174,86 @@ def test_url_pattern_bandit_learning_and_scoring():
     score_good = q.calculate_score("https://site.com/gallery/103", depth=1)
     score_dead = q.calculate_score("https://site.com/legal/dmca", depth=1)
     assert score_good > score_dead + 20.0
+
+
+def test_adaptive_crawl_queue_delayed_partition():
+    """Verify delayed heap partitions items until release_at passes."""
+    import time
+    q = AdaptiveCrawlQueue()
+    now = time.monotonic()
+
+    # Immediate item with lower score
+    q.push(url="https://site.com/ready", depth=1, score=10.0, release_at=0.0)
+    # Delayed item with higher score (1.5s in future)
+    q.push(url="https://site.com/delayed", depth=0, score=90.0, release_at=now + 1.5)
+
+    assert len(q) == 2
+    # Peek should return the ready item because delayed is parked
+    peeked = q.peek()
+    assert peeked is not None
+    assert peeked[5] == "https://site.com/ready"
+
+    # Pop returns the ready item
+    popped = q.pop()
+    assert popped[5] == "https://site.com/ready"
+
+    # Only delayed item remains
+    assert len(q) == 1
+    earliest = q.earliest_release_at()
+    assert earliest is not None
+    assert earliest > now
+
+    # Promote delayed explicitly with simulated future timestamp
+    q._promote_delayed(now=now + 2.0)
+    assert q.earliest_release_at() == 0.0
+    top = q.pop()
+    assert top[5] == "https://site.com/delayed"
+    assert top[0] == 90.0
+    assert len(q) == 0
+
+
+def test_adaptive_crawl_queue_host_parking_and_batch_requeue():
+    """Verify per-host parking segregates saturated hosts and unparks efficiently."""
+    import time
+    q = AdaptiveCrawlQueue()
+    now = time.monotonic()
+
+    # Push items for host A and host B
+    q.push(url="https://host-a.com/page1", depth=1, score=80.0)
+    q.push(url="https://host-a.com/page2", depth=1, score=75.0)
+    q.push(url="https://host-b.com/page1", depth=1, score=60.0)
+
+    # Pop first item for host-a, park the second because host-a is saturated
+    first = q.pop()
+    assert first[5] == "https://host-a.com/page1"
+
+    second = q.pop()
+    assert second[5] == "https://host-a.com/page2"
+    q.park_host("host-a.com", second)
+
+    # Length still reflects total pending URLs
+    assert len(q) == 2
+
+    # Next pop is host-b because host-a is parked
+    third = q.pop()
+    assert third[5] == "https://host-b.com/page1"
+
+    # Now unpark host-a when its worker completes
+    unparked_count = q.unpark_host("host-a.com")
+    assert unparked_count == 1
+    assert len(q) == 1
+
+    restored = q.pop()
+    assert restored[5] == "https://host-a.com/page2"
+    assert len(q) == 0
+
+    # Test batch requeue
+    batch = [
+        (40.0, 1, 0, 0.0, now, "https://site.com/batch1"),
+        (85.0, 1, 0, 0.0, now, "https://site.com/batch2"),
+    ]
+    q.requeue_batch(batch)
+    assert len(q) == 2
+    top = q.pop()
+    assert top[5] == "https://site.com/batch2"
+    assert top[0] == 85.0

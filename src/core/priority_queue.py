@@ -206,6 +206,21 @@ class AdaptiveCrawlQueue:
         self.depth_lambda = depth_lambda
         self.pattern_bandit = pattern_bandit or URLPatternBandit()
         self._heap: List[Tuple[float, int, int, float, float, str]] = []
+        self._delayed_heap: List[Tuple[float, float, int, int, float, str]] = []
+        self._parked_by_host: Dict[str, List[Tuple[float, int, int, float, float, str]]] = {}
+
+    def _promote_delayed(self, now: Optional[float] = None) -> None:
+        """Promote delayed items whose release_at has passed into the ready heap."""
+        if not self._delayed_heap:
+            return
+        current_time = time.monotonic() if now is None else now
+        promoted = False
+        while self._delayed_heap and self._delayed_heap[0][0] <= current_time:
+            release_at, neg_score, depth, retry_count, time_enqueued, url = heapq.heappop(self._delayed_heap)
+            self._heap.append((neg_score, depth, retry_count, release_at, time_enqueued, url))
+            promoted = True
+        if promoted:
+            heapq.heapify(self._heap)
 
     def calculate_score(
         self,
@@ -262,39 +277,113 @@ class AdaptiveCrawlQueue:
                 budget_penalty=budget_penalty,
             )
         now = time.monotonic()
-        # Inverted score for min-heap: highest score has most negative value -> popped first
-        item = (-score, depth, retry_count, release_at, now, url)
-        heapq.heappush(self._heap, item)
+        if release_at > now:
+            # Route delayed item into _delayed_heap (sorted by release_at asc)
+            heapq.heappush(self._delayed_heap, (release_at, -score, depth, retry_count, now, url))
+        else:
+            # Inverted score for min-heap: highest score has most negative value -> popped first
+            heapq.heappush(self._heap, (-score, depth, retry_count, release_at, now, url))
         return score
+
+    def requeue_batch(self, items: List[Tuple[float, int, int, float, float, str]]) -> None:
+        """Efficiently batch-requeue unpacked tuples (score, depth, retry_count, release_at, time_enqueued, url)."""
+        if not items:
+            return
+        now = time.monotonic()
+        reheapify = False
+        for score, depth, retry_count, release_at, time_enqueued, url in items:
+            if release_at > now:
+                heapq.heappush(self._delayed_heap, (release_at, -score, depth, retry_count, time_enqueued, url))
+            else:
+                self._heap.append((-score, depth, retry_count, release_at, time_enqueued, url))
+                reheapify = True
+        if reheapify:
+            heapq.heapify(self._heap)
+
+    def park_host(self, host: str, item: Tuple[float, int, int, float, float, str]) -> None:
+        """Park an item under its host key while the host is saturated or cooling down."""
+        clean = host.lower().strip() or "unknown"
+        self._parked_by_host.setdefault(clean, []).append(item)
+
+    def unpark_host(self, host: str) -> int:
+        """Unpark all parked items for a specific host back into the ready/delayed queue."""
+        clean = host.lower().strip() or "unknown"
+        items = self._parked_by_host.pop(clean, None)
+        if not items:
+            return 0
+        self.requeue_batch(items)
+        return len(items)
+
+    def unpark_all(self) -> int:
+        """Unpark all parked items across all hosts back into the ready/delayed queue."""
+        if not self._parked_by_host:
+            return 0
+        all_items: List[Tuple[float, int, int, float, float, str]] = []
+        for items in self._parked_by_host.values():
+            all_items.extend(items)
+        self._parked_by_host.clear()
+        self.requeue_batch(all_items)
+        return len(all_items)
+
+    def earliest_release_at(self) -> Optional[float]:
+        """Return the earliest release_at timestamp for pending delayed items (or 0.0 if ready items exist)."""
+        self._promote_delayed()
+        if self._heap:
+            return 0.0
+        if self._delayed_heap:
+            return self._delayed_heap[0][0]
+        return None
 
     def pop(self) -> Tuple[float, int, int, float, float, str]:
         """Pop and return (score, depth, retry_count, release_at, time_enqueued, url)."""
+        self._promote_delayed()
+        if not self._heap and self._parked_by_host:
+            self.unpark_all()
+        if not self._heap and self._delayed_heap:
+            release_at, neg_score, depth, retry_count, time_enqueued, url = heapq.heappop(self._delayed_heap)
+            return (-neg_score, depth, retry_count, release_at, time_enqueued, url)
+        if not self._heap:
+            raise IndexError("pop from an empty AdaptiveCrawlQueue")
         neg_score, depth, retry_count, release_at, time_enqueued, url = heapq.heappop(self._heap)
         return (-neg_score, depth, retry_count, release_at, time_enqueued, url)
 
     def peek(self) -> Optional[Tuple[float, int, int, float, float, str]]:
         """Peek at the highest-priority item without popping."""
-        if not self._heap:
-            return None
-        neg_score, depth, retry_count, release_at, time_enqueued, url = self._heap[0]
-        return (-neg_score, depth, retry_count, release_at, time_enqueued, url)
+        self._promote_delayed()
+        if not self._heap and self._parked_by_host:
+            self.unpark_all()
+        if self._heap:
+            neg_score, depth, retry_count, release_at, time_enqueued, url = self._heap[0]
+            return (-neg_score, depth, retry_count, release_at, time_enqueued, url)
+        if self._delayed_heap:
+            release_at, neg_score, depth, retry_count, time_enqueued, url = self._delayed_heap[0]
+            return (-neg_score, depth, retry_count, release_at, time_enqueued, url)
+        return None
 
     def __len__(self) -> int:
-        return len(self._heap)
+        return len(self._heap) + len(self._delayed_heap) + sum(len(v) for v in self._parked_by_host.values())
 
     def __bool__(self) -> bool:
-        return len(self._heap) > 0
+        return len(self) > 0
 
     def clear(self) -> None:
-        """Clear all entries in the queue."""
+        """Clear all entries across heap, delayed heap, and parked partitions."""
         self._heap.clear()
+        self._delayed_heap.clear()
+        self._parked_by_host.clear()
 
     def snapshot(self) -> List[Tuple[float, int, int, float, float, str]]:
         """Return an unpacked snapshot list of items in the queue."""
-        return [
+        self._promote_delayed()
+        items = [
             (-item[0], item[1], item[2], item[3], item[4], item[5])
             for item in self._heap
         ]
+        for rel, neg_score, depth, retry_count, time_enqueued, url in self._delayed_heap:
+            items.append((-neg_score, depth, retry_count, rel, time_enqueued, url))
+        for host_items in self._parked_by_host.values():
+            items.extend(host_items)
+        return items
 
     def to_checkpoint_items(self) -> List[Dict[str, Any]]:
         """Serialize current queue contents for persistence in StateCache."""
@@ -306,6 +395,21 @@ class AdaptiveCrawlQueue:
                 "retry_count": retry_count,
                 "score": round(-neg_score, 4),
             })
+        for rel, neg_score, depth, retry_count, time_enqueued, url in self._delayed_heap:
+            items.append({
+                "url": url,
+                "depth": depth,
+                "retry_count": retry_count,
+                "score": round(-neg_score, 4),
+            })
+        for host_items in self._parked_by_host.values():
+            for score, depth, retry_count, release_at, time_enqueued, url in host_items:
+                items.append({
+                    "url": url,
+                    "depth": depth,
+                    "retry_count": retry_count,
+                    "score": round(score, 4),
+                })
         return items
 
     def from_checkpoint_items(self, items: List[Dict[str, Any]]) -> int:
