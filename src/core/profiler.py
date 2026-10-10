@@ -18,11 +18,12 @@ class DomainProfiler:
     """
     
     def __init__(self, state_cache=None, notifier: NotificationPipeline | None = None):
+        project_root = Path(__file__).resolve().parent.parent.parent
         self.state_cache = state_cache
         self.notifier = notifier or NotificationPipeline()
-        self.domain_config_path = Path("data/domain_config.json")
-        self.rules_config_path = Path("data/url_normalisation_rules.json")
-        self.sessions_dir = Path("data/sessions")
+        self.domain_config_path = project_root / "data/domain_config.json"
+        self.rules_config_path = project_root / "data/url_normalisation_rules.json"
+        self.sessions_dir = project_root / "data/sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         
         self.domain_config = {}
@@ -32,11 +33,18 @@ class DomainProfiler:
         self._load_configs()
         
     def _load_configs(self, force: bool = False):
+        p_domain = Path(self.domain_config_path)
+        if not p_domain.is_absolute() and not p_domain.exists():
+            project_root = Path(__file__).resolve().parent.parent.parent
+            if (project_root / p_domain).exists():
+                p_domain = project_root / p_domain
+                self.domain_config_path = p_domain
+
         try:
-            if self.domain_config_path.exists():
-                mtime = self.domain_config_path.stat().st_mtime
+            if p_domain.exists():
+                mtime = p_domain.stat().st_mtime
                 if force or mtime != self._domain_config_mtime or not self.domain_config:
-                    with open(self.domain_config_path, "r", encoding="utf-8") as f:
+                    with open(p_domain, "r", encoding="utf-8") as f:
                         self.domain_config = json.load(f)
                     self._domain_config_mtime = mtime
             else:
@@ -45,11 +53,18 @@ class DomainProfiler:
             if not self.domain_config:
                 self.domain_config = {}
             
+        p_rules = Path(self.rules_config_path)
+        if not p_rules.is_absolute() and not p_rules.exists():
+            project_root = Path(__file__).resolve().parent.parent.parent
+            if (project_root / p_rules).exists():
+                p_rules = project_root / p_rules
+                self.rules_config_path = p_rules
+
         try:
-            if self.rules_config_path.exists():
-                mtime = self.rules_config_path.stat().st_mtime
+            if p_rules.exists():
+                mtime = p_rules.stat().st_mtime
                 if force or mtime != self._rules_config_mtime or not self.rules_config:
-                    with open(self.rules_config_path, "r", encoding="utf-8") as f:
+                    with open(p_rules, "r", encoding="utf-8") as f:
                         self.rules_config = json.load(f)
                     self._rules_config_mtime = mtime
             else:

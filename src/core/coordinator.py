@@ -305,7 +305,7 @@ class CrawlCoordinator:
                                 is_failed = host in self.governor.failed_hosts
                             if not is_failed:
                                 rem = self.governor.cooldown_remaining(host)
-                                rel = (now + rem) if rem > 0 else (now + 1.0)
+                                rel = (now + rem) if rem > 0 else release_at
                                 skipped.append((score, next_depth, next_retry, rel, time_enqueued, next_page))
                                 saturated_hosts.add(host)
                             else:
@@ -325,7 +325,7 @@ class CrawlCoordinator:
 
                         self.governor.increment_worker(host)
                         if skipped:
-                            pages_queue.requeue_batch(skipped)
+                            pages_queue.requeue_batch(skipped, now=now)
 
                         total_pages_scanned += 1
                         fut = executor.submit(self._fetch_page, next_page, next_depth)
@@ -333,13 +333,19 @@ class CrawlCoordinator:
                         return True
 
                     if skipped:
-                        pages_queue.requeue_batch(skipped)
+                        pages_queue.requeue_batch(skipped, now=now)
                         if not futures:
-                            earliest = pages_queue.earliest_release_at()
-                            now = time.monotonic()
-                            delay = min(0.5, max(0.05, earliest - now)) if (earliest is not None and earliest > now) else 0.2
-                            time.sleep(delay)
-                            continue
+                            earliest = pages_queue.earliest_release_at(now=now)
+                            has_pending_wait = (
+                                (earliest is not None and earliest > now)
+                                or bool(self.profiling_domains)
+                                or bool(self.quarantined_domains)
+                            )
+                            if has_pending_wait:
+                                delay = min(0.5, max(0.05, earliest - now)) if (earliest is not None and earliest > now) else 0.2
+                                time.sleep(delay)
+                                continue
+                            return False
                         return False
                     return False
 
@@ -372,7 +378,7 @@ class CrawlCoordinator:
 
                         self.governor.decrement_worker(host)
                         if hasattr(pages_queue, "unpark_host"):
-                            pages_queue.unpark_host(host)
+                            pages_queue.unpark_host(host, now=time.monotonic())
 
                         discovered_links = []
                         content = ""
