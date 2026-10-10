@@ -121,6 +121,7 @@ def test_adaptive_concurrency_throttling():
         patch("core.engine.time.monotonic", side_effect=safe_monotonic),
         patch("core.governor.time.monotonic", side_effect=safe_monotonic),
         patch("core.coordinator.time.monotonic", side_effect=safe_monotonic),
+        patch("core.priority_queue.time.monotonic", side_effect=safe_monotonic),
         patch("core.coordinator.time.sleep", side_effect=lambda x: real_sleep(0.001)),
     ):
         result = engine.run(

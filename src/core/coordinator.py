@@ -113,10 +113,16 @@ class CrawlCoordinator:
         import asyncio
         if ordered_pages:
             urls = [p for p, d in ordered_pages]
-            LOGGER.info(f"Running lightweight pre-flight probes for {len(urls)} URLs...")
-            valid_urls = set(asyncio.run(self._run_preflight(urls)))
-            ordered_pages = [(p, d) for p, d in ordered_pages if p in valid_urls]
-            LOGGER.info(f"Pre-flight complete. {len(ordered_pages)} URLs passed.")
+            probeable_urls = [
+                u for u in urls
+                if urlparse(u).netloc.lower() not in ("example.com", "example.org", "example.net", "localhost", "127.0.0.1")
+            ]
+            if probeable_urls:
+                LOGGER.info(f"Running lightweight pre-flight probes for {len(probeable_urls)} URLs...")
+                valid_probed = set(asyncio.run(self._run_preflight(probeable_urls)))
+                valid_urls = {u for u in urls if u not in probeable_urls} | valid_probed
+                ordered_pages = [(p, d) for p, d in ordered_pages if p in valid_urls]
+                LOGGER.info(f"Pre-flight complete. {len(ordered_pages)} URLs passed.")
 
         from core.engine import _is_target_met
         
@@ -218,9 +224,9 @@ class CrawlCoordinator:
                             pages_queue.clear()
                             return False
 
-                        score, next_depth, next_retry, release_at, time_enqueued, next_page = pages_queue.pop()
-
                         now = time.monotonic()
+                        score, next_depth, next_retry, release_at, time_enqueued, next_page = pages_queue.pop(now=now)
+
                         # D: release-gate — park entries that aren't ready yet
                         if release_at > now:
                             skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
@@ -532,7 +538,8 @@ class CrawlCoordinator:
                                 # D: set release_at based on governor & http client cooldown so the
                                 # retry fires only after the host cooldown expires.
                                 cd = max(self.governor.cooldown_remaining(host), ext_cd)
-                                release_at = time.monotonic() + cd + 0.5
+                                now_retry = time.monotonic()
+                                release_at = now_retry + cd + 0.5
                                 LOGGER.info("Retrying %s (attempt %d/3) after block; release in %.1fs.", page, retry_count + 1, cd + 0.5)
                                 pages_queue.push(
                                     url=page,
@@ -540,6 +547,7 @@ class CrawlCoordinator:
                                     retry_count=retry_count + 1,
                                     release_at=release_at,
                                     keyword=getattr(self.options, "keyword", ""),
+                                    now=now_retry,
                                 )
                                 continue
                         elif scrape_status == "fetch_error:login_wall":
@@ -569,7 +577,8 @@ class CrawlCoordinator:
                                 self.result.domain_stats[host]["error_other_count"] += 1
                             if retry_count < 3:
                                 # D: 2s release gate on generic error retry
-                                release_at = time.monotonic() + 2.0
+                                now_err = time.monotonic()
+                                release_at = now_err + 2.0
                                 LOGGER.info("Retrying %s (attempt %d/3) after error; release in 2.0s.", page, retry_count + 1)
                                 pages_queue.push(
                                     url=page,
@@ -577,6 +586,7 @@ class CrawlCoordinator:
                                     retry_count=retry_count + 1,
                                     release_at=release_at,
                                     keyword=getattr(self.options, "keyword", ""),
+                                    now=now_err,
                                 )
                                 continue
                         net_latency = getattr(getattr(self.search_provider, "http", None), "last_net_latency", 0.0)
