@@ -375,10 +375,57 @@ class MediaProcessor:
             )
 
         futures_map = {}
+        max_inflight = max(4, getattr(self.options, "concurrent_downloads", CONCURRENT_DOWNLOADS) * 2)
+
+        def _process_done_future(f):
+            if f not in futures_map:
+                return
+            item, media_kind = futures_map.pop(f)
+            try:
+                success, download_info = f.result()
+                if success:
+                    item.status = "downloaded"
+                    item.file_path = download_info.get("file_path", "")
+                    item.hash = download_info.get("hash", "")
+                    item.file_size_bytes = download_info.get("file_size_bytes")
+                    item.mime_type = download_info.get("mime_type", "")
+                    if download_info.get("width") is not None:
+                        item.width = download_info.get("width")
+                    if download_info.get("height") is not None:
+                        item.height = download_info.get("height")
+                    self.result.download_stats["downloaded"] = self.result.download_stats.get("downloaded", 0) + 1
+                else:
+                    reason = download_info.get("reason", "unknown")
+                    item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
+                    item.failure_reason = reason
+                    key = f"download_{reason}"
+                    self.result.download_stats[key] = self.result.download_stats.get(key, 0) + 1
+                    add_rejected(media_kind, item.url, item.source_page, f"download_{reason}", item.score)
+                    
+                    dl_host = urlparse(item.source_page).netloc.lower()
+                    if dl_host in self.result.domain_stats:
+                        self.result.domain_stats[dl_host]["rejected_count"] += 1
+                        if media_kind == "image":
+                            self.result.domain_stats[dl_host]["images_kept"] = max(0, self.result.domain_stats[dl_host]["images_kept"] - 1)
+                        else:
+                            self.result.domain_stats[dl_host]["videos_kept"] = max(0, self.result.domain_stats[dl_host]["videos_kept"] - 1)
+            except Exception as exc:
+                self.LOGGER.warning("Download error for %s: %s", item.url, exc)
+                item.status = "failed"
+                item.failure_reason = f"exception_{type(exc).__name__}"
+                add_rejected(media_kind, item.url, item.source_page, f"download_failed:{type(exc).__name__}", item.score)
         
         while self._is_running or not self.download_queue.empty() or futures_map:
+            # Drain completed futures or wait if at max in-flight capacity
+            while len(futures_map) >= max_inflight:
+                done, _ = _cf.wait(list(futures_map.keys()), return_when=_cf.FIRST_COMPLETED, timeout=1.0)
+                if not done:
+                    break
+                for f in done:
+                    _process_done_future(f)
+
             try:
-                task = self.download_queue.get(timeout=0.5)
+                task = self.download_queue.get(timeout=0.2)
                 if task is None:
                     continue
                 item, directory, stem, media_kind = task
@@ -408,43 +455,10 @@ class MediaProcessor:
             except queue.Empty:
                 pass
             
-            # Periodically check for completed futures to avoid memory leaks
-            done = [f for f in futures_map if f.done()]
+            # Periodically process completed futures to free resources
+            done = [f for f in list(futures_map.keys()) if f.done()]
             for f in done:
-                item, media_kind = futures_map.pop(f)
-                try:
-                    success, download_info = f.result()
-                    if success:
-                        item.status = "downloaded"
-                        item.file_path = download_info.get("file_path", "")
-                        item.hash = download_info.get("hash", "")
-                        item.file_size_bytes = download_info.get("file_size_bytes")
-                        item.mime_type = download_info.get("mime_type", "")
-                        if download_info.get("width") is not None:
-                            item.width = download_info.get("width")
-                        if download_info.get("height") is not None:
-                            item.height = download_info.get("height")
-                        self.result.download_stats["downloaded"] = self.result.download_stats.get("downloaded", 0) + 1
-                    else:
-                        reason = download_info.get("reason", "unknown")
-                        item.status = "skipped" if reason in {"low_resolution", "unparseable_dimensions", "duplicate", "invalid_media_type"} else "failed"
-                        item.failure_reason = reason
-                        key = f"download_{reason}"
-                        self.result.download_stats[key] = self.result.download_stats.get(key, 0) + 1
-                        add_rejected(media_kind, item.url, item.source_page, f"download_{reason}", item.score)
-                        
-                        dl_host = urlparse(item.source_page).netloc.lower()
-                        if dl_host in self.result.domain_stats:
-                            self.result.domain_stats[dl_host]["rejected_count"] += 1
-                            if media_kind == "image":
-                                self.result.domain_stats[dl_host]["images_kept"] = max(0, self.result.domain_stats[dl_host]["images_kept"] - 1)
-                            else:
-                                self.result.domain_stats[dl_host]["videos_kept"] = max(0, self.result.domain_stats[dl_host]["videos_kept"] - 1)
-                except Exception as exc:
-                    self.LOGGER.warning("Download error for %s: %s", item.url, exc)
-                    item.status = "failed"
-                    item.failure_reason = f"exception_{type(exc).__name__}"
-                    add_rejected(media_kind, item.url, item.source_page, f"download_failed:{type(exc).__name__}", item.score)
+                _process_done_future(f)
 
     def stop_downloads(self) -> None:
         if getattr(self, "_is_running", False):

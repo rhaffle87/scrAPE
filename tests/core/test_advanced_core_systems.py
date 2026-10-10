@@ -322,3 +322,98 @@ class TestCrawlSuccessionAndGovernorPriming:
             valid = asyncio.run(coordinator._run_preflight(urls))
             assert len(valid) == 25
             assert mock_client.head.call_count == 25
+
+
+# =========================================================================
+# 6. Core Optimization, Half-Open Circuit Breaking & Cooldown Sync
+# =========================================================================
+
+class TestCoreOptimizationAndCircuitBreaker:
+    def test_circuit_breaker_half_open_single_flight_canary(self):
+        from network.stealth.base import _StrategyCircuitBreaker
+
+        cb = _StrategyCircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)
+        strategy = "camoufox"
+        host = "challenge-target.com"
+
+        # Initially healthy
+        assert cb.is_cooling_down(strategy, host) is False
+
+        # Trip circuit breaker
+        cb.record_failure(strategy, host)
+        cb.record_failure(strategy, host)
+        assert cb.is_cooling_down(strategy, host) is True
+
+        # Wait for cooldown to elapse
+        time.sleep(0.15)
+
+        # Thread 1: gets canary probe (is_cooling_down == False)
+        assert cb.is_cooling_down(strategy, host) is False
+
+        # Thread 2: blocked during in-flight canary probe (is_cooling_down == True)
+        assert cb.is_cooling_down(strategy, host) is True
+
+        # Canary probe succeeds -> tier restored for everyone
+        cb.record_success(strategy, host)
+        assert cb.is_cooling_down(strategy, host) is False
+
+    def test_domain_profiler_mtime_cached_loading(self, tmp_path):
+        import json
+        from core.profiler import DomainProfiler
+
+        d_conf = tmp_path / "domain_config.json"
+        r_conf = tmp_path / "url_normalisation_rules.json"
+        d_conf.write_text(json.dumps({"auto_mapped": ["cached.com"]}), encoding="utf-8")
+        r_conf.write_text(json.dumps([]), encoding="utf-8")
+
+        profiler = DomainProfiler()
+        profiler.domain_config_path = d_conf
+        profiler.rules_config_path = r_conf
+        profiler._load_configs(force=True)
+
+        assert "cached.com" in profiler.domain_config["auto_mapped"]
+
+        # Call _load_configs again; mtime is unchanged, so no disk re-parsing
+        old_mtime = profiler._domain_config_mtime
+        profiler._load_configs()
+        assert profiler._domain_config_mtime == old_mtime
+
+    def test_url_normalization_and_archetype_caching(self):
+        from core.url_classifier import normalize_url, normalize_media_url
+        from core.priority_queue import URLPatternBandit
+
+        raw_url = "https://example.com/gallery/12345/view?utm_source=twitter&hl=en"
+        norm1 = normalize_url(raw_url)
+        norm2 = normalize_url(raw_url)
+        assert norm1 == norm2
+        assert "utm_source" not in norm1
+        assert "hl=" not in norm1
+
+        media1 = normalize_media_url("https://cdn.example.com/images/Pic_01.JPG?w=500")
+        media2 = normalize_media_url("https://cdn.example.com/images/Pic_01.JPG?w=500")
+        assert media1 == media2
+        assert media1 == "https://cdn.example.com/images/pic_01.jpg"
+
+        bandit = URLPatternBandit()
+        arch1 = bandit.extract_archetype("https://site.com/art/001/full")
+        arch2 = bandit.extract_archetype("https://site.com/art/999/full")
+        assert arch1 == arch2 == "site.com::/art/{id}/full"
+
+    def test_http_client_cooldown_sync(self):
+        from network.http_client import HttpClient
+
+        client = HttpClient()
+        host = "ratelimited-api.com"
+
+        # Initially no cooldown
+        assert client.get_domain_cooldown_remaining(host) == 0.0
+
+        # Simulate 3 consecutive 429s to cross DOMAIN_COOLDOWN_THRESHOLD
+        cd_state = client._cooldown_state_for(f"https://{host}/page")
+        duration = None
+        for _ in range(3):
+            duration = cd_state.record_429()
+
+        assert duration is not None
+        assert client.get_domain_cooldown_remaining(host) > 0.0
+

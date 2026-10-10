@@ -134,7 +134,7 @@ class StealthResponse:
 
 
 class _StrategyCircuitBreaker:
-    """Tracks per-strategy, per-hostname consecutive failures and cooldowns."""
+    """Tracks per-strategy, per-hostname consecutive failures and cooldowns with half-open single-flight probe gating."""
 
     def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 300.0) -> None:
         self.failure_threshold = failure_threshold
@@ -142,10 +142,12 @@ class _StrategyCircuitBreaker:
         self._lock = threading.Lock()
         self._failures: dict[tuple[str, str], int] = {}
         self._cooldown_until: dict[tuple[str, str], float] = {}
+        self._probe_in_flight: set[tuple[str, str]] = set()
 
     def record_failure(self, strategy_name: str, host: str) -> None:
         key = (strategy_name.lower(), host.lower())
         with self._lock:
+            self._probe_in_flight.discard(key)
             count = self._failures.get(key, 0) + 1
             self._failures[key] = count
             if count >= self.failure_threshold:
@@ -159,22 +161,33 @@ class _StrategyCircuitBreaker:
         with self._lock:
             self._failures[key] = 0
             self._cooldown_until.pop(key, None)
+            self._probe_in_flight.discard(key)
 
     def is_cooling_down(self, strategy_name: str, host: str) -> bool:
         key = (strategy_name.lower(), host.lower())
         with self._lock:
             until = self._cooldown_until.get(key, 0.0)
-            return time.monotonic() < until
+            now = time.monotonic()
+            if now < until:
+                return True
+            # If cooldown has expired but key was in cooldown, gate with a single-flight canary probe
+            if key in self._cooldown_until:
+                if key in self._probe_in_flight:
+                    return True
+                self._probe_in_flight.add(key)
+                return False
+            return False
 
     def auto_heal_quarantined_tiers(self) -> int:
         """Checks for expired strategy cooldowns and resets failure counters to restore active pipeline tiers."""
         healed_count = 0
         now = time.monotonic()
         with self._lock:
-            expired_keys = [key for key, until in self._cooldown_until.items() if now >= until]
+            expired_keys = [key for key, until in self._cooldown_until.items() if now >= until and key not in self._probe_in_flight]
             for key in expired_keys:
                 self._failures[key] = 0
                 self._cooldown_until.pop(key, None)
+                self._probe_in_flight.discard(key)
                 healed_count += 1
         return healed_count
 

@@ -27,28 +27,48 @@ class DomainProfiler:
         
         self.domain_config = {}
         self.rules_config = {}
+        self._domain_config_mtime: float = 0.0
+        self._rules_config_mtime: float = 0.0
         self._load_configs()
         
-    def _load_configs(self):
+    def _load_configs(self, force: bool = False):
         try:
-            with open(self.domain_config_path, "r", encoding="utf-8") as f:
-                self.domain_config = json.load(f)
+            if self.domain_config_path.exists():
+                mtime = self.domain_config_path.stat().st_mtime
+                if force or mtime != self._domain_config_mtime or not self.domain_config:
+                    with open(self.domain_config_path, "r", encoding="utf-8") as f:
+                        self.domain_config = json.load(f)
+                    self._domain_config_mtime = mtime
+            else:
+                self.domain_config = {}
         except Exception:
-            self.domain_config = {}
+            if not self.domain_config:
+                self.domain_config = {}
             
         try:
-            with open(self.rules_config_path, "r", encoding="utf-8") as f:
-                self.rules_config = json.load(f)
+            if self.rules_config_path.exists():
+                mtime = self.rules_config_path.stat().st_mtime
+                if force or mtime != self._rules_config_mtime or not self.rules_config:
+                    with open(self.rules_config_path, "r", encoding="utf-8") as f:
+                        self.rules_config = json.load(f)
+                    self._rules_config_mtime = mtime
+            else:
+                self.rules_config = {}
         except Exception:
-            self.rules_config = {}
+            if not self.rules_config:
+                self.rules_config = {}
 
     def _save_domain_config(self):
         with open(self.domain_config_path, "w", encoding="utf-8") as f:
             json.dump(self.domain_config, f, indent=4)
+        if self.domain_config_path.exists():
+            self._domain_config_mtime = self.domain_config_path.stat().st_mtime
             
     def _save_rules_config(self):
         with open(self.rules_config_path, "w", encoding="utf-8") as f:
             json.dump(self.rules_config, f, indent=4)
+        if self.rules_config_path.exists():
+            self._rules_config_mtime = self.rules_config_path.stat().st_mtime
             
     async def evaluate_domain(self, domain: str) -> str:
         """

@@ -7,9 +7,10 @@ domain rule resolution, and path filtering.
 
 from __future__ import annotations
 
+from functools import lru_cache
 import logging
 import re
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, unquote, urljoin, urlparse, urlunparse, urlencode
 
 from config import (
     ALWAYS_BLOCK_DOMAINS,
@@ -101,31 +102,30 @@ def absolutize_url(candidate: str, base_url: str) -> str:
     return urljoin(base_url, candidate.strip())
 
 
-def normalize_url(url: str) -> str:
-    """Normalize a URL by stripping tracking params and applying normalisation rules."""
-    from urllib.parse import unquote, quote
-    import config
+TRACKING_PARAMS = frozenset({
+    "hl", "lang", "locale", "utm_source", "utm_medium", "utm_campaign",
+    "utm_term", "utm_content", "fbclid", "gclid", "ref", "source", "ncid", "mc_eid"
+})
 
+
+@lru_cache(maxsize=131072)
+def _cached_normalize_url(url: str, rules_version: int) -> str:
+    import config
     try:
-        url = url.strip()
+        cleaned_url = url.strip()
         rules = config.URL_NORMALISATION_RULES
         if not rules:
             config._load_dynamic_config()
             rules = config.URL_NORMALISATION_RULES
         for pattern, replacement in rules:
-            url = pattern.sub(replacement, url)
-        unquoted = unquote(url)
+            cleaned_url = pattern.sub(replacement, cleaned_url)
+        unquoted = unquote(cleaned_url)
         parsed = urlparse(unquoted)
         if parsed.query:
-            from urllib.parse import parse_qsl, urlencode
-            tracking_params = {
-                "hl", "lang", "locale", "utm_source", "utm_medium", "utm_campaign",
-                "utm_term", "utm_content", "fbclid", "gclid", "ref", "source", "ncid", "mc_eid"
-            }
             kept = [
                 (k, v)
                 for k, v in parse_qsl(parsed.query, keep_blank_values=True)
-                if k.lower() not in tracking_params
+                if k.lower() not in TRACKING_PARAMS
             ]
             query = urlencode(kept) if kept else ""
         else:
@@ -139,10 +139,20 @@ def normalize_url(url: str) -> str:
         return url.strip()
 
 
+def normalize_url(url: str) -> str:
+    """Normalize a URL by stripping tracking params and applying normalisation rules."""
+    if not url:
+        return ""
+    import config
+    rules_ver = len(config.URL_NORMALISATION_RULES)
+    return _cached_normalize_url(url, rules_ver)
 
+
+@lru_cache(maxsize=131072)
 def normalize_media_url(url: str) -> str:
     """Normalize a media URL for deduplication check."""
-    from urllib.parse import unquote
+    if not url:
+        return ""
     try:
         parsed = urlparse(url.strip())
         scheme = "https"

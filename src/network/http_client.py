@@ -604,6 +604,15 @@ class HttpClient(BrowserClientMixin):
                 self._cooldown_states[host] = _DomainCooldownState()
             return self._cooldown_states[host]
 
+    def get_domain_cooldown_remaining(self, host: str) -> float:
+        """Return the active 429/failure cooldown remaining in seconds for host, or 0.0."""
+        clean_host = host.lower().strip()
+        with self._cd_lock:
+            cd_state = self._cooldown_states.get(clean_host)
+        if cd_state is not None:
+            return cd_state.cooldown_remaining()
+        return 0.0
+
     # ------------------------------------------------------------------
     # Headers
     # ------------------------------------------------------------------

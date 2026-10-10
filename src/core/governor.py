@@ -147,18 +147,19 @@ class CrawlGovernor:
                     current_window + self.aimd_increase_step,
                 )
 
-    def report_429(self, host: str):
+    def report_429(self, host: str, cooldown_s: Optional[float] = None):
         """Report a rate limit hit for a host with AIMD multiplicative decrease."""
         with self.lock:
             self._record_host_outcome(host, False)
-            self.host_cooldowns[host] = time.monotonic() + 5.0
+            cd = cooldown_s if cooldown_s is not None and cooldown_s > 0 else 5.0
+            self.host_cooldowns[host] = max(self.host_cooldowns.get(host, 0.0), time.monotonic() + cd)
             current_window = self.host_concurrency.get(host, float(self.max_concurrency))
             self.host_concurrency[host] = max(
                 float(self.min_concurrency),
                 current_window * self.aimd_decrease_factor,
             )
             LOGGER.warning(
-                f"Governor: Rate limit (429) hit for {host}. AIMD window reduced to {self.host_concurrency[host]:.1f}. Pausing host for 5s."
+                f"Governor: Rate limit (429) hit for {host}. AIMD window reduced to {self.host_concurrency[host]:.1f}. Pausing host for {cd:.1f}s."
             )
 
     def report_error(self, host: str, is_login_wall: bool = False):

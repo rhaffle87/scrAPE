@@ -4,6 +4,7 @@ priority_queue.py — Best-First adaptive priority crawl queue and domain budget
 
 from __future__ import annotations
 
+from functools import lru_cache
 import heapq
 import math
 import re
@@ -15,6 +16,45 @@ from urllib.parse import urlparse
 from monitoring.logger import get_logger
 
 LOGGER = get_logger(__name__)
+
+UUID_RE = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", re.I)
+HEX_HASH_RE = re.compile(r"[a-f0-9]{32,}", re.I)
+NUMERIC_ID_RE = re.compile(r"\b\d+\b")
+TOKEN_WORD_RE = re.compile(r"\w+")
+
+
+@lru_cache(maxsize=32)
+def _tokenize_text(text: str) -> frozenset[str]:
+    if not text:
+        return frozenset()
+    return frozenset(tok.lower() for tok in TOKEN_WORD_RE.findall(text) if len(tok) > 2)
+
+
+@lru_cache(maxsize=65536)
+def _extract_archetype_cached(url: str) -> str:
+    try:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower().strip()
+        path = parsed.path or "/"
+        path = UUID_RE.sub("{uuid}", path)
+        path = HEX_HASH_RE.sub("{hash}", path)
+        path = NUMERIC_ID_RE.sub("{id}", path)
+        return f"{host}::{path}"
+    except Exception:
+        return "unknown"
+
+
+@lru_cache(maxsize=65536)
+def _extract_prefix_archetype_cached(url: str) -> str:
+    try:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower().strip()
+        parts = [p for p in (parsed.path or "/").split("/") if p]
+        if parts:
+            return f"{host}::/{parts[0]}/*"
+        return f"{host}::/*"
+    except Exception:
+        return "unknown"
 
 
 class URLPatternBandit:
@@ -39,34 +79,14 @@ class URLPatternBandit:
         Normalize a URL into its structural path archetype.
         e.g. 'https://example.com/gallery/12345/view' -> 'example.com::/gallery/{id}/view'
         """
-        try:
-            parsed = urlparse(url)
-            host = parsed.netloc.lower().strip()
-            path = parsed.path or "/"
-            # Replace UUIDs
-            path = re.sub(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", "{uuid}", path, flags=re.I)
-            # Replace long hex/hashes (32+ chars)
-            path = re.sub(r"[a-f0-9]{32,}", "{hash}", path, flags=re.I)
-            # Replace numeric IDs
-            path = re.sub(r"\b\d+\b", "{id}", path)
-            return f"{host}::{path}"
-        except Exception:
-            return "unknown"
+        return _extract_archetype_cached(url)
 
     @staticmethod
     def extract_prefix_archetype(url: str) -> str:
         """
         Extract coarse section archetype (e.g. 'example.com::/gallery/*').
         """
-        try:
-            parsed = urlparse(url)
-            host = parsed.netloc.lower().strip()
-            parts = [p for p in (parsed.path or "/").split("/") if p]
-            if parts:
-                return f"{host}::/{parts[0]}/*"
-            return f"{host}::/*"
-        except Exception:
-            return "unknown"
+        return _extract_prefix_archetype_cached(url)
 
     def record_harvest(self, url: str, media_yield: int) -> None:
         """Record the media yield outcome of a crawled page."""
@@ -205,10 +225,10 @@ class AdaptiveCrawlQueue:
         # 3. Token relevance matching
         token_score = 0.0
         if keyword:
-            kw_tokens = {tok.lower() for tok in re.findall(r"\w+", keyword) if len(tok) > 2}
+            kw_tokens = _tokenize_text(keyword)
             if kw_tokens:
                 parsed = urlparse(url)
-                url_tokens = {tok.lower() for tok in re.findall(r"\w+", f"{parsed.path} {parsed.query}") if len(tok) > 2}
+                url_tokens = _tokenize_text(f"{parsed.path} {parsed.query}")
                 overlap = len(kw_tokens.intersection(url_tokens))
                 token_ratio = overlap / len(kw_tokens)
                 token_score = self.w_token * token_ratio

@@ -323,7 +323,10 @@ class CrawlCoordinator:
                         for item in skipped:
                             pages_queue.push(url=item[5], depth=item[1], retry_count=item[2], release_at=item[3], score=item[0])
                         if not futures:
-                            time.sleep(1.0)
+                            now = time.monotonic()
+                            wait_times = [item[3] - now for item in skipped if item[3] > now]
+                            delay = min(0.5, max(0.05, min(wait_times))) if wait_times else 0.2
+                            time.sleep(delay)
                             continue
                         return False
                     return False
@@ -491,7 +494,11 @@ class CrawlCoordinator:
                         is_worker_error = "worker_error" in scrape_status or "fetch_error" in scrape_status
                     
                         if is_block:
-                            self.governor.report_429(host)
+                            http_obj = getattr(self.search_provider, "http", None)
+                            ext_cd = 0.0
+                            if http_obj and hasattr(http_obj, "get_domain_cooldown_remaining"):
+                                ext_cd = http_obj.get_domain_cooldown_remaining(host)
+                            self.governor.report_429(host, cooldown_s=ext_cd if ext_cd > 0 else None)
                             self._auto_remediate_host(host)
                             with self.result_lock:
                                 if host not in self.result.domain_stats:
@@ -501,9 +508,9 @@ class CrawlCoordinator:
                                     }
                                 self.result.domain_stats[host]["error_429_count"] += 1
                             if retry_count < 3:
-                                # D: set release_at based on governor cooldown so the
+                                # D: set release_at based on governor & http client cooldown so the
                                 # retry fires only after the host cooldown expires.
-                                cd = self.governor.cooldown_remaining(host)
+                                cd = max(self.governor.cooldown_remaining(host), ext_cd)
                                 release_at = time.monotonic() + cd + 0.5
                                 LOGGER.info("Retrying %s (attempt %d/3) after block; release in %.1fs.", page, retry_count + 1, cd + 0.5)
                                 pages_queue.push(
