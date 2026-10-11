@@ -56,6 +56,8 @@ class CrawlGovernor:
         self._max_safe_connections = 1200  # Safe threshold below Windows ephemeral exhaustion
 
         # Hardware Governor integration
+        self._last_hw_check = 0.0
+        self._cached_hw_scale = 1.0
         if hardware_governor is not None:
             self.hardware_governor = hardware_governor
         else:
@@ -258,8 +260,9 @@ class CrawlGovernor:
         if now < self._socket_backpressure_until:
             return True
 
-        if now - self._last_socket_check > 2.5:
-            self._last_socket_check = now
+        now_real = time.time()
+        if now_real - self._last_socket_check > 2.5:
+            self._last_socket_check = now_real
             try:
                 import psutil
 
@@ -319,12 +322,17 @@ class CrawlGovernor:
             else:
                 base = 1
 
-            hw_scale = 1.0
-            if self.hardware_governor is not None:
-                try:
-                    hw_scale = self.hardware_governor.get_concurrency_scale_factor()
-                except Exception:
-                    hw_scale = 1.0
+            now_real = time.time()
+            if now_real - self._last_hw_check >= 2.0:
+                self._last_hw_check = now_real
+                if self.hardware_governor is not None:
+                    try:
+                        self._cached_hw_scale = self.hardware_governor.get_concurrency_scale_factor()
+                    except Exception:
+                        self._cached_hw_scale = 1.0
+                else:
+                    self._cached_hw_scale = 1.0
+            hw_scale = self._cached_hw_scale
 
             if self.is_socket_pressure_active():
                 hw_scale = min(hw_scale, 0.5)
@@ -335,12 +343,17 @@ class CrawlGovernor:
     def get_global_concurrency_limit(self) -> int:
         """Return the overall system concurrency ceiling based on hardware load and socket state."""
         with self.lock:
-            hw_scale = 1.0
-            if self.hardware_governor is not None:
-                try:
-                    hw_scale = self.hardware_governor.get_concurrency_scale_factor()
-                except Exception:
-                    hw_scale = 1.0
+            now_real = time.time()
+            if now_real - self._last_hw_check >= 2.0:
+                self._last_hw_check = now_real
+                if self.hardware_governor is not None:
+                    try:
+                        self._cached_hw_scale = self.hardware_governor.get_concurrency_scale_factor()
+                    except Exception:
+                        self._cached_hw_scale = 1.0
+                else:
+                    self._cached_hw_scale = 1.0
+            hw_scale = self._cached_hw_scale
 
             if self.is_socket_pressure_active():
                 hw_scale = min(hw_scale, 0.5)

@@ -107,7 +107,11 @@ def test_adaptive_concurrency_throttling():
             return mock_monotonic_vals[-1] + extra_time[0]
 
     # Test scaling down on block
+    mock_hw_gov = MagicMock()
+    mock_hw_gov.get_concurrency_scale_factor.return_value = 1.0
+
     with (
+        patch("monitoring.hardware_governor.get_governor", return_value=mock_hw_gov),
         patch.object(
             engine.search_provider,
             "search_pages",
