@@ -149,6 +149,17 @@ def mock_preflight(request, monkeypatch):
     except ImportError:
         pass
 
+@pytest.fixture(autouse=True)
+def isolate_hardware_governor(request, monkeypatch):
+    """Ensure tests run with a predictable 1.0x scale factor unless explicitly testing hardware load."""
+    if "hardware_scaling" in request.node.name or "hardware_governor" in request.node.name or "test_monitoring" in str(request.node.fspath):
+        return
+    try:
+        from monitoring.hardware_governor import HardwareLoadGovernor
+        monkeypatch.setattr(HardwareLoadGovernor, "get_concurrency_scale_factor", lambda self: 1.0)
+    except (ImportError, AttributeError):
+        pass
+
 import threading
 import uvicorn
 import time
