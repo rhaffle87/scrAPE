@@ -46,6 +46,7 @@ class SelfHealingDOMParser:
         self._vlm_healer = vlm_healer
         self.redis_client = redis_client
         self._lock = threading.RLock()
+        self._selector_cache: dict[str, tuple[str, str, int, str]] = {}
         self._init_db()
 
     @contextmanager
@@ -181,14 +182,20 @@ class SelfHealingDOMParser:
     def _try_cached_selector(
         self, soup: BeautifulSoup, domain: str, page_url: str, page_title: str
     ) -> list[ImageItem]:
+        row = None
         with self._lock:
-            with self._get_conn() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT selector, attr, hit_count, updated_at FROM repaired_selectors WHERE domain = ?",
-                    (domain,),
-                )
-                row = cursor.fetchone()
+            if domain in self._selector_cache:
+                row = self._selector_cache[domain]
+            else:
+                with self._get_conn() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT selector, attr, hit_count, updated_at FROM repaired_selectors WHERE domain = ?",
+                        (domain,),
+                    )
+                    row = cursor.fetchone()
+                if row:
+                    self._selector_cache[domain] = row
 
         if not row:
             return []
@@ -205,6 +212,7 @@ class SelfHealingDOMParser:
                 if (now - updated_dt).total_seconds() > 7 * 86400:
                     LOGGER.info("Cached selector for '%s' expired (> 7 days TTL). Invalidating cache entry.", domain)
                     with self._lock:
+                        self._selector_cache.pop(domain, None)
                         with self._get_conn() as del_conn:
                             del_conn.execute("DELETE FROM repaired_selectors WHERE domain = ?", (domain,))
                             del_conn.commit()
@@ -535,5 +543,7 @@ class SelfHealingDOMParser:
                     (domain, selector, attr, confidence, datetime.now(timezone.utc).isoformat()),
                 )
                 conn.commit()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self._selector_cache[domain] = (selector, attr, 1, now_iso)
             LOGGER.info("Saved repaired rule for domain '%s' -> %s[%s]", domain, selector, attr)
         return True

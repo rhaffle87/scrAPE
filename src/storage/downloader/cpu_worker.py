@@ -42,14 +42,9 @@ def _process_image_cpu_bound(temp_path_str: str, target_path_str: str, min_aesth
                 result["reason"] = "low_aesthetic_score"
                 return result
                 
-        img = Image.open(io.BytesIO(content))
-        out_buffer = io.BytesIO()
-        save_format = img.format if img.format else "JPEG"
-        kwargs = {}
-        if getattr(img, "is_animated", False):
-            kwargs["save_all"] = True
-        img.save(out_buffer, format=save_format, **kwargs)
-        target_path.write_bytes(out_buffer.getvalue())
+        with Image.open(io.BytesIO(content)) as img:
+            img.verify()
+        target_path.write_bytes(content)
         
         result["success"] = True
     except Exception as e:

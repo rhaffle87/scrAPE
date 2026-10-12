@@ -18,6 +18,9 @@ from urllib.parse import urlparse
 import httpx
 
 from common.image_helper import get_image_dimensions, hamming_distance
+from storage.hierarchical_dedup import BKTree
+
+__all__ = ["MediaDownloader", "hamming_distance", "get_image_dimensions"]
 from config import (
     CONCURRENT_DOWNLOADS,
     DEFAULT_DOWNLOAD_IMAGES_SUBDIR,
@@ -88,6 +91,7 @@ class MediaDownloader:
         self._dead_urls_lock = threading.Lock()
         self._seen_hashes: set[str] = set()
         self._seen_phashes: set[int] = set()
+        self._phash_tree = BKTree()
         self._hash_lock = threading.Lock()
         self._state_cache = state_cache
         self._keyword = keyword.strip().lower()
@@ -107,14 +111,17 @@ class MediaDownloader:
         self._fast_limiters: dict[str, RateLimiter] = {}
         self._host_semaphores: dict[str, threading.Semaphore] = {}
         self._dl_lock = threading.Lock()
-        # Seed in-memory pHash set from persistent DB for cross-run deduplication
+        # Seed in-memory pHash set and BK-tree from persistent DB for cross-run deduplication
         if self._state_cache is not None:
             try:
                 persisted = self._state_cache.load_phashes(subject=self._keyword)
                 if persisted:
-                    self._seen_phashes.update(persisted)
+                    for p in persisted:
+                        int_p = int(p)
+                        self._seen_phashes.add(int_p)
+                        self._phash_tree.add(int_p, str(int_p))
                     LOGGER.info(
-                        "MediaDownloader: seeded %d persisted pHashes from StateCache (subject='%s').",
+                        "MediaDownloader: seeded %d persisted pHashes into BK-tree from StateCache (subject='%s').",
                         len(persisted),
                         self._keyword,
                     )
@@ -173,6 +180,7 @@ class MediaDownloader:
         with self._hash_lock:
             self._seen_hashes.clear()
             self._seen_phashes.clear()
+            self._phash_tree = BKTree()
 
     def close(self) -> None:
         """Shut down resources including process pool workers."""
@@ -904,33 +912,23 @@ class MediaDownloader:
                         self._seen_hashes.add(content_hash)
 
                     if dhash_val is not None:
-                        # Optimistic Concurrency Control for pHash check
-                        with self._hash_lock:
-                            snapshot = tuple(self._seen_phashes)
-                            
-                        # Compute distances outside lock
-                        duplicate_found = False
-                        for prev_hash in snapshot:
-                            if hamming_distance(dhash_val, prev_hash) <= 4:
-                                duplicate_found = True
-                                break
-                                
-                        if duplicate_found:
+                        # Fast O(log N) BK-tree perceptual hash search
+                        int_dhash = int(dhash_val)
+                        match = self._phash_tree.find_nearest(int_dhash, max_dist=4)
+                        if match is not None:
                             LOGGER.info("Skipping perceptual duplicate image asset %s", url)
                             target.unlink(missing_ok=True)
                             return False, {"reason": "perceptual_duplicate"}
                             
                         # Double check inside lock
                         with self._hash_lock:
-                            for prev_hash in self._seen_phashes:
-                                if prev_hash not in snapshot and hamming_distance(dhash_val, prev_hash) <= 4:
-                                    duplicate_found = True
-                                    break
-                            if duplicate_found:
+                            match = self._phash_tree.find_nearest(int_dhash, max_dist=4)
+                            if match is not None:
                                 LOGGER.info("Skipping perceptual duplicate image asset %s (double-check)", url)
                                 target.unlink(missing_ok=True)
                                 return False, {"reason": "perceptual_duplicate"}
-                            self._seen_phashes.add(dhash_val)
+                            self._seen_phashes.add(int_dhash)
+                            self._phash_tree.add(int_dhash, str(int_dhash))
                             
                         # Persist outside the lock
                         if self._state_cache is not None:

@@ -64,6 +64,7 @@ class CrawlCoordinator:
             ])
         self.budget_governor = DomainBudgetGovernor()
         self.profiler = DomainProfiler(state_cache=self.state_cache)
+        self._profiler_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DomainProfiler")
         
         self.media_queue = queue.Queue(maxsize=1000)
         self.result_lock = threading.RLock()
@@ -300,7 +301,7 @@ class CrawlCoordinator:
                                 finally:
                                     self.profiling_domains.discard(d)
 
-                            executor.submit(_run_profiler)
+                            self._profiler_pool.submit(_run_profiler)
                             release_at = time.monotonic() + 5.0
                             skipped.append((score, next_depth, next_retry, release_at, time_enqueued, next_page))
                             saturated_hosts.add(host)
@@ -668,6 +669,10 @@ class CrawlCoordinator:
                     time.sleep(0.05)
 
         pipeline.stop()
+        try:
+            self._profiler_pool.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            pass
 
         # Clear checkpoint upon clean non-interrupted completion
         if self.state_cache and hasattr(self.state_cache, "clear_crawl_checkpoint"):

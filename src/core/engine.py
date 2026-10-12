@@ -223,7 +223,11 @@ class ScrapingEngine:
                 persisted = self.state_cache.load_phashes(subject=self.downloader._keyword)
                 if persisted:
                     with self.downloader._hash_lock:
-                        self.downloader._seen_phashes.update(persisted)
+                        for p in persisted:
+                            int_p = int(p)
+                            self.downloader._seen_phashes.add(int_p)
+                            if hasattr(self.downloader, "_phash_tree"):
+                                self.downloader._phash_tree.add(int_p, str(int_p))
                     LOGGER.info(
                         "ScrapingEngine: seeded %d pHashes from StateCache for keyword '%s'.",
                         len(persisted),

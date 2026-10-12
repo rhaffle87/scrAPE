@@ -449,6 +449,11 @@ class HttpClient(BrowserClientMixin):
         client_kwargs: dict[str, Any] = {
             "timeout": timeout,
             "follow_redirects": True,
+            "limits": httpx.Limits(
+                max_connections=200,
+                max_keepalive_connections=50,
+                keepalive_expiry=30.0,
+            ),
             "event_hooks": {"response": [self._validate_redirect_hook]},
         }
         if self.proxy_list:
@@ -535,13 +540,23 @@ class HttpClient(BrowserClientMixin):
                 pool.get_best_proxy() or self.proxy_list[self.current_proxy_index]
             )
 
-            # Recreate httpx client with new proxy and SSRF redirect hook
+            # Recreate httpx client with new proxy, connection limits, and SSRF redirect hook
+            old_client = self.client
             self.client = httpx.Client(
                 timeout=self.timeout,
                 follow_redirects=True,
+                limits=httpx.Limits(
+                    max_connections=200,
+                    max_keepalive_connections=50,
+                    keepalive_expiry=30.0,
+                ),
                 proxy=new_proxy,
                 event_hooks={"response": [self._validate_redirect_hook]},
             )
+            try:
+                old_client.close()
+            except Exception:
+                pass
             return new_proxy
 
     def _record_domain_success(self, host: str, url: str) -> None:
@@ -879,12 +894,12 @@ class HttpClient(BrowserClientMixin):
                 if headers:
                     req_headers.update(headers)
 
-                if session.cookies:
-                    self.client.cookies.update(session.cookies)
+                req_cookies = dict(session.cookies) if session.cookies else None
                 try:
                     response = self.client.get(
                         url,
                         headers=req_headers,
+                        cookies=req_cookies,
                         timeout=current_timeout,
                         follow_redirects=True,
                     )
