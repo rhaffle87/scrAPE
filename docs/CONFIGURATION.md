@@ -156,3 +156,19 @@ To prevent memory contention, CPU spikes, bandwidth saturation, or CDN IP rate-l
 | **Page Limit** (`--page-limit`) | **20 – 50** | **100 – 200** | **0 (Unlimited)** | High network traffic, long job duration |
 
 *The WebUI Command Center includes a dynamic JavaScript validator that displays warning badges if worker counts exceed safe hardware thresholds.*
+
+---
+
+## 5. Core Engine & Concurrency Tunables (v0.30.1)
+
+The following internal thresholds govern connection pooling, perceptual deduplication, and caching:
+
+| Parameter | Default Value | Location | Description |
+|---|---|---|---|
+| `HTTP_MAX_CONNECTIONS` | `200` | `src/network/http_client.py` | Maximum total concurrent TCP connections in HTTP client pool. |
+| `HTTP_MAX_KEEPALIVE` | `50` | `src/network/http_client.py` | Idle keepalive connections retained per client instance. |
+| `HTTP_KEEPALIVE_EXPIRY` | `30.0`s | `src/network/http_client.py` | Inactivity duration before keepalive sockets are dropped. |
+| `PHASH_HAMMING_THRESHOLD` | `4` | `src/storage/downloader/manager.py` | Maximum distance in 64-bit BK-Tree metric space to classify an image as a perceptual duplicate. |
+| `SELECTOR_CACHE_TTL` | `604800`s (7 days) | `src/core/self_healing_parser.py` | Time-to-live for cached repaired CSS selectors before forced invalidation. |
+| `PROFILER_POOL_WORKERS` | `2` | `src/core/coordinator.py` | Maximum dedicated threads for asynchronous domain anti-bot profiling. |
+

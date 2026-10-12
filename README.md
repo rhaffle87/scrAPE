@@ -7,10 +7,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/BUILD-PASSING-brightgreen?style=for-the-badge" alt="Build Status">
-  <img src="https://img.shields.io/badge/RELEASE-V0.30.0-orange?style=for-the-badge" alt="Release Version">
+  <img src="https://img.shields.io/badge/RELEASE-V0.30.1-orange?style=for-the-badge" alt="Release Version">
   <img src="https://img.shields.io/badge/DASHBOARD-FASTAPI%20%2B%20HTMX-7000ff?style=for-the-badge" alt="FastAPI HTMX Dashboard">
   <img src="https://img.shields.io/badge/STEALTH-8--TIER%20WAF-0066ff?style=for-the-badge" alt="8-Tier WAF Stealth">
-  <img src="https://img.shields.io/badge/TESTS-903%20PASSED-success?style=for-the-badge" alt="903 Tests Passing">
+  <img src="https://img.shields.io/badge/TESTS-961%20PASSED-success?style=for-the-badge" alt="961 Tests Passing">
   <img src="https://img.shields.io/badge/LICENSE-MIT-00bfff?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -27,6 +27,12 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 
 ## Key Features
 
+- **Sub-Linear BK-Tree Perceptual Deduplication**: Replaced linear $O(N)$ pHash comparison scans in `MediaDownloader` with a discrete metric space `BKTree` ($O(\log N)$ search time at $\le 4$ Hamming distance threshold), seeded directly from persistent `StateCache` without quadratic crawl slowdowns.
+- **Isolated Profiler Concurrency Partitioning**: Dedicated `_profiler_pool` in `CrawlCoordinator` prevents heavy headless browser domain profiling from starving BFS crawl and extraction worker threads.
+- **Enterprise HTTP Connection Pooling & Cookie Isolation**: Tuned `httpx.Limits(max_connections=200, max_keepalive_connections=50, keepalive_expiry=30.0)` with strict request-scoped cookies (`cookies=req_cookies`) eliminating cross-thread cookie pollution and connection thrashing. Active client teardown (`old_client.close()`) on proxy rotation.
+- **In-Memory TTL DOM Self-Healing Cache**: Two-tier selector resolution in `SelfHealingDOMParser` with in-memory dict cache backed by SQLite WAL persistence, pruning stale entries past 7 days (`MAX_REPAIRED_SELECTOR_AGE_SECONDS = 604800`) while eliminating repetitive disk I/O on hot pages.
+- **Zero-Recompression Direct Byte Ingestion**: CPU image worker validates integrity via `img.verify()` without decode-re-encode cycles, streaming verified raw byte buffers directly to disk with zero generational compression artifacts.
+- **Resilient Host Overload Protection & Canary Probes**: Single-flight half-open probe testing on parked hosts in `CrawlGovernor`, exponential cooldown scaling on repeated 429/503 encounters, and zero-spin CPU sleep gating in `CrawlCoordinator`.
 - **Distributed Task Leasing & Autonomous Worker Daemons**: Scalable multi-node cluster architecture using Redis Streams (`RedisStreamTaskBroker`), atomic idempotency locks (`SET NX EX 86400`) preventing duplicate execution, dead-letter stream routing (`scrape:dead_letter`), background worker heartbeats, and autonomous CLI worker daemons (`DistributedWorkerNode`).
 - **Cloud Content-Addressable Storage (CAS) Synchronization**: Asynchronous cloud block replication to Amazon S3, Cloudflare R2, and MinIO with bounded spooling (`maxsize=1000`) and backpressure, 64-hex key validation against traversal, unconditional SSRF endpoint defense, and source-level credential redaction. Decoupled zero-cloud-dependency core.
 - **Multimodal Vision-Language (VLM) DOM Healing**: Tier 4 DOM healing fallback using vision models (Gemini Flash, GPT-4o-mini, Ollama Vision) with strict prompt-injection immunity (`<untrusted_scraped_data>` tags and 75-vector fuzzing rejection), structural default-deny allowlist for interactive elements, live DOM validation gate, and 7-day TTL cache expiration.

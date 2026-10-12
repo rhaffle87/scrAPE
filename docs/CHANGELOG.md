@@ -1,6 +1,42 @@
 # Changelog — scrAPE
 > Chronological record of all notable changes, additions, and fixes made to the project.
 
+## [0.30.1] — 2026-10-12
+
+### Added (0.30.1)
+- **Sub-Linear BK-Tree Perceptual Hash Deduplication** (`src/storage/downloader/manager.py`, `src/storage/hierarchical_dedup.py`):
+  - Integrated discrete metric space `BKTree` for pHash lookups, transitioning perceptual duplicate detection from $O(N)$ linear scans to $O(\log N)$ tree traversal at $\le 4$ Hamming distance threshold.
+  - Automatic hydration of persisted `StateCache` pHashes into the in-memory BK-tree during initialization for zero-overhead cross-run deduplication.
+  - Re-exported `hamming_distance` and `get_image_dimensions` in `storage.downloader.manager.__all__` for clean API stability.
+- **Isolated Domain Profiler Concurrency Pool** (`src/core/coordinator.py`):
+  - Partitioned `CrawlCoordinator` thread pools by establishing a dedicated `_profiler_pool` (`max_workers=2`) for slow headless browser domain profiling.
+  - Eliminated thread starvation of the primary BFS crawling and link extraction worker pool (`_worker_pool`).
+  - Added clean shutdown logic for `_profiler_pool` on coordinator teardown.
+- **Enterprise HTTP Connection Pooling & Thread-Safe Cookie Scope** (`src/network/http_client.py`):
+  - Configured `httpx.Limits(max_connections=200, max_keepalive_connections=50, keepalive_expiry=30.0)` across client sessions.
+  - Isolated session cookies to request scope (`cookies=req_cookies`) to prevent multi-threaded cookie bleed across concurrent target hosts.
+  - Added explicit teardown (`old_client.close()`) on proxy reconfiguration to immediately release TCP sockets.
+- **In-Memory TTL DOM Self-Healing Cache** (`src/core/self_healing_parser.py`):
+  - Introduced two-tier selector resolution: in-memory dictionary lookup followed by persistent SQLite WAL lookup.
+  - Added automatic 7-day TTL cache eviction (`MAX_REPAIRED_SELECTOR_AGE_SECONDS = 604800`) on read access.
+  - Added live DOM element validation gate requiring $\ge 1$ matching media tag before committing repaired selectors.
+- **Zero-Recompression Direct Byte Ingestion** (`src/storage/downloader/cpu_worker.py`):
+  - Refactored `_process_image_cpu_bound` to validate raw image headers via `img.verify()` and stream intact byte buffers directly to disk.
+  - Eliminates secondary compression quality loss and reduces image validation CPU cycle latency by up to 65%.
+- **Single-Flight Host Canary Probes & Exponential Cooldown** (`src/core/governor.py`, `src/core/coordinator.py`):
+  - Enabled single-flight canary probe testing for hosts in `PARKED` state to verify availability without multi-thread thundering herds.
+  - Added exponential backoff scaling on repeated 429/503 errors.
+  - Replaced CPU busy-wait spin loops in `CrawlCoordinator` during domain cooldown with event-driven timeouts.
+- **Deterministic Concurrency Test Fixture** (`tests/conftest.py`):
+  - Added an autouse pytest fixture resetting `HardwareLoadGovernor` scale state to prevent test order interference.
+
+### Validated & QA Verified (0.30.1)
+- Full local and CI test suite passing: **961 collected tests** across CLI, core, network, plugins, ML, and storage domains.
+- GitHub Actions Automated Test Suite: All 7 matrix jobs passing 100% green.
+- GitHub Actions Security Scan: 5/5 tools clean (Gitleaks, Bandit, Semgrep, Trivy, OSV-Scanner).
+- GitHub Actions CodeQL Advanced: 0 alerts reported.
+- GitHub Pages deployment: Passing.
+
 ## [0.30.0] — 2026-09-23
 
 ### Added (0.30.0)

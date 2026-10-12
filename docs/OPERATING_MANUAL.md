@@ -13,6 +13,8 @@ src/cli/monitor_agent.py                  — Watchdog entry point, continuous m
 src/cli/cli_wizard.py                     — Interactive wizard for standard & watchdog runs
 src/config/__init__.py                    — Tunable constants & .env credential loader
 src/core/engine.py                        — BFS crawl loop, page scoring, domain stats
+src/core/coordinator.py                   — Dual-pool crawl coordinator (_worker_pool for BFS, _profiler_pool for domain discovery)
+src/core/governor.py                      — CrawlGovernor with single-flight parked canary probes & exponential backoff
 src/core/filters.py                       — Facade for URL classification, media detection, relevance scoring
 src/core/domain_rules.py                  — Aggregates domain profiles and dynamic JSON settings
 src/core/media_processor.py               — Evaluates discovered media links and prepares downloads
@@ -22,28 +24,29 @@ src/core/task_schema.py                   — Distributed task & result schemas 
 src/core/distributed_worker.py            — Distributed worker node with heartbeats, lease renewal, Redis Streams & graceful shutdown
 src/core/vlm_healing.py                   — VLM DOM healer with multi-provider fallback (Ollama, OpenAI, Claude) & circuit breaker
 src/scraper/google_images.py              — Search provider + page scraper + link/media extraction
-src/storage/downloader/                   — Concurrent media downloader with MIME/size validation
-src/network/http_client.py                — Rate limiting, session pooling, 429 circuit breaker
+src/storage/downloader/manager.py         — Concurrent media downloader with sub-linear BKTree perceptual hash deduplication
+src/storage/downloader/cpu_worker.py      — CPU worker with zero-recompression img.verify() and direct byte streaming
+src/network/http_client.py                — Enterprise connection pooling (httpx.Limits), request-scoped cookies, proxy socket cleanup
 src/network/browser_client.py             — Browser automation fallback mixin (BrowserClientMixin)
 src/network/prewarmed_browser_pool.py     — Pre-warmed browser pool for sub-50ms cold starts
 src/network/stealth/                      — 8-tier WAF fallback pipeline orchestrator
 src/captcha/captcha_strategy.py           — Universal captcha provider strategy (CapSolver, 2Captcha, AntiCaptcha, FreeAudio)
 src/notifications/telegram_bot.py         — Telegram Bot alerts & interactive command handler
-src/notifications/notification_manager.py   — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
-src/ml/hardware.py                   — Device detection & precision manager (CUDA, MPS, DirectML, CPU)
-src/ml/dataset_tagger.py         — AI dataset auto-tagging & sidecar .txt generator
-src/ml/dataset_cropper.py        — Smart face/body cropping engine
-src/ml/aesthetic_scorer.py       — Visual quality evaluation and watermark culling
-src/ml/dataset_exporter.py       — Kohya_ss LoRA dataset ZIP exporter
-src/ml/ollama_provider.py        — Local Ollama vision API captioning provider
-src/ml/rag_exporter.py           — Vector embedding payload chunker (rag_payload.jsonl)
-src/storage/cas_store.py         — Global Content-Addressable Storage (.storage/cas) with NTFS hardlinks
-src/storage/cas_sync.py          — Two-way cloud CAS sync engine (S3/R2/MinIO) with atomic staged tempfiles
-src/storage/parquet_exporter.py  — Columnar Apache Parquet dataset exporter
-src/storage/storage_backend.py   — Pluggable storage sinks (LocalStorageSink, S3StorageSink)
-src/storage/hierarchical_dedup.py — 3-tier deduplication cascade (Bloom -> BK-Tree pHash -> Cosine)
-src/core/self_healing_parser.py  — Multi-tier autonomous self-healing DOM parser (Rule-based, heuristic, VLM fallback)
-src/core/worker_pool.py          — HybridWorkerPool, RedisStreamTaskBroker & process-tree hygiene
+src/notifications/notification_manager.py — Pluggable multi-channel notification pipeline (Discord, Slack, Telegram, Custom Webhooks)
+src/ml/hardware.py                        — Device detection & precision manager (CUDA, MPS, DirectML, CPU)
+src/ml/dataset_tagger.py                  — AI dataset auto-tagging & sidecar .txt generator
+src/ml/dataset_cropper.py                 — Smart face/body cropping engine
+src/ml/aesthetic_scorer.py                — Visual quality evaluation and watermark culling
+src/ml/dataset_exporter.py                — Kohya_ss LoRA dataset ZIP exporter
+src/ml/ollama_provider.py                 — Local Ollama vision API captioning provider
+src/ml/rag_exporter.py                    — Vector embedding payload chunker (rag_payload.jsonl)
+src/storage/cas_store.py                  — Global Content-Addressable Storage (.storage/cas) with NTFS hardlinks
+src/storage/cas_sync.py                   — Two-way cloud CAS sync engine (S3/R2/MinIO) with atomic staged tempfiles
+src/storage/parquet_exporter.py           — Columnar Apache Parquet dataset exporter
+src/storage/storage_backend.py            — Pluggable storage sinks (LocalStorageSink, S3StorageSink)
+src/storage/hierarchical_dedup.py         — 3-tier deduplication cascade (Bloom -> BK-Tree pHash -> Cosine)
+src/core/self_healing_parser.py           — Multi-tier autonomous self-healing DOM parser (In-memory TTL cache -> SQLite -> Heuristic -> VLM)
+src/core/worker_pool.py                   — HybridWorkerPool, RedisStreamTaskBroker & process-tree hygiene
 src/common/blacklist.py              — Persistent domain blacklist (data/blacklist.json)
 src/network/session.py                — Persistent cookie cache (data/sessions/)
 src/network/session_pool.py           — Per-domain sticky sessions with disk persistence
@@ -183,11 +186,31 @@ After a run completes, inspect these primary outputs:
 
 ---
 
-## 5. Verification & Testing
+## 5. Operational Tuning & Performance Controls (v0.30.1)
+
+### 5.1 HTTP Connection Pool Limits (`HttpClient`)
+- `max_connections = 200`: Total concurrent TCP connections allowed per client instance. Prevents socket exhaustion on high worker concurrency (`--dl-workers 16`).
+- `max_keepalive_connections = 50`: Reusable idle sockets kept alive to avoid TCP 3-way handshake latency on repeated domain asset requests.
+- `keepalive_expiry = 30.0`: Closes idle connections after 30 seconds to prevent lingering half-open sockets on aggressive CDN firewalls.
+
+### 5.2 Perceptual Hash Deduplication (`MediaDownloader`)
+- `max_dist = 4`: Hamming distance threshold for 64-bit DCT pHashes. Values $\le 4$ represent visual duplicates/rescales and are immediately discarded.
+- In-memory `BKTree` scales with $O(\log N)$ complexity, supporting library collections $>100,000$ assets without crawler stalls.
+
+### 5.3 Self-Healing Selector Cache TTL (`SelfHealingDOMParser`)
+- `MAX_REPAIRED_SELECTOR_AGE_SECONDS = 604800` (7 days): Automatically evicts repaired selectors from in-memory cache and SQLite after 7 days to adapt to target site UI deployments.
+
+### 5.4 Domain Profiler Concurrency Partitioning (`CrawlCoordinator`)
+- `_profiler_pool` (`max_workers=2`): Asynchronously resolves anti-bot posture without blocking the primary BFS extraction loop.
+
+---
+
+## 6. Verification & Testing
 
 - All automated unit and integration test scripts are maintained exclusively inside `tests/`. Ad-hoc scratch scripts and temporary logs belong in `scratch/`.
 - Run test scripts via pytest:
   ```powershell
   pytest tests/ -v
   ```
+- **Test Matrix Baseline**: **961 collected tests** across CLI, core, network, plugins, ML, notifications, and storage domains.
 - Always run `pytest tests/` after completing code edits to verify that test scripts pass cleanly before declaring completion.
