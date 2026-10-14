@@ -212,7 +212,7 @@ collected 546 items
 - **Plugins & Specialized Extractors**: 21 tests passed
 - **Storage, CAS & Parquet**: 38 tests passed
 - **SSRF, DNS Rebinding & Tier Memory**: 5 tests passed
-- **Path Traversal & Boundary Security**: 5 tests passed (`tests/test_path_traversal_hardened.py`)
+- **Path Traversal & Boundary Security**: 5 tests passed (`tests/security/test_path_traversal_hardened.py`)
 - **General Integration & Security Suites**: 257 tests passed
 
 ### 7.2 GitHub Actions CI Matrix Audit & Discrepancy Reconciliation
@@ -294,7 +294,7 @@ The canonical primitive `validate_safe_path` in `src/common/security.py` now enc
        raise ValueError(f"Path traversal detected: {target} is outside {base}")
    ```
 
-**Dead Code Proof**: In `tests/test_path_traversal_hardened.py::test_is_safe_subpath_strict_and_dead_code_proof`, we proved empirically that `validate_safe_path` alone halts execution with `ValueError` on sibling-prefix and directory traversal attacks. Downstream manual `startswith` checks were unreachable dead code and have been completely removed.
+**Dead Code Proof**: In `tests/security/test_path_traversal_hardened.py::test_is_safe_subpath_strict_and_dead_code_proof`, we proved empirically that `validate_safe_path` alone halts execution with `ValueError` on sibling-prefix and directory traversal attacks. Downstream manual `startswith` checks were unreachable dead code and have been completely removed.
 
 ### 4. Session File Collision Hardening & Atomic, Thread-Safe Auto-Migration
 1. **Collision Resistance**: Every domain's session file is hashed with truncated SHA-256 (`{safe_domain}_{sha256(domain)[:8]}.json`). Closely named domains (e.g. `a.b.com` vs `a_b.com`) produce distinct filenames.
@@ -303,7 +303,7 @@ The canonical primitive `validate_safe_path` in `src/common/security.py` now enc
    - Migration and file writes are guarded by a re-entrant mutex (`_file_lock = threading.RLock()`).
    - `load_session` implements double-checked locking: when a legacy file is identified, the lock is acquired and the file system re-checked before executing `save_session()` and unlinking the legacy file.
    - `save_session` performs atomic writes via thread-isolated temporary files (`.tmp.{thread_id}`), flushing buffers, calling `os.fsync()`, and executing `os.replace()`.
-4. **Empirical Concurrency Verification**: `tests/test_codeql_alert_remediations_adversarial.py::test_legacy_session_concurrent_auto_migration` simulates 10 concurrent threads simultaneously requesting migration of the same legacy session file. 100% of threads successfully retrieve uncorrupted session state, the legacy file is atomically unlinked, and exactly one canonical hash-suffixed file remains.
+4. **Empirical Concurrency Verification**: `tests/security/test_codeql_alert_remediations_adversarial.py::test_legacy_session_concurrent_auto_migration` simulates 10 concurrent threads simultaneously requesting migration of the same legacy session file. 100% of threads successfully retrieve uncorrupted session state, the legacy file is atomically unlinked, and exactly one canonical hash-suffixed file remains.
 
 ### 5. Alert #179 Risk Acceptance: Plaintext Configuration at Rest
 > [!WARNING]

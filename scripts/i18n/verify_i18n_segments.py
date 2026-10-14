@@ -8,7 +8,10 @@ if hasattr(sys.stdout, 'reconfigure'):
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-html_path = Path("docs/site/index.html").resolve()
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+html_path = (ROOT_DIR / "docs" / "site" / "index.html").resolve()
+scratch_dir = ROOT_DIR / "scratch"
+scratch_dir.mkdir(exist_ok=True)
 file_url = f"file:///{html_path.as_posix()}"
 
 print(f"Testing URL: {file_url}")
@@ -132,16 +135,16 @@ with sync_playwright() as p:
     page.locator(".lang-choice[data-lang='de']").click()
     
     # Capture search bar screenshot in German
-    page.locator(".search-box-container").screenshot(path="docs/site/test_de_search_box.png")
+    page.locator(".search-box-container").screenshot(path=str(scratch_dir / "test_de_search_box.png"))
     
     # Activate section directly by clicking the link via JS
     page.evaluate("document.querySelector('.nav-sub-item a[href=\"#sec-install-steps\"]').click()")
     page.wait_for_timeout(500)
-    page.screenshot(path="docs/site/test_de_install_steps.png")
+    page.screenshot(path=str(scratch_dir / "test_de_install_steps.png"))
     
     # Scroll to footer and take screenshot
     page.locator(".doc-footer").scroll_into_view_if_needed()
-    page.screenshot(path="docs/site/test_de_footer.png")
+    page.screenshot(path=str(scratch_dir / "test_de_footer.png"))
     
     browser.close()
 

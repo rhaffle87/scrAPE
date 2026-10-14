@@ -4,15 +4,21 @@ Master Compiler for docs/site/i18n.js
 """
 
 import json
-import os
 import sys
+from pathlib import Path
 
-sys.path.append('scripts')
-from generate_i18n_data import UI_TRANSLATIONS, MODULE_TRANSLATIONS, FOOTER_TRANSLATIONS
-from sections_multilingual_db import SECTIONS_DB
-from snippets_and_maps import SNIPPETS, LISTS, H3_MAP, TH_MAP
+CURRENT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = CURRENT_DIR.parent.parent
 
-with open('docs/site/existing_i18n.json', 'r', encoding='utf-8') as f:
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from generate_i18n_data import UI_TRANSLATIONS, MODULE_TRANSLATIONS, FOOTER_TRANSLATIONS  # noqa: E402
+from sections_multilingual_db import SECTIONS_DB  # noqa: E402
+from snippets_and_maps import SNIPPETS, LISTS, H3_MAP, TH_MAP  # noqa: E402
+
+nav_meta_path = CURRENT_DIR / "existing_nav_meta.json"
+with open(nav_meta_path, "r", encoding="utf-8") as f:
     existing_i18n = json.load(f)
 
 LANGS = ['en', 'id', 'zh', 'es', 'ja', 'ru', 'de']
@@ -408,7 +414,8 @@ if (document.readyState === 'loading') {
 }
 """
 
-with open('docs/site/i18n.js', 'w', encoding='utf-8') as f:
+out_file = ROOT_DIR / 'docs' / 'site' / 'i18n.js'
+with open(out_file, 'w', encoding='utf-8') as f:
     f.write(js_code)
 
 print("Generated docs/site/i18n.js successfully! File size:", len(js_code), "bytes")

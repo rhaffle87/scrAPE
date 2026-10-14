@@ -2,7 +2,7 @@
 > Autonomous media extraction and stealth crawl engine engineered for high-throughput asset discovery and resilient WAF bypass.
 
 <p align="center">
-  <img src="assets\repo-card.png" alt="scrAPE Logo" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;">
+  <img src="assets/repo-card.png" alt="scrAPE Logo" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;">
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
   <a href="#request-lifecycle-waf-pipeline">WAF Pipeline</a> •
   <a href="#architecture">Architecture</a> •
   <a href="docs/">Documentation</a> •
-  <a href="docs/THREAT_MODEL.md">Threat Model (v0.30.0)</a>
+  <a href="docs/THREAT_MODEL.md">Threat Model</a>
 </p>
 
 scrAPE is an autonomous media extraction & stealth crawl engine that runs locally on your machine. Built for domain crawling, high-throughput asset discovery, WAF bypass, and AI dataset curation, it handles complex single-page applications (SPAs), Cloudflare Turnstile protections, and high-concurrency downloads with real-time hardware telemetry.
@@ -74,8 +74,8 @@ scrAPE is an autonomous media extraction & stealth crawl engine that runs locall
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/scraper.git
-cd scraper
+git clone https://github.com/rhaffle87/scrAPE.git
+cd scrAPE
 ```
 
 ### 2. Install Python Dependencies
@@ -141,11 +141,15 @@ Configure the essential variables in `.env`:
 ```
 This opens an interactive menu to start the WebUI, run the CLI Wizard, or execute the continuous Watchdog monitoring agent.
 
-**Running the Dashboard Manually:**
+**Running the Dashboard:**
 
 ```bash
-# Starts the FastAPI/HTMX Command Center on http://localhost:10001
-.\run_frontend.bat  # Or python frontend/app.py
+# Option 1: Master launcher menu (Select 1 for WebUI)
+.\run.bat   # Windows
+./run.sh    # Linux / macOS
+
+# Option 2: Direct Command Center launch on http://localhost:10001
+python -m frontend.app
 ```
 
 **Running a Direct CLI Scrape:**
@@ -161,21 +165,44 @@ python src/cli/main.py --keyword "architecture" --seed-file seeds/architecture.t
 ### Directory Structure
 
 ```text
-scrape-dashboard/
-├── crawlee_bridge/      # Node.js Express Server for Puppeteer/Cheerio stealth
+scrAPE/
+├── crawlee_bridge/      # Node.js Express server for Crawlee / Puppeteer stealth tiers
+├── data/                # Configuration registries (domain_config, normalisation)
+├── docs/                # Architecture manuals, threat model, multilingual documentation
+│   └── site/            # Interactive GitHub Pages documentation portal
 ├── frontend/            # FastAPI + HTMX WebUI
 │   ├── app.py           # Core FastAPI application
-│   ├── routers/         # Decoupled API routes (dashboard, dataset, seeds, watchdog)
-│   └── templates/       # HTMX Brutalist templates
+│   ├── routers/         # Decoupled API routes (dataset, gallery, jobs, settings, etc.)
+│   └── templates/       # HTMX Brutalist templates & canvas visualizer
+├── scripts/             # Utility and maintenance tools
+│   ├── README.md        # Scripts overview and execution instructions
+│   └── i18n/            # Documentation portal i18n build & Playwright validation
 ├── src/                 # Python Source Core
-│   ├── cli/             # CLI entrypoints, wizards, watchdog
+│   ├── captcha/         # Universal CAPTCHA strategy & auto-solvers
+│   ├── cli/             # CLI entrypoints, main parser, wizards, watchdog
+│   ├── common/          # Shared security, SSRF defenses, and data models
+│   ├── config/          # Environment configuration, versioning, and limits
 │   ├── core/            # BFS crawl loop, filters, worker pool, self-healing DOM parser
+│   ├── ml/              # Hardware detection, LLM healing gateway, taggers
+│   ├── monitoring/      # HardwareLoadGovernor, telemetry, structured logging
 │   ├── network/         # 8-tier WAF stealth pipeline, Domain Tier Memory, proxy rotation
-│   ├── storage/         # SQLite state cache, CAS store, Parquet dataset exporter
-│   └── ml/              # Hardware detection, LLM healing gateway, taggers
-├── tests/               # Domain-structured test suite (533+ tests)
-├── data/                # Configuration Registries (domain_config, normalisation)
-├── docs/                # Technical documentation
+│   ├── notifications/   # Telegram, Discord, and webhook notification handlers
+│   ├── plugins/         # Specialized platform extractors (Twitter, IG, ArtStation, etc.)
+│   ├── scraper/         # Base scrapers, Google Images, and specialized spiders
+│   └── storage/         # SQLite state cache, CAS store, BK-Tree deduplication, Parquet
+├── tests/               # Domain-structured test suite (961 tests across 12 domains)
+│   ├── captcha/         # Universal CAPTCHA provider tests
+│   ├── cli/             # CLI wizard, stdout, preflight, and launcher tests
+│   ├── core/            # BFS, governor, priority queue, and parser tests
+│   ├── frontend/        # WebUI routes, canvas visualizer, and SSE telemetry tests
+│   ├── integration/     # End-to-end seed studio and stealth pipeline tests
+│   ├── ml/              # Hardware detection, LLM gateway, and dataset tests
+│   ├── network/         # WAF bypass, proxy rotation, and stealth tests
+│   ├── notifications/   # Telegram bot and webhook pipeline tests
+│   ├── plugins/         # Platform extractor plugin tests
+│   ├── scraper/         # Search engine and crawler fallback tests
+│   ├── security/        # SSRF, path traversal, and CodeQL regression tests
+│   └── storage/         # CAS, Bloom filter, downloader, and Parquet tests
 └── seeds/               # Per-subject manifest target files
 ```
 
@@ -223,16 +250,16 @@ scrape-dashboard/
 
 ## Testing
 
-scrAPE uses `pytest` for unit and integration testing. Over **546 automated tests** validate network fallback simulation, database transaction integrity, UI state verification, Content-Addressable Storage (CAS), Parquet exports, Domain Tier Memory, and anti-SSRF protections.
+scrAPE uses `pytest` for unit and integration testing. Over **961 automated tests** validate network fallback simulation, database transaction integrity, UI state verification, Content-Addressable Storage (CAS), Parquet exports, Domain Tier Memory, and anti-SSRF protections.
 
 ### Running Tests
 
 ```bash
-# Run the complete test suite (546 tests)
+# Run the complete test suite (961 tests)
 pytest tests/ -v
 
 # Run specific functional areas
-pytest tests/test_security_ssrf_and_tier_memory.py -v
+pytest tests/security/test_security_ssrf_and_tier_memory.py -v
 pytest tests/storage/test_cas_and_parquet_exporter.py -v
 pytest tests/core/test_self_healing_parser.py -v
 ```
