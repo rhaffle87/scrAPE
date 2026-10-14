@@ -28,7 +28,85 @@
   <meta name="twitter:description"
     content="Official technical documentation, CLI flag matrix, architecture guide, and operational manual for scrAPE v0.30.1.">
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=0.30.3">
+  <style>
+    /* Critical inlined fallback for tactical language picker */
+    .lang-picker-container { position: relative; display: inline-flex; align-items: center; }
+    .lang-picker-btn {
+      background: var(--bg-base, #0b0d0c) !important;
+      border: 1px solid var(--border-strong, #333834) !important;
+      color: var(--text-muted, #8a8e8b) !important;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      padding: 6px 12px !important;
+      cursor: pointer !important;
+      outline: none !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      text-transform: uppercase !important;
+      transition: all 0.15s ease !important;
+    }
+    .lang-picker-btn:hover, .lang-picker-container.open .lang-picker-btn {
+      color: #ffffff !important;
+      border-color: var(--accent, #ff5500) !important;
+      background-color: var(--accent-muted, rgba(255,85,0,0.15)) !important;
+    }
+    .lang-dropdown-panel {
+      position: absolute !important;
+      top: calc(100% + 6px) !important;
+      right: 0 !important;
+      width: 210px !important;
+      background-color: var(--bg-surface, #141715) !important;
+      border: 1px solid var(--accent, #ff5500) !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.9) !important;
+      z-index: 10000 !important;
+      display: flex;
+      flex-direction: column;
+    }
+    .lang-dropdown-panel[style*="display: none"] { display: none !important; }
+    .lang-panel-header {
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      color: var(--accent, #ff5500) !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.8px !important;
+      padding: 8px 12px !important;
+      background: var(--bg-base, #0b0d0c) !important;
+      border-bottom: 1px solid var(--border-strong, #333834) !important;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+    }
+    .lang-choice {
+      display: flex !important;
+      align-items: center !important;
+      width: 100% !important;
+      padding: 8px 12px !important;
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1px solid var(--border, #222623) !important;
+      color: var(--text-primary, #e0e0e0) !important;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace) !important;
+      font-size: 11px !important;
+      cursor: pointer !important;
+      outline: none !important;
+      text-align: left !important;
+    }
+    .lang-choice:last-child { border-bottom: none !important; }
+    .lang-choice:hover {
+      background-color: var(--accent, #ff5500) !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+    }
+    .lang-choice.active {
+      background-color: var(--accent-muted, rgba(255,85,0,0.15)) !important;
+      color: var(--accent, #ff5500) !important;
+      border-left: 3px solid var(--accent, #ff5500) !important;
+      font-weight: 700 !important;
+    }
+    .lang-choice-code { font-weight: 700 !important; color: var(--accent, #ff5500) !important; margin-right: 8px !important; width: 22px !important; display: inline-block !important; }
+    .lang-choice:hover .lang-choice-code { color: #000000 !important; }
+  </style>
 </head>
 
 <body>
@@ -48,20 +126,44 @@
         <span class="search-hint">Ctrl+K</span>
       </div>
       <span id="search-result-count" class="search-result-count"></span>
-      <div class="tactical-dropdown" id="lang-dropdown">
-        <button type="button" class="tactical-dropdown-trigger" id="lang-dropdown-trigger" aria-haspopup="true" aria-expanded="false" title="Switch Documentation Language">
-          <span class="dropdown-tag">[LANG]</span>
-          <span class="dropdown-current" id="current-lang-display">EN // English</span>
-          <span class="dropdown-arrow">▼</span>
+      <div class="lang-picker-container" id="lang-picker-container">
+        <button type="button" class="header-nav-link lang-picker-btn" id="lang-picker-btn" aria-haspopup="true" aria-expanded="false" title="Change Language">
+          <span style="color:var(--accent,#ff5500);font-weight:700;">[LANG]</span>
+          <span id="current-lang-code" style="color:var(--text-primary,#e0e0e0);font-weight:700;">EN</span>
+          <span style="font-size:9px;color:var(--text-muted,#8a8e8b);">▾</span>
         </button>
-        <div class="tactical-dropdown-menu" id="lang-dropdown-menu" role="menu">
-          <button type="button" class="tactical-dropdown-item active" data-lang="en">EN // English</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="id">ID // Indonesia</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="zh">ZH // 简体中文</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="es">ES // Español</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="ja">JA // 日本語</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="ru">RU // Русский</button>
-          <button type="button" class="tactical-dropdown-item" data-lang="de">DE // Deutsch</button>
+        <div class="lang-dropdown-panel" id="lang-dropdown-panel" style="display: none;" role="menu">
+          <div class="lang-panel-header">SELECT DOCUMENTATION LOCALE</div>
+          <div class="lang-options-grid">
+            <button type="button" class="lang-choice active" data-lang="en">
+              <span class="lang-choice-code">EN</span>
+              <span class="lang-choice-name">English</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="id">
+              <span class="lang-choice-code">ID</span>
+              <span class="lang-choice-name">Bahasa Indonesia</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="zh">
+              <span class="lang-choice-code">ZH</span>
+              <span class="lang-choice-name">简体中文</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="es">
+              <span class="lang-choice-code">ES</span>
+              <span class="lang-choice-name">Español</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="ja">
+              <span class="lang-choice-code">JA</span>
+              <span class="lang-choice-name">日本語</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="ru">
+              <span class="lang-choice-code">RU</span>
+              <span class="lang-choice-name">Русский</span>
+            </button>
+            <button type="button" class="lang-choice" data-lang="de">
+              <span class="lang-choice-code">DE</span>
+              <span class="lang-choice-name">Deutsch</span>
+            </button>
+          </div>
         </div>
       </div>
       <a href="https://github.com/rhaffle87/scrAPE" target="_blank" class="header-nav-link">[GITHUB]</a>
@@ -235,20 +337,6 @@
 
     <!-- Main Viewport -->
     <main class="main-content">
-
-      <!-- Multi-Language Quick Selector HUD Strip -->
-      <div class="lang-quick-strip" id="lang-quick-strip">
-        <span class="lang-quick-label">[DOCS I18N]</span>
-        <div class="lang-quick-pills">
-          <button type="button" class="lang-pill-btn active" data-lang="en">EN // English</button>
-          <button type="button" class="lang-pill-btn" data-lang="id">ID // Indonesia</button>
-          <button type="button" class="lang-pill-btn" data-lang="zh">ZH // 简体中文</button>
-          <button type="button" class="lang-pill-btn" data-lang="es">ES // Español</button>
-          <button type="button" class="lang-pill-btn" data-lang="ja">JA // 日本語</button>
-          <button type="button" class="lang-pill-btn" data-lang="ru">RU // Русский</button>
-          <button type="button" class="lang-pill-btn" data-lang="de">DE // Deutsch</button>
-        </div>
-      </div>
 
       <!-- ================================================================ -->
       <!-- MODULE 01: SYSTEM OVERVIEW                                       -->
@@ -3903,8 +3991,8 @@ Return ONLY a valid JSON object matching this schema:
   <!-- Scroll-to-Top Button -->
   <button id="scroll-top-btn" class="scroll-top-btn" aria-label="Scroll to top">[^]</button>
 
-  <script src="i18n.js"></script>
-  <script src="app.js"></script>
+  <script src="i18n.js?v=0.30.3"></script>
+  <script src="app.js?v=0.30.3"></script>
 </body>
 
 </html>
