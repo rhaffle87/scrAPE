@@ -80,14 +80,23 @@ function setPortalLanguage(lang) {
     if (metaDesc && dict.meta.desc) metaDesc.setAttribute('content', dict.meta.desc);
   }
 
-  // 2. Update Search Placeholder & Header Link
-  const searchInput = document.getElementById('search-input');
-  if (searchInput && dict.ui.searchPlaceholder) {
+  // 2. Update Search Placeholder & Header Elements
+  const searchInput = document.getElementById('doc-search') || document.getElementById('search-input') || document.querySelector('.search-input');
+  if (searchInput && dict.ui && dict.ui.searchPlaceholder) {
     searchInput.placeholder = dict.ui.searchPlaceholder;
+    searchInput.setAttribute('aria-label', dict.ui.searchPlaceholder);
   }
-  const ghLink = document.querySelector('.header-links a[href*="github.com"]');
-  if (ghLink && dict.ui.githubLink) {
+  const ghLink = document.querySelector('.header-nav-link[href*="github.com"]') || document.querySelector('.header-links a[href*="github.com"]');
+  if (ghLink && dict.ui && dict.ui.githubLink) {
     ghLink.textContent = dict.ui.githubLink;
+  }
+  const panelHeader = document.querySelector('.lang-panel-header');
+  if (panelHeader && dict.ui && dict.ui.selectLocale) {
+    panelHeader.textContent = dict.ui.selectLocale;
+  }
+  const pickerBtn = document.getElementById('lang-picker-btn');
+  if (pickerBtn && dict.ui && dict.ui.changeLanguageTitle) {
+    pickerBtn.setAttribute('title', dict.ui.changeLanguageTitle);
   }
 
   // 3. Update Module Headings in Sidebar

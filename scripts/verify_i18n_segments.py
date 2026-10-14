@@ -3,6 +3,8 @@
 Playwright E2E verification of segment content and footer translations across languages.
 """
 import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -44,6 +46,11 @@ with sync_playwright() as p:
     assert "# 1. Repository klonen" in snippet_text, "Missing German comment in snippet!"
     print("[OK] [DE] Snippet comments localized successfully.")
     
+    # Check German search placeholder
+    de_search_ph = page.locator("#doc-search").get_attribute("placeholder")
+    assert de_search_ph == "DOKUMENTATION DURCHSUCHEN...", f"Unexpected DE search placeholder: '{de_search_ph}'"
+    print(f"[OK] [DE] Search placeholder verified: '{de_search_ph}'")
+    
     # Check German footer
     footer_logo = page.locator(".footer-logo").inner_text()
     assert footer_logo == "scrAPE // KERN-SYSTEM", f"Unexpected footer logo: '{footer_logo}'"
@@ -71,6 +78,10 @@ with sync_playwright() as p:
     page.locator("#lang-picker-btn").click()
     page.locator(".lang-choice[data-lang='id']").click()
     
+    id_search_ph = page.locator("#doc-search").get_attribute("placeholder")
+    assert id_search_ph == "CARI DOKUMENTASI...", f"Unexpected ID search placeholder: '{id_search_ph}'"
+    print(f"[OK] [ID] Search placeholder verified: '{id_search_ph}'")
+    
     id_card_title = page.locator("#sec-install-steps .card-title").inner_text()
     assert id_card_title == "2.2 Prosedur Instalasi & Pengaturan", f"Unexpected ID title: '{id_card_title}'"
     
@@ -91,6 +102,10 @@ with sync_playwright() as p:
     page.locator("#lang-picker-btn").click()
     page.locator(".lang-choice[data-lang='zh']").click()
     
+    zh_search_ph = page.locator("#doc-search").get_attribute("placeholder")
+    assert zh_search_ph == "搜索技术文档...", f"Unexpected ZH search placeholder: '{zh_search_ph}'"
+    print(f"[OK] [ZH] Search placeholder verified: '{zh_search_ph}'")
+    
     zh_card_title = page.locator("#sec-install-steps .card-title").inner_text()
     assert zh_card_title == "2.2 安装步骤与部署流程", f"Unexpected ZH title: '{zh_card_title}'"
     
@@ -105,12 +120,19 @@ with sync_playwright() as p:
     page.locator("#lang-picker-btn").click()
     page.locator(".lang-choice[data-lang='en']").click()
     
+    en_search_ph = page.locator("#doc-search").get_attribute("placeholder")
+    assert en_search_ph == "SEARCH DOCS...", f"Unexpected EN search placeholder: '{en_search_ph}'"
+    print(f"[OK] [EN] Search placeholder verified: '{en_search_ph}'")
+    
     en_card_title = page.locator("#sec-install-steps .card-title").inner_text()
     assert en_card_title == "2.2 Setup Procedure", f"Unexpected EN title: '{en_card_title}'"
     
     # Switch to German mode for final screenshot
     page.locator("#lang-picker-btn").click()
     page.locator(".lang-choice[data-lang='de']").click()
+    
+    # Capture search bar screenshot in German
+    page.locator(".search-box-container").screenshot(path="docs/site/test_de_search_box.png")
     
     # Activate section directly by clicking the link via JS
     page.evaluate("document.querySelector('.nav-sub-item a[href=\"#sec-install-steps\"]').click()")

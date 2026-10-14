@@ -24,7 +24,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "EXECUTABLE CLI COMMAND:",
       "footerTagline": "Autonomous, high-throughput distributed scraping engine with self-healing DOM heuristics and Apache Parquet export.",
       "searchResults": "found",
-      "noResults": "no results"
+      "noResults": "no results",
+      "selectLocale": "SELECT DOCUMENTATION LOCALE",
+      "changeLanguageTitle": "Change Language"
     },
     "modules": [
       "[01] SYSTEM OVERVIEW",
@@ -832,7 +834,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "PERINTAH CLI SIAP DIEKSEKUSI:",
       "footerTagline": "Mesin ekstraksi media otonom dan crawler stealth berperforma tinggi untuk penemuan aset dan bypass WAF yang tangguh.",
       "searchResults": "ditemukan",
-      "noResults": "tidak ada hasil"
+      "noResults": "tidak ada hasil",
+      "selectLocale": "PILIH BAHASA DOKUMENTASI",
+      "changeLanguageTitle": "Ubah Bahasa"
     },
     "modules": [
       "[01] GAMBARAN SISTEM",
@@ -1729,7 +1733,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "可执行 CLI 命令:",
       "footerTagline": "具备自愈式 DOM 启发式算法与 Apache Parquet 导出的高吞吐分布式自主抓取引擎。",
       "searchResults": "个结果",
-      "noResults": "无匹配结果"
+      "noResults": "无匹配结果",
+      "selectLocale": "选择文档语言",
+      "changeLanguageTitle": "切换语言"
     },
     "modules": [
       "[01] 系统架构概览",
@@ -2626,7 +2632,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "COMANDO CLI EJECUTABLE:",
       "footerTagline": "Motor de raspado distribuido autónomo y de alto rendimiento con heurísticas DOM autorreparables y exportación a Apache Parquet.",
       "searchResults": "encontrados",
-      "noResults": "sin resultados"
+      "noResults": "sin resultados",
+      "selectLocale": "SELECCIONAR IDIOMA DE DOCUMENTACIÓN",
+      "changeLanguageTitle": "Cambiar idioma"
     },
     "modules": [
       "[01] DESCRIPCIÓN DEL SISTEMA",
@@ -3480,7 +3488,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "実行可能な CLI コマンド:",
       "footerTagline": "自己修復型DOMヒューリスティクスとApache Parquetエクスポートを備えた自律型高スループット分散スクレイピングエンジン。",
       "searchResults": "件ヒット",
-      "noResults": "該当なし"
+      "noResults": "該当なし",
+      "selectLocale": "ドキュメント言語を選択",
+      "changeLanguageTitle": "言語を変更"
     },
     "modules": [
       "[01] システム概要",
@@ -4334,7 +4344,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "ИСПОЛНЯЕМАЯ КОМАНДА CLI:",
       "footerTagline": "Автономный высокопроизводительный распределенный движок сбора данных с самовосстанавливающимися эвристиками DOM и экспортом в Apache Parquet.",
       "searchResults": "найдено",
-      "noResults": "нет результатов"
+      "noResults": "нет результатов",
+      "selectLocale": "ВЫБЕРИТЕ ЯЗЫК ДОКУМЕНТАЦИИ",
+      "changeLanguageTitle": "Сменить язык"
     },
     "modules": [
       "[01] ОБЗОР СИСТЕМЫ",
@@ -5188,7 +5200,9 @@ const I18N_DICTS = {
       "builderOutputLabel": "AUSFÜHRBARER CLI-BEFEHL:",
       "footerTagline": "Autonome, hochdurchsatzfähige verteilte Scraping-Engine mit selbstheilenden DOM-Heuristiken und Apache-Parquet-Export.",
       "searchResults": "gefunden",
-      "noResults": "keine Treffer"
+      "noResults": "keine Treffer",
+      "selectLocale": "DOKUMENTATIONSSPRACHE AUSWÄHLEN",
+      "changeLanguageTitle": "Sprache ändern"
     },
     "modules": [
       "[01] SYSTEMÜBERSICHT",
@@ -6086,14 +6100,23 @@ function setPortalLanguage(lang) {
     if (metaDesc && dict.meta.desc) metaDesc.setAttribute('content', dict.meta.desc);
   }
 
-  // 2. Update Search Placeholder & Header Link
-  const searchInput = document.getElementById('search-input');
-  if (searchInput && dict.ui.searchPlaceholder) {
+  // 2. Update Search Placeholder & Header Elements
+  const searchInput = document.getElementById('doc-search') || document.getElementById('search-input') || document.querySelector('.search-input');
+  if (searchInput && dict.ui && dict.ui.searchPlaceholder) {
     searchInput.placeholder = dict.ui.searchPlaceholder;
+    searchInput.setAttribute('aria-label', dict.ui.searchPlaceholder);
   }
-  const ghLink = document.querySelector('.header-links a[href*="github.com"]');
-  if (ghLink && dict.ui.githubLink) {
+  const ghLink = document.querySelector('.header-nav-link[href*="github.com"]') || document.querySelector('.header-links a[href*="github.com"]');
+  if (ghLink && dict.ui && dict.ui.githubLink) {
     ghLink.textContent = dict.ui.githubLink;
+  }
+  const panelHeader = document.querySelector('.lang-panel-header');
+  if (panelHeader && dict.ui && dict.ui.selectLocale) {
+    panelHeader.textContent = dict.ui.selectLocale;
+  }
+  const pickerBtn = document.getElementById('lang-picker-btn');
+  if (pickerBtn && dict.ui && dict.ui.changeLanguageTitle) {
+    pickerBtn.setAttribute('title', dict.ui.changeLanguageTitle);
   }
 
   // 3. Update Module Headings in Sidebar

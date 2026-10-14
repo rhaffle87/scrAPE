@@ -23,7 +23,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "EXECUTABLE CLI COMMAND:",
         "footerTagline": "Autonomous, high-throughput distributed scraping engine with self-healing DOM heuristics and Apache Parquet export.",
         "searchResults": "found",
-        "noResults": "no results"
+        "noResults": "no results",
+        "selectLocale": "SELECT DOCUMENTATION LOCALE",
+        "changeLanguageTitle": "Change Language"
     },
     "id": {
         "searchPlaceholder": "CARI DOKUMENTASI...",
@@ -39,7 +41,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "PERINTAH CLI SIAP DIEKSEKUSI:",
         "footerTagline": "Mesin ekstraksi media otonom dan crawler stealth berperforma tinggi untuk penemuan aset dan bypass WAF yang tangguh.",
         "searchResults": "ditemukan",
-        "noResults": "tidak ada hasil"
+        "noResults": "tidak ada hasil",
+        "selectLocale": "PILIH BAHASA DOKUMENTASI",
+        "changeLanguageTitle": "Ubah Bahasa"
     },
     "zh": {
         "searchPlaceholder": "搜索技术文档...",
@@ -55,7 +59,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "可执行 CLI 命令:",
         "footerTagline": "具备自愈式 DOM 启发式算法与 Apache Parquet 导出的高吞吐分布式自主抓取引擎。",
         "searchResults": "个结果",
-        "noResults": "无匹配结果"
+        "noResults": "无匹配结果",
+        "selectLocale": "选择文档语言",
+        "changeLanguageTitle": "切换语言"
     },
     "es": {
         "searchPlaceholder": "BUSCAR EN LA DOCUMENTACIÓN...",
@@ -71,7 +77,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "COMANDO CLI EJECUTABLE:",
         "footerTagline": "Motor de raspado distribuido autónomo y de alto rendimiento con heurísticas DOM autorreparables y exportación a Apache Parquet.",
         "searchResults": "encontrados",
-        "noResults": "sin resultados"
+        "noResults": "sin resultados",
+        "selectLocale": "SELECCIONAR IDIOMA DE DOCUMENTACIÓN",
+        "changeLanguageTitle": "Cambiar idioma"
     },
     "ja": {
         "searchPlaceholder": "ドキュメントを検索...",
@@ -87,7 +95,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "実行可能な CLI コマンド:",
         "footerTagline": "自己修復型DOMヒューリスティクスとApache Parquetエクスポートを備えた自律型高スループット分散スクレイピングエンジン。",
         "searchResults": "件ヒット",
-        "noResults": "該当なし"
+        "noResults": "該当なし",
+        "selectLocale": "ドキュメント言語を選択",
+        "changeLanguageTitle": "言語を変更"
     },
     "ru": {
         "searchPlaceholder": "ПОИСК ПО ДОКУМЕНТАЦИИ...",
@@ -103,7 +113,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "ИСПОЛНЯЕМАЯ КОМАНДА CLI:",
         "footerTagline": "Автономный высокопроизводительный распределенный движок сбора данных с самовосстанавливающимися эвристиками DOM и экспортом в Apache Parquet.",
         "searchResults": "найдено",
-        "noResults": "нет результатов"
+        "noResults": "нет результатов",
+        "selectLocale": "ВЫБЕРИТЕ ЯЗЫК ДОКУМЕНТАЦИИ",
+        "changeLanguageTitle": "Сменить язык"
     },
     "de": {
         "searchPlaceholder": "DOKUMENTATION DURCHSUCHEN...",
@@ -119,7 +131,9 @@ UI_TRANSLATIONS = {
         "builderOutputLabel": "AUSFÜHRBARER CLI-BEFEHL:",
         "footerTagline": "Autonome, hochdurchsatzfähige verteilte Scraping-Engine mit selbstheilenden DOM-Heuristiken und Apache-Parquet-Export.",
         "searchResults": "gefunden",
-        "noResults": "keine Treffer"
+        "noResults": "keine Treffer",
+        "selectLocale": "DOKUMENTATIONSSPRACHE AUSWÄHLEN",
+        "changeLanguageTitle": "Sprache ändern"
     }
 }
 
