@@ -2056,3 +2056,94 @@ mark.search-highlight {
     bottom: 36px;
   }
 }
+
+/* ── Multi-Language i18n Selector ─────────────────────────────────────── */
+.lang-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  padding: 4px 8px;
+}
+
+.lang-icon {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.lang-select {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  padding: 2px 4px;
+}
+
+.lang-select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.lang-quick-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 8px 14px;
+  margin-bottom: 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.lang-quick-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-quick-pills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lang-pill-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.lang-pill-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.lang-pill-btn.active {
+  border-color: var(--accent);
+  color: #000;
+  background: var(--accent);
+  font-weight: 700;
+}

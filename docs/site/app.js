@@ -138,11 +138,13 @@ function initSearch() {
     let firstMatchSection = null;
 
     cards.forEach(card => {
-      const text = card.innerText.toLowerCase();
-      if (text.includes(query)) {
+      const cardText = card.innerText.toLowerCase();
+      const parentSection = card.closest('.doc-section');
+      const headerText = parentSection?.querySelector('.section-header')?.innerText.toLowerCase() || '';
+
+      if (cardText.includes(query) || headerText.includes(query)) {
         card.style.display = 'block';
         matchCount++;
-        const parentSection = card.closest('.doc-section');
         if (!firstMatchSection && parentSection) {
           firstMatchSection = parentSection;
         }
@@ -168,7 +170,9 @@ function initSearch() {
     }
 
     if (resultCounter) {
-      resultCounter.textContent = matchCount > 0 ? matchCount + ' found' : 'no results';
+      const foundLabel = window.I18N_CURRENT_DICT?.ui?.searchResults || 'found';
+      const noResultsLabel = window.I18N_CURRENT_DICT?.ui?.noResults || 'no results';
+      resultCounter.textContent = matchCount > 0 ? `${matchCount} ${foundLabel}` : noResultsLabel;
     }
   });
 }
