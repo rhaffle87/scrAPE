@@ -459,70 +459,139 @@
 
         <div class="card">
           <h2 class="card-title">1.2 Media and Data Capabilities</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            scrAPE implements strict binary payload verification, dual-layer MIME/Magic-byte content sniffing, and aggressive asset geometry boundary enforcement to guarantee zero disk waste on tracking pixels, spacer gifs, or malformed media streams:
+          </p>
+
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Category</th>
                   <th>Supported Types</th>
-                  <th>Processing Method</th>
+                  <th>Processing Pipeline & Handlers</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Image Media</td>
+                  <td><strong>Raster & Vector Images</strong></td>
                   <td>JPEG, PNG, WEBP, GIF, AVIF, APNG, BMP, HEIC, HEIF</td>
-                  <td>Direct stream fetch, high-res transformation, dimension verification.</td>
+                  <td>Direct stream fetch, PIL/Pillow header verification (zero recompression), EXIF orientation normalization, and perceptual dHash indexing.</td>
                 </tr>
                 <tr>
-                  <td>Video Media</td>
+                  <td><strong>Video Media Streams</strong></td>
                   <td>MP4, WEBM, M4V, OGV, MOV, AVI, MKV, HLS (.m3u8), DASH (.mpd)</td>
-                  <td>Direct stream or specialized extraction via <code>yt-dlp</code> plugin.</td>
+                  <td>Direct streaming chunk fetch or specialized extractor offloading to <code>yt-dlp</code> with automated format quality selectors (1080p/720p).</td>
                 </tr>
                 <tr>
-                  <td>Dataset Output</td>
-                  <td>ZIP, CSV, JSON, SQLite (WAL mode)</td>
-                  <td>Sidecar <code>.txt</code> metadata, Kohya_ss LoRA dataset exporter.</td>
+                  <td><strong>Machine Learning Datasets</strong></td>
+                  <td>ZIP (Kohya_ss LoRA), Apache Parquet, CSV, SQLite (WAL)</td>
+                  <td>Atomic packaging with WD14 auto-tags, CLIP aesthetic ratings, bounding box coordinates, and metadata JSON pairing.</td>
                 </tr>
                 <tr>
-                  <td>RAG Export</td>
-                  <td>Markdown (.md), JSONL</td>
-                  <td>Page-level chunked documents and consolidated embeddings format.</td>
+                  <td><strong>RAG & Vector Ingestion</strong></td>
+                  <td>Markdown (.md), JSONL embeddings, Document chunks</td>
+                  <td>Frontmatter metadata injection, structural semantic text parsing, and vector store chunking contracts.</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h3>Download Validation Thresholds</h3>
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Magic Byte Signatures & Stream Sniffing</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            To defeat extension-spoofing attacks (e.g. PHP scripts or HTML 403 error pages named <code>image.jpg</code>), the downloader inspects the initial 16 bytes of the incoming byte buffer before writing to disk:
+          </p>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Parameter</th>
-                  <th>Value</th>
-                  <th>Purpose</th>
+                  <th>Format</th>
+                  <th>Magic Byte Sequence (Hexadecimal)</th>
+                  <th>Offset</th>
+                  <th>Validation Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>MIN_IMAGE_DOWNLOAD_BYTES</td>
-                  <td>10,240 (10 KB)</td>
-                  <td>Reject images smaller than 10 KB (likely icons or tracking pixels).</td>
+                  <td><code>JPEG / JPG</code></td>
+                  <td><code>FF D8 FF</code></td>
+                  <td>0</td>
+                  <td>Verify SOI marker; parse SOF0/SOF2 segment for native dimensions.</td>
                 </tr>
                 <tr>
-                  <td>MIN_VIDEO_DOWNLOAD_BYTES</td>
-                  <td>16,384 (16 KB)</td>
-                  <td>Reject video files smaller than 16 KB.</td>
+                  <td><code>PNG</code></td>
+                  <td><code>89 50 4E 47 0D 0A 1A 0A</code></td>
+                  <td>0</td>
+                  <td>Validate PNG signature; read IHDR chunk for width, height, and bit depth.</td>
                 </tr>
                 <tr>
-                  <td>MIN_IMAGE_WIDTH</td>
-                  <td>400 px</td>
-                  <td>Reject images narrower than 400 pixels.</td>
+                  <td><code>WEBP</code></td>
+                  <td><code>52 49 46 46 .... 57 45 42 50</code> (RIFF....WEBP)</td>
+                  <td>0, 8</td>
+                  <td>Verify RIFF container and VP8/VP8L/VP8X chunk dimensions.</td>
                 </tr>
                 <tr>
-                  <td>MIN_IMAGE_HEIGHT</td>
-                  <td>300 px</td>
-                  <td>Reject images shorter than 300 pixels.</td>
+                  <td><code>GIF</code></td>
+                  <td><code>47 49 46 38 37 61</code> / <code>47 49 46 38 39 61</code> (GIF87a / GIF89a)</td>
+                  <td>0</td>
+                  <td>Inspect Logical Screen Descriptor; reject single-frame tracking GIFs.</td>
+                </tr>
+                <tr>
+                  <td><code>AVIF</code></td>
+                  <td><code>.... 66 74 79 70 61 76 69 66</code> (ftypavif)</td>
+                  <td>4</td>
+                  <td>Parse ISOBMFF box brand compatibility.</td>
+                </tr>
+                <tr>
+                  <td><code>MP4 Video</code></td>
+                  <td><code>.... 66 74 79 70</code> (ftyp)</td>
+                  <td>4</td>
+                  <td>Verify video container header; inspect moov/trak atoms for track duration.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Download Validation Boundaries & Physical Limits</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Boundary Parameter</th>
+                  <th>System Threshold</th>
+                  <th>Enforcement Mechanism & Rationale</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>MIN_IMAGE_DOWNLOAD_BYTES</code></td>
+                  <td>10,240 bytes (10 KB)</td>
+                  <td>Early stream abort if <code>Content-Length &lt; 10240</code>; eliminates tracking pixels and 1x1 transparent spacers.</td>
+                </tr>
+                <tr>
+                  <td><code>MAX_IMAGE_DOWNLOAD_BYTES</code></td>
+                  <td>52,428,800 bytes (50 MB)</td>
+                  <td>Hard buffer limit preventing memory exhaustion / decompression bombs from malicious image payloads.</td>
+                </tr>
+                <tr>
+                  <td><code>MIN_VIDEO_DOWNLOAD_BYTES</code></td>
+                  <td>16,384 bytes (16 KB)</td>
+                  <td>Discards corrupted video previews, stub responses, and short audio-only stubs.</td>
+                </tr>
+                <tr>
+                  <td><code>MIN_IMAGE_WIDTH</code> / <code>HEIGHT</code></td>
+                  <td>400 px &times; 300 px</td>
+                  <td>Header geometry parsing via <code>Pillow.verify()</code>; rejects avatars, small navigation thumbs, and UI buttons.</td>
+                </tr>
+                <tr>
+                  <td><code>ASPECT_RATIO_BOUNDS</code></td>
+                  <td>0.15 &le; (Width / Height) &le; 6.67</td>
+                  <td>Rejects banner ribbons, vertical spacers, and extreme aspect ratio advertising assets.</td>
+                </tr>
+                <tr>
+                  <td><code>STREAM_CHUNK_TIMEOUT</code></td>
+                  <td>15.0 seconds</td>
+                  <td>Cancels hung or throttled socket downloads; recycles connection back into client pool.</td>
                 </tr>
               </tbody>
             </table>
@@ -721,45 +790,88 @@ python -m src.cli.main --query "anime wallpaper" \
         <div class="section-header">
           <div class="section-tag">MODULE [02] // INSTALLATION AND QUICKSTART</div>
           <h1>Prerequisites</h1>
-          <p class="section-desc">System requirements before installation.</p>
+          <p class="section-desc">Host system requirements, optional stealth runtimes, and ML hardware acceleration providers.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">2.1 System Requirements</h2>
+          <h2 class="card-title">2.1 System Requirements &amp; Runtime Boundaries</h2>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Requirement</th>
                   <th>Minimum</th>
-                  <th>Notes</th>
+                  <th>Notes &amp; Operational Function</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>Python</td>
                   <td>3.10+</td>
-                  <td>Required. Tested on 3.10, 3.11, 3.12, 3.13.</td>
+                  <td>Required. Tested across 3.10, 3.11, 3.12, and 3.13 on POSIX and Windows runners.</td>
                 </tr>
                 <tr>
                   <td>Node.js</td>
                   <td>18+</td>
-                  <td>Optional. Required only for Crawlee Bridge (Stealth Tier 6-7).</td>
+                  <td>Optional. Required only for Crawlee Bridge (Stealth Tier 6-7 Puppeteer stealth sessions).</td>
                 </tr>
                 <tr>
                   <td>Docker</td>
                   <td>24+</td>
-                  <td>Optional. Required for FlareSolverr (Tier 5) and containerized deployment.</td>
+                  <td>Optional. Required for FlareSolverr (Tier 5 sidecar) and containerized Redis task leasing.</td>
                 </tr>
                 <tr>
                   <td>OS</td>
                   <td>Windows 10+ / Linux / macOS</td>
-                  <td>Cross-platform. Launcher scripts provided for Windows (.bat) and Unix (.sh).</td>
+                  <td>Cross-platform. Dedicated native launchers provided for Windows (<code>run.bat</code>) and POSIX (<code>run.sh</code>).</td>
                 </tr>
                 <tr>
                   <td>RAM</td>
                   <td>4 GB</td>
-                  <td>8 GB recommended for high concurrency (16+ workers).</td>
+                  <td>8 GB recommended for high concurrency (16+ workers) or local Ollama vision model inference.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Hardware Acceleration Matrix (src/ml/hardware.py)</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The ML subsystem (<code>HardwareDeviceManager</code>) dynamically negotiates execution providers and numerical precisions to minimize VRAM footprints during aesthetic scoring and WD14 tagging:
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform / GPU Target</th>
+                  <th>Execution Provider</th>
+                  <th>Optimal Precision</th>
+                  <th>Detection Mechanism</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>NVIDIA GeForce / RTX / Tesla</td>
+                  <td><code>cuda</code></td>
+                  <td><code>float16</code> (FP16)</td>
+                  <td><code>torch.cuda.is_available()</code> via PyTorch CUDA runtime.</td>
+                </tr>
+                <tr>
+                  <td>Apple Silicon (M1 / M2 / M3 / M4)</td>
+                  <td><code>mps</code></td>
+                  <td><code>float16</code> (FP16)</td>
+                  <td><code>torch.backends.mps.is_available()</code> via Metal Performance Shaders.</td>
+                </tr>
+                <tr>
+                  <td>Windows AMD / Intel / Qualcomm</td>
+                  <td><code>directml</code></td>
+                  <td><code>float16</code> (FP16)</td>
+                  <td><code>torch_directml.device()</code> via DirectX 12 driver bindings.</td>
+                </tr>
+                <tr>
+                  <td>Standard x86_64 / ARM CPU</td>
+                  <td><code>cpu</code></td>
+                  <td><code>float32</code> (FP32)</td>
+                  <td>AVX2 / AVX-512 vectorized fallback with OpenMP multi-threading.</td>
                 </tr>
               </tbody>
             </table>
@@ -864,6 +976,9 @@ python src/cli/cli_wizard.py</pre>
 
         <div class="card">
           <h2 class="card-title">2.4 Command Recipes</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Standardized execution recipes for production workflows, automated background tasks, and diagnostic audits:
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
@@ -875,6 +990,9 @@ python src/cli/cli_wizard.py</pre>
   --page-limit 300 --crawl-depth 3 --download-media \
   --save-rejected "low_subject_relevance,preview_or_thumbnail"</pre>
           </div>
+          <p class="text-secondary" style="margin-top: 0.75rem; margin-bottom: 1.5rem;">
+            <strong>System Exposition:</strong> Allocates 12 concurrent BFS discovery workers and 16 asynchronous stream downloaders. Retains discarded thumbnails and low-relevance media in <code>output/{subject}/rejected/</code> rather than unlinking them, enabling operators to audit false-positive filter classifications and tune keyword score weights without re-running the crawl.
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
@@ -882,8 +1000,12 @@ python src/cli/cli_wizard.py</pre>
               <button class="copy-btn">COPY</button>
             </div>
             <pre>python src/cli/monitor_agent.py --keyword "example_subject" \
-  --seed seeds/example_subject.txt --use-state-cache</pre>
+  --seed seeds/example_subject.txt --use-state-cache \
+  --interval 120 --max-cycles 0</pre>
           </div>
+          <p class="text-secondary" style="margin-top: 0.75rem; margin-bottom: 1.5rem;">
+            <strong>System Exposition:</strong> Boots the autonomous daemon mode (<code>monitor_agent.py</code>) executing recurring scrape loops every 120 seconds (<code>--max-cycles 0</code> runs indefinitely). Binds to <code>output/cache/state_cache.db</code> with WAL mode; discovered URLs are evaluated against the SQLite bloom/hash index, ensuring only <i>new/delta</i> media assets are fetched. Dispatches run delta summaries to configured Telegram/Discord webhooks.
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
@@ -894,6 +1016,9 @@ python src/cli/cli_wizard.py</pre>
   --seed seeds/example_subject.txt \
   --max-results 10 --page-limit 20 --crawl-depth 1</pre>
           </div>
+          <p class="text-secondary" style="margin-top: 0.75rem; margin-bottom: 1.5rem;">
+            <strong>System Exposition:</strong> Dry-run diagnostic pass without <code>--download-media</code>. Traverses the seed manifest to depth 1, verifies DOM selector matches, audits target HTTP response codes, and writes <code>domain_report.json</code> with zero media bandwidth consumption. Used for CI/CD pre-flight checks and seed manifest validation.
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
@@ -901,8 +1026,12 @@ python src/cli/cli_wizard.py</pre>
               <button class="copy-btn">COPY</button>
             </div>
             <pre>python src/cli/main.py --keyword "example_subject" \
-  --max-results 50 --page-limit 100 --download-media</pre>
+  --max-results 50 --page-limit 100 --download-media \
+  --enable-vlm --export-parquet</pre>
           </div>
+          <p class="text-secondary" style="margin-top: 0.75rem; margin-bottom: 1.5rem;">
+            <strong>System Exposition:</strong> Cold-start bootstrap pass without an initial seed manifest. Queries configured search providers (Google Images, DuckDuckGo) for candidate galleries, expands outbound links up to 100 pages, applies self-healing VLM recovery for obfuscated markup, and compiles scraped records directly into high-compression Apache Parquet datasets.
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
@@ -911,8 +1040,12 @@ python src/cli/cli_wizard.py</pre>
             </div>
             <pre>python src/cli/main.py --keyword "example_subject" \
   --seed seeds/example_subject.txt \
-  --workers 2 --dl-workers 2 --page-limit 20 --crawl-depth 1 --download-media</pre>
+  --workers 2 --dl-workers 2 --page-limit 20 --crawl-depth 1 --download-media \
+  --stealth-tier 7 --delay-min 2.5 --delay-max 6.0</pre>
           </div>
+          <p class="text-secondary" style="margin-top: 0.75rem;">
+            <strong>System Exposition:</strong> Low-frequency stealth configuration targeting protected high-security hosts (Cloudflare Turnstile, DataDome). Constrains worker pools to 2 threads with randomized per-request jitter (2.5s to 6.0s), forces Tier 7 Camoufox browser spoofing with randomized mouse Bezier paths, and isolates cookie jars to prevent cross-origin tracking.
+          </p>
         </div>
       </section>
 
@@ -1356,43 +1489,85 @@ python src/cli/cli_wizard.py</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [03] // CLI REFERENCE</div>
           <h1>Execution Profiles</h1>
-          <p class="section-desc">Optimized flag combinations for specific scraping scenarios.</p>
+          <p class="section-desc">Optimized flag combinations, resource envelopes, and validated CLI invocations for specialized scraping scenarios.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">3.3 Preset Profile Matrix</h2>
+          <h2 class="card-title">3.3 Preset Profile Matrix &amp; Operational Envelopes</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            scrAPE includes pre-tuned operational profiles balancing extraction throughput, memory footprint, and stealth posture across varying target environments:
+          </p>
+
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Profile</th>
-                  <th>Key Flags</th>
-                  <th>Primary Use Case</th>
+                  <th>Execution Profile</th>
+                  <th>Core Parameters &amp; Flags</th>
+                  <th>Target RPS &amp; Concurrency</th>
+                  <th>Hardware Resource Envelope</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><strong>High-Throughput Sweep</strong></td>
-                  <td><code>--workers 16</code> <code>--dl-workers 24</code> <code>--page-limit 500</code> <code>--crawl-depth 3</code></td>
-                  <td>Massive dataset collection from fast CDNs and unthrottled sites.</td>
+                  <td><code>--workers 16 --dl-workers 24 --page-limit 500 --crawl-depth 3 --enable-cas</code></td>
+                  <td>15.0 &ndash; 30.0 RPS (40 threads)</td>
+                  <td>Peak RAM: 1.8 GB; Network: &ge; 100 Mbps NVMe recommended.</td>
                 </tr>
                 <tr>
                   <td><strong>Polite Stealth</strong></td>
-                  <td><code>--workers 2</code> <code>--dl-workers 2</code> <code>--rate-limit 0.2</code> <code>--domain-delay example.com=3.0</code></td>
-                  <td>Avoid rate limits and anti-bot bans on heavily protected domains.</td>
+                  <td><code>--workers 2 --dl-workers 2 --rate-limit 0.2 --domain-delay 3.0 --headless</code></td>
+                  <td>0.2 &ndash; 0.5 RPS (4 threads)</td>
+                  <td>Peak RAM: 450 MB; stealth fingerprint preservation.</td>
                 </tr>
                 <tr>
                   <td><strong>Strict Manifest Crawl</strong></td>
-                  <td><code>--strict-domain</code> <code>--skip-search</code> <code>--seed-file seeds/target.txt</code></td>
-                  <td>Scrape curated seed manifests without straying to third-party links.</td>
+                  <td><code>--strict-domain --skip-search --seed-file seeds/target.txt --crawl-depth 2</code></td>
+                  <td>5.0 &ndash; 10.0 RPS (12 threads)</td>
+                  <td>Peak RAM: 750 MB; zero off-domain crawl leakage.</td>
                 </tr>
                 <tr>
-                  <td><strong>Validation & Audit</strong></td>
-                  <td><code>--max-results 10</code> <code>--page-limit 20</code> <code>--crawl-depth 1</code></td>
-                  <td>Dry-run seed verification and selector testing without downloading large media.</td>
+                  <td><strong>Validation &amp; Dry-Run Audit</strong></td>
+                  <td><code>--max-results 10 --page-limit 20 --crawl-depth 1</code> (no <code>--download-media</code>)</td>
+                  <td>Unlimited (burst verification)</td>
+                  <td>Peak RAM: 180 MB; zero media bytes written to disk.</td>
+                </tr>
+                <tr>
+                  <td><strong>Continuous Watchdog Daemon</strong></td>
+                  <td><code>--use-state-cache --interval 120 --adaptive-backoff --max-cycles 0</code></td>
+                  <td>Dynamic (adaptive 0.1 &ndash; 5.0 RPS)</td>
+                  <td>Peak RAM: 320 MB; SQLite WAL low-overhead daemon.</td>
+                </tr>
+                <tr>
+                  <td><strong>AI Dataset &amp; LoRA Pipeline</strong></td>
+                  <td><code>--download-media --enable-cas --tag-dataset --auto-crop --export-parquet</code></td>
+                  <td>8.0 &ndash; 14.0 RPS (16 threads + ML GPU)</td>
+                  <td>Peak RAM: 4.2 GB + 2.5 GB VRAM (FP16 WD14 vision model).</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Profile CLI Command Invocations</h3>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>POWERSHELL // PROFILE INVOCATION RECIPES</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># 1. High-Throughput Sweep (Fast CDNs, Uncapped Extraction)
+python src/cli/main.py --keyword "game_textures" --seed seeds/textures.txt \
+  --workers 16 --dl-workers 24 --page-limit 500 --crawl-depth 3 \
+  --download-media --enable-cas --export-parquet
+
+# 2. Polite Stealth (Anti-Bot Protected Galleries)
+python src/cli/main.py --keyword "rare_illustrations" --seed seeds/protected.txt \
+  --workers 2 --dl-workers 2 --rate-limit 0.2 --domain-delay protected.org=3.5 \
+  --download-media --save-rejected "low_subject_relevance"
+
+# 3. AI LoRA Training Preparation Pipeline (Auto-crop, WD14 tagging, CAS)
+python src/cli/main.py --keyword "cyber_character" --seed seeds/cyber.txt \
+  --download-media --enable-cas --tag-dataset --auto-crop --export-parquet</pre>
           </div>
         </div>
       </section>
@@ -1519,27 +1694,83 @@ python src/cli/cli_wizard.py</pre>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.1 Execution Sequence</h2>
-          <p>The crawling engine (<code>src/core/engine.py</code>) executes a concurrent Breadth-First-Search queue with
-            per-domain rate limiting and worker isolation:</p>
+          <h2 class="card-title">4.1 Execution Sequence & Queue State Machine</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The crawling engine (<code>src/core/engine.py</code>) coordinates an asynchronous breadth-first-search traversal topology with per-domain rate limiting, bounded memory queues, and decoupled downloader workers:
+          </p>
 
           <ol class="step-list">
-            <li><strong>Seed Queue Initialization</strong>: Parse seed URLs and manifest header annotations (rate
-              limits, CDN bindings, depth caps).</li>
-            <li><strong>Page Retrieval</strong>: Dispatch target URL to HTTP client, which routes request through the
-              8-tier WAF fallback pipeline.</li>
-            <li><strong>Content Parsing</strong>: Parse HTML response using BeautifulSoup/lxml. Extract candidate image
-              tags, video tags, audio links, and hyperlink anchors.</li>
-            <li><strong>URL Normalization & Deduplication</strong>: Pass discovered URLs through
-              <code>normalize_url()</code> using regex rules from <code>data/url_normalisation_rules.json</code>. Check
-              SQLite state cache.</li>
-            <li><strong>Scope & Relevance Validation</strong>: Check link depth, domain constraints, blacklists, and
-              subject relevance scoring in <code>src/core/filters.py</code>.</li>
-            <li><strong>Media Download Enqueue</strong>: High-scoring candidate media URLs pass to
-              <code>src/storage/downloader/manager.py</code> worker thread pool.</li>
-            <li><strong>Recursive Queue Append</strong>: Discovered page links matching crawl rules append to BFS queue
-              for depth <i>N+1</i> processing.</li>
+            <li><strong>Seed Queue Initialization</strong>: Parse seed URLs and manifest header annotations (rate limits, CDN bindings, depth caps). Load domain policies into memory.</li>
+            <li><strong>Page Retrieval & WAF Escalation</strong>: Dispatch target URL to HTTP client, routing transparently through the 8-tier WAF fallback pipeline until a 200 OK or terminal error occurs.</li>
+            <li><strong>Self-Healing Content Parsing</strong>: Parse HTML DOM using BeautifulSoup/lxml. If classes are obfuscated, invoke <code>SelfHealingDOMParser</code> to extract candidate media items, anchors, and metadata.</li>
+            <li><strong>URL Normalization & Deduplication</strong>: Pass discovered URLs through <code>normalize_url()</code> using regex rules from <code>data/url_normalisation_rules.json</code>. Check visited Bloom filter and SQLite state cache.</li>
+            <li><strong>Scope & Relevance Validation</strong>: Check link depth, domain constraints, blacklists, and subject relevance scoring in <code>src/core/filters.py</code>.</li>
+            <li><strong>Decoupled Media Enqueue</strong>: High-scoring candidate media URLs pass to <code>src/storage/downloader/manager.py</code> thread pool without blocking crawler traversal.</li>
+            <li><strong>Recursive Queue Append</strong>: Discovered page links matching crawl rules append to the priority queue for depth <i>N+1</i> processing.</li>
           </ol>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Traversal State Machine & Worker Isolation</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lifecycle State</th>
+                  <th>Worker Component</th>
+                  <th>Operational Action & Invariants</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>DISCOVERED</code></td>
+                  <td><code>CrawlCoordinator</code></td>
+                  <td>Candidate link extracted from anchor; canonicalized via regex rules; discarded if present in <code>VisitedSet</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>QUEUED</code></td>
+                  <td><code>PriorityQueue</code></td>
+                  <td>Ranked via prioritization heuristic $P(u)$; bounded memory queue (default maxsize: 50,000) prevents OOM.</td>
+                </tr>
+                <tr>
+                  <td><code>RATE_LIMITED</code></td>
+                  <td><code>PerDomainRateLimiter</code></td>
+                  <td>Token Bucket check per target hostname. If tokens depleted, worker sleeps or context-switches to alternative domain.</td>
+                </tr>
+                <tr>
+                  <td><code>FETCHING</code></td>
+                  <td><code>HTTPClient</code> / WAF</td>
+                  <td>Dispatches HTTP GET with TLS impersonation (Chrome 124); auto-escalates to Camoufox / DrissionPage on challenge.</td>
+                </tr>
+                <tr>
+                  <td><code>PARSED</code></td>
+                  <td><code>SelfHealingDOMParser</code></td>
+                  <td>L1 cache lookup &rarr; JSON-LD microdata &rarr; VLM recovery. Extracts images, videos, and child hyperlinks.</td>
+                </tr>
+                <tr>
+                  <td><code>DISPATCHED</code></td>
+                  <td><code>DownloadManager</code></td>
+                  <td>Assets transferred to streaming downloader worker pool; crawler continues traversal immediately without waiting for download I/O.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Link Prioritization Heuristic Formula</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            When crawling large galleries or multi-level category trees, links are prioritized in the queue using the priority scoring function:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>MATH // PRIORITY QUEUE RANKING EQUATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>Priority(u) = [w_depth * (MaxDepth - depth(u))] + [w_kw * KeywordMatches(u)] + [w_yield * HistoricalYield(domain)] - Penalty(u)
+
+Where:
+  - w_depth   = 10.0 (breadth-first priority: shallower pages explored first)
+  - w_kw      = 25.0 (bonus for target keyword tokens in URL slug or anchor text)
+  - w_yield   = 15.0 (domain efficiency weight based on past images-per-page ratio)
+  - Penalty   = 50.0 (applied to pagination duplicates, tag clouds, or utility paths)</pre>
+          </div>
         </div>
       </section>
 
@@ -1687,50 +1918,98 @@ python src/cli/cli_wizard.py</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
           <h1>Universal Captcha Strategy</h1>
-          <p class="section-desc">Automated challenge resolution with budget guardrails.</p>
+          <p class="section-desc">Automated challenge resolution, sitekey regex sniffing, multi-provider failover, and budget guardrails.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.3 Challenge Resolution Strategy</h2>
-          <p>The captcha module (<code>src/captcha/captcha_strategy.py</code>) provides adapter interfaces for
-            third-party automated solving services:</p>
+          <h2 class="card-title">4.3 Challenge Resolution Strategy &amp; Provider Hierarchy</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            <code>ThirdPartyCaptchaStrategy</code> (<code>src/captcha/captcha_strategy.py</code>) sits within the stealth escalation matrix, intercepting WAF challenges, sniffing DOM sitekeys, and delegating tokens to automated solving providers:
+          </p>
 
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Provider</th>
-                  <th>Environment Variable</th>
+                  <th>Provider Adapter</th>
+                  <th>Credentials (.env)</th>
                   <th>Supported Challenge Types</th>
+                  <th>Cost &amp; Execution Latency</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>CapSolver</td>
+                  <td><code>FreeAudioCaptchaProvider</code></td>
+                  <td>None ($0.00 cost)</td>
+                  <td>Audio reCAPTCHA challenges via local SpeechRecognition and pydub.</td>
+                  <td>Zero API cost; ~2.5s local inference.</td>
+                </tr>
+                <tr>
+                  <td><code>CapSolverProvider</code></td>
                   <td><code>CAPSOLVER_API_KEY</code></td>
-                  <td>Cloudflare Turnstile, reCAPTCHA v2/v3, hCaptcha, GeeTest.</td>
+                  <td>Cloudflare Turnstile (non-interactive &amp; managed), reCAPTCHA v2/v3, hCaptcha, GeeTest v3/v4.</td>
+                  <td>~$0.001 / solve; 3 &ndash; 8s async resolution.</td>
                 </tr>
                 <tr>
-                  <td>2Captcha</td>
+                  <td><code>TwoCaptchaProvider</code></td>
                   <td><code>TWOCAPTCHA_API_KEY</code></td>
-                  <td>reCAPTCHA v2/v3, hCaptcha, FunCaptcha, image text captchas.</td>
+                  <td>reCAPTCHA v2/v3, hCaptcha, FunCaptcha Arkose Labs, legacy OCR image text.</td>
+                  <td>~$0.002 / solve; 8 &ndash; 18s resolution.</td>
                 </tr>
                 <tr>
-                  <td>AntiCaptcha</td>
+                  <td><code>AntiCaptchaProvider</code></td>
                   <td><code>ANTICAPTCHA_API_KEY</code></td>
-                  <td>reCAPTCHA v2/v3, hCaptcha, Turnstile.</td>
+                  <td>reCAPTCHA v2/v3, hCaptcha Enterprise, Cloudflare Turnstile token tasks.</td>
+                  <td>~$0.002 / solve; 6 &ndash; 15s resolution.</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h3>Budget & Balance Guardrails</h3>
-          <ul>
-            <li><code>CAPSOLVER_MAX_SPEND_PER_RUN</code>: Maximum dollar amount allowed for captcha solving per scrape
-              run (default: $0.50 USD).</li>
-            <li><code>CAPSOLVER_MIN_BALANCE</code>: Minimum account balance threshold. Captcha solving pauses if balance
-              drops below threshold (default: $0.20 USD).</li>
-          </ul>
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">DOM Sitekey Sniffing Regular Expressions</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            Upon intercepting an HTTP 403 or challenge interstitial, the strategy parses page HTML using pre-compiled regex signatures without full browser rendering:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // SITEKEY SNIFFING SIGNATURES</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># Cloudflare Turnstile Sitekey Pattern:
+r'(0x4AAAAAA[a-zA-Z0-9_-]{8,40})'
+r'data-sitekey=["\']([^"\']+)["\']'
+
+# Google reCAPTCHA v2 / Enterprise Pattern:
+r'data-sitekey=["\']([^"\']+)["\']'
+
+# hCaptcha Container Pattern:
+r'h-captcha.*?data-sitekey=["\']([^"\']+)["\']'</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Financial Budget &amp; Balance Guardrails</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Guardrail Parameter</th>
+                  <th>Default Limit</th>
+                  <th>Protective Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>CAPSOLVER_MAX_SPEND_PER_RUN</code></td>
+                  <td>$0.50 USD</td>
+                  <td>Hard spend ceiling. If cumulative solver charges exceed $0.50 during a single crawl run, captcha solving immediately suspends and domains escalate to headful browser mode.</td>
+                </tr>
+                <tr>
+                  <td><code>CAPSOLVER_MIN_BALANCE</code></td>
+                  <td>$0.20 USD</td>
+                  <td>Account protection threshold. Before dispatching a task, the provider checks account balance; if balance drops below $0.20, solving pauses to prevent overdraft.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -1744,7 +2023,8 @@ python src/cli/cli_wizard.py</pre>
 
         <div class="card">
           <h2 class="card-title">4.4 Rejection Rules & Retention Paths</h2>
-          <p>Every candidate media URL is evaluated by <code>src/core/filters.py</code> before enqueuing for download:
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Every candidate media URL discovered during BFS page parsing is evaluated through the heuristic scoring engine in <code>src/core/filters.py</code> before enqueuing for download. Media items failing the threshold are categorized and sorted into specific audit directories:
           </p>
 
           <div class="table-container">
@@ -1752,50 +2032,95 @@ python src/cli/cli_wizard.py</pre>
               <thead>
                 <tr>
                   <th>Rejection Reason</th>
-                  <th>Trigger Criteria</th>
+                  <th>Trigger Criteria & Threshold Boundaries</th>
                   <th>Disk Retention Path</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><code>low_subject_relevance</code></td>
-                  <td>Subject keyword absent in URL path, alt-text, title, and context. Score &lt; threshold.</td>
-                  <td><code>output/&lt;subject&gt;/rejected/low_subject_relevance/</code></td>
+                  <td>Target subject keyword absent in URL slug, alt-text, title, and DOM context. Computed score &lt; 6.0.</td>
+                  <td><code>output/{subject}/rejected/low_subject_relevance/</code></td>
                 </tr>
                 <tr>
                   <td><code>preview_or_thumbnail</code></td>
-                  <td>URL matches thumbnail patterns (e.g. <code>256px</code>, <code>pic256.jpg</code>,
-                    <code>/thumbs/</code>, <code>_thumb.</code>).</td>
-                  <td><code>output/&lt;subject&gt;/rejected/preview_or_thumbnail/</code></td>
+                  <td>URL matches thumbnail markers (e.g. <code>256px</code>, <code>pic256.jpg</code>, <code>/thumbs/</code>, <code>_thumb.</code>, <code>preview_</code>).</td>
+                  <td><code>output/{subject}/rejected/preview_or_thumbnail/</code></td>
                 </tr>
                 <tr>
                   <td><code>utility_asset</code></td>
-                  <td>File is site chrome: logo, icon, avatar, sprite, favicon, banner, badge.</td>
-                  <td>Discarded (or saved if specified in <code>--save-rejected</code>).</td>
+                  <td>File is site chrome: logo, icon, avatar, sprite, favicon, app-store banner, badge, or button graphic.</td>
+                  <td>Discarded immediately (or saved if specified in <code>--save-rejected</code>).</td>
                 </tr>
                 <tr>
                   <td><code>off_model_content</code></td>
-                  <td>Page URL belongs to a different subject/model profile scope.</td>
+                  <td>Page URL belongs to a different subject or external third-party affiliate widget outside crawl scope.</td>
                   <td>Discarded.</td>
                 </tr>
                 <tr>
                   <td><code>blacklisted_domain</code></td>
-                  <td>Host is listed in <code>data/blacklist.json</code> or <code>ALWAYS_BLOCK_DOMAINS</code>.</td>
+                  <td>Host is listed in <code>data/blacklist.json</code> or built-in <code>ALWAYS_BLOCK_DOMAINS</code> table.</td>
                   <td>Discarded.</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h3>Site-Chrome & Keyword Classification Sets</h3>
-          <ul>
-            <li><code>UTILITY_ASSET_TERMS</code> (Hard Reject): logo, icon, banner, badge, avatar, placeholder, sprite,
-              favicon, app-store, play-store, color_indicator, color_dot, service.</li>
-            <li><code>GENERIC_ASSET_TERMS</code> (Soft Penalty -3 pts): watermark, overlay, border, frame, background,
-              divider, separator, decoration, spacer.</li>
-            <li><code>PREVIEW_MARKERS</code>: thumb_vid, thumb-vid, _thumb, -thumb, thumb., thumbnail, preview, avatar,
-              icon, sprite, small, tiny, blur, lowres, collage, storyboard, sample, trailer, promo.</li>
-          </ul>
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Mathematical Scoring Formula</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            Candidate assets are scored on an additive linear scale. Items must reach $\text{Score} \ge 6.0$ to be approved for stream downloading:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>MATH // HEURISTIC QUALITY SCORING DERIVATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>Score(item) = BaseScore + Score_Keyword + Score_DOMContext + Score_Geometry - Penalties
+
+Positive Weights:
+  + 5.0 pts: Exact target keyword token in image/video filename or URL slug
+  + 3.0 pts: Target keyword token in DOM &lt;img alt="..."&gt; or title attribute
+  + 2.0 pts: Target keyword token in parent &lt;a&gt; anchor text or &lt;figcaption&gt;
+  + 4.0 pts: High-resolution geometry declaration (&gt;= 1920x1080 or srcset 2x/3x)
+  + 3.0 pts: Original CDN source pattern (e.g., /orig/, /full/, /raw/, /master/)
+
+Negative Penalties:
+  - 10.0 pts: Hard utility asset match (logo, icon, avatar, badge, sprite) [AUTOMATIC REJECT]
+  -  6.0 pts: Preview / thumbnail URL marker (thumb, _preview, -small, 256px)
+  -  3.0 pts: Generic filler term (watermark, overlay, border, spacer, separator)
+  -  4.0 pts: Extreme aspect ratio (width/height &gt; 3.0 or &lt; 0.33)
+  -  5.0 pts: Repetitive pagination index or tracking query present</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Classification Term Sets</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Classification Set</th>
+                  <th>Tokens & Markers</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>UTILITY_ASSET_TERMS</code></td>
+                  <td><code>logo, icon, banner, badge, avatar, placeholder, sprite, favicon, app-store, play-store, color_indicator, dot, spinner</code></td>
+                  <td>Hard reject (Score &minus;10.0). Asset unlinked.</td>
+                </tr>
+                <tr>
+                  <td><code>GENERIC_ASSET_TERMS</code></td>
+                  <td><code>watermark, overlay, border, frame, background, divider, separator, decoration, spacer, footer, header</code></td>
+                  <td>Soft penalty (Score &minus;3.0). Allowed only if strong keyword match.</td>
+                </tr>
+                <tr>
+                  <td><code>PREVIEW_MARKERS</code></td>
+                  <td><code>thumb_vid, thumb-vid, _thumb, -thumb, thumb., thumbnail, preview, small, tiny, blur, lowres, collage, sample</code></td>
+                  <td>Routes to high-res transform engine; if no high-res rule exists, retained in rejected folder.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -1804,16 +2129,79 @@ python src/cli/cli_wizard.py</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [04] // CORE ENGINE ARCHITECTURE</div>
           <h1>URL Normalization</h1>
-          <p class="section-desc">Canonicalization regex rules and URL deduplication.</p>
+          <p class="section-desc">Six-stage canonicalization pipeline, regex transformation rules, and state cache deduplication.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">4.5 Canonicalization Pipeline</h2>
-          <p>The function <code>normalize_url()</code> in <code>src/core/filters.py</code> strips tracking parameters,
-            collapses locale prefixes, and normalizes URLs to prevent duplicate fetches across runs.</p>
+          <h2 class="card-title">4.5 Six-Stage Canonicalization Pipeline</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Implemented in <code>src/core/filters.py</code> (<code>normalize_url()</code>), the canonicalization engine transforms arbitrary discovered web links into a deterministic canonical representation. This guarantees that URLs pointing to identical server resources are fetched exactly once:
+          </p>
 
-          <p>Rules are loaded dynamically from <code>data/url_normalisation_rules.json</code> at startup. See Module 05
-            for JSON rule configuration.</p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Stage</th>
+                  <th>Canonicalization Action</th>
+                  <th>Example Input &rarr; Output</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>1. Scheme & Host Normalization</strong></td>
+                  <td>Forces scheme and hostname to lowercase; strips standard default ports (<code>:80</code> for HTTP, <code>:443</code> for HTTPS); decodes punycode IDN domains.</td>
+                  <td><code>HTTP://Example.COM:80/path</code> &rarr; <code>http://example.com/path</code></td>
+                </tr>
+                <tr>
+                  <td><strong>2. Path Segment Resolution</strong></td>
+                  <td>Collapses duplicate slashes (<code>//</code> &rarr; <code>/</code>); resolves dot segments (<code>/a/b/../c</code> &rarr; <code>/a/c</code>); enforces trailing slash policy.</td>
+                  <td><code>http://example.com//gallery/./pic.jpg</code> &rarr; <code>http://example.com/gallery/pic.jpg</code></td>
+                </tr>
+                <tr>
+                  <td><strong>3. Locale Directory Stripping</strong></td>
+                  <td>Purges ISO-639-1 two-letter locale prefixes (e.g. <code>/en/</code>, <code>/fr/</code>, <code>/ja/</code>) from multilingual CMS platforms.</td>
+                  <td><code>http://example.com/fr/photo/123</code> &rarr; <code>http://example.com/photo/123</code></td>
+                </tr>
+                <tr>
+                  <td><strong>4. Tracking Query Purge</strong></td>
+                  <td>Strips marketing and analytics tracking parameters: <code>utm_*</code>, <code>fbclid</code>, <code>gclid</code>, <code>ref</code>, <code>spm</code>, <code>_hsenc</code>, <code>yclid</code>, <code>session_id</code>.</td>
+                  <td><code>http://site.com/view?id=42&amp;utm_source=tw</code> &rarr; <code>http://site.com/view?id=42</code></td>
+                </tr>
+                <tr>
+                  <td><strong>5. Query Key Lexicographical Sort</strong></td>
+                  <td>Sorts remaining operational query keys alphabetically, preventing duplicate fetches caused by varying key order in web frameworks.</td>
+                  <td><code>http://site.com/view?z=1&amp;a=2</code> &rarr; <code>http://site.com/view?a=2&amp;z=1</code></td>
+                </tr>
+                <tr>
+                  <td><strong>6. Anchor Fragment Truncation</strong></td>
+                  <td>Unconditionally removes client-side URL fragments (<code>#section</code>, <code>#!hash</code>), as HTTP servers do not receive or process fragments.</td>
+                  <td><code>http://example.com/page#top</code> &rarr; <code>http://example.com/page</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Regex Normalization Rule Engine</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            Domain-specific URL rewrites are defined in <code>data/url_normalisation_rules.json</code> and compiled at runtime:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // URL CANONICALIZATION INVOCATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>from src.core.filters import normalize_url
+
+# 1. Strips tracking tokens, sorts queries, strips fragments
+canonical = normalize_url(
+    "https://example.com/en/gallery/image.jpg?utm_source=twitter&amp;w=1200&amp;a=1#preview"
+)
+# Result: "https://example.com/gallery/image.jpg?a=1&amp;w=1200"
+
+# 2. Automatically evaluated against visited Bloom filter (L1) and SQLite State Cache (L2)
+# Ensures zero-redundancy network fetches across concurrent worker threads</pre>
+          </div>
         </div>
       </section>
 <!-- 4.6 Pre-Warmed Anti-Bot Browser Pool -->
@@ -2335,28 +2723,80 @@ limits = httpx.Limits(
         </div>
 
         <div class="card">
-          <h2 class="card-title">5.3 Normalization Rule Schema</h2>
+          <h2 class="card-title">5.3 Normalization Rule Schema & Execution Engine</h2>
           <div class="alert warning">
-            <div class="alert-title">[!] MANDATORY RULE</div>
-            Never hardcode domain-specific URL normalization regexes in Python files under <code>src/</code>. All rules
-            MUST be declared in <code>data/url_normalisation_rules.json</code>.
+            <div class="alert-title">[!] MANDATORY ARCHITECTURAL RULE</div>
+            Never hardcode domain-specific URL normalization regexes in Python source files under <code>src/</code>. All URL rewriting and canonicalization logic MUST be declared in <code>data/url_normalisation_rules.json</code>.
           </div>
+
+          <p class="text-secondary" style="margin-top: 1rem; margin-bottom: 1.25rem;">
+            Rules defined in <code>data/url_normalisation_rules.json</code> are parsed during system bootstrap and compiled into an optimized <code>re.Pattern</code> array. The rules are applied sequentially in declaration order during Stage 6 of the canonicalization pipeline:
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
-              <span>JSON // RULE SCHEMA EXAMPLE</span>
+              <span>JSON // COMPREHENSIVE PRODUCTION NORMALIZATION RULES</span>
               <button class="copy-btn">COPY</button>
             </div>
             <pre>{
-  "_comment": "URL normalisation rules applied by normalize_url() in core/filters.py.",
+  "_comment": "scrAPE URL normalisation rules applied by normalize_url() in src/core/filters.py.",
   "rules": [
     {
-      "description": "Locale prefix collapse -- strips 2-char locale segments (/zh/, /fr/, etc.)",
-      "pattern": "(example\\.com)/[a-z]{2}/",
-      "replacement": "\\1/"
+      "description": "Multi-locale directory collapse -- strips 2-char language codes (/en/, /fr/, /zh/, /ja/)",
+      "pattern": "(https?://[^/]+)/(?:en|fr|de|es|it|pt|ja|zh|ru)/+(.*)",
+      "replacement": "\\1/\\2"
+    },
+    {
+      "description": "Mobile subdomain to desktop canonicalization",
+      "pattern": "https?://(?:m|mobile)\\.([^/]+)/(.*)",
+      "replacement": "https://\\1/\\2"
+    },
+    {
+      "description": "Image gallery thumbnail-to-master path rewriting",
+      "pattern": "(https?://cdn\\.[^/]+/media)/thumbs?/([a-f0-9]+)_(?:150|250|500)\\.(jpg|png|webp)",
+      "replacement": "\\1/full/\\2_orig.\\3"
+    },
+    {
+      "description": "Video player embed URL to direct content stream conversion",
+      "pattern": "(https?://[^/]+)/embed/([a-zA-Z0-9_-]+)",
+      "replacement": "\\1/watch?v=\\2"
     }
   ]
 }</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Rule Object Field Contract</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Type</th>
+                  <th>Requirement</th>
+                  <th>Technical Specification</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>description</code></td>
+                  <td>string</td>
+                  <td>Required</td>
+                  <td>Human-readable intent describing the target CMS, domain, or pattern being normalized.</td>
+                </tr>
+                <tr>
+                  <td><code>pattern</code></td>
+                  <td>string (regex)</td>
+                  <td>Required</td>
+                  <td>Perl-compatible regular expression. Must specify capture groups for non-mutated path segments.</td>
+                </tr>
+                <tr>
+                  <td><code>replacement</code></td>
+                  <td>string</td>
+                  <td>Required</td>
+                  <td>Back-reference string (e.g. <code>\\1/\\2</code>) reconstructing the canonicalized target URL.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -2366,78 +2806,116 @@ limits = httpx.Limits(
         <div class="section-header">
           <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
           <h1>Seed Manifest Syntax</h1>
-          <p class="section-desc">Header annotations and URL format rules for seed manifest files.</p>
+          <p class="section-desc">Grammar specification, header directives, and per-domain execution annotations.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">5.4 Annotation Reference</h2>
+          <h2 class="card-title">5.4 Manifest Directives & Scoped Inheritance</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Seed manifests (<code>seeds/*.txt</code>) specify target starting points and configure per-domain crawl policies without requiring code changes. Directives use comment-syntax headers (<code># Directive: value</code>) that scope to all subsequent URLs until the next domain header:
+          </p>
+
           <div class="code-block-container">
             <div class="code-header">
-              <span>MANIFEST // SEED MANIFEST ANNOTATION EXAMPLE</span>
+              <span>MANIFEST // SEED MANIFEST PRODUCTION EXAMPLE</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Subject: example_subject
+            <pre># Subject: cybernetic_mech_concept
+# Author: Operator 01
+# Generated: 2026-10-14
 
-# -- example.com --
-# type: mixed
+# ==============================================================================
+# TARGET DOMAIN: artstation.com
+# ==============================================================================
+# -- artstation.com --
+# type: images
+# crawl: index&rarr;detail
+# depth: 2
+# Rate-limit: 0.5 req/s
+# max_pages: 50
+# [CDN] cdn.artstation.com
+# cloudflare: false
+https://www.artstation.com/search?sort_by=relevance&amp;query=cybernetic+mech
+
+# ==============================================================================
+# TARGET DOMAIN: danbooru.donmai.us
+# ==============================================================================
+# -- danbooru.donmai.us --
+# type: images
 # crawl: index&rarr;detail
 # depth: 1
-# Rate-limit: 0.4 req/s
-# max_pages: 5
-# [CDN] cdn.example.com
-# Note: Cap crawl to bound crawler churn on index pages.
-https://example.com/videos/example_subject</pre>
+# Rate-limit: 0.2 req/s
+# max_pages: 20
+# [CDN] cdn.donmai.us
+# cloudflare: true
+https://danbooru.donmai.us/posts?tags=mecha</pre>
           </div>
 
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Directive Grammar & Lexicon</h3>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Annotation Header</th>
-                  <th>Syntax</th>
-                  <th>Description</th>
+                  <th>Directive</th>
+                  <th>Syntax Pattern</th>
+                  <th>Scope</th>
+                  <th>Operational Effect</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><code># Subject:</code></td>
-                  <td><code># Subject: name</code></td>
-                  <td>Declares primary subject name for relevance scoring.</td>
+                  <td><code># Subject: &lt;slug&gt;</code></td>
+                  <td>Global</td>
+                  <td>Sets primary subject keyword. Governs output directory <code>output/{subject}/</code> and relevance scoring.</td>
+                </tr>
+                <tr>
+                  <td><code># -- &lt;domain&gt; --</code></td>
+                  <td><code># -- host.com --</code></td>
+                  <td>Delimiter</td>
+                  <td>Declares a domain section boundary. Resets per-domain policy context.</td>
                 </tr>
                 <tr>
                   <td><code># type:</code></td>
-                  <td><code># type: images|videos|mixed</code></td>
-                  <td>Media type filter for the specified domain section.</td>
+                  <td><code>images | videos | mixed</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Restricts downloader to matching asset MIME families.</td>
                 </tr>
                 <tr>
                   <td><code># crawl:</code></td>
-                  <td><code># crawl: index&rarr;detail</code></td>
-                  <td>Crawl mode directive for detail page resolution.</td>
+                  <td><code>index&rarr;detail | direct</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Informs BFS parser whether to treat URLs as gallery indices requiring child page traversal.</td>
                 </tr>
                 <tr>
                   <td><code># depth:</code></td>
-                  <td><code># depth: N</code></td>
-                  <td>Crawl depth cap for URLs in this section.</td>
+                  <td><code># depth: &lt;int&gt;</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Overrides global <code>--crawl-depth</code> for URLs in this section.</td>
                 </tr>
                 <tr>
                   <td><code># Rate-limit:</code></td>
-                  <td><code># Rate-limit: X req/s</code></td>
-                  <td>Per-domain rate limit override in requests/second.</td>
+                  <td><code># Rate-limit: &lt;float&gt; req/s</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Sets Token Bucket refill rate for domain (e.g. 0.4 = 1 request every 2.5 seconds).</td>
                 </tr>
                 <tr>
                   <td><code># max_pages:</code></td>
-                  <td><code># max_pages: N</code></td>
-                  <td>Maximum page fetch budget cap for this domain.</td>
+                  <td><code># max_pages: &lt;int&gt;</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Hard page visit ceiling. Prevents infinite crawl traps on large CMS platforms.</td>
                 </tr>
                 <tr>
                   <td><code># [CDN]</code></td>
-                  <td><code># [CDN] cdn.host.com</code></td>
-                  <td>Binds CDN host to primary domain for scope validation.</td>
+                  <td><code># [CDN] &lt;cdn_host&gt;</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Binds media CDN hostnames to parent domain to permit cross-host asset downloads.</td>
                 </tr>
                 <tr>
                   <td><code># cloudflare:</code></td>
-                  <td><code># cloudflare: true</code></td>
-                  <td>Forces immediate stealth pipeline routing for domain.</td>
+                  <td><code>true | false</code></td>
+                  <td>Domain-scoped</td>
+                  <td>Forces immediate routing to Tier 5 (FlareSolverr) or Tier 7 (Camoufox), skipping Tier 1-4 direct HTTP.</td>
                 </tr>
               </tbody>
             </table>
@@ -2450,13 +2928,82 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
           <h1>Subject Profiles</h1>
-          <p class="section-desc">Pre-configured subject profile presets in data/subject_profiles.json.</p>
+          <p class="section-desc">Pre-configured subject profile presets, priority domain weights, and media filtering rules in data/subject_profiles.json.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">5.5 Profile Presets</h2>
-          <p>Subject profiles allow instant loading of priority domains, target seed files, entity token aliases, and
-            extraction limits for recurring extraction subjects.</p>
+          <h2 class="card-title">5.5 Profile Presets &amp; Domain Routing</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Subject profiles (<code>data/subject_profiles.json</code>) configure pre-tuned extraction parameters for specialized media campaigns, allowing operators to prioritize domain pools and exclude mismatched media types:
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSON // SUBJECT PROFILES CONFIGURATION CONTRACT</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{
+  "video_heavy": {
+    "priority_domains": [
+      "rule34video.com",
+      "iwara.tv",
+      "rule34vault.com"
+    ],
+    "block_image_only_domains": [
+      "pixiv.net",
+      "fanbox.cc",
+      "pawchive.st",
+      "deviantart.com"
+    ],
+    "max_results": 100
+  },
+  "image_heavy": {
+    "priority_domains": [
+      "buondua.com",
+      "mitaku.net",
+      "erome.com",
+      "kittykawai.com"
+    ],
+    "block_video_only_domains": [],
+    "max_results": 200
+  }
+}</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Profile Field Behavior</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field Key</th>
+                  <th>Type</th>
+                  <th>Engine Behavior &amp; Priority Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>priority_domains</code></td>
+                  <td><code>list[str]</code></td>
+                  <td>Discovered links matching these domains receive a <code>+2.0</code> priority bonus in the BFS priority queue (<code>src/core/priority_queue.py</code>), scheduling them ahead of general web search links.</td>
+                </tr>
+                <tr>
+                  <td><code>block_image_only_domains</code></td>
+                  <td><code>list[str]</code></td>
+                  <td>Drops all image media extraction candidates from listed domains during video-focused runs, reducing disk I/O and bandwidth consumption.</td>
+                </tr>
+                <tr>
+                  <td><code>block_video_only_domains</code></td>
+                  <td><code>list[str]</code></td>
+                  <td>Suppresses video streaming downloads from listed platforms during high-throughput static image collection runs.</td>
+                </tr>
+                <tr>
+                  <td><code>max_results</code></td>
+                  <td><code>int</code></td>
+                  <td>Default target quota ceiling applied if not explicitly overridden on the CLI via <code>--max-results</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -2465,13 +3012,51 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [05] // CONFIGURATION REFERENCE</div>
           <h1>Blacklist Management</h1>
-          <p class="section-desc">Persistent domain blacklist in data/blacklist.json.</p>
+          <p class="section-desc">Persistent domain blacklist (data/blacklist.json), hierarchical subdomain matching, and automatic quarantine.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">5.6 Domain Blacklisting</h2>
-          <p>Domains listed in <code>data/blacklist.json</code> are permanently blocked from link traversal, media
-            extraction, and queue placement. Add dead domains, ad networks, or low-quality aggregators here.</p>
+          <h2 class="card-title">5.6 Domain Blacklisting &amp; Subdomain Matching</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Domains registered in <code>data/blacklist.json</code> are completely pruned during link discovery. The coordinator will never fetch, parse, or enqueue URLs belonging to a blacklisted host:
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSON // BLACKLIST SCHEMA (data/blacklist.json)</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{
+    "adtracker-network.com": {
+        "reason": "ad_network_telemetry",
+        "timestamp": "2026-10-14T08:12:00.000000"
+    },
+    "malicious-honeypot.org": {
+        "reason": "bot_trap_detection",
+        "timestamp": "2026-10-14T09:45:22.184910"
+    }
+}</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Hierarchical Suffix Matching Mechanics</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The blacklist validator (<code>src/common/blacklist.py &rarr; is_blacklisted()</code>) applies suffix boundary checking. When a parent domain is listed, all subdomains are automatically rejected without requiring wildcard syntax:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // SUBDOMAIN MATCHING LOGIC</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>def is_blacklisted(domain: str) -> bool:
+    blacklist = load_blacklist()
+    dom = domain.lower()
+    for b_domain in blacklist:
+        b_dom = b_domain.lower()
+        # Matches exact domain OR any hierarchical child subdomain (.b_dom)
+        if dom == b_dom or dom.endswith("." + b_dom):
+            return True
+    return False</pre>
+          </div>
         </div>
       </section>
 
@@ -2484,64 +3069,93 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
           <h1>Server Architecture</h1>
-          <p class="section-desc">FastAPI + HTMX server architecture in frontend/app.py.</p>
+          <p class="section-desc">Decoupled FastAPI backend, APIRouter topology, OWASP security middleware, and HTMX reactive state machine in frontend/app.py.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.1 Decoupled FastAPI Server</h2>
-          <p>The interactive dashboard server (<code>frontend/app.py</code>) provides full WebUI job management, visual
-            HTML5 Canvas network trees, real-time log streaming via Server-Sent Events (SSE), and Kohya_ss LoRA dataset
-            ZIP downloads.</p>
+          <h2 class="card-title">6.1 Decoupled FastAPI Server &amp; Modular Router Topology</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The interactive operator dashboard is powered by a high-concurrency <code>FastAPI</code> server (<code>frontend/app.py</code>) using modular <code>APIRouter</code> packages to isolate endpoint concerns, background job supervision, and SSE broadcasts:
+          </p>
 
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Endpoint</th>
-                  <th>Method</th>
-                  <th>Function</th>
+                  <th>Router Module</th>
+                  <th>Source File</th>
+                  <th>URL Prefix</th>
+                  <th>Core Responsibilities &amp; Endpoints</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><code>/</code></td>
-                  <td>GET</td>
-                  <td>Renders Utilitarian Brutalist dashboard template.</td>
+                  <td><code>DashboardRouter</code></td>
+                  <td><code>frontend/routers/dashboard.py</code></td>
+                  <td><code>/api/job</code></td>
+                  <td>Crawl job lifecycle management (start, pause, resume, stop); preset slot serialization (<code>data/webui_presets.json</code>).</td>
                 </tr>
                 <tr>
-                  <td><code>/api/job/start</code></td>
-                  <td>POST</td>
-                  <td>Spawns a new background scrape process.</td>
+                  <td><code>DatasetRouter</code></td>
+                  <td><code>frontend/routers/dataset.py</code></td>
+                  <td><code>/api/media</code>, <code>/api/export</code></td>
+                  <td>Media Vault streaming feed, inline thumbnail caching, disk asset deletion, and Kohya_ss LoRA dataset ZIP packaging.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/job/pause</code></td>
-                  <td>POST</td>
-                  <td>Pauses active extraction job gracefully.</td>
+                  <td><code>SeedsRouter</code></td>
+                  <td><code>frontend/routers/seeds.py</code></td>
+                  <td><code>/api/seeds</code></td>
+                  <td>Seed manifest CRUD, lexical syntax validation, domain rate-limit configuration, and subject profile binding.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/job/resume</code></td>
-                  <td>POST</td>
-                  <td>Resumes paused extraction job.</td>
+                  <td><code>WatchdogRouter</code></td>
+                  <td><code>frontend/routers/watchdog.py</code></td>
+                  <td><code>/api/watchdog</code></td>
+                  <td>Continuous monitoring daemon state, cycle interval tuning, and SQLite state cache statistics.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/job/stop</code></td>
-                  <td>POST</td>
-                  <td>Terminates active scrape process.</td>
+                  <td><code>NotificationsRouter</code></td>
+                  <td><code>frontend/routers/notifications.py</code></td>
+                  <td><code>/api/notifications</code></td>
+                  <td>Multi-channel alert dispatching, Discord/Slack webhook test pings, and Telegram bot status telemetry.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">OWASP Security Middleware &amp; Content Protection</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            <code>frontend/app.py</code> injects strict enterprise security headers on all incoming HTTP requests to prevent UI redressing, MIME sniffing, and cross-site execution attacks:
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Security Header</th>
+                  <th>Configured Directive</th>
+                  <th>Security Rationale</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>Content-Security-Policy</code></td>
+                  <td><code>default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'</code></td>
+                  <td>Prevents unauthorized remote script execution while allowing local HTMX and SSE listeners.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/logs/stream</code></td>
-                  <td>GET</td>
-                  <td>SSE endpoint broadcasting live structured log entries.</td>
+                  <td><code>X-Frame-Options</code></td>
+                  <td><code>DENY</code></td>
+                  <td>Completely neutralizes clickjacking attacks by forbidding iframe embedding.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/telemetry/stream</code></td>
-                  <td>GET</td>
-                  <td>SSE endpoint streaming CPU, RAM, and harvest stats.</td>
+                  <td><code>X-Content-Type-Options</code></td>
+                  <td><code>nosniff</code></td>
+                  <td>Forces browsers to respect declared MIME types, mitigating drive-by executable downloads.</td>
                 </tr>
                 <tr>
-                  <td><code>/api/export/kohya</code></td>
-                  <td>GET</td>
-                  <td>Generates and serves Kohya_ss LoRA dataset ZIP archive.</td>
+                  <td><code>Referrer-Policy</code></td>
+                  <td><code>strict-origin-when-cross-origin</code></td>
+                  <td>Protects internal endpoint structures and session tokens from leaking in outbound referers.</td>
                 </tr>
               </tbody>
             </table>
@@ -2554,33 +3168,44 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
           <h1>Command Center and Media Vault</h1>
-          <p class="section-desc">Dual-view dashboard interfaces.</p>
+          <p class="section-desc">Dual-view operational cockpit: real-time crawler orchestration and granular asset audit vault.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.2 Dashboard Views</h2>
+          <h2 class="card-title">6.2 Dual-View Architecture</h2>
           <div class="doc-figure">
             <img src="assets/screenshots/webui_dashboard_overview.png" alt="scrAPE Command Center Overview showing Scrape Parameters, Stealth Telemetry, and Network Tree" class="doc-screenshot" loading="lazy">
-            <div class="doc-caption">FIGURE 6.1 // COMMAND CENTER COCKPIT OVERVIEW (REAL-TIME TELEMETRY, ACTIVE PROFILE PRESETS & DUAL-SPEED LIMITERS)</div>
+            <div class="doc-caption">FIGURE 6.1 // COMMAND CENTER COCKPIT OVERVIEW (REAL-TIME TELEMETRY, ACTIVE PROFILE PRESETS &amp; DUAL-SPEED LIMITERS)</div>
           </div>
 
-          <h3>Command Center View</h3>
-          <p>Provides parameter controls, job start/stop buttons, hardware load meters (CPU/RAM/Disk), preset slot
-            loaders (Slots 1-5), and live interactive HTML5 Canvas network tree displaying real-time crawl connections.
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">1. Command Center Cockpit</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The primary command view coordinates crawler launches, hardware load monitoring, and active graph visualization:
           </p>
+          <ul style="margin-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>5 Collapsible Configuration Accordions</strong>: Basic Crawl Parameters, Concurrency &amp; Rate Limits, Storage &amp; Export Formats, Stealth Anti-Bot Tiers, and Machine Learning Vision Options.</li>
+            <li><strong>Preset Slot Persistence (Slots 1&ndash;5)</strong>: Instant one-click saving and recall of complex flag matrices directly to host disk (<code>data/webui_presets.json</code>).</li>
+            <li><strong>Live Force-Directed Canvas Tree</strong>: HTML5 Canvas rendering dynamic crawler graph nodes (green = 200 OK yield, red = 403/429 challenge, yellow = queue pending) with logarithmic physics repulsion.</li>
+          </ul>
 
-          <div class="doc-figure">
+          <div class="doc-figure" style="margin-top: 1.5rem;">
             <img src="assets/screenshots/webui_scrape_parameters.png" alt="Scrape Parameters Form with collapsible configuration accordions" class="doc-screenshot" loading="lazy">
-            <div class="doc-caption">FIGURE 6.2 // SCRAPE PARAMETERS FORM WITH 5 COLLAPSIBLE CONFIGURATION ACCORDIONS & PRESET SLOTS</div>
+            <div class="doc-caption">FIGURE 6.2 // SCRAPE PARAMETERS FORM WITH 5 COLLAPSIBLE CONFIGURATION ACCORDIONS &amp; PRESET SLOTS</div>
           </div>
 
-          <h3>Media Vault View</h3>
-          <p>Browse scraped assets grouped recursively by domain. Delete unwanted files directly from disk via HTMX
-            endpoints, view high-res previews, or open containing output folders on local disk.</p>
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">2. Media Vault Stream Feed</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The Media Vault provides an operator audit interface for reviewing, filtering, and purging harvested visual assets:
+          </p>
+          <ul style="margin-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>Domain-Tree Partitioning</strong>: Assets grouped hierarchically by origin host with per-domain item counts and disk size gauges.</li>
+            <li><strong>Reactive HTMX Deletion</strong>: Unwanted or corrupted assets can be permanently purged from disk via <code>DELETE /api/media/{hash}</code> with instant optimistic DOM fadeout.</li>
+            <li><strong>Modal Asset Inspector</strong>: Displays full metadata sidecar, including physical dimensions, aspect ratio, SHA-256 hash, BK-Tree DCT pHash, and AI-predicted WD14 tag tokens.</li>
+          </ul>
 
-          <div class="doc-figure">
+          <div class="doc-figure" style="margin-top: 1.5rem;">
             <img src="assets/screenshots/webui_media_feed.png" alt="Media Vault Stream Feed displaying scraped image and video assets" class="doc-screenshot" loading="lazy">
-            <div class="doc-caption">FIGURE 6.3 // MEDIA VAULT STREAM FEED WITH LIVE ASSET COUNTER, MODAL PREVIEWS & FILTER RULES</div>
+            <div class="doc-caption">FIGURE 6.3 // MEDIA VAULT STREAM FEED WITH LIVE ASSET COUNTER, MODAL PREVIEWS &amp; FILTER RULES</div>
           </div>
         </div>
       </section>
@@ -2590,24 +3215,53 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
           <h1>Live Telemetry and SSE</h1>
-          <p class="section-desc">Server-Sent Events (SSE) streaming pipeline.</p>
+          <p class="section-desc">Server-Sent Events (SSE) streaming pipeline, Broadcaster PubSub queue, and canvas graph protocols.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.3 Real-Time Event Pipeline</h2>
-          <p>The WebUI uses an in-memory PubSub log broadcaster (<code>Broadcaster</code>) to stream log lines and
-            system metrics directly to the browser without polling:</p>
-          <ul>
-            <li><strong>Log Broadcaster</strong>: Decoupled queue multiplexer supporting concurrent browser listeners.
-            </li>
-            <li><strong>Context-Aware Telemetry Cards</strong>: Stat cards display global totals on Command Center and
-              automatically switch to subject-scoped totals on Media Vault view.</li>
-          </ul>
+          <h2 class="card-title">6.3 Real-Time Event Pipeline &amp; Broadcaster Mechanics</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The WebUI uses an asynchronous in-memory broadcast multiplexer (<code>Broadcaster</code> in <code>frontend/broadcaster.py</code>) to fan out live telemetry and crawler graph deltas to concurrent browser clients via Server-Sent Events (SSE):
+          </p>
 
-          <div class="doc-figure-grid">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>SSE Event Name</th>
+                  <th>Payload Data Schema</th>
+                  <th>Client DOM Target &amp; Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>event: log</code></td>
+                  <td><code>{"line": "[05:42:10] [INFO] [artstation.com] Discovered 12 links", "level": "INFO"}</code></td>
+                  <td>Appended to live terminal stream console; auto-scrolls if locked.</td>
+                </tr>
+                <tr>
+                  <td><code>event: telemetry</code></td>
+                  <td><code>{"pages": 84, "images": 210, "videos": 14, "rps": 3.8, "active_workers": 8}</code></td>
+                  <td>Updates Command Center HUD stat cards via morphdom swaps.</td>
+                </tr>
+                <tr>
+                  <td><code>event: network_node</code></td>
+                  <td><code>{"source": "https://a.com/page", "target": "https://a.com/img.jpg", "type": "image"}</code></td>
+                  <td>Draws real-time edge/node vectors into HTML5 Canvas live graph.</td>
+                </tr>
+                <tr>
+                  <td><code>event: waf_status</code></td>
+                  <td><code>{"domain": "cloudflare.com", "tier": 5, "status": "SOLVING_CHALLENGE"}</code></td>
+                  <td>Updates stealth escalation indicator and solver latency gauges.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="doc-figure-grid" style="margin-top: 1.5rem;">
             <div class="doc-figure">
               <img src="assets/screenshots/webui_stealth_telemetry.png" alt="Stealth Telemetry HUD with FlareSolverr and Camoufox indicators" class="doc-screenshot" loading="lazy">
-              <div class="doc-caption">FIGURE 6.4 // STEALTH TELEMETRY HUD (FLARESOLVERR DOCKER BINDINGS & ESCALATION MONITORS)</div>
+              <div class="doc-caption">FIGURE 6.4 // STEALTH TELEMETRY HUD (FLARESOLVERR DOCKER BINDINGS &amp; ESCALATION MONITORS)</div>
             </div>
             <div class="doc-figure">
               <img src="assets/screenshots/webui_network_tree.png" alt="HTML5 Canvas Network Tree displaying live crawler graph topology" class="doc-screenshot" loading="lazy">
@@ -2622,64 +3276,81 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
           <h1>Design Tokens</h1>
-          <p class="section-desc">Utilitarian Brutalism design system tokens.</p>
+          <p class="section-desc">Utilitarian Brutalism design system tokens, typography rules, and ASCII semiotics.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">6.4 Design Tokens Reference</h2>
+          <h2 class="card-title">6.4 Design Tokens Reference &amp; Brutalist Laws</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The WebUI interface adheres strictly to an unadorned, high-contrast Utilitarian Brutalist aesthetic engineered for maximum information density:
+          </p>
+
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Token</th>
                   <th>Value</th>
-                  <th>Usage</th>
+                  <th>Component Usage</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><code>--bg-base</code></td>
                   <td><code>#0b0d0c</code></td>
-                  <td>Primary viewport background.</td>
+                  <td>Primary viewport background; near-black slate.</td>
                 </tr>
                 <tr>
                   <td><code>--bg-surface</code></td>
                   <td><code>#141715</code></td>
-                  <td>Card and sidebar surface background.</td>
+                  <td>Card surfaces, sidebars, modal frames, and table bodies.</td>
                 </tr>
                 <tr>
                   <td><code>--bg-surface-elevated</code></td>
                   <td><code>#1a1e1c</code></td>
-                  <td>Elevated container background.</td>
+                  <td>Elevated dropdowns, active tabs, and input controls.</td>
                 </tr>
                 <tr>
                   <td><code>--accent</code></td>
                   <td><code>#ff5500</code></td>
-                  <td>Primary vibrant accent (amber/orange).</td>
+                  <td>Primary safety orange accent; active states, focus rings, primary CTA buttons.</td>
                 </tr>
                 <tr>
                   <td><code>--text-primary</code></td>
                   <td><code>#e0e0e0</code></td>
-                  <td>Primary body text.</td>
+                  <td>Primary high-contrast reading text.</td>
+                </tr>
+                <tr>
+                  <td><code>--text-muted</code></td>
+                  <td><code>#888888</code></td>
+                  <td>Metadata, secondary descriptions, timestamps, and column headers.</td>
+                </tr>
+                <tr>
+                  <td><code>--border-color</code></td>
+                  <td><code>#2a322d</code></td>
+                  <td>High-definition 1px boundary lines for card matrices and data grids.</td>
                 </tr>
                 <tr>
                   <td><code>--font-header</code></td>
                   <td><code>'Oswald', sans-serif</code></td>
-                  <td>Titles, stat card values, section tags.</td>
+                  <td>Titles, stat card values, section tags, navigation labels (uppercase, 700 weight).</td>
                 </tr>
                 <tr>
                   <td><code>--font-mono</code></td>
                   <td><code>'JetBrains Mono', monospace</code></td>
-                  <td>Body, code, forms, inputs, logs, buttons.</td>
-                </tr>
-                <tr>
-                  <td><code>Geometry Rule</code></td>
-                  <td><code>border-radius: 0 !important</code></td>
-                  <td>Strict 90&deg; square corners globally across all elements.</td>
+                  <td>Body text, tabular rows, code blocks, form inputs, logs, and button captions.</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">The 4 Core Brutalist Architectural Laws</h3>
+          <ol style="margin-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+            <li><strong>Zero Radii Globally</strong>: All containers, inputs, buttons, dialogs, badges, and canvas overlays must enforce <code>border-radius: 0 !important</code>. Rounded corners are strictly forbidden.</li>
+            <li><strong>Monospaced Precision</strong>: All data fields, statistics, metrics, and commands use fixed-width <code>JetBrains Mono</code> to maintain visual column alignment across varying numeric magnitudes.</li>
+            <li><strong>No Consumer Emojis</strong>: Status indicators must use structured ASCII tokens (e.g., <code>[OK]</code>, <code>[FAIL]</code>, <code>[QUARANTINE]</code>, <code>[CRITICAL]</code>) rather than consumer Unicode glyphs.</li>
+            <li><strong>Visible Grid Boundaries</strong>: Every structural component is framed by a 1px solid border (<code>var(--border-color)</code>) creating a tactile blueprint aesthetic.</li>
+          </ol>
         </div>
       </section>
 <!-- 6.5 Node Health Tactical Monitor -->
@@ -2851,21 +3522,69 @@ https://example.com/videos/example_subject</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
           <h1>Docker Compose</h1>
-          <p class="section-desc">Multi-container orchestration setup.</p>
+          <p class="section-desc">Multi-container microservice orchestration, network topology, and volume persistence contracts.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.1 Container Deployment</h2>
+          <h2 class="card-title">7.1 Multi-Container Cluster Architecture</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Production deployments encapsulate the crawler, stealth solver sidecars, and cluster state brokers into isolated Docker containers defined in <code>docker-compose.yml</code>:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Container Image</th>
+                  <th>Ports</th>
+                  <th>Internal Role &amp; Dependencies</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>scrape</code></td>
+                  <td>Local <code>Dockerfile</code> (Python 3.11-slim)</td>
+                  <td><code>127.0.0.1:10001:10001</code></td>
+                  <td>Hosts FastAPI WebUI, BFS Crawler Engine, HybridWorkerPool, and ML pipelines. Depends on <code>flaresolverr</code> and <code>redis</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>flaresolverr</code></td>
+                  <td><code>ghcr.io/flaresolverr/flaresolverr:latest</code></td>
+                  <td><code>127.0.0.1:8191:8191</code></td>
+                  <td>Sidecar Chromium browser solving Cloudflare Turnstile, IUAM challenges, and yielding clearance cookies.</td>
+                </tr>
+                <tr>
+                  <td><code>redis</code></td>
+                  <td><code>redis:7-alpine</code></td>
+                  <td><code>127.0.0.1:6379:6379</code></td>
+                  <td>Cluster task broker backing <code>RedisStreamTaskBroker</code>, distributed leasing locks, and worker heartbeats.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Volume Mounts &amp; State Persistence</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            Container filesystems are ephemeral; stateful artifacts are mapped directly to host volumes to guarantee zero data loss across container recreations:
+          </p>
           <div class="code-block-container">
             <div class="code-header">
-              <span>BASH // DOCKER COMPOSE LAUNCH</span>
+              <span>BASH // PRODUCTION ORCHESTRATION COMMANDS</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Start scraper engine + FlareSolverr sidecar
+            <pre># 1. Build and start the full microservice stack in detached mode
 docker-compose up -d --build
 
-# View container logs
-docker-compose logs -f scrape-engine</pre>
+# 2. View real-time aggregated container logs with timestamps
+docker-compose logs -f --tail=100 scrape
+
+# 3. Execute headless crawl run inside running scrape container
+docker-compose exec scrape python src/cli/main.py --keyword "mecha" \
+  --seed seeds/mecha.txt --download-media --enable-cas --export-parquet
+
+# 4. Gracefully terminate stack while preserving Redis volume data
+docker-compose down</pre>
           </div>
         </div>
       </section>
@@ -2879,21 +3598,64 @@ docker-compose logs -f scrape-engine</pre>
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.2 Continuous Monitoring Loop</h2>
-          <p>The Watchdog Agent executes automated scrape passes on a configurable interval (default: 60s), maintaining
-            a 7-day TTL SQLite state cache (<code>output/cache/state_cache.db</code>) to skip previously fetched URLs
-            and send Telegram status summaries.</p>
+          <h2 class="card-title">7.2 Continuous Monitoring Loop & SQLite State Engine</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The Watchdog Agent (<code>src/cli/monitor_agent.py</code>) executes autonomous daemonized monitoring passes over configured target seeds, computing delta additions against a persistent SQLite cache without re-downloading unchanged content:
+          </p>
 
           <div class="code-block-container">
             <div class="code-header">
-              <span>POWERSHELL // WATCHDOG AGENT COMMAND</span>
+              <span>POWERSHELL // WATCHDOG AGENT EXECUTION EXAMPLES</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Run Watchdog Agent via launcher wrapper
-.\run_monitor.bat --keyword "example_subject" --use-state-cache
+            <pre># Continuous monitoring with 120s base interval, state cache, and headless daemon loop
+python src/cli/monitor_agent.py --keyword "mech_concept" \
+  --seed seeds/mech_concept.txt --use-state-cache \
+  --interval 120 --adaptive-backoff --max-cycles 0
 
-# Run direct CLI script
-python src/cli/monitor_agent.py --keyword "example_subject" --seed seeds/example_subject.txt --use-state-cache</pre>
+# Single scheduled pass (useful for cron / Windows Task Scheduler)
+python src/cli/monitor_agent.py --keyword "mech_concept" \
+  --seed seeds/mech_concept.txt --use-state-cache --max-cycles 1</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">SQLite State Cache Schema (output/cache/state_cache.db)</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The state cache operates in SQLite WAL (Write-Ahead Logging) mode, enabling high-concurrency read/write transactions between crawler threads and the monitor agent:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>SQL // STATE CACHE DDL & TTL PRUNING QUERY</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>CREATE TABLE IF NOT EXISTS visited_urls (
+    url_hash        TEXT PRIMARY KEY,  -- SHA-256 of canonical normalized URL
+    url             TEXT NOT NULL,
+    domain          TEXT NOT NULL,
+    first_seen      INTEGER NOT NULL,  -- Unix epoch timestamp
+    last_seen       INTEGER NOT NULL,
+    fetch_count     INTEGER DEFAULT 1,
+    status_code     INTEGER DEFAULT 200
+);
+
+CREATE INDEX IF NOT EXISTS idx_domain_last_seen ON visited_urls (domain, last_seen);
+
+-- 7-Day TTL Pruning Query executed automatically at cycle start:
+DELETE FROM visited_urls WHERE last_seen &lt; (strftime('%s', 'now') - 604800);</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Adaptive Backoff Algorithm</h3>
+          <p class="text-secondary">
+            When target domains yield zero newly discovered media assets on successive passes, the monitor agent activates exponential backoff to preserve server politeness and client network resources:
+          </p>
+          <div class="code-block-container" style="margin-top: 0.75rem;">
+            <div class="code-header">
+              <span>TEXT // ADAPTIVE BACKOFF FORMULA</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>Cycle Interval:
+  - If NewItemsCount == 0: Interval = min(Interval * 1.5, MaxInterval [default: 1800s])
+  - If NewItemsCount &gt; 0:  Interval = BaseInterval [default: 60s] (Instant Reset)
+  - On WAF Block / 429:    Force quarantine cooldown delay (300s) before retry</pre>
           </div>
         </div>
       </section>
@@ -2903,43 +3665,92 @@ python src/cli/monitor_agent.py --keyword "example_subject" --seed seeds/example
         <div class="section-header">
           <div class="section-tag">MODULE [07] // DEPLOYMENT AND OPERATIONS</div>
           <h1>Notification Pipeline</h1>
-          <p class="section-desc">Pluggable notification channels (Telegram, Discord, Slack, Webhooks).</p>
+          <p class="section-desc">Pluggable multi-channel event pipeline, webhook formats, and Telegram interactive command handlers.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.3 Multi-Channel Alerts</h2>
-          <p>Notifications are dispatched asynchronously across all configured providers when runs complete, harvest
-            milestones are hit, or WAF blocks occur:</p>
+          <h2 class="card-title">7.3 Multi-Channel Operational Alerts</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            <code>NotificationPipeline</code> (<code>src/notifications/notification_manager.py</code>) dispatches non-blocking asynchronous alerts across all configured channels upon critical engine lifecycle events:
+          </p>
 
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Channel</th>
-                  <th>Required Credentials (.env)</th>
-                  <th>Payload Type</th>
+                  <th>Event Trigger</th>
+                  <th>Payload Fields</th>
+                  <th>Operational Rationale</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>Telegram Bot</td>
-                  <td><code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_CHAT_ID</code></td>
-                  <td>HTML formatted text + inline command handler.</td>
+                  <td><code>notify_run_start</code></td>
+                  <td><code>keyword</code>, <code>seed_count</code>, <code>workers</code>, <code>page_limit</code>, <code>crawl_depth</code></td>
+                  <td>Informs operators of run launch parameters and target domain scopes.</td>
                 </tr>
                 <tr>
-                  <td>Discord Webhook</td>
-                  <td><code>DISCORD_WEBHOOK_URL</code></td>
-                  <td>Rich embedded card layout.</td>
+                  <td><code>notify_run_complete</code></td>
+                  <td><code>keyword</code>, <code>pages</code>, <code>images</code>, <code>videos</code>, <code>duration_s</code>, <code>grade</code></td>
+                  <td>Provides harvest yield statistics, throughput metrics, and audit grade summary.</td>
                 </tr>
                 <tr>
-                  <td>Slack Webhook</td>
-                  <td><code>SLACK_WEBHOOK_URL</code></td>
-                  <td>Block Kit message layout.</td>
+                  <td><code>notify_waf_block</code></td>
+                  <td><code>domain</code>, <code>cooldown_s</code>, <code>strategy_name</code></td>
+                  <td>Alerts operators immediately when anti-bot challenges trigger proxy quarantine.</td>
                 </tr>
                 <tr>
-                  <td>Custom Webhook</td>
-                  <td><code>CUSTOM_WEBHOOK_URL</code></td>
-                  <td>JSON POST payload with run metrics.</td>
+                  <td><code>notify_milestone</code></td>
+                  <td><code>keyword</code>, <code>count</code>, <code>milestone_target</code></td>
+                  <td>Progress heartbeats dispatched when crossing 50, 100, 500, or 1000 downloaded assets.</td>
+                </tr>
+                <tr>
+                  <td><code>notify_error</code></td>
+                  <td><code>message</code>, <code>error_details</code>, <code>traceback_summary</code></td>
+                  <td>Fatal alert dispatched on unhandled exceptions or filesystem full events.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Telegram Interactive Remote Cockpit</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            The Telegram Bot (<code>src/notifications/telegram_bot.py</code>) features an interactive polling command loop, enabling operators to control the scraper remotely via secure chat:
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Command</th>
+                  <th>Action</th>
+                  <th>Returned Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/status</code></td>
+                  <td>Query active crawler telemetry</td>
+                  <td>Current domain, active worker threads, memory usage, and pages scanned.</td>
+                </tr>
+                <tr>
+                  <td><code>/pause</code></td>
+                  <td>Park crawler worker pool</td>
+                  <td>Halts BFS queue consumption while holding socket pools open.</td>
+                </tr>
+                <tr>
+                  <td><code>/resume</code></td>
+                  <td>Unpark crawler worker pool</td>
+                  <td>Resumes queue processing without restart overhead.</td>
+                </tr>
+                <tr>
+                  <td><code>/stats</code></td>
+                  <td>Generate live yield report</td>
+                  <td>Total images/videos downloaded, duplicates rejected, and current RPS.</td>
+                </tr>
+                <tr>
+                  <td><code>/stop</code></td>
+                  <td>Graceful shutdown trigger</td>
+                  <td>Flushes write queues, writes <code>results.json</code>, and exits cleanly.</td>
                 </tr>
               </tbody>
             </table>
@@ -2956,15 +3767,49 @@ python src/cli/monitor_agent.py --keyword "example_subject" --seed seeds/example
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.4 Proxy Manager Strategy</h2>
-          <p>The proxy manager (<code>src/network/proxy_manager.py</code>) handles IP rotation with automated latency
-            tracking:</p>
-          <ul>
-            <li><strong>Auto-Quarantine</strong>: Proxies emitting 3 consecutive errors or latency &gt;5000ms are
-              quarantined for 10 minutes.</li>
-            <li><strong>Bandwidth Quotas</strong>: Stops proxy usage when <code>PROXY_MAX_BANDWIDTH_MB</code> quota is
-              reached.</li>
-          </ul>
+          <h2 class="card-title">7.4 Proxy Manager Strategy & Quarantine Mechanics</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The proxy manager (<code>src/network/proxy_manager.py</code>) routes outbound requests across pools of HTTP, HTTPS, SOCKS4, and SOCKS5 proxies while dynamically monitoring endpoint health:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Health Criterion</th>
+                  <th>Routing Policy</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>ACTIVE</code></td>
+                  <td>Latency &le; 2500ms; consecutive error count = 0.</td>
+                  <td>Selected via round-robin or lowest EMA latency algorithm.</td>
+                </tr>
+                <tr>
+                  <td><code>DEGRADED</code></td>
+                  <td>2500ms &lt; Latency &le; 5000ms, or 1&ndash;2 connection timeouts.</td>
+                  <td>Deprioritized; probed with lightweight health check requests.</td>
+                </tr>
+                <tr>
+                  <td><code>QUARANTINED</code></td>
+                  <td>&ge; 3 consecutive failures, HTTP 403, or latency &gt; 5000ms.</td>
+                  <td>Ejected from active rotation for 10 minutes (exponential to 60m).</td>
+                </tr>
+                <tr>
+                  <td><code>EXHAUSTED</code></td>
+                  <td>Proxy cumulative bandwidth exceeds <code>PROXY_MAX_BANDWIDTH_MB</code>.</td>
+                  <td>Permanently halted until manual operator quota reset.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">TLS Impersonation Over Proxy Tunnels</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            When proxying curl_cffi or Camoufox stealth traffic, the system tunnels via HTTP CONNECT. This preserves end-to-end TLS fingerprinting (JA3/JA4, HTTP/2 SETTINGS frames, ALPN negotiation) through the proxy server to the target origin, ensuring anti-bot detectors see genuine browser signatures.
+          </p>
         </div>
       </section>
 
@@ -2977,18 +3822,29 @@ python src/cli/monitor_agent.py --keyword "example_subject" --seed seeds/example
         </div>
 
         <div class="card">
-          <h2 class="card-title">7.5 Session Storage</h2>
+          <h2 class="card-title">7.5 Session Storage & Cloudflare Clearance</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Session state is isolated on a per-domain basis in <code>src/network/session_pool.py</code> to prevent authentication leakage or cross-origin session poisoning:
+          </p>
+
           <div class="code-block-container">
             <div class="code-header">
               <span>BASH // SESSION LOGIN COMMANDS</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Capture cookies via interactive browser window
+            <pre># 1. Capture cookies interactively via headful browser window
 python src/cli/main.py --login example.com
 
-# Inject Netscape cookies file
-python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
+# 2. Inject exported Netscape/JSON cookies file into domain session store
+python src/cli/main.py --inject-cookies cookies.txt --domain example.com
+
+# 3. Cookies stored securely at: .cookies/{domain_hash}.json</pre>
           </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Cloudflare Clearance Extraction & Propagation</h3>
+          <p class="text-secondary">
+            When Tier 5 (FlareSolverr) or Tier 7 (Camoufox) successfully solves a Cloudflare Turnstile challenge, the clearance cookies (<code>cf_clearance</code>, <code>__cf_bm</code>) and user-agent strings are captured from the browser context and injected into the fast-path HTTPX/curl_cffi session pool. Subsequent requests for that domain continue on Tier 1&ndash;2 with sub-50ms latency until clearance expiry (typically 2&ndash;24 hours).
+          </p>
         </div>
       </section>
 
@@ -3001,24 +3857,46 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
           <h1>Output Directory Structure</h1>
-          <p class="section-desc">Run output artifacts layout.</p>
+          <p class="section-desc">Complete disk layout of run artifacts, global CAS store, SQLite state caches, and ML exports.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">8.1 Artifact Organization</h2>
+          <h2 class="card-title">8.1 Artifact Organization &amp; Storage Topology</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            scrAPE separates persistent global indexes from subject-scoped run outputs. Media items are stored either as direct filesystem hierarchies or as deduplicated hardlinks pointing into the global CAS store:
+          </p>
+
           <div class="code-block-container">
             <div class="code-header">
-              <span>TEXT // OUTPUT DIRECTORY LAYOUT</span>
+              <span>TEXT // PRODUCTION DISK ARTIFACT TOPOLOGY</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre>output/{subject}/runs/{run_id}/
-├── results.json             -- Full result payload (images, videos, rejected, domain stats)
-├── domain_report.json       -- Per-domain pages scanned and media yield
-├── images.csv / videos.csv  -- Flat exports (if --output both used)
-├── images/                  -- Downloaded images grouped by domain
-│   └── {domain}/
-└── videos/                  -- Downloaded videos grouped by domain
-    └── {domain}/</pre>
+            <pre>output/
+├── cache/
+│   └── state_cache.db           -- SQLite WAL state cache (visited URL hashes, crawl counts, 7-day TTL)
+├── .storage/
+│   └── cas/                     -- Global Content-Addressable Storage (SHA-256 2-level fanout)
+│       └── e3/
+│           └── b0/
+│               └── e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+└── {subject}/
+    └── runs/
+        └── {run_id}/
+            ├── results.json             -- Authoritative ScrapeResult payload (all media, scores, errors)
+            ├── domain_report.json       -- Host-by-host yield metrics, WAF challenge telemetry &amp; RPS
+            ├── run_summary.json         -- High-level operational grade, duration, yield efficiency
+            ├── images.parquet           -- Columnar Apache Parquet dataset (Snappy compressed, PyArrow)
+            ├── videos.parquet           -- Columnar video stream metadata and duration metrics
+            ├── rag_payload.jsonl        -- Chunked Markdown documents with metadata for vector embeddings
+            ├── lora_dataset.zip         -- Kohya_ss LoRA dataset zip with WD14 sidecar text captions
+            ├── images.csv / videos.csv  -- Flat tabular CSV exports (when --output both is active)
+            ├── images/                  -- Downloaded images partitioned by host (hardlinked to CAS)
+            │   └── {domain}/
+            │       ├── image_001.webp
+            │       └── image_001.txt    -- WD14 tagger sidecar caption file
+            └── videos/                  -- Downloaded videos partitioned by host
+                └── {domain}/
+                    └── clip_001.mp4</pre>
           </div>
         </div>
       </section>
@@ -3028,60 +3906,142 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
           <h1>manifest.json Schema</h1>
-          <p class="section-desc">Complete results JSON schema documentation.</p>
+          <p class="section-desc">Authoritative ScrapeResult and ImageItem schema contract, typing, and sample payload.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">8.2 JSON Payload Fields</h2>
+          <h2 class="card-title">8.2 ScrapeResult JSON Contract (results.json)</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            <code>results.json</code> records the full execution trace and extraction inventory of a crawl run. The root object serializes the <code>ScrapeResult</code> dataclass (<code>src/core/models.py</code>):
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSON // SCRAPERESULT SAMPLE PAYLOAD</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{
+  "keyword": "cybernetic_mecha",
+  "run_id": "20261014T054522Z",
+  "duration_seconds": 184.62,
+  "page_count": 86,
+  "scanned_pages": [
+    "https://example.com/artworks/mecha-alpha",
+    "https://example.com/artworks/mecha-beta"
+  ],
+  "run_metadata": {
+    "engine_version": "0.30.1",
+    "cas_enabled": true,
+    "parquet_enabled": true,
+    "vlm_healing_invocations": 2
+  },
+  "domain_stats": {
+    "example.com": {
+      "pages_scanned": 42,
+      "images_found": 118,
+      "videos_found": 4,
+      "status_code_200": 42
+    }
+  },
+  "download_stats": {
+    "attempted": 122,
+    "succeeded": 114,
+    "duplicates_pruned": 8,
+    "failed": 0
+  },
+  "images": [
+    {
+      "url": "https://cdn.example.com/images/full/mecha_01.png",
+      "source_page": "https://example.com/artworks/mecha-alpha",
+      "original_url": "https://example.com/artworks/mecha-alpha",
+      "alt_text": "Cybernetic mechanical humanoid front view",
+      "page_title": "Mecha Alpha Artwork",
+      "mime_type": "image/png",
+      "width": 3840,
+      "height": 2160,
+      "file_size_bytes": 4829104,
+      "score": 14,
+      "status": "downloaded",
+      "file_path": "output/cybernetic_mecha/runs/20261014T054522Z/images/example.com/mecha_01.png",
+      "hash": "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+      "source_domain": "example.com",
+      "aesthetic_score": 7.82,
+      "tags": ["mecha", "science fiction", "robot", "cybernetic", "weapon"],
+      "crop_box": { "x": 420, "y": 180, "width": 2160, "height": 2160 }
+    }
+  ],
+  "rejected_items": [
+    {
+      "kind": "image",
+      "url": "https://cdn.example.com/icons/pixel.gif",
+      "source_page": "https://example.com/artworks/mecha-alpha",
+      "reason": "dimension_below_threshold: 1x1",
+      "score": -10
+    }
+  ]
+}</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">ImageItem &amp; VideoItem Dataclass Fields</h3>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
                   <th>Field</th>
                   <th>Type</th>
-                  <th>Description</th>
+                  <th>Data Contract &amp; Description</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><code>keyword</code></td>
-                  <td>string</td>
-                  <td>Target search keyword or subject slug.</td>
+                  <td><code>url</code></td>
+                  <td><code>str</code></td>
+                  <td>Resolved canonical download target URL after high-res transforms.</td>
                 </tr>
                 <tr>
-                  <td><code>run_id</code></td>
-                  <td>string</td>
-                  <td>Unique timestamp run identifier.</td>
+                  <td><code>source_page</code></td>
+                  <td><code>str</code></td>
+                  <td>Origin page URL where the media element was discovered.</td>
                 </tr>
                 <tr>
-                  <td><code>duration_seconds</code></td>
-                  <td>float</td>
-                  <td>Total execution wall-clock time in seconds.</td>
+                  <td><code>score</code></td>
+                  <td><code>int</code></td>
+                  <td>Calculated additive relevance score (from <code>src/core/filters.py</code>).</td>
                 </tr>
                 <tr>
-                  <td><code>page_count</code></td>
-                  <td>int</td>
-                  <td>Total web pages scanned during crawl.</td>
+                  <td><code>width</code> / <code>height</code></td>
+                  <td><code>int | None</code></td>
+                  <td>Exact physical dimensions validated by <code>Pillow.Image.verify()</code>.</td>
                 </tr>
                 <tr>
-                  <td><code>images</code></td>
-                  <td>list[dict]</td>
-                  <td>Kept image media items with dimensions, score, and disk path.</td>
+                  <td><code>file_size_bytes</code></td>
+                  <td><code>int | None</code></td>
+                  <td>Physical file size on disk in raw bytes.</td>
                 </tr>
                 <tr>
-                  <td><code>videos</code></td>
-                  <td>list[dict]</td>
-                  <td>Kept video media items with resolution hints and disk path.</td>
+                  <td><code>status</code></td>
+                  <td><code>str</code></td>
+                  <td>Download lifecycle state: <code>pending</code>, <code>downloaded</code>, <code>failed</code>, <code>skipped</code>.</td>
                 </tr>
                 <tr>
-                  <td><code>rejected_items</code></td>
-                  <td>list[dict]</td>
-                  <td>Filtered items with rejection reasons and score details.</td>
+                  <td><code>hash</code></td>
+                  <td><code>str</code></td>
+                  <td>SHA-256 digest of media bytes for CAS addressing and deduplication.</td>
                 </tr>
                 <tr>
-                  <td><code>domain_stats</code></td>
-                  <td>dict</td>
-                  <td>Per-domain breakdown (pages hit, images found, videos found).</td>
+                  <td><code>aesthetic_score</code></td>
+                  <td><code>float | None</code></td>
+                  <td>Normalized quality score [0.0 - 10.0] computed by aesthetic ViT scorer.</td>
+                </tr>
+                <tr>
+                  <td><code>tags</code></td>
+                  <td><code>list[str]</code></td>
+                  <td>AI-generated descriptive tag tokens from WD14 vision classifier.</td>
+                </tr>
+                <tr>
+                  <td><code>crop_box</code></td>
+                  <td><code>dict | None</code></td>
+                  <td>Smart crop coordinates <code>{"x", "y", "width", "height"}</code> centered on primary subject.</td>
                 </tr>
               </tbody>
             </table>
@@ -3094,13 +4054,80 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
           <h1>domain_report.json Schema</h1>
-          <p class="section-desc">Per-domain crawl metrics report.</p>
+          <p class="section-desc">Host-by-host yield metrics, WAF challenge telemetry, and conversion efficiency reports.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">8.3 Per-Domain Yield Report</h2>
-          <p>Provides per-host yield analysis including pages scanned, images kept, videos kept, rejected items, and 429
-            error counts.</p>
+          <h2 class="card-title">8.3 Per-Domain Yield & Operational Telemetry</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            At the conclusion of each crawl run, the coordinator compiles <code>domain_report.json</code> in the run directory. This report provides granular diagnostic metrics for each target domain, allowing operators to detect blocked hosts, evaluate domain efficiency, and tune rate limits:
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSON // DOMAIN REPORT SAMPLE PAYLOAD</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{
+  "run_id": "20261014_120000",
+  "generated_at": "2026-10-14T12:15:32Z",
+  "total_domains": 3,
+  "domains": {
+    "artstation.com": {
+      "pages_crawled": 45,
+      "pages_failed": 0,
+      "images_extracted": 320,
+      "images_kept": 285,
+      "images_rejected": 35,
+      "videos_extracted": 0,
+      "videos_kept": 0,
+      "http_429_count": 0,
+      "waf_escalations": { "tier_1": 40, "tier_2": 5, "tier_5": 0 },
+      "average_latency_ms": 142.6,
+      "yield_per_page": 6.33
+    },
+    "danbooru.donmai.us": {
+      "pages_crawled": 20,
+      "pages_failed": 1,
+      "images_extracted": 180,
+      "images_kept": 172,
+      "images_rejected": 8,
+      "videos_extracted": 2,
+      "videos_kept": 2,
+      "http_429_count": 2,
+      "waf_escalations": { "tier_1": 0, "tier_5": 19, "tier_7": 1 },
+      "average_latency_ms": 1850.2,
+      "yield_per_page": 8.70
+    }
+  }
+}</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Diagnostic Metric Definitions</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field Metric</th>
+                  <th>Diagnostic Meaning & Operator Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>yield_per_page</code></td>
+                  <td>Ratio of kept media assets to pages crawled. If &lt; 0.5, domain is returning high chrome/navigation overhead; adjust seed URL to gallery index or reduce depth.</td>
+                </tr>
+                <tr>
+                  <td><code>http_429_count</code></td>
+                  <td>Count of rate-limit rejections received. If &gt; 0, decrease requests/second in <code>data/domain_config.json</code> under <code>rate_limits</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>waf_escalations</code></td>
+                  <td>Distribution of bypass tiers required to fetch pages. Identifies Cloudflare Turnstile or DataDome challenge loops.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -3109,13 +4136,58 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
           <h1>Kohya LoRA Dataset Export</h1>
-          <p class="section-desc">Kohya_ss LoRA dataset ZIP archive generation.</p>
+          <p class="section-desc">Standardized LoRA training archives with automated caption pairs, repeat directories, and trigger tokens.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">8.4 LoRA Dataset Generator</h2>
-          <p>Generates ZIP archives formatted for Kohya_ss LoRA training (<code>src/ml/dataset_exporter.py</code>),
-            complete with trigger tag prefixes and sidecar <code>.txt</code> caption files.</p>
+          <h2 class="card-title">8.4 Kohya_ss Dataset Architecture</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Exported via <code>--export-kohya</code> or the WebUI Dataset Studio, <code>DatasetExporter</code> (<code>src/ml/dataset_exporter.py</code>) generates ZIP archives formatted strictly for Kohya_ss, OneTrainer, and ComfyUI LoRA training pipelines:
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>TEXT // KOHYA_SS DIRECTORY REPEAT STRUCTURE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>kohya_dataset_{subject}.zip
+└── 10_cyber_mech mecha/             -- Format: {repeats}_{trigger_phrase} {class_token}
+    ├── 0001.jpg
+    ├── 0001.txt                    -- Caption: "cyber_mech, mecha, robot, glowing visor, highres"
+    ├── 0002.jpg
+    ├── 0002.txt                    -- Caption: "cyber_mech, mecha, science fiction, armor plating"
+    └── ...</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Caption Generation & Tag Filtering Contract</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Processing Stage</th>
+                  <th>Configuration Parameter</th>
+                  <th>Standard Specification</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Trigger Phrase Injection</strong></td>
+                  <td><code>--kohya-trigger &lt;token&gt;</code></td>
+                  <td>Prepended as the primary activating token in every paired <code>.txt</code> file.</td>
+                </tr>
+                <tr>
+                  <td><strong>WD14 Auto-Tagging</strong></td>
+                  <td><code>--tagger-threshold 0.35</code></td>
+                  <td>Retains Danbooru-style tags meeting confidence threshold; excludes undesirable quality tags.</td>
+                </tr>
+                <tr>
+                  <td><strong>Resolution Bucketing</strong></td>
+                  <td>Kohya Aspect Ratio Bucket</td>
+                  <td>Preserves native pixel dimensions without stretch, compatible with Kohya multi-aspect training.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -3124,19 +4196,45 @@ python src/cli/main.py --inject-cookies cookies.txt --domain example.com</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [08] // OUTPUT AND EXPORTS</div>
           <h1>RAG Ingestion Formats</h1>
-          <p class="section-desc">LLM RAG exports (Markdown chunks and JSONL embeddings).</p>
+          <p class="section-desc">Chunked Markdown, YAML frontmatter, and line-delimited JSONL payloads for LLM vector indexing.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">8.5 RAG Export Options</h2>
-          <p>The interactive wizard exports scraped data for vector indexing:</p>
-          <ul>
-            <li><strong>Single Consolidated Markdown</strong>: Entire run context in one <code>.md</code> document.</li>
-            <li><strong>Chunked Page-Level Markdown</strong>: Individual page <code>.md</code> files with metadata
-              headers.</li>
-            <li><strong>JSONL Embeddings Format</strong>: Line-delimited JSON objects formatted for vector store
-              splitters.</li>
-          </ul>
+          <h2 class="card-title">8.5 Retrieval-Augmented Generation (RAG) Payloads</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            When scraping documentation portals, wikis, or product catalogs, scrAPE structures extracted text and media metadata into formats ready for vector store ingest (ChromaDB, Pinecone, Qdrant, Milvus):
+          </p>
+
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>JSONL // VECTOR STORE EMBEDDINGS CONTRACT (rag_embeddings.jsonl)</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>{"id":"chunk_001","source_url":"https://example.com/docs/api","title":"API Overview","content":"scrAPE provides an 8-tier WAF fallback pipeline...","metadata":{"subject":"api_docs","crawl_depth":1,"timestamp":1773500000,"image_count":2}}
+{"id":"chunk_002","source_url":"https://example.com/docs/cli","title":"CLI Reference","content":"Complete command line parameters and flag matrix...","metadata":{"subject":"api_docs","crawl_depth":2,"timestamp":1773500005,"image_count":5}}</pre>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Chunked Markdown With Frontmatter</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            Generates individual page documents with YAML metadata headers, consumable directly by LangChain <code>DirectoryLoader</code> and LlamaIndex:
+          </p>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>MARKDOWN // PAGE-LEVEL DOCUMENT STRUCTURE</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre>---
+source: https://example.com/gallery/post/1042
+subject: cybernetic_mech
+date_scraped: 2026-10-14T12:00:00Z
+images_associated:
+  - 001_full.jpg (SHA256: e3b0c442...)
+---
+
+# Post Title: Advanced Cybernetic Mecha Concept
+
+Article body content extracted from the DOM with clean semantic headings...</pre>
+          </div>
         </div>
       </section>
 <!-- 8.6 Content-Addressable Storage (CAS) -->
@@ -3276,18 +4374,89 @@ print(f"Exported dataset: {dataset_path}")  # output/datasets/crawl_dataset.parq
         <div class="section-header">
           <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
           <h1>Running pytest</h1>
-          <p class="section-desc">Executing the automated test suite.</p>
+          <p class="section-desc">Executing the automated test suite, hermetic socket sandboxing, and subsystem test layouts.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">9.1 Automated Pytest Suite</h2>
+          <h2 class="card-title">9.1 Automated Pytest Matrix &amp; Directory Architecture</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            The scrAPE automated test matrix comprises over <strong>960+ collected tests</strong> across unit, functional, and integration domains. All test fixtures maintain strict process-tree hygiene and socket hermeticity:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Test Directory</th>
+                  <th>Subsystem Focus</th>
+                  <th>Primary Target Modules</th>
+                  <th>Test Scope &amp; Guarantees</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>tests/core/</code></td>
+                  <td>Core Crawl Engine &amp; Flow</td>
+                  <td><code>engine.py</code>, <code>coordinator.py</code>, <code>governor.py</code>, <code>priority_queue.py</code></td>
+                  <td>BFS traversal logic, canary single-flight locks, additive scoring, queue state transitions.</td>
+                </tr>
+                <tr>
+                  <td><code>tests/network/</code></td>
+                  <td>Network &amp; Stealth WAF</td>
+                  <td><code>http_client.py</code>, <code>proxy_manager.py</code>, <code>session_pool.py</code>, <code>stealth/</code></td>
+                  <td>HTTP connection limits, 8-Tier fallback pipeline, TLS impersonation, cookie isolation.</td>
+                </tr>
+                <tr>
+                  <td><code>tests/storage/</code></td>
+                  <td>Storage, CAS &amp; Dedup</td>
+                  <td><code>downloader/</code>, <code>cas_store.py</code>, <code>cas_sync.py</code>, <code>parquet_exporter.py</code></td>
+                  <td>Direct byte streaming, zero-recompression verification, BKTree Hamming distance, atomic tempfiles.</td>
+                </tr>
+                <tr>
+                  <td><code>tests/ml/</code></td>
+                  <td>Vision &amp; Dataset Ops</td>
+                  <td><code>hardware.py</code>, <code>dataset_tagger.py</code>, <code>aesthetic_scorer.py</code>, <code>rag_exporter.py</code></td>
+                  <td>Execution provider probing (CUDA/DirectML), WD14 tag generation, face cropping, RAG JSONL chunks.</td>
+                </tr>
+                <tr>
+                  <td><code>tests/security/</code></td>
+                  <td>Security &amp; Threat Model</td>
+                  <td><code>path_traversal.py</code>, <code>ssrf_sandbox.py</code>, <code>threat_fixtures.py</code></td>
+                  <td>STRIDE validation, lease hijack prevention, CAS symlink traversal, VLM prompt injection guards.</td>
+                </tr>
+                <tr>
+                  <td><code>tests/cli/</code> &amp; <code>frontend/</code></td>
+                  <td>Operator Cockpit &amp; WebUI</td>
+                  <td><code>launcher.py</code>, <code>cli_wizard.py</code>, <code>app.py</code>, <code>routers/</code></td>
+                  <td>Wizard prompts, CLI flag precedence, FastAPI security headers, HTMX SSE telemetry pipelines.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">Targeted Test Execution Recipes</h3>
           <div class="code-block-container">
             <div class="code-header">
-              <span>POWERSHELL // RUN FULL TEST SUITE</span>
+              <span>POWERSHELL // PYTEST EXECUTION RECIPES</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Run all 378+ unit and integration tests
-pytest tests/ -v</pre>
+            <pre># 1. Run all 960+ automated unit, integration, and security tests
+pytest tests/ -v
+
+# 2. Run fast core and storage tests (skips slow headless browser fixtures)
+pytest tests/core/ tests/storage/ -v
+
+# 3. Run security threat model verification suite (STRIDE AC1.1 - AC3.6)
+pytest tests/security/ -v
+
+# 4. Run tests with hermetic socket sandboxing (asserts zero external network calls)
+pytest tests/ --disable-socket --allow-unix-socket -v
+
+# 5. Targeted execution of a single critical module with live stdout logging
+pytest tests/core/test_governor.py -k "test_canary_single_flight" -s -vv
+
+# 6. Generate branch coverage audit report with missing line breakdown
+pytest --cov=src --cov-report=term-missing --cov-fail-under=85</pre>
           </div>
         </div>
       </section>
@@ -3297,15 +4466,88 @@ pytest tests/ -v</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
           <h1>Verification Protocol (TDAI)</h1>
-          <p class="section-desc">Test-Driven AI verification rules and RED-GREEN-REFACTOR protocol.</p>
+          <p class="section-desc">Test-Driven AI verification rules, RED-GREEN-REFACTOR cycle, and architectural invariants.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">9.2 Empirical Verification Protocol</h2>
+          <h2 class="card-title">9.2 Empirical Verification Protocol (TDAI)</h2>
           <div class="alert important">
-            <div class="alert-title">[!] MANDATORY RULE</div>
-            Never declare a feature or fix complete without running empirical runtime verification commands and
-            demonstrating clean test passes.
+            <div class="alert-title">[!] MANDATORY ARCHITECTURAL RULE</div>
+            Never declare a feature, patch, or refactor complete without executing empirical runtime verification commands and demonstrating clean test passes. Speculative or unverified changes are strictly prohibited.
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">The 3-Phase TDAI Lifecycle</h3>
+          <p class="text-secondary" style="margin-bottom: 1rem;">
+            All modifications to core engine logic, anti-bot mitigations, or data pipelines follow a rigid empirical verification cycle:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Phase</th>
+                  <th>Action</th>
+                  <th>Verification Requirement</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Phase 1: RED</strong></td>
+                  <td>Isolate edge-case failure or requirement</td>
+                  <td>Author a dedicated unit test under <code>tests/</code> reproducing the defect. Execute pytest and confirm the test fails with the expected assertion error.</td>
+                </tr>
+                <tr>
+                  <td><strong>Phase 2: GREEN</strong></td>
+                  <td>Implement minimal idiomatic solution</td>
+                  <td>Write the shortest working code change satisfying the failing test. Adhere strictly to YAGNI: no speculative boilerplate or unrequested abstractions. Execute pytest and confirm test passes.</td>
+                </tr>
+                <tr>
+                  <td><strong>Phase 3: REFACTOR</strong></td>
+                  <td>Invariant check &amp; regression audit</td>
+                  <td>Run the entire test suite (<code>pytest tests/ -v</code>) and linter (<code>ruff check .</code>) to verify that zero regressions were introduced into adjacent subsystems.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">The 5 Core Engineering Invariants</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invariant</th>
+                  <th>Core Mandate</th>
+                  <th>Rationale</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>1. Empirical Evidence First</strong></td>
+                  <td>Inspect raw logs and tracebacks before forming hypotheses.</td>
+                  <td>Eliminates hallucinated bugs and superficial symptom patching.</td>
+                </tr>
+                <tr>
+                  <td><strong>2. Config Over Source</strong></td>
+                  <td>Domain rules, normalizations, and seeds live strictly in <code>data/*.json</code> and <code>seeds/*.txt</code>.</td>
+                  <td>Prevents code churn; keeps engine code domain-agnostic and clean.</td>
+                </tr>
+                <tr>
+                  <td><strong>3. Zero-Recompression Streaming</strong></td>
+                  <td>Downloader streams raw bytes and validates via <code>img.verify()</code> without re-encoding.</td>
+                  <td>Preserves exact bit-for-bit file integrity, EXIF metadata, and eliminates quality loss.</td>
+                </tr>
+                <tr>
+                  <td><strong>4. None-Safe Token Joining</strong></td>
+                  <td>Always concatenate untrusted metadata using <code>filters.safe_join(items)</code>.</td>
+                  <td>Prevents <code>TypeError</code> when encountering DOM elements lacking titles, alt text, or captions.</td>
+                </tr>
+                <tr>
+                  <td><strong>5. Socket Hermeticity in CI</strong></td>
+                  <td>Unit tests must never trigger live outbound network requests.</td>
+                  <td>Prevents IP bans, CDN poisoning, and non-deterministic test failures during offline or CI builds.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -3315,21 +4557,37 @@ pytest tests/ -v</pre>
         <div class="section-header">
           <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
           <h1>Log Diagnostics Recipes</h1>
-          <p class="section-desc">Log analysis and grep commands for runtime diagnostics.</p>
+          <p class="section-desc">Structured log filtering, error tracing, and live telemetry grep recipes.</p>
         </div>
 
         <div class="card">
           <h2 class="card-title">9.3 PowerShell Diagnostic Commands</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            Production runs emit structured JSON and text logs into <code>logs/run_&lt;run_id&gt;.log</code>. Use these targeted PowerShell recipes for rapid root-cause isolation:
+          </p>
+
           <div class="code-block-container">
             <div class="code-header">
-              <span>POWERSHELL // GREP LOGS FOR ERRORS AND BLOCKS</span>
+              <span>POWERSHELL // OPERATIONAL LOG ANALYSIS RECIPES</span>
               <button class="copy-btn">COPY</button>
             </div>
-            <pre># Check for HTTP 429 rate limits and Cloudflare blocks
-Select-String -Path "logs/*.log" -Pattern "HTTP 429|cloudflare_blocked|ScraperBypassError"
+            <pre># 1. Trace WAF challenge escalations and stealth fallback failures
+Select-String -Path "logs/*.log" -Pattern "Tier \[\d\] failed|Falling back to|cloudflare_blocked"
 
-# Inspect failed downloads
-Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</pre>
+# 2. Identify HTTP 429 rate limiting and CrawlGovernor parked canary probes
+Select-String -Path "logs/*.log" -Pattern "HTTP 429|CrawlGovernor: Parked canary|Rate-limited"
+
+# 3. Monitor autonomous Self-Healing DOM parser repairs and VLM fallbacks
+Select-String -Path "logs/*.log" -Pattern "SelfHealingDOMParser: Repaired selector|VLM healing fallback"
+
+# 4. Audit media deduplication discards (BK-Tree pHash Hamming distance &lt;= 4)
+Select-String -Path "logs/*.log" -Pattern "pHash duplicate dropped|Hamming distance &lt;="
+
+# 5. Filter download stream failures and hotlink rejections
+Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404|MIME mismatch"
+
+# 6. Real-time log stream with priority event filtering
+Get-Content -Path "logs/run_latest.log" -Wait -Tail 30 | Select-String "DISPATCH|REJECT|YIELD|HEAL|WAF"</pre>
           </div>
         </div>
       </section>
@@ -3423,23 +4681,74 @@ Select-String -Path "logs/*.log" -Pattern "Download failed|HTTP 403|HTTP 404"</p
         <div class="section-header">
           <div class="section-tag">MODULE [09] // TESTING AND TROUBLESHOOTING</div>
           <h1>Developer Guidelines</h1>
-          <p class="section-desc">Mandatory coding rules and workspace standards.</p>
+          <p class="section-desc">Authoritative workspace coding rules, architectural constraints, and error prevention contracts.</p>
         </div>
 
         <div class="card">
-          <h2 class="card-title">9.5 Mandatory Coding Rules</h2>
-          <ol>
-            <li><strong>Empirical Log Diagnostics</strong>: Never diagnose an error without inspecting un-truncated log
-              tracebacks.</li>
-            <li><strong>No Hardcoded Domain Rules in Source</strong>: All domain rules belong in JSON configuration
-              files (<code>domain_config.json</code>, <code>url_normalisation_rules.json</code>).</li>
-            <li><strong><code>None</code>-Safety in Filters</strong>: Always use <code>filters.safe_join(items)</code>
-              when concatenating string tokens.</li>
-            <li><strong>Preserve API Contracts</strong>: Update all invocation sites when altering function signatures.
-            </li>
-            <li><strong>No Superficial Symptom Patches</strong>: Never swallow exceptions or delete failing unit tests
-              to mask errors.</li>
-          </ol>
+          <h2 class="card-title">9.5 Authoritative Workspace Coding Standards</h2>
+          <p class="text-secondary" style="margin-bottom: 1.25rem;">
+            To ensure zero runtime regressions, memory leaks, or anti-bot fingerprint drift across releases, all contributors and agents must comply with these 5 mandatory development rules:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rule Index</th>
+                  <th>Mandatory Standard</th>
+                  <th>Anti-Pattern (Prohibited)</th>
+                  <th>Compliant Implementation Pattern</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Rule 1</strong></td>
+                  <td><strong>Empirical Log Diagnostics</strong></td>
+                  <td>Hypothesizing root cause or guessing fix before reading un-truncated error traceback.</td>
+                  <td>Inspect <code>logs/run_&lt;run_id&gt;.log</code> using PowerShell <code>Select-String</code>; trace exact file line number and exception frames.</td>
+                </tr>
+                <tr>
+                  <td><strong>Rule 2</strong></td>
+                  <td><strong>Zero Hardcoded Rules in Source</strong></td>
+                  <td>Embedding domain regexes, URLs, or subject names in <code>src/core/</code> or <code>src/scraper/</code>.</td>
+                  <td>Place regex rules in <code>data/url_normalisation_rules.json</code>, rate limits in <code>data/domain_config.json</code>, seeds in <code>seeds/*.txt</code>.</td>
+                </tr>
+                <tr>
+                  <td><strong>Rule 3</strong></td>
+                  <td><strong>None-Safety in Concatenations</strong></td>
+                  <td>Calling <code>" ".join([item.title, item.alt])</code> when DOM attributes can evaluate to <code>None</code>.</td>
+                  <td>Always use <code>filters.safe_join(items)</code>, which automatically strips <code>None</code> and empty tokens safely.</td>
+                </tr>
+                <tr>
+                  <td><strong>Rule 4</strong></td>
+                  <td><strong>Preserve API Contracts</strong></td>
+                  <td>Changing function signatures or return types without updating all caller sites.</td>
+                  <td>Maintain backward compatibility; if refactoring signatures, update every invocation across <code>src/</code>, <code>frontend/</code>, and <code>tests/</code>.</td>
+                </tr>
+                <tr>
+                  <td><strong>Rule 5</strong></td>
+                  <td><strong>No Superficial Symptom Patches</strong></td>
+                  <td>Wrapping failing statements in <code>try...except: pass</code> or deleting failing unit tests to make CI pass.</td>
+                  <td>Fix the fundamental underlying defect; ensure test passes legitimately with clean execution.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-family: var(--font-header); color: var(--accent); margin: 1.5rem 0 0.75rem 0; text-transform: uppercase;">None-Safe Token Joining Demonstration</h3>
+          <div class="code-block-container">
+            <div class="code-header">
+              <span>PYTHON // SAFE TOKEN CONCATENATION</span>
+              <button class="copy-btn">COPY</button>
+            </div>
+            <pre># PROHIBITED: Crashes with TypeError if alt_text or title is None
+# tokens = " ".join([page_title, alt_text, anchor_text]).lower()
+
+# COMPLIANT: filters.safe_join handles None, empty strings, and whitespace
+from src.core.filters import safe_join
+
+search_tokens = safe_join([page_title, alt_text, anchor_text]).lower()</pre>
+          </div>
         </div>
       </section>
 
