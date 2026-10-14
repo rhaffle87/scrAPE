@@ -18,8 +18,10 @@ from network.rate_limiter import RateLimiter
 
 @pytest.fixture(autouse=True)
 def mock_rate_limiter_wait():
-    """Autouse fixture to disable rate limiter sleeps in all tests for instant execution."""
-    with patch.object(RateLimiter, "wait"):
+    """Autouse fixture to disable rate limiter sleeps and isolate DNS resolution in tests."""
+    with patch.object(RateLimiter, "wait"), patch(
+        "socket.getaddrinfo", return_value=[(1, 1, 6, "", ("93.184.216.34", 443))]
+    ):
         yield
 
 
@@ -65,71 +67,73 @@ def test_cooldown_escalation_and_blacklisting():
     url = f"https://{test_domain}/page.jpg"
 
     try:
-        mock_client = MagicMock(spec=httpx.Client)
-        response_429 = httpx.Response(
-            status_code=429,
-            request=httpx.Request("GET", url),
-        )
-        mock_client.get.return_value = response_429
+        with patch("socket.getaddrinfo", return_value=[(1, 1, 6, "", ("93.184.216.34", 443))]):
+            mock_client = MagicMock(spec=httpx.Client)
+            response_429 = httpx.Response(
+                status_code=429,
+                request=httpx.Request("GET", url),
+            )
+            mock_client.get.return_value = response_429
 
-        http = HttpClient()
-        http.client = mock_client
-        # Mock disk cache
-        http._load_cache = MagicMock(return_value=None)
-        http._store_cache = MagicMock()
+            http = HttpClient()
+            http.client = mock_client
+            http.rotate_proxy = MagicMock()
+            # Mock disk cache
+            http._load_cache = MagicMock(return_value=None)
+            http._store_cache = MagicMock()
 
-        state = http._cooldown_state_for(url)
+            state = http._cooldown_state_for(url)
 
-        # Cooldown 1
-        for _ in range(3):
-            with pytest.raises(httpx.HTTPStatusError):
+            # Cooldown 1
+            for _ in range(3):
+                with pytest.raises(httpx.HTTPStatusError):
+                    http.get(url)
+
+            assert state.cooldown_count == 1
+            assert state.is_cooling_down() is True
+            assert state.is_blacklisted is False
+
+            # 4th get call should raise ScraperBypassError without hitting the mock client again
+            mock_client.get.reset_mock()
+            from network.http_client import ScraperBypassError
+
+            with pytest.raises(ScraperBypassError):
                 http.get(url)
+            mock_client.get.assert_not_called()
 
-        assert state.cooldown_count == 1
-        assert state.is_cooling_down() is True
-        assert state.is_blacklisted is False
+            # Clear cooldown for testing next escalation
+            state.cooldown_until = 0.0
+            assert not state.is_cooling_down()
 
-        # 4th get call should raise ScraperBypassError without hitting the mock client again
-        mock_client.get.reset_mock()
-        from network.http_client import ScraperBypassError
+            # Cooldown 2
+            mock_client.get.reset_mock()
+            for _ in range(3):
+                with pytest.raises(httpx.HTTPStatusError):
+                    http.get(url)
+            assert state.cooldown_count == 2
+            assert state.is_cooling_down()
+            assert not state.is_blacklisted
 
-        with pytest.raises(ScraperBypassError):
-            http.get(url)
-        mock_client.get.assert_not_called()
+            # Clear cooldown
+            state.cooldown_until = 0.0
 
-        # Clear cooldown for testing next escalation
-        state.cooldown_until = 0.0
-        assert not state.is_cooling_down()
+            # Cooldown 3
+            for _ in range(3):
+                with pytest.raises(httpx.HTTPStatusError):
+                    http.get(url)
+            assert state.cooldown_count == 3
+            assert state.is_cooling_down()
+            assert not state.is_blacklisted
 
-        # Cooldown 2
-        mock_client.get.reset_mock()
-        for _ in range(3):
-            with pytest.raises(httpx.HTTPStatusError):
-                http.get(url)
-        assert state.cooldown_count == 2
-        assert state.is_cooling_down()
-        assert not state.is_blacklisted
+            # Clear cooldown
+            state.cooldown_until = 0.0
 
-        # Clear cooldown
-        state.cooldown_until = 0.0
-
-        # Cooldown 3
-        for _ in range(3):
-            with pytest.raises(httpx.HTTPStatusError):
-                http.get(url)
-        assert state.cooldown_count == 3
-        assert state.is_cooling_down()
-        assert not state.is_blacklisted
-
-        # Clear cooldown
-        state.cooldown_until = 0.0
-
-        # Cooldown 4 -> Blacklist
-        for _ in range(3):
-            with pytest.raises(httpx.HTTPStatusError):
-                http.get(url)
-        assert state.is_blacklisted
-        assert state.is_cooling_down()
+            # Cooldown 4 -> Blacklist
+            for _ in range(3):
+                with pytest.raises(httpx.HTTPStatusError):
+                    http.get(url)
+            assert state.is_blacklisted
+            assert state.is_cooling_down()
     finally:
         remove_from_blacklist(test_domain)
 

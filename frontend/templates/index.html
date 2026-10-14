@@ -5208,8 +5208,9 @@
                     const engine = dData && dData.preferred_engine ? dData.preferred_engine : "auto";
                     const cf = dData && dData.cloudflare_blocked ? "checked" : "";
                     const ref = dData && dData.requires_referer ? "checked" : "";
-                    const urls = dData && dData.seed_urls ? dData.seed_urls.join('\n') : "";
-                    const uniqueUid = `dom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                    const randBuf = new Uint32Array(1);
+                    (window.crypto || window.msCrypto).getRandomValues(randBuf);
+                    const uniqueUid = `dom_${Date.now()}_${randBuf[0] % 1000}`;
 
                     card.innerHTML = `
                         <div class="card-header" style="margin: -1.25rem -1.25rem 1.25rem -1.25rem; padding: 0.75rem 1.25rem; background: rgba(0, 0, 0, 0.4); border-bottom: 1px solid var(--border-color);">
