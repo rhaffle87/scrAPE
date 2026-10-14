@@ -95,7 +95,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] Task Leasing Matrix",
       "sec-threat-cas": "[10.3] Cloud CAS Matrix",
       "sec-threat-vlm": "[10.4] VLM Healing Matrix",
-      "sec-threat-ac": "[10.5] Acceptance Criteria Contract"
+      "sec-threat-ac": "[10.5] Acceptance Criteria Contract",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) & Cockpit",
+      "sec-webui-dataset": "[6.6] Dataset Studio & ML Export",
+      "sec-webui-config-settings": "[6.7] Matrix Studio & Settings"
     },
     "footer": {
       "logo": "scrAPE // CORE SYSTEM",
@@ -794,6 +797,38 @@ const I18N_DICTS = {
             "bodyHtml": "No v0.30.0 pull request or release tag will be approved without 100% test coverage across all 20 acceptance criteria below, backed by unmocked local verification and full GitHub Actions matrix confirmation."
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "MODULE [03] // CLI REFERENCE",
+        "h1": "Terminal UI (TUI) & Interactive Cockpits",
+        "desc": "Rich curses terminal dashboards, wizard modes, live progress HUDs, and automated release tooling.",
+        "cards": [
+          "3.4.1 Master Launcher & Scrape Wizard",
+          "3.4.2 Live Execution HUD & Autonomous Daemons"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "MODULE [06] // WEBUI DASHBOARD",
+        "h1": "Dataset Studio & ML Export",
+        "desc": "In-browser synthetic curation, automated WD14 tagging, aesthetic scoring, and Kohya/LoRA package generation.",
+        "cards": [
+          "6.6 Dataset Curation & LoRA Export Studio"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "MODULE [06] // WEBUI DASHBOARD",
+        "h1": "Configuration Matrix & Tactical Settings",
+        "desc": "Dynamic domain policies, URL normalization regex rules, solver timeouts, and notification routing.",
+        "cards": [
+          "6.7.1 Domain Configuration Matrix",
+          "6.7.2 Tactical Settings & Webhook Integrations"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -905,7 +940,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] Matriks Task Leasing",
       "sec-threat-cas": "[10.3] Matriks Cloud CAS",
       "sec-threat-vlm": "[10.4] Matriks VLM Healing",
-      "sec-threat-ac": "[10.5] Kontrak Kriteria Penerimaan (Acceptance Criteria)"
+      "sec-threat-ac": "[10.5] Kontrak Kriteria Penerimaan (Acceptance Criteria)",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) & Kokpit",
+      "sec-webui-dataset": "[6.6] Studio Dataset & Ekspor ML",
+      "sec-webui-config-settings": "[6.7] Studio Matriks & Pengaturan"
     },
     "footer": {
       "logo": "scrAPE // SISTEM INTI",
@@ -1604,6 +1642,38 @@ const I18N_DICTS = {
             "bodyHtml": "Tidak ada pull request atau rilis v0.30.0 yang disetujui tanpa cakupan pengujian 100% di seluruh 20 kriteria penerimaan."
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "MODUL [03] // REFERENSI CLI",
+        "h1": "Terminal UI (TUI) & Kokpit Interaktif",
+        "desc": "Dashboard terminal curses interaktif, mode wizard, HUD progres langsung, dan perkakas rilis otomatis.",
+        "cards": [
+          "3.4.1 Peluncur Utama & Wizard Scrape",
+          "3.4.2 HUD Eksekusi Langsung & Daemon Otonom"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "MODUL [06] // DASHBOARD WEBUI",
+        "h1": "Studio Dataset & Ekspor ML",
+        "desc": "Kurasi visual di browser, penandaan otomatis WD14, penilaian estetika, dan pembuatan paket Kohya/LoRA.",
+        "cards": [
+          "6.6 Studio Kurasi Dataset & Ekspor LoRA"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "MODUL [06] // DASHBOARD WEBUI",
+        "h1": "Matriks Konfigurasi & Pengaturan Taktis",
+        "desc": "Kebijakan domain dinamis, aturan regex normalisasi URL, batas waktu solver, dan perutean notifikasi.",
+        "cards": [
+          "6.7.1 Matriks Konfigurasi Domain",
+          "6.7.2 Pengaturan Taktis & Integrasi Webhook"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -1804,7 +1874,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] 分布式任务租约矩阵",
       "sec-threat-cas": "[10.3] 云端 CAS 安全同步矩阵",
       "sec-threat-vlm": "[10.4] 多模态视觉自愈安全边界",
-      "sec-threat-ac": "[10.5] 安全验收规范契约"
+      "sec-threat-ac": "[10.5] 安全验收规范契约",
+      "sec-cli-tui": "[3.4] 终端控制台 (TUI) 与交互向导",
+      "sec-webui-dataset": "[6.6] 数据集工坊与机器学习导出",
+      "sec-webui-config-settings": "[6.7] 配置矩阵工作台与战术设置"
     },
     "footer": {
       "logo": "scrAPE // 核心系统",
@@ -2503,6 +2576,38 @@ const I18N_DICTS = {
             "bodyHtml": "在未经实机环境完整执行并证明以下所有 20 项验收标准全部 100% 覆盖通过前，任何 v0.30.0 PR 或发布 Tag 均不得被合并批准。"
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "模块 [03] // CLI 命令行参考",
+        "h1": "终端界面 (TUI) 与交互式控制台",
+        "desc": "富交互 Curses 终端仪表盘、向导模式、实时采集进度 HUD 与自动化发布工具。",
+        "cards": [
+          "3.4.1 主启动器与抓取向导",
+          "3.4.2 实时运行 HUD 与自主监控守护进程"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "模块 [06] // WEBUI 可视化控制台",
+        "h1": "数据集工坊与机器学习导出",
+        "desc": "浏览器端合成样本筛选、WD14 自动打标、美学评分过滤与 Kohya/LoRA 训练包一键导出。",
+        "cards": [
+          "6.6 数据集精选与 LoRA 导出工坊"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "模块 [06] // WEBUI 可视化控制台",
+        "h1": "配置矩阵工作台与战术配置",
+        "desc": "动态域名爬虫策略、URL 归一化正则规则、求解器超时配置与多渠道通知路由。",
+        "cards": [
+          "6.7.1 域名配置规则矩阵",
+          "6.7.2 战术配置与 Webhook 告警集成"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -2703,7 +2808,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] Matriz de Concesión de Tareas",
       "sec-threat-cas": "[10.3] Matriz de CAS en la Nube",
       "sec-threat-vlm": "[10.4] Matriz de Autocorrección VLM",
-      "sec-threat-ac": "[10.5] Contrato de Criterios de Aceptación"
+      "sec-threat-ac": "[10.5] Contrato de Criterios de Aceptación",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) y Cabina de Mando",
+      "sec-webui-dataset": "[6.6] Estudio de Dataset y Exportación ML",
+      "sec-webui-config-settings": "[6.7] Estudio de Matriz y Ajustes"
     },
     "footer": {
       "logo": "scrAPE // SISTEMA CENTRAL",
@@ -3402,6 +3510,38 @@ const I18N_DICTS = {
             "bodyHtml": "No se aprobará ninguna solicitud de extracción o etiqueta de lanzamiento v0.30.0 sin una cobertura de prueba del 100% en los 20 criterios de aceptación siguientes."
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "MÓDULO [03] // REFERENCIA DE COMANDOS CLI",
+        "h1": "Interfaz de Terminal (TUI) y Cabinas Interactivas",
+        "desc": "Paneles de terminal curses interactivos, modos de asistente, HUD de progreso en tiempo real y herramientas de lanzamiento.",
+        "cards": [
+          "3.4.1 Lanzador Maestro y Asistente de Extracción",
+          "3.4.2 HUD de Ejecución en Vivo y Demonios Autónomos"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "MÓDULO [06] // PANEL DE CONTROL WEBUI",
+        "h1": "Estudio de Datasets y Exportación ML",
+        "desc": "Curación en el navegador, etiquetado automático WD14, puntuación estética y generación de paquetes Kohya/LoRA.",
+        "cards": [
+          "6.6 Estudio de Curación de Datasets y Exportación LoRA"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "MÓDULO [06] // PANEL DE CONTROL WEBUI",
+        "h1": "Matriz de Configuración y Ajustes Tácticos",
+        "desc": "Políticas de dominio dinámicas, reglas regex de normalización de URL, tiempos de espera de resolvedores y rutas de notificación.",
+        "cards": [
+          "6.7.1 Matriz de Configuración de Dominios",
+          "6.7.2 Ajustes Tácticos e Integraciones Webhook"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -3559,7 +3699,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] タスクリース安全マトリックス",
       "sec-threat-cas": "[10.3] クラウド CAS セキュリティ",
       "sec-threat-vlm": "[10.4] VLM ヒーリング防御境界",
-      "sec-threat-ac": "[10.5] 受け入れ基準契約"
+      "sec-threat-ac": "[10.5] 受け入れ基準契約",
+      "sec-cli-tui": "[3.4] ターミナルUI (TUI) と対話型コックピット",
+      "sec-webui-dataset": "[6.6] データセットスタジオ＆MLエクスポート",
+      "sec-webui-config-settings": "[6.7] マトリクススタジオと詳細設定"
     },
     "footer": {
       "logo": "scrAPE // コアシステム",
@@ -4258,6 +4401,38 @@ const I18N_DICTS = {
             "bodyHtml": "以下の20の受入基準すべてにおいて100%のテストカバレッジが実証されない限り、v0.30.0 のPRまたはリリースタグは承認されません。"
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "モジュール [03] // CLI リファレンス",
+        "h1": "ターミナル UI (TUI) と対話型コックピット",
+        "desc": "高機能 Curses ターミナルダッシュボード、ウィザードモード、リアルタイム進行 HUD、および自動リリースツール。",
+        "cards": [
+          "3.4.1 マスターランチャー＆スクレイプウィザード",
+          "3.4.2 リアルタイム実行 HUD と自律デーモン"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "モジュール [06] // WEBUI ダッシュボード",
+        "h1": "データセットスタジオ＆MLエクスポート",
+        "desc": "ブラウザ内での合成データ選定、WD14自動タグ付け、審美性スコアリング、およびKohya/LoRAパッケージ生成。",
+        "cards": [
+          "6.6 データセット選定＆LoRAエクスポートスタジオ"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "モジュール [06] // WEBUI ダッシュボード",
+        "h1": "設定マトリクスと戦術設定",
+        "desc": "動的ドメインポリシー、URL正規化正規表現ルール、ソルバーのタイムアウト、および通知ルーティング。",
+        "cards": [
+          "6.7.1 ドメイン設定マトリクス",
+          "6.7.2 戦術設定とWebhook統合"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -4415,7 +4590,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] Матрица аренды задач",
       "sec-threat-cas": "[10.3] Матрица облачного CAS",
       "sec-threat-vlm": "[10.4] Матрица восстановления VLM",
-      "sec-threat-ac": "[10.5] Критерии приемки"
+      "sec-threat-ac": "[10.5] Критерии приемки",
+      "sec-cli-tui": "[3.4] Терминальный интерфейс (TUI) и кокпит",
+      "sec-webui-dataset": "[6.6] Студия датасетов и экспорт для ML",
+      "sec-webui-config-settings": "[6.7] Студия матрицы конфигураций и настройки"
     },
     "footer": {
       "logo": "scrAPE // ОСНОВНАЯ СИСТЕМА",
@@ -5114,6 +5292,38 @@ const I18N_DICTS = {
             "bodyHtml": "Ни один pull request или тег релиза v0.30.0 не будет утвержден без 100% покрытия тестами всех 20 критериев приемки."
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "МОДУЛЬ [03] // СПРАВОЧНИК CLI",
+        "h1": "Терминальный интерфейс (TUI) и интерактивные панели",
+        "desc": "Богатые консольные дашборды на базе curses, мастер настройки, HUD реального времени и автоматизация релизов.",
+        "cards": [
+          "3.4.1 Главный лаунчер и мастер скрейпинга",
+          "3.4.2 HUD выполнения в реальном времени и автономные демоны"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "МОДУЛЬ [06] // ПАНЕЛЬ УПРАВЛЕНИЯ WEBUI",
+        "h1": "Студия датасетов и экспорт для ML",
+        "desc": "Курирование в браузере, автотегирование WD14, оценка эстетичности и генерация пакетов Kohya/LoRA.",
+        "cards": [
+          "6.6 Студия курирования датасетов и экспорта LoRA"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "МОДУЛЬ [06] // ПАНЕЛЬ УПРАВЛЕНИЯ WEBUI",
+        "h1": "Матрица конфигураций и тактические настройки",
+        "desc": "Динамические политики доменов, регулярные выражения нормализации URL, таймауты солверов и маршрутизация уведомлений.",
+        "cards": [
+          "6.7.1 Матрица конфигураций доменов",
+          "6.7.2 Тактические настройки и интеграции с вебхуками"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {
@@ -5271,7 +5481,10 @@ const I18N_DICTS = {
       "sec-threat-leasing": "[10.2] Task-Leasing-Matrix",
       "sec-threat-cas": "[10.3] Cloud-CAS-Sicherheitsmatrix",
       "sec-threat-vlm": "[10.4] VLM-Selbstheilungs-Sicherheitsmatrix",
-      "sec-threat-ac": "[10.5] Akzeptanzkriterien-Vertrag"
+      "sec-threat-ac": "[10.5] Akzeptanzkriterien-Vertrag",
+      "sec-cli-tui": "[3.4] Terminal-Benutzeroberfläche (TUI) & Cockpit",
+      "sec-webui-dataset": "[6.6] Dataset-Studio & ML-Export",
+      "sec-webui-config-settings": "[6.7] Matrix-Studio & Einstellungen"
     },
     "footer": {
       "logo": "scrAPE // KERN-SYSTEM",
@@ -5970,6 +6183,38 @@ const I18N_DICTS = {
             "bodyHtml": "Kein v0.30.0 Pull-Request oder Release-Tag wird genehmigt, ohne dass für alle 20 nachstehenden Akzeptanzkriterien eine Testabdeckung von 100% nachgewiesen wurde."
           }
         ]
+      },
+      "sec-cli-tui": {
+        "tag": "MODUL [03] // CLI-REFERENZ",
+        "h1": "Terminal-UI (TUI) & Interaktive Cockpits",
+        "desc": "Umfangreiche Curses-Terminal-Dashboards, Assistenten-Modi, Live-Fortschritts-HUDs und automatisierte Release-Tools.",
+        "cards": [
+          "3.4.1 Master-Launcher & Scrape-Assistent",
+          "3.4.2 Live-Ausführungs-HUD & Autonome Daemons"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-dataset": {
+        "tag": "MODUL [06] // WEBUI-DASHBOARD",
+        "h1": "Dataset-Studio & ML-Export",
+        "desc": "In-Browser-Kuration, automatisches WD14-Tagging, ästhetische Bewertung und Kohya/LoRA-Paketgenerierung.",
+        "cards": [
+          "6.6 Dataset-Kurations- & LoRA-Export-Studio"
+        ],
+        "codeHeaders": [],
+        "alerts": []
+      },
+      "sec-webui-config-settings": {
+        "tag": "MODUL [06] // WEBUI-DASHBOARD",
+        "h1": "Konfigurationsmatrix & Taktische Einstellungen",
+        "desc": "Dynamische Domain-Richtlinien, URL-Normalisierungs-Regex-Regeln, Solver-Timeouts und Benachrichtigungs-Routing.",
+        "cards": [
+          "6.7.1 Domain-Konfigurationsmatrix",
+          "6.7.2 Taktische Einstellungen & Webhook-Integrationen"
+        ],
+        "codeHeaders": [],
+        "alerts": []
       }
     },
     "snippets": {

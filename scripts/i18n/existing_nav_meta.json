@@ -59,7 +59,10 @@
       "sec-threat-leasing": "[10.2] Task Leasing Matrix",
       "sec-threat-cas": "[10.3] Cloud CAS Matrix",
       "sec-threat-vlm": "[10.4] VLM Healing Matrix",
-      "sec-threat-ac": "[10.5] Acceptance Criteria Contract"
+      "sec-threat-ac": "[10.5] Acceptance Criteria Contract",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) & Cockpit",
+      "sec-webui-dataset": "[6.6] Dataset Studio & ML Export",
+      "sec-webui-config-settings": "[6.7] Matrix Studio & Settings"
     }
   },
   "id": {
@@ -122,7 +125,10 @@
       "sec-threat-leasing": "[10.2] Matriks Task Leasing",
       "sec-threat-cas": "[10.3] Matriks Cloud CAS",
       "sec-threat-vlm": "[10.4] Matriks VLM Healing",
-      "sec-threat-ac": "[10.5] Kontrak Kriteria Penerimaan (Acceptance Criteria)"
+      "sec-threat-ac": "[10.5] Kontrak Kriteria Penerimaan (Acceptance Criteria)",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) & Kokpit",
+      "sec-webui-dataset": "[6.6] Studio Dataset & Ekspor ML",
+      "sec-webui-config-settings": "[6.7] Studio Matriks & Pengaturan"
     }
   },
   "zh": {
@@ -185,7 +191,10 @@
       "sec-threat-leasing": "[10.2] 分布式任务租约矩阵",
       "sec-threat-cas": "[10.3] 云端 CAS 安全同步矩阵",
       "sec-threat-vlm": "[10.4] 多模态视觉自愈安全边界",
-      "sec-threat-ac": "[10.5] 安全验收规范契约"
+      "sec-threat-ac": "[10.5] 安全验收规范契约",
+      "sec-cli-tui": "[3.4] 终端控制台 (TUI) 与交互向导",
+      "sec-webui-dataset": "[6.6] 数据集工坊与机器学习导出",
+      "sec-webui-config-settings": "[6.7] 配置矩阵工作台与战术设置"
     }
   },
   "es": {
@@ -248,7 +257,10 @@
       "sec-threat-leasing": "[10.2] Matriz de Concesión de Tareas",
       "sec-threat-cas": "[10.3] Matriz de CAS en la Nube",
       "sec-threat-vlm": "[10.4] Matriz de Autocorrección VLM",
-      "sec-threat-ac": "[10.5] Contrato de Criterios de Aceptación"
+      "sec-threat-ac": "[10.5] Contrato de Criterios de Aceptación",
+      "sec-cli-tui": "[3.4] Terminal UI (TUI) y Cabina de Mando",
+      "sec-webui-dataset": "[6.6] Estudio de Dataset y Exportación ML",
+      "sec-webui-config-settings": "[6.7] Estudio de Matriz y Ajustes"
     }
   },
   "ja": {
@@ -311,7 +323,10 @@
       "sec-threat-leasing": "[10.2] タスクリース安全マトリックス",
       "sec-threat-cas": "[10.3] クラウド CAS セキュリティ",
       "sec-threat-vlm": "[10.4] VLM ヒーリング防御境界",
-      "sec-threat-ac": "[10.5] 受け入れ基準契約"
+      "sec-threat-ac": "[10.5] 受け入れ基準契約",
+      "sec-cli-tui": "[3.4] ターミナルUI (TUI) と対話型コックピット",
+      "sec-webui-dataset": "[6.6] データセットスタジオ＆MLエクスポート",
+      "sec-webui-config-settings": "[6.7] マトリクススタジオと詳細設定"
     }
   },
   "ru": {
@@ -374,7 +389,10 @@
       "sec-threat-leasing": "[10.2] Матрица аренды задач",
       "sec-threat-cas": "[10.3] Матрица облачного CAS",
       "sec-threat-vlm": "[10.4] Матрица восстановления VLM",
-      "sec-threat-ac": "[10.5] Критерии приемки"
+      "sec-threat-ac": "[10.5] Критерии приемки",
+      "sec-cli-tui": "[3.4] Терминальный интерфейс (TUI) и кокпит",
+      "sec-webui-dataset": "[6.6] Студия датасетов и экспорт для ML",
+      "sec-webui-config-settings": "[6.7] Студия матрицы конфигураций и настройки"
     }
   },
   "de": {
@@ -437,7 +455,10 @@
       "sec-threat-leasing": "[10.2] Task-Leasing-Matrix",
       "sec-threat-cas": "[10.3] Cloud-CAS-Sicherheitsmatrix",
       "sec-threat-vlm": "[10.4] VLM-Selbstheilungs-Sicherheitsmatrix",
-      "sec-threat-ac": "[10.5] Akzeptanzkriterien-Vertrag"
+      "sec-threat-ac": "[10.5] Akzeptanzkriterien-Vertrag",
+      "sec-cli-tui": "[3.4] Terminal-Benutzeroberfläche (TUI) & Cockpit",
+      "sec-webui-dataset": "[6.6] Dataset-Studio & ML-Export",
+      "sec-webui-config-settings": "[6.7] Matrix-Studio & Einstellungen"
     }
   }
 }

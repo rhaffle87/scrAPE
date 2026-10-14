@@ -217,6 +217,7 @@
           <li class="nav-sub-item"><a href="#sec-cli-flags">[3.1] Complete Flag Matrix</a></li>
           <li class="nav-sub-item"><a href="#sec-cli-builder">[3.2] Interactive CLI Builder</a></li>
           <li class="nav-sub-item"><a href="#sec-cli-profiles">[3.3] Execution Profiles</a></li>
+          <li class="nav-sub-item"><a href="#sec-cli-tui">[3.4] Terminal UI (TUI) & Cockpit <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -268,6 +269,8 @@
           <li class="nav-sub-item"><a href="#sec-webui-telemetry">[6.3] Live Telemetry and SSE</a></li>
           <li class="nav-sub-item"><a href="#sec-webui-design">[6.4] Design Tokens</a></li>
           <li class="nav-sub-item"><a href="#sec-webui-health">[6.5] Node Health Tactical Monitor <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-dataset">[6.6] Dataset Studio & ML Export <span class="badge-new">NEW</span></a></li>
+          <li class="nav-sub-item"><a href="#sec-webui-config-settings">[6.7] Matrix Studio & Settings <span class="badge-new">NEW</span></a></li>
         </ul>
       </div>
 
@@ -1390,6 +1393,115 @@ python src/cli/cli_wizard.py</pre>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3.4 Terminal UI (TUI) & Cockpit -->
+      <section id="sec-cli-tui" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [03] // CLI REFERENCE</div>
+          <h1>Terminal UI (TUI) & Interactive Cockpits</h1>
+          <p class="section-desc">Rich curses terminal dashboards, wizard modes, live progress HUDs, and automated release tooling.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">3.4.1 Master Launcher & Scrape Wizard</h2>
+          <p>The scrAPE command environment provides interactive ANSI/curses terminal cockpits for terminal-native operators, eliminating manual CLI flag memorization and allowing real-time harvest oversight:</p>
+
+          <div class="doc-figure">
+            <img src="assets/screenshots/tui_master_launcher.png" alt="Master Launcher interactive menu with 8 operational modes" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 3.1 // MASTER LAUNCHER SELECTION MENU (POWERSHELL / BASH BOOTSTRAPPER)</div>
+          </div>
+
+          <p class="text-secondary" style="margin-top: 1rem;">
+            Executing <code>./run.ps1</code> or <code>./run.sh</code> opens the Master Launcher interface, routing into any of the 8 dedicated runtime targets:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Mode / Target</th>
+                  <th>Description & Entrypoint</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>[0]</code></td>
+                  <td><strong>Interactive Scrape Wizard</strong></td>
+                  <td>Full-screen curses CLI wizard with parameter validation and command construction.</td>
+                </tr>
+                <tr>
+                  <td><code>[1]</code></td>
+                  <td><strong>Web UI Dashboard Cockpit</strong></td>
+                  <td>Launches FastAPI backend on <code>http://localhost:8000</code> with SSE telemetry and Media Vault.</td>
+                </tr>
+                <tr>
+                  <td><code>[2]</code></td>
+                  <td><strong>Standard Crawler</strong></td>
+                  <td>Fast single-target CLI crawl with manifest JSON logging.</td>
+                </tr>
+                <tr>
+                  <td><code>[3]</code></td>
+                  <td><strong>AI Training Fuel Pump</strong></td>
+                  <td>Subject-isolated high-resolution harvest pipeline for model fine-tuning.</td>
+                </tr>
+                <tr>
+                  <td><code>[4]</code></td>
+                  <td><strong>Watchdog Daemon</strong></td>
+                  <td>Continuous headless monitor with SQLite delta caching and webhook alerting.</td>
+                </tr>
+                <tr>
+                  <td><code>[5]</code></td>
+                  <td><strong>Stealth Diagnostics</strong></td>
+                  <td>8-tier anti-detection and Cloudflare Turnstile / Captcha validation harness.</td>
+                </tr>
+                <tr>
+                  <td><code>[6]</code></td>
+                  <td><strong>Run Test Suite (Pytest)</strong></td>
+                  <td>Executes complete test suite including task leasing, cloud CAS, and VLM tests.</td>
+                </tr>
+                <tr>
+                  <td><code>[7]</code></td>
+                  <td><strong>Release Wizard</strong></td>
+                  <td>Automated pre-flight checks, changelog generator, and semantic release tagger.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="doc-figure-grid" style="margin-top: 1.5rem;">
+            <div class="doc-figure">
+              <img src="assets/screenshots/tui_cli_wizard_mode.png" alt="CLI Wizard operational mode selector" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 3.2 // CLI WIZARD OPERATIONAL MODE SELECTOR</div>
+            </div>
+            <div class="doc-figure">
+              <img src="assets/screenshots/tui_cli_wizard_parameters.png" alt="CLI Wizard interactive parameter builder" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 3.3 // PARAMETER TUNING & REAL-TIME CLI PREVIEW</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+          <h2 class="card-title">3.4.2 Live Execution HUD & Autonomous Daemons</h2>
+          <p>During active crawling, the TUI renders dual high-resolution TQDM progress bars, BK-Tree dHash deduplication metrics, memory usage, and hardware governor concurrency scaling:</p>
+
+          <div class="doc-figure">
+            <img src="assets/screenshots/tui_live_execution_hud.png" alt="Live CLI Crawl Execution HUD with dual progress bars and BK-Tree metrics" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 3.4 // LIVE CLI CRAWL EXECUTION HUD (DUAL TQDM PROGRESS, BK-TREE DHASH & GOVERNOR SCALING)</div>
+          </div>
+
+          <div class="doc-figure-grid" style="margin-top: 1.5rem;">
+            <div class="doc-figure">
+              <img src="assets/screenshots/tui_watchdog_monitor.png" alt="Watchdog daemon HUD monitoring target domains with delta harvesting" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 3.5 // WATCHDOG AUTONOMOUS DAEMON HUD (DELTA HARVESTING & WEBHOOK STREAM)</div>
+            </div>
+            <div class="doc-figure">
+              <img src="assets/screenshots/tui_release_wizard.png" alt="Release Wizard performing automated pre-flight quality checks" class="doc-screenshot" loading="lazy">
+              <div class="doc-caption">FIGURE 3.6 // RELEASE WIZARD HUD (PRE-FLIGHT GATES, ARTIFACT PACKAGING & TAGGING)</div>
+            </div>
           </div>
         </div>
       </section>
@@ -2639,6 +2751,94 @@ https://example.com/videos/example_subject</pre>
 }</pre>
           </div>
           <p style="margin-top: 1rem;">Managed by <code>HardwareLoadGovernor</code> (<code>src/monitoring/hardware_governor.py</code>). If CPU or RAM load crosses 85%, <code>concurrency_scale_factor</code> throttles worker pools to <code>0.5x</code> or <code>0.25x</code> until host temperature and memory stabilize.</p>
+        </div>
+      </section>
+
+      <!-- 6.6 Dataset Studio & ML Export -->
+      <section id="sec-webui-dataset" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Dataset Studio & ML Export</h1>
+          <p class="section-desc">In-browser synthetic curation, automated WD14 tagging, aesthetic scoring, and Kohya/LoRA package generation.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.6 Dataset Curation & LoRA Export Studio</h2>
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_dataset_studio_modal.png" alt="Dataset Studio modal dialog with aesthetic score filters, face cropping, and WD14 tagging" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.7 // DATASET STUDIO MODAL (AESTHETIC SCORING, FOCAL FACE CROPPING, WD14 TAGGING & KOHYA LORA EXPORT)</div>
+          </div>
+
+          <p class="text-secondary" style="margin-top: 1.25rem;">
+            The Dataset Studio modal provides an integrated pipeline for transforming raw web scrapes into production-grade ML training datasets without writing custom scripts:
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Studio Capability</th>
+                  <th>Configurable Parameters</th>
+                  <th>Target ML Architecture</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Aesthetic Scoring Filter</strong></td>
+                  <td>Threshold slider (e.g., &ge; 6.5 / 10) utilizing CLIP ViT-L/14 aesthetic embeddings.</td>
+                  <td>SD 1.5, SDXL, Flux.1 training pipelines.</td>
+                </tr>
+                <tr>
+                  <td><strong>Smart Focal Cropper</strong></td>
+                  <td>Target aspect ratios (1:1 512x512, 1024x1024, 768x1024) with automated Haar/DNN facial bounding preservation.</td>
+                  <td>Portrait LoRA and character consistency weights.</td>
+                </tr>
+                <tr>
+                  <td><strong>WD14 Auto-Tagger</strong></td>
+                  <td>Confidence threshold (default: 0.35), character tag exclusion, and subject prefixing.</td>
+                  <td>Danbooru-style prompt pairing for Stable Diffusion.</td>
+                </tr>
+                <tr>
+                  <td><strong>Export Packaging</strong></td>
+                  <td>Kohya_ss LoRA zip format, Apache Parquet with embedded binary blobs, or metadata JSON.</td>
+                  <td>Direct consumption by Kohya GUI, ComfyUI, and HuggingFace Hub.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6.7 Matrix Studio & Settings -->
+      <section id="sec-webui-config-settings" class="doc-section">
+        <div class="section-header">
+          <div class="section-tag">MODULE [06] // WEBUI DASHBOARD</div>
+          <h1>Configuration Matrix & Tactical Settings</h1>
+          <p class="section-desc">Dynamic domain policies, URL normalization regex rules, solver timeouts, and notification routing.</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">6.7.1 Domain Configuration Matrix</h2>
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_config_matrix.png" alt="Configuration Matrix view showing domain configs and URL normalization rules" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.8 // CONFIGURATION MATRIX STUDIO (DOMAIN POLICIES, RATE LIMITS & URL NORMALIZATION RULES)</div>
+          </div>
+
+          <p class="text-secondary" style="margin-top: 1.25rem;">
+            The Matrix Studio provides an in-browser interface to inspect and mutate <code>config/domain_config.json</code> and <code>config/url_normalisation_rules.json</code> on the fly with live schema validation. Changes take effect on subsequent BFS crawl iterations without restarting running scraper processes.
+          </p>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+          <h2 class="card-title">6.7.2 Tactical Settings & Webhook Integrations</h2>
+          <div class="doc-figure">
+            <img src="assets/screenshots/webui_settings_view.png" alt="Tactical Settings view showing general settings, stealth bypass tiers, and webhook notifications" class="doc-screenshot" loading="lazy">
+            <div class="doc-caption">FIGURE 6.9 // TACTICAL SETTINGS VIEW (SOLVER TIMEOUTS, STEALTH TIERS & DISCORD / TELEGRAM WEBHOOK ALERTS)</div>
+          </div>
+
+          <p class="text-secondary" style="margin-top: 1.25rem;">
+            Manage global crawl engine behaviors, FlareSolverr sidecar connection timeouts, Cloudflare 2Captcha/CapMonster API credentials, Camoufox stealth spoofing toggles, and multi-channel webhook dispatching (Discord, Telegram, Slack).
+          </p>
         </div>
       </section>
 

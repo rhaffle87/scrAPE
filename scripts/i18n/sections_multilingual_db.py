@@ -2186,4 +2186,86 @@ add_sec(
     ]
 )
 
-print("All 55 sections added to SECTIONS_DB successfully.")
+# ==========================================
+# MODULE 03: TUI & INTERACTIVE COCKPITS
+# ==========================================
+add_sec(
+    "sec-cli-tui", "03",
+    en_h1="Terminal UI (TUI) & Interactive Cockpits",
+    en_desc="Rich curses terminal dashboards, wizard modes, live progress HUDs, and automated release tooling.",
+    en_cards=["3.4.1 Master Launcher & Scrape Wizard", "3.4.2 Live Execution HUD & Autonomous Daemons"],
+    id_h1="Terminal UI (TUI) & Kokpit Interaktif",
+    id_desc="Dashboard terminal curses interaktif, mode wizard, HUD progres langsung, dan perkakas rilis otomatis.",
+    id_cards=["3.4.1 Peluncur Utama & Wizard Scrape", "3.4.2 HUD Eksekusi Langsung & Daemon Otonom"],
+    zh_h1="终端界面 (TUI) 与交互式控制台",
+    zh_desc="富交互 Curses 终端仪表盘、向导模式、实时采集进度 HUD 与自动化发布工具。",
+    zh_cards=["3.4.1 主启动器与抓取向导", "3.4.2 实时运行 HUD 与自主监控守护进程"],
+    es_h1="Interfaz de Terminal (TUI) y Cabinas Interactivas",
+    es_desc="Paneles de terminal curses interactivos, modos de asistente, HUD de progreso en tiempo real y herramientas de lanzamiento.",
+    es_cards=["3.4.1 Lanzador Maestro y Asistente de Extracción", "3.4.2 HUD de Ejecución en Vivo y Demonios Autónomos"],
+    ja_h1="ターミナル UI (TUI) と対話型コックピット",
+    ja_desc="高機能 Curses ターミナルダッシュボード、ウィザードモード、リアルタイム進行 HUD、および自動リリースツール。",
+    ja_cards=["3.4.1 マスターランチャー＆スクレイプウィザード", "3.4.2 リアルタイム実行 HUD と自律デーモン"],
+    ru_h1="Терминальный интерфейс (TUI) и интерактивные панели",
+    ru_desc="Богатые консольные дашборды на базе curses, мастер настройки, HUD реального времени и автоматизация релизов.",
+    ru_cards=["3.4.1 Главный лаунчер и мастер скрейпинга", "3.4.2 HUD выполнения в реальном времени и автономные демоны"],
+    de_h1="Terminal-UI (TUI) & Interaktive Cockpits",
+    de_desc="Umfangreiche Curses-Terminal-Dashboards, Assistenten-Modi, Live-Fortschritts-HUDs und automatisierte Release-Tools.",
+    de_cards=["3.4.1 Master-Launcher & Scrape-Assistent", "3.4.2 Live-Ausführungs-HUD & Autonome Daemons"]
+)
+
+# ==========================================
+# MODULE 06: DATASET STUDIO & CONFIG MATRIX
+# ==========================================
+add_sec(
+    "sec-webui-dataset", "06",
+    en_h1="Dataset Studio & ML Export",
+    en_desc="In-browser synthetic curation, automated WD14 tagging, aesthetic scoring, and Kohya/LoRA package generation.",
+    en_cards=["6.6 Dataset Curation & LoRA Export Studio"],
+    id_h1="Studio Dataset & Ekspor ML",
+    id_desc="Kurasi visual di browser, penandaan otomatis WD14, penilaian estetika, dan pembuatan paket Kohya/LoRA.",
+    id_cards=["6.6 Studio Kurasi Dataset & Ekspor LoRA"],
+    zh_h1="数据集工坊与机器学习导出",
+    zh_desc="浏览器端合成样本筛选、WD14 自动打标、美学评分过滤与 Kohya/LoRA 训练包一键导出。",
+    zh_cards=["6.6 数据集精选与 LoRA 导出工坊"],
+    es_h1="Estudio de Datasets y Exportación ML",
+    es_desc="Curación en el navegador, etiquetado automático WD14, puntuación estética y generación de paquetes Kohya/LoRA.",
+    es_cards=["6.6 Estudio de Curación de Datasets y Exportación LoRA"],
+    ja_h1="データセットスタジオ＆MLエクスポート",
+    ja_desc="ブラウザ内での合成データ選定、WD14自動タグ付け、審美性スコアリング、およびKohya/LoRAパッケージ生成。",
+    ja_cards=["6.6 データセット選定＆LoRAエクスポートスタジオ"],
+    ru_h1="Студия датасетов и экспорт для ML"	,
+    ru_desc="Курирование в браузере, автотегирование WD14, оценка эстетичности и генерация пакетов Kohya/LoRA.",
+    ru_cards=["6.6 Студия курирования датасетов и экспорта LoRA"],
+    de_h1="Dataset-Studio & ML-Export",
+    de_desc="In-Browser-Kuration, automatisches WD14-Tagging, ästhetische Bewertung und Kohya/LoRA-Paketgenerierung.",
+    de_cards=["6.6 Dataset-Kurations- & LoRA-Export-Studio"]
+)
+
+add_sec(
+    "sec-webui-config-settings", "06",
+    en_h1="Configuration Matrix & Tactical Settings",
+    en_desc="Dynamic domain policies, URL normalization regex rules, solver timeouts, and notification routing.",
+    en_cards=["6.7.1 Domain Configuration Matrix", "6.7.2 Tactical Settings & Webhook Integrations"],
+    id_h1="Matriks Konfigurasi & Pengaturan Taktis",
+    id_desc="Kebijakan domain dinamis, aturan regex normalisasi URL, batas waktu solver, dan perutean notifikasi.",
+    id_cards=["6.7.1 Matriks Konfigurasi Domain", "6.7.2 Pengaturan Taktis & Integrasi Webhook"],
+    zh_h1="配置矩阵工作台与战术配置",
+    zh_desc="动态域名爬虫策略、URL 归一化正则规则、求解器超时配置与多渠道通知路由。",
+    zh_cards=["6.7.1 域名配置规则矩阵", "6.7.2 战术配置与 Webhook 告警集成"],
+    es_h1="Matriz de Configuración y Ajustes Tácticos",
+    es_desc="Políticas de dominio dinámicas, reglas regex de normalización de URL, tiempos de espera de resolvedores y rutas de notificación.",
+    es_cards=["6.7.1 Matriz de Configuración de Dominios", "6.7.2 Ajustes Tácticos e Integraciones Webhook"],
+    ja_h1="設定マトリクスと戦術設定",
+    ja_desc="動的ドメインポリシー、URL正規化正規表現ルール、ソルバーのタイムアウト、および通知ルーティング。",
+    ja_cards=["6.7.1 ドメイン設定マトリクス", "6.7.2 戦術設定とWebhook統合"],
+    ru_h1="Матрица конфигураций и тактические настройки",
+    ru_desc="Динамические политики доменов, регулярные выражения нормализации URL, таймауты солверов и маршрутизация уведомлений.",
+    ru_cards=["6.7.1 Матрица конфигураций доменов", "6.7.2 Тактические настройки и интеграции с вебхуками"],
+    de_h1="Konfigurationsmatrix & Taktische Einstellungen",
+    de_desc="Dynamische Domain-Richtlinien, URL-Normalisierungs-Regex-Regeln, Solver-Timeouts und Benachrichtigungs-Routing.",
+    de_cards=["6.7.1 Domain-Konfigurationsmatrix", "6.7.2 Taktische Einstellungen & Webhook-Integrationen"]
+)
+
+print(f"All {len(SECTIONS_DB)} sections added to SECTIONS_DB successfully.")
+
