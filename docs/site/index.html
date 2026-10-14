@@ -48,17 +48,21 @@
         <span class="search-hint">Ctrl+K</span>
       </div>
       <span id="search-result-count" class="search-result-count"></span>
-      <div class="lang-selector-container">
-        <span class="lang-icon" aria-hidden="true">[LANG]</span>
-        <select id="lang-select" class="lang-select" aria-label="Select Documentation Language">
-          <option value="en">EN // English</option>
-          <option value="id">ID // Indonesia</option>
-          <option value="zh">ZH // 简体中文</option>
-          <option value="es">ES // Español</option>
-          <option value="ja">JA // 日本語</option>
-          <option value="ru">RU // Русский</option>
-          <option value="de">DE // Deutsch</option>
-        </select>
+      <div class="tactical-dropdown" id="lang-dropdown">
+        <button type="button" class="tactical-dropdown-trigger" id="lang-dropdown-trigger" aria-haspopup="true" aria-expanded="false" title="Switch Documentation Language">
+          <span class="dropdown-tag">[LANG]</span>
+          <span class="dropdown-current" id="current-lang-display">EN // English</span>
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="tactical-dropdown-menu" id="lang-dropdown-menu" role="menu">
+          <button type="button" class="tactical-dropdown-item active" data-lang="en">EN // English</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="id">ID // Indonesia</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="zh">ZH // 简体中文</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="es">ES // Español</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="ja">JA // 日本語</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="ru">RU // Русский</button>
+          <button type="button" class="tactical-dropdown-item" data-lang="de">DE // Deutsch</button>
+        </div>
       </div>
       <a href="https://github.com/rhaffle87/scrAPE" target="_blank" class="header-nav-link">[GITHUB]</a>
     </div>

@@ -1188,6 +1188,21 @@ function setPortalLanguage(lang) {
   const select = document.getElementById('lang-select');
   if (select) select.value = lang;
 
+  // Sync Tactical Header Dropdown
+  const activeDropdownItem = document.querySelector(`.tactical-dropdown-item[data-lang="${lang}"]`);
+  const currentLangDisplay = document.getElementById('current-lang-display');
+  if (activeDropdownItem && currentLangDisplay) {
+    currentLangDisplay.textContent = activeDropdownItem.textContent;
+  }
+  document.querySelectorAll('.tactical-dropdown-item').forEach(item => {
+    if (item.getAttribute('data-lang') === lang) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // Sync HUD Quick Strip Buttons
   document.querySelectorAll('.lang-pill-btn, .lang-quick-btn').forEach(btn => {
     if (btn.getAttribute('data-lang') === lang) {
       btn.classList.add('active');
@@ -1240,7 +1255,46 @@ function initPortalI18n() {
     // Fallback to default
   }
 
-  // Header Dropdown Listener
+  // Tactical Dropdown Trigger & Toggle
+  const dropdownContainer = document.getElementById('lang-dropdown');
+  const dropdownTrigger = document.getElementById('lang-dropdown-trigger');
+
+  if (dropdownContainer && dropdownTrigger) {
+    dropdownTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = dropdownContainer.classList.toggle('active');
+      dropdownTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!dropdownContainer.contains(e.target)) {
+        dropdownContainer.classList.remove('active');
+        dropdownTrigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dropdownContainer.classList.contains('active')) {
+        dropdownContainer.classList.remove('active');
+        dropdownTrigger.setAttribute('aria-expanded', 'false');
+        dropdownTrigger.focus();
+      }
+    });
+
+    // Dropdown Items Click
+    document.querySelectorAll('.tactical-dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const lang = item.getAttribute('data-lang');
+        setPortalLanguage(lang);
+        dropdownContainer.classList.remove('active');
+        dropdownTrigger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  // Header Dropdown Fallback Listener (if select exists)
   const select = document.getElementById('lang-select');
   if (select) {
     select.addEventListener('change', (e) => {
