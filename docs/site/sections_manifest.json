@@ -1,0 +1,673 @@
+{
+  "sec-overview-arch": {
+    "tag": "MODULE [01] // SYSTEM OVERVIEW",
+    "h1": "Architecture and Objectives",
+    "desc": "Multi-engine stealth web scraping system for autonomous media extraction and AI\n            dataset generation.",
+    "cards": [
+      "1.1 System Architecture"
+    ],
+    "alerts": [
+      {
+        "title": "[!] CORE OPERATIONAL GUARANTEE",
+        "text": "The system executes via an 8-tier WAF fallback pipeline. Requests automatically escalate from lightweight\n            direct HTTP up to headful stealth browser automation when challenge loops are detected. No manual\n            intervention is required."
+      }
+    ],
+    "code_headers": []
+  },
+  "sec-overview-formats": {
+    "tag": "MODULE [01] // SYSTEM OVERVIEW",
+    "h1": "Supported Formats and Limits",
+    "desc": "File formats, extraction thresholds, and storage constraints.",
+    "cards": [
+      "1.2 Media and Data Capabilities"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-overview-layout": {
+    "tag": "MODULE [01] // SYSTEM OVERVIEW",
+    "h1": "Project Directory Layout",
+    "desc": "File and folder organization of the repository.",
+    "cards": [
+      "1.3 Directory Structure"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "TEXT // REPOSITORY TREE"
+    ]
+  },
+  "sec-overview-pillars": {
+    "tag": "MODULE [01] // ARCHITECTURAL UPDATE",
+    "h1": "Core Architecture Pillars (v0.30.1)",
+    "desc": "Enterprise multi-node orchestration, sub-linear BK-tree perceptual deduplication, isolated profiler thread pools, and zero-duplicate content-addressable storage.",
+    "cards": [
+      "1.4 Core Architecture Pillars (v0.30.1)"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "BASH // CORE PILLAR CLI ACTIVATION"
+    ]
+  },
+  "sec-overview-v28": {
+    "tag": "MODULE [01] // ARCHITECTURAL UPDATE",
+    "h1": "Core Architecture (v0.28.0)",
+    "desc": "Production-grade decoupled ML pipeline, 3-tier hierarchical deduplication, self-healing DOM parser, and supervised hybrid concurrency.",
+    "cards": [
+      "1.4 Architectural Breakthroughs in v0.28.0"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-install-prereqs": {
+    "tag": "MODULE [02] // INSTALLATION AND QUICKSTART",
+    "h1": "Prerequisites",
+    "desc": "System requirements before installation.",
+    "cards": [
+      "2.1 System Requirements"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-install-steps": {
+    "tag": "MODULE [02] // INSTALLATION AND QUICKSTART",
+    "h1": "Installation Steps",
+    "desc": "Clone, install dependencies, and configure credentials.",
+    "cards": [
+      "2.2 Setup Procedure"
+    ],
+    "alerts": [
+      {
+        "title": "[i] FLARESOLVERR SETUP",
+        "text": "FlareSolverr (Tier 5) runs as a Docker container. Start it with:docker run -d --name=flaresolverr -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest"
+      }
+    ],
+    "code_headers": [
+      "BASH // INSTALLATION COMMANDS"
+    ]
+  },
+  "sec-install-launchers": {
+    "tag": "MODULE [02] // INSTALLATION AND QUICKSTART",
+    "h1": "Master Launchers and Wizard",
+    "desc": "Interactive launcher scripts for all execution modes.",
+    "cards": [
+      "2.3 Launcher Options"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "POWERSHELL // MASTER LAUNCHER"
+    ]
+  },
+  "sec-install-recipes": {
+    "tag": "MODULE [02] // INSTALLATION AND QUICKSTART",
+    "h1": "First Run Recipes",
+    "desc": "Copy-paste commands for common extraction patterns.",
+    "cards": [
+      "2.4 Command Recipes"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "RECIPE 1 // STANDARD SEED EXTRACTION WITH REJECTED MEDIA RETENTION",
+      "RECIPE 2 // CONTINUOUS WATCHDOG AGENT WITH STATE CACHE",
+      "RECIPE 3 // QUICK VALIDATION RUN (NO DOWNLOADS)",
+      "RECIPE 4 // SEARCH-ONLY DISCOVERY (NO SEEDS)",
+      "RECIPE 5 // STEALTH CRAWL (POLITE SPEED)"
+    ]
+  },
+  "sec-cli-flags": {
+    "tag": "MODULE [03] // CLI REFERENCE",
+    "h1": "Complete Flag Matrix",
+    "desc": "Exhaustive command-line flag specification for src/cli/main.py.",
+    "cards": [
+      "3.1 Command Line Parameters"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-cli-builder": {
+    "tag": "MODULE [03] // CLI REFERENCE",
+    "h1": "Interactive CLI Command Builder",
+    "desc": "Configure parameters visually and generate validated command strings.",
+    "cards": [
+      "3.2 Command Generator"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "GENERATED CLI COMMAND STRING"
+    ]
+  },
+  "sec-cli-profiles": {
+    "tag": "MODULE [03] // CLI REFERENCE",
+    "h1": "Execution Profiles",
+    "desc": "Optimized flag combinations for specific scraping scenarios.",
+    "cards": [
+      "3.3 Preset Profile Matrix"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-bfs": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "BFS Crawl Loop",
+    "desc": "Asynchronous link traversal queue and worker thread orchestration.",
+    "cards": [
+      "4.1 Execution Sequence"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-waf": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "8-Tier Stealth WAF Pipeline",
+    "desc": "Automated escalation hierarchy for WAF bypass and anti-bot challenge resolution.",
+    "cards": [
+      "4.2 WAF Pipeline Hierarchy"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-captcha": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Universal Captcha Strategy",
+    "desc": "Automated challenge resolution with budget guardrails.",
+    "cards": [
+      "4.3 Challenge Resolution Strategy"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-scoring": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Quality Scoring and Rejection",
+    "desc": "Quality scoring heuristics, site-chrome rejection, and disk retention.",
+    "cards": [
+      "4.4 Rejection Rules & Retention Paths"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-normalize": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "URL Normalization",
+    "desc": "Canonicalization regex rules and URL deduplication.",
+    "cards": [
+      "4.5 Canonicalization Pipeline"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-engine-pool": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Pre-Warmed Browser Pool",
+    "desc": "Dual-engine pre-warmed stealth pool slashing browser challenge start latency to <50ms.",
+    "cards": [
+      "4.6 Pre-Warmed Browser Lifecycle"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // PREWARMED BROWSER POOL LEASING"
+    ]
+  },
+  "sec-engine-broker": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Redis Streams Task Broker",
+    "desc": "Distributed task distribution and worker leasing for multi-node cluster crawling.",
+    "cards": [
+      "4.7 Distributed Cluster Coordination"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // TASK BROKER INTERACTION PATTERN"
+    ]
+  },
+  "sec-engine-ml": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Vision Hardware & ML Pipeline",
+    "desc": "Autonomous hardware detection (CUDA, DirectML, MPS, CPU) and decoupled visual tagging.",
+    "cards": [
+      "4.8 Hardware Acceleration Matrix"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // HARDWARE DISCOVERY & PRECISION NEGOTIATION"
+    ]
+  },
+  "sec-engine-healing": {
+    "tag": "MODULE [04] // CORE ENGINE ARCHITECTURE",
+    "h1": "Self-Healing DOM Parser",
+    "desc": "Multi-tier autonomous extraction parser and multi-provider LLM gateway for CSS/XPath recovery.",
+    "cards": [
+      "4.9 Autonomous Selector Repair"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // SELF-HEALING EXTRACTION CASCADE",
+      "TEXT // MULTI-PROVIDER LLM SYNTHESIS CASCADE"
+    ]
+  },
+  "sec-engine-bktree": {
+    "tag": "MODULE [04] // HIGH-THROUGHPUT ENGINE OPTIMIZATIONS (v0.30.1)",
+    "h1": "BK-Tree Deduplication & Concurrency Partitioning",
+    "desc": "Sub-linear perceptual hash indexing, domain profiler thread isolation, enterprise HTTP connection pooling, and zero-recompression image validation.",
+    "cards": [
+      "4.10 Discrete Metric Tree & Execution Pool Partitioning"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // BK-TREE METRIC SEARCH & CONNECTION POOLING"
+    ]
+  },
+  "sec-config-env": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "Environment Variables (.env)",
+    "desc": "Credentials and environment configuration reference.",
+    "cards": [
+      "5.1 .env Configuration Template"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-config-domain": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "domain_config.json",
+    "desc": "Dynamic per-domain rate limits, stealth bindings, and high-res transforms.",
+    "cards": [
+      "5.2 Configuration Keys Reference"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-config-urlnorm": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "url_normalisation_rules.json",
+    "desc": "URL canonicalization rules loaded at startup into config.URL_NORMALISATION_RULES.",
+    "cards": [
+      "5.3 Normalization Rule Schema"
+    ],
+    "alerts": [
+      {
+        "title": "[!] MANDATORY RULE",
+        "text": "Never hardcode domain-specific URL normalization regexes in Python files undersrc/. All rules\n            MUST be declared indata/url_normalisation_rules.json."
+      }
+    ],
+    "code_headers": [
+      "JSON // RULE SCHEMA EXAMPLE"
+    ]
+  },
+  "sec-config-seeds": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "Seed Manifest Syntax",
+    "desc": "Header annotations and URL format rules for seed manifest files.",
+    "cards": [
+      "5.4 Annotation Reference"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "MANIFEST // SEED MANIFEST ANNOTATION EXAMPLE"
+    ]
+  },
+  "sec-config-profiles": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "Subject Profiles",
+    "desc": "Pre-configured subject profile presets in data/subject_profiles.json.",
+    "cards": [
+      "5.5 Profile Presets"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-config-blacklist": {
+    "tag": "MODULE [05] // CONFIGURATION REFERENCE",
+    "h1": "Blacklist Management",
+    "desc": "Persistent domain blacklist in data/blacklist.json.",
+    "cards": [
+      "5.6 Domain Blacklisting"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-webui-arch": {
+    "tag": "MODULE [06] // WEBUI DASHBOARD",
+    "h1": "Server Architecture",
+    "desc": "FastAPI + HTMX server architecture in frontend/app.py.",
+    "cards": [
+      "6.1 Decoupled FastAPI Server"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-webui-views": {
+    "tag": "MODULE [06] // WEBUI DASHBOARD",
+    "h1": "Command Center and Media Vault",
+    "desc": "Dual-view dashboard interfaces.",
+    "cards": [
+      "6.2 Dashboard Views"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-webui-telemetry": {
+    "tag": "MODULE [06] // WEBUI DASHBOARD",
+    "h1": "Live Telemetry and SSE",
+    "desc": "Server-Sent Events (SSE) streaming pipeline.",
+    "cards": [
+      "6.3 Real-Time Event Pipeline"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-webui-design": {
+    "tag": "MODULE [06] // WEBUI DASHBOARD",
+    "h1": "Design Tokens",
+    "desc": "Utilitarian Brutalism design system tokens.",
+    "cards": [
+      "6.4 Design Tokens Reference"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-webui-health": {
+    "tag": "MODULE [06] // WEBUI DASHBOARD",
+    "h1": "Node Health Tactical Monitor",
+    "desc": "Real-time telemetry HUD displaying cluster resources, active stealth tiers, and rate-limit governors.",
+    "cards": [
+      "6.5 Tactical Telemetry & Governance"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "JSON // NODE HEALTH TELEMETRY PAYLOAD"
+    ]
+  },
+  "sec-ops-docker": {
+    "tag": "MODULE [07] // DEPLOYMENT AND OPERATIONS",
+    "h1": "Docker Compose",
+    "desc": "Multi-container orchestration setup.",
+    "cards": [
+      "7.1 Container Deployment"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "BASH // DOCKER COMPOSE LAUNCH"
+    ]
+  },
+  "sec-ops-watchdog": {
+    "tag": "MODULE [07] // DEPLOYMENT AND OPERATIONS",
+    "h1": "Watchdog Agent",
+    "desc": "Continuous monitoring agent (src/cli/monitor_agent.py) with SQLite state cache.",
+    "cards": [
+      "7.2 Continuous Monitoring Loop"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "POWERSHELL // WATCHDOG AGENT COMMAND"
+    ]
+  },
+  "sec-ops-notifications": {
+    "tag": "MODULE [07] // DEPLOYMENT AND OPERATIONS",
+    "h1": "Notification Pipeline",
+    "desc": "Pluggable notification channels (Telegram, Discord, Slack, Webhooks).",
+    "cards": [
+      "7.3 Multi-Channel Alerts"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-ops-proxy": {
+    "tag": "MODULE [07] // DEPLOYMENT AND OPERATIONS",
+    "h1": "Proxy Pool Management",
+    "desc": "Proxy rotation, latency auto-quarantine, and bandwidth quotas.",
+    "cards": [
+      "7.4 Proxy Manager Strategy"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-ops-sessions": {
+    "tag": "MODULE [07] // DEPLOYMENT AND OPERATIONS",
+    "h1": "Session and Cookie Management",
+    "desc": "Persistent per-domain sticky sessions and interactive cookie login.",
+    "cards": [
+      "7.5 Session Storage"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "BASH // SESSION LOGIN COMMANDS"
+    ]
+  },
+  "sec-output-structure": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "Output Directory Structure",
+    "desc": "Run output artifacts layout.",
+    "cards": [
+      "8.1 Artifact Organization"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "TEXT // OUTPUT DIRECTORY LAYOUT"
+    ]
+  },
+  "sec-output-manifest": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "manifest.json Schema",
+    "desc": "Complete results JSON schema documentation.",
+    "cards": [
+      "8.2 JSON Payload Fields"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-output-domain": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "domain_report.json Schema",
+    "desc": "Per-domain crawl metrics report.",
+    "cards": [
+      "8.3 Per-Domain Yield Report"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-output-kohya": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "Kohya LoRA Dataset Export",
+    "desc": "Kohya_ss LoRA dataset ZIP archive generation.",
+    "cards": [
+      "8.4 LoRA Dataset Generator"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-output-rag": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "RAG Ingestion Formats",
+    "desc": "LLM RAG exports (Markdown chunks and JSONL embeddings).",
+    "cards": [
+      "8.5 RAG Export Options"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-output-cas": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "Content-Addressable Storage (CAS)",
+    "desc": "Global deduplication repository eliminating duplicate file storage across repeated crawls.",
+    "cards": [
+      "8.6 Content-Addressable Store Architecture"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // CAS DEDUPLICATION & RUN LINKING",
+      "TEXT // CAS STORAGE LIFECYCLE"
+    ]
+  },
+  "sec-output-parquet": {
+    "tag": "MODULE [08] // OUTPUT AND EXPORTS",
+    "h1": "Apache Parquet Dataset Export",
+    "desc": "Columnar Snappy-compressed datasets optimized for Polars, DuckDB, Pandas, and Big Data OLAP pipelines.",
+    "cards": [
+      "8.7 Columnar Data Export Pipeline"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "PYTHON // PARQUET DATASET GENERATION"
+    ]
+  },
+  "sec-test-pytest": {
+    "tag": "MODULE [09] // TESTING AND TROUBLESHOOTING",
+    "h1": "Running pytest",
+    "desc": "Executing the automated test suite.",
+    "cards": [
+      "9.1 Automated Pytest Suite"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "POWERSHELL // RUN FULL TEST SUITE"
+    ]
+  },
+  "sec-test-tdai": {
+    "tag": "MODULE [09] // TESTING AND TROUBLESHOOTING",
+    "h1": "Verification Protocol (TDAI)",
+    "desc": "Test-Driven AI verification rules and RED-GREEN-REFACTOR protocol.",
+    "cards": [
+      "9.2 Empirical Verification Protocol"
+    ],
+    "alerts": [
+      {
+        "title": "[!] MANDATORY RULE",
+        "text": "Never declare a feature or fix complete without running empirical runtime verification commands and\n            demonstrating clean test passes."
+      }
+    ],
+    "code_headers": []
+  },
+  "sec-test-logs": {
+    "tag": "MODULE [09] // TESTING AND TROUBLESHOOTING",
+    "h1": "Log Diagnostics Recipes",
+    "desc": "Log analysis and grep commands for runtime diagnostics.",
+    "cards": [
+      "9.3 PowerShell Diagnostic Commands"
+    ],
+    "alerts": [],
+    "code_headers": [
+      "POWERSHELL // GREP LOGS FOR ERRORS AND BLOCKS"
+    ]
+  },
+  "sec-test-diagnostic": {
+    "tag": "MODULE [09] // TESTING AND TROUBLESHOOTING",
+    "h1": "Operator Diagnostic Matrix",
+    "desc": "Exhaustive diagnostic table for operator troubleshooting.",
+    "cards": [
+      "9.4 Diagnostic Matrix"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-test-guidelines": {
+    "tag": "MODULE [09] // TESTING AND TROUBLESHOOTING",
+    "h1": "Developer Guidelines",
+    "desc": "Mandatory coding rules and workspace standards.",
+    "cards": [
+      "9.5 Mandatory Coding Rules"
+    ],
+    "alerts": [],
+    "code_headers": []
+  },
+  "sec-threat-overview": {
+    "tag": "MODULE [10] // ARCHITECTURE & SECURITY (v0.30.0 PRODUCTION)",
+    "h1": "Security Architecture & v0.30.0 Verification",
+    "desc": "Authoritative threat model, STRIDE architectural contract, and empirical verification matrix for v0.30.0 distributed scaling.",
+    "cards": [
+      "10.1 Trust Boundaries & Data Flow Architecture",
+      "10.1.1 STRIDE Threat Categorization",
+      "10.1.2 Cross-Cutting Invariants"
+    ],
+    "alerts": [
+      {
+        "title": "PRODUCTION RELEASE // v0.30.0 VERIFIED & CERTIFIED",
+        "text": "All three threat-modeled frontiers (Distributed Task Leasing, Cloud CAS Synchronization, Vision-Language DOM Healing) specified in this module arefully implemented, adversarially tested, and empirically CI verifiedin the v0.30.0 release across Ubuntu, macOS, and Windows runners."
+      },
+      {
+        "title": "MANDATORY ARCHITECTURAL CONTRACT",
+        "text": "This specification is the authoritative baseline for all v0.30.0 feature implementations. Every acceptance criterion (AC1.1 through AC3.6) must have a corresponding automated test intests/before any component is considered release-ready."
+      }
+    ],
+    "code_headers": [
+      "ARCHITECTURE // v0.30.0 DISTRIBUTED TRUST BOUNDARIES & DATA FLOW"
+    ]
+  },
+  "sec-threat-leasing": {
+    "tag": "MODULE [10] // COMPONENT 1 (IMPLEMENTED & VERIFIED)",
+    "h1": "Distributed Task Leasing Threat Matrix",
+    "desc": "STRIDE vulnerability analysis, attack scenarios, and atomic mitigation mechanisms for Redis Stream worker daemons.",
+    "cards": [
+      "10.2 Component 1 Design Overview",
+      "10.2.1 Threat & Vulnerability Matrix (Component 1)",
+      "10.2.2 Detailed Mitigation Specifications"
+    ],
+    "alerts": [
+      {
+        "title": "COMPONENT 1 IMPLEMENTED & VERIFIED // AC1.1–AC1.7 PASSED",
+        "text": "RedisStreamTaskBroker,DistributedWorkerNode, and CLI worker daemons (src.cli.worker) are fully implemented and verified against acceptance criteria AC1.1 through AC1.7. Automated test verification is backed by 98 tests acrosstests/core/test_task_schema.py(84 fuzz tests),tests/core/test_worker_pool.py, andtests/core/test_distributed_worker.py(including real subprocess termination and XAUTOCLAIM lease recovery)."
+      }
+    ],
+    "code_headers": [
+      "PYTHON // ATOMIC IDEMPOTENCY LOCK ACQUISITION"
+    ]
+  },
+  "sec-threat-cas": {
+    "tag": "MODULE [10] // COMPONENT 2 ARCHITECTURE",
+    "h1": "Cloud CAS Synchronization Threat Matrix",
+    "desc": "Defense-in-depth specifications, cryptographic verification, and SSRF prevention for S3 / Cloudflare R2 / MinIO storage backends.",
+    "cards": [
+      "10.3 Component 2 Design Overview",
+      "10.3.1 Threat & Vulnerability Matrix (Component 2)",
+      "10.3.2 Cryptographic Hash Path Enforcement"
+    ],
+    "alerts": [
+      {
+        "title": "PRODUCTION CERTIFIED // COMPONENT 2 FULLY IMPLEMENTED",
+        "text": "CASCloudSyncerand S3/R2/MinIO cloud storage backends arefully implemented and verifiedin v0.30.0 with 100% test pass rates across AC2.1–AC2.7, zero-boto minimal install validation, and unconditional SSRF guards."
+      }
+    ],
+    "code_headers": [
+      "PYTHON // CAS KEY PATH VALIDATION & CHECKSUM VERIFICATION"
+    ]
+  },
+  "sec-threat-vlm": {
+    "tag": "MODULE [10] // COMPONENT 3 (IMPLEMENTED & VERIFIED)",
+    "h1": "Vision-Language DOM Healing Threat Matrix",
+    "desc": "Multimodal AI security controls, adversarial visual prompt injection defenses, and DOM interaction sandboxing for Tier 4 healing.",
+    "cards": [
+      "10.4 Component 3 Design Overview",
+      "10.4.1 Threat & Vulnerability Matrix (Component 3)",
+      "10.4.2 Untrusted Data Framing & Output Guardrails"
+    ],
+    "alerts": [
+      {
+        "title": "PRODUCTION CERTIFIED // COMPONENT 3 FULLY IMPLEMENTED",
+        "text": "VisionDOMHealer(Tier 4 multimodal DOM healing) isfully implemented and verifiedin v0.30.0 with 100% test pass rates across AC3.1–AC3.6, 75-vector prompt injection fuzzing rejection, and a structural default-deny allowlist."
+      }
+    ],
+    "code_headers": [
+      "PROMPT ARCHITECTURE // SANDBOXED VLM SYSTEM PROMPT"
+    ]
+  },
+  "sec-threat-ac": {
+    "tag": "MODULE [10] // VERIFICATION & AUDIT MATRIX (v0.30.0 PRODUCTION)",
+    "h1": "Acceptance Criteria Verification Matrix (v0.30.0 Production)",
+    "desc": "Empirical test specifications, verification methodologies, and audit results validating all 20 acceptance criteria for v0.30.0.",
+    "cards": [
+      "10.5.1 Component 1 Acceptance Criteria (Task Leasing)",
+      "10.5.2 Component 2 Acceptance Criteria (Cloud CAS)",
+      "10.5.3 Component 3 Acceptance Criteria (VLM Healing)"
+    ],
+    "alerts": [
+      {
+        "title": "ALL 20 ACCEPTANCE CRITERIA VERIFIED & CERTIFIED",
+        "text": "All 20 criteria below (AC1.1 through AC3.6) represent thecore architectural contractfor v0.30.0. Every single criterion is backed by automated tests intests/passing 100% locally and in GitHub Actions CI matrix."
+      },
+      {
+        "title": "VERIFICATION STANDARD",
+        "text": "No v0.30.0 pull request or release tag will be approved without 100% test coverage across all 20 acceptance criteria below, backed by unmocked local verification and full GitHub Actions matrix confirmation."
+      }
+    ],
+    "code_headers": []
+  }
+}
